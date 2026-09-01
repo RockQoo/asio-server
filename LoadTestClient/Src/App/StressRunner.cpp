@@ -153,11 +153,14 @@ namespace Load
 
         // 최상위 버킷에 걸린 백분위는 "정확히 100초"가 아니라 "100초 이상"이다 -- 그 구분을
         // 지우면 과부하 상황에서 얼마나 나쁜지를 읽을 수 없으므로 접두사로 드러낸다.
-        const auto fmtMs = [](const uint64_t us)
+        // 반대로 평균/최대는 버킷을 거치지 않은 실측값이라 접두사를 붙이면 안 된다(정확한
+        // 값을 근사값처럼 보이게 만든다).
+        const auto pct = [](const uint64_t us)
         {
             return std::format("{}{:.1f}ms", us >= LatencyHistogram::kOverflowUs ? ">=" : "", us / 1000.0);
         };
-        const auto printLatency = [&fmtMs](const char* const label, const LatencyHistogram& histogram)
+        const auto exact = [](const uint64_t us) { return std::format("{:.1f}ms", us / 1000.0); };
+        const auto printLatency = [&pct, &exact](const char* const label, const LatencyHistogram& histogram)
         {
             if (histogram.Count() == 0)
             {
@@ -165,23 +168,29 @@ namespace Load
                 return;
             }
             std::cout << label << ": 표본=" << histogram.Count()
-                      << ", 평균=" << fmtMs(static_cast<uint64_t>(histogram.AverageUs()))
-                      << ", P50=" << fmtMs(histogram.PercentileUs(0.50))
-                      << ", P95=" << fmtMs(histogram.PercentileUs(0.95))
-                      << ", P99=" << fmtMs(histogram.PercentileUs(0.99))
-                      << ", P99.9=" << fmtMs(histogram.PercentileUs(0.999))
-                      << ", 최대=" << fmtMs(histogram.MaxUs()) << '\n';
+                      << ", 평균=" << exact(static_cast<uint64_t>(histogram.AverageUs()))
+                      << ", P50=" << pct(histogram.PercentileUs(0.50))
+                      << ", P95=" << pct(histogram.PercentileUs(0.95))
+                      << ", P99=" << pct(histogram.PercentileUs(0.99))
+                      << ", P99.9=" << pct(histogram.PercentileUs(0.999))
+                      << ", 최대=" << exact(histogram.MaxUs()) << '\n';
         };
         const auto logLatency = [&toMs](const char* const name, const LatencyHistogram& histogram)
         {
+            // 콘솔과 달리 로그는 기계 파싱 대상이라 ">=" 같은 접두사를 값에 섞을 수 없다.
+            // 대신 "이 백분위가 추적 상한에 걸렸는가"를 별도 플래그로 남겨야, 나중에 로그만
+            // 보고도 100초로 잘린 값인지 실제 100초인지 구분할 수 있다.
+            const auto p99 = histogram.PercentileUs(0.99);
+            const auto p999 = histogram.PercentileUs(0.999);
             LOG.Info(ELogCategory::General, "지연 백분위").KV("Metric", name)
                 .KV("Samples", histogram.Count())
                 .KV("AvgMs", histogram.AverageUs() / 1000.0)
                 .KV("P50Ms", toMs(histogram.PercentileUs(0.50)))
                 .KV("P95Ms", toMs(histogram.PercentileUs(0.95)))
-                .KV("P99Ms", toMs(histogram.PercentileUs(0.99)))
-                .KV("P999Ms", toMs(histogram.PercentileUs(0.999)))
-                .KV("MaxMs", toMs(histogram.MaxUs()));
+                .KV("P99Ms", toMs(p99))
+                .KV("P999Ms", toMs(p999))
+                .KV("MaxMs", toMs(histogram.MaxUs()))
+                .KV("Clipped", p99 >= LatencyHistogram::kOverflowUs || p999 >= LatencyHistogram::kOverflowUs);
         };
 
         LOG.Info(ELogCategory::General, "부하 테스트 종료 요약")

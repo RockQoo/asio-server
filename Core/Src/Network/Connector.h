@@ -17,9 +17,10 @@ namespace Network
     // 아웃바운드 TCP 연결(다른 서버에 "클라이언트"로 접속). Listener와 대칭 구조지만 accept
     // 대신 connect라는 점만 다르다 -- 성공하면 똑같이 Session을 만들어
     // IPacketHandler::OnSessionOpened를 호출한다. accept와 connect 둘 다 "세션이 막 시작됐다"는
-    // 의미는 동일해서 인터페이스에 별도 OnConnected를 추가하지 않고 재사용했다. 연결이
-    // 끊기거나 처음부터 실패하면 재시도 타이머로 계속 재접속을 시도한다 -- Zone/Gateway가
-    // World보다 먼저 뜨는 기동 순서를 신경 쓰지 않아도 되게 하기 위함이다.
+    // 의미는 동일해서 인터페이스에 별도 OnConnected를 추가하지 않고 재사용했다. **최초 연결에
+    // 실패하는 동안만** 재시도 타이머로 계속 시도한다 -- Zone/Gateway가 World보다 먼저 뜨는
+    // 기동 순서를 신경 쓰지 않아도 되게 하기 위함이다. 한 번 맺어진 연결이 나중에 끊기는 경우의
+    // 재연결은 구현하지 않았다(학습 범위 밖 -- README "알려진 한계" 참고).
     class Connector final : public std::enable_shared_from_this<Connector>
     {
     public:

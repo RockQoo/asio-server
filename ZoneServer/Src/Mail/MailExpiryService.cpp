@@ -14,7 +14,7 @@ namespace Mail
     void MailExpiryService::SweepOnce(const int64_t nowUt)
     {
         mailRegistry_.ForEach([this, nowUt](const Network::SessionId clientSessionId,
-                                             const std::shared_ptr<MailModel::ARef>& mailModel)
+                                             const std::shared_ptr<MailModel::Sync>& mailModel)
         {
             // 이 타이머는 존 워커 스레드가 아니라 별도 유지보수 스레드에서 돈다 -- 그 사이
             // 존 워커가 같은 플레이어의 AddMail/DelMail을 호출할 수 있으므로, Write()의

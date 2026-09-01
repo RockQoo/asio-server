@@ -16,6 +16,6 @@ namespace World
                                  // 상태를 먼저 지우고 요청하므로 World는 대상 존에 EnterZoneRequest만
                                  // 보내면 된다 -- 실패 시 플레이어가 유실되는 것은 학습용 단순화로
                                  // 감수한다, 존 2개 고정 인접 테이블이라 실제로 실패할 일이 없음)
-        UnitOfWorkStream = 7,     // Z2W: Mail 등 변경 이벤트 묶음(Mail::UnitOfWork가 직렬화해서 보냄)
+        UnitOfWorkStream = 7,    // Z2W: Mail 등 변경 이벤트 묶음(Task::UnitOfWork가 직렬화해서 보냄)
     };
 }

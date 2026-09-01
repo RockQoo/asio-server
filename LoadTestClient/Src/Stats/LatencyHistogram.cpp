@@ -2,6 +2,7 @@
 #include "LoadTestClient/Src/Stats/LatencyHistogram.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Load
 {
@@ -23,9 +24,10 @@ namespace Load
             return 0;
         }
 
-        // 목표 순위(1-based). ceil로 올려야 P100이 마지막 샘플을 포함한다.
+        // 목표 순위(1-based)는 올림이어야 한다 -- 내림으로 잡으면 표본이 적을 때 순위가 하나
+        // 낮아져 실제보다 낙관적인 값이 나온다(count=7, P95면 내림 6위 vs 올림 7위).
         const auto clamped = std::clamp(ratio, 0.0, 1.0);
-        auto target = static_cast<uint64_t>(static_cast<double>(count) * clamped);
+        auto target = static_cast<uint64_t>(std::ceil(static_cast<double>(count) * clamped));
         if (target == 0)
         {
             target = 1;

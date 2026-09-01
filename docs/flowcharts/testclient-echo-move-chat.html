@@ -14,27 +14,42 @@
         예전에는 <code>TestClient</code>가 <code>ZoneServer</code>에 직접 접속했지만, 지금은
         <code>GatewayServer</code> → <code>WorldServer</code> → <code>ZoneServer</code> 3계층을
         거친다(<a href="zone-handoff-and-mail.html">존 핸드오프/Mail 다이어그램</a>과 짝을 이루는
-        기본 패킷 왕복 경로). 실제 소스(<code>GatewayServer/Src/Handler/ClientLinkHandler.cpp</code>,
+        기본 패킷 왕복 경로). 특히 <strong>World와 Zone은 I/O 스레드에서 로직을 처리하지 않는다</strong> --
+        World는 <code>WorldWorker</code> 단일 스레드로, Zone은 NETWORK → LB → BASIC → BROADCAST
+        순서로 스레드를 갈아타며 처리한다. 실제 소스(<code>GatewayServer/Src/Handler/ClientLinkHandler.cpp</code>,
         <code>WorldServer/Src/Handler/GatewayLinkHandler.cpp</code>,
         <code>ZoneServer/Src/Handler/WorldLinkHandler.cpp</code>,
-        <code>ZoneServer/Src/Game/ZoneWorld.cpp</code>)를 그대로 따라간 흐름이다.
+        <code>ZoneServer/Src/Game/ZoneWorld.cpp</code>,
+        <code>ZoneServer/Src/Worker/BroadcastDispatcher.cpp</code>)를 그대로 따라간 흐름이다.
     </p>
 
     <div class="legend">
         <span class="badge client">● TestClient (별도 프로세스)</span>
-        <span class="badge io">● I/O 스레드 (릴레이/라우팅만, 게임 상태 없음)</span>
-        <span class="badge logic">● 로직 스레드 (TaskWorker, CPU affinity 고정)</span>
+        <span class="badge io">● NETWORK / I/O 스레드 (asio strand — 바이트 복사·릴레이만)</span>
+        <span class="badge logic">● 워커 스레드 (WorldWorker / LB / BASIC / BROADCAST)</span>
+    </div>
+
+    <div class="callout">
+        <strong>ZoneServer의 5-풀 구조(이 페이지의 주인공):</strong>
+        <code>NETWORK</code>(<code>IoContextPool</code>의 asio I/O 스레드) →
+        <code>LB</code>(<code>WorldLinkHandler</code>가 소유, 패킷 파싱 + zoneId 판단) →
+        <code>BASIC</code>(<code>zoneId % basicThreadCount</code> sticky, 게임 상태 전담) →
+        <code>BROADCAST</code>(<code>zoneId</code> sticky, 팬아웃 전송) 4개가 이 경로에 등장하고,
+        나머지 하나인 <code>TICK</code> 풀은 패킷과 무관하게 <code>RepeatingTimer</code>가
+        <code>ZoneWorld::Tick</code>을 돌리는 용도라 여기엔 나타나지 않는다.
+        기본 스레드 수는 <code>ZoneServer/Src/main.cpp</code>에서 LB/BASIC/TICK/BROADCAST 전부 2개다.
     </div>
 
     <div class="callout">
         <strong>접속 직후(이 다이어그램 이전 시점):</strong> Gateway가 클라이언트를 accept하면
-        <code>ClientConnected</code>를 World로 보내고, World는 기본 존(zoneId=0)에
-        <code>EnterZoneRequest</code>를 보낸다. Zone이 <code>OnPlayerEnter</code>로 플레이어를
-        만들고 <code>EnterZoneNotify</code>를 되돌려 보내는 것까지가 그 과정이다 -- 아래 흐름은
-        그 다음, 클라이언트가 실제 게임 패킷을 보낸 이후를 다룬다.
+        <code>ClientConnected</code>를 World로 보내고, World(<code>WorldWorker</code> 스레드)는
+        기본 존(<code>kDefaultEntryZoneId</code> = 0)에 <code>EnterZoneRequest</code>를 보낸다.
+        Zone의 LB 스레드가 그것을 받아 BASIC으로 넘기고, BASIC에서 <code>ZoneWorld::OnPlayerEnter</code>가
+        플레이어를 만들고 <code>EnterZoneNotify</code>를 되돌려 보내는 것까지가 그 과정이다 --
+        아래 흐름은 그 다음, 클라이언트가 실제 게임 패킷을 보낸 이후를 다룬다.
     </div>
 
-    <h2>1. 클라이언트가 패킷을 만들어 보낸다 (여기까지는 예전과 동일)</h2>
+    <h2>1. 클라이언트 → Gateway → World → Zone (도착까지)</h2>
     <div class="flow">
         <div class="step client">
             <div class="lane">TestClient</div>
@@ -54,76 +69,134 @@
             <div class="detail">
                 받은 패킷 앞에 <code>ClientEnvelopeHeader{clientSessionId, innerPacketId}</code>를
                 얹어 <code>FromClient</code>로 World에 그대로 전달한다. 내용물(Echo인지 Move인지)은
-                전혀 해석하지 않는다 -- 순수 릴레이.
+                전혀 해석하지 않는다 -- 순수 릴레이라 Gateway에는 워커 스레드 자체가 없고
+                I/O 스레드에서 바로 되돌려 보낸다.
             </div>
         </div>
         <div class="connector">↓ TCP (Gateway↔World 전용 연결)</div>
         <div class="step io">
-            <div class="lane">I/O 스레드 (WorldServer)</div>
+            <div class="lane">I/O 스레드 (WorldServer, Session의 strand)</div>
+            <div class="title"><code>GatewayLinkHandler::OnPacket</code> — 복사 후 <code>PostTask</code>만</div>
+            <div class="detail">
+                여기서는 <strong>라우팅 판단을 전혀 하지 않는다.</strong> payload는 이 함수가
+                끝나면 I/O 스레드가 재사용할 버퍼라서 <code>std::vector&lt;byte&gt;</code>로 복사한 뒤
+                <code>worldWorker_.PostTask(...)</code>로 넘기는 게 전부다.
+            </div>
+        </div>
+        <div class="connector">↓ PostTask (스레드 경계)</div>
+        <div class="step logic">
+            <div class="lane">WorldWorker (World의 단일 처리 스레드)</div>
             <div class="title"><code>GatewayLinkHandler::HandleFromClient</code></div>
             <div class="detail">
                 <code>ClientEnvelopeHeader.clientSessionId</code>만 들여다보고
-                <code>ClientRegistry</code>에서 이 클라이언트의 현재 zoneId를 조회한 뒤,
-                <strong>바디를 그대로</strong> 그 존의 연결로 <code>ForwardToZone</code> 전송한다.
+                <code>ClientRegistry</code>에서 이 클라이언트의 현재 zoneId를,
+                <code>ZoneLinkRegistry</code>에서 그 존의 연결을 조회한 뒤 <strong>payload를 통째로</strong>
+                <code>ForwardToZone</code>으로 보낸다. 두 레지스트리는 <strong>이 스레드 하나만</strong>
+                건드리므로 락이 없다.
             </div>
         </div>
         <div class="connector">↓ TCP (World↔Zone 전용 연결)</div>
         <div class="step io">
-            <div class="lane">I/O 스레드 (ZoneServer)</div>
-            <div class="title"><code>WorldLinkHandler::HandleForwardToZone</code></div>
+            <div class="lane">NETWORK 스레드 (ZoneServer, Session의 strand)</div>
+            <div class="title"><code>WorldLinkHandler::OnPacket</code> — 바이트만 복사</div>
             <div class="detail">
-                <code>ClientEnvelopeHeader.innerPacketId</code>로 실제 패킷 타입을 가려낸다.
-                <strong>여기까지는 아직 게임 상태를 전혀 건드리지 않는다.</strong>
+                패킷 타입조차 해석하지 않는다. <code>header.id</code>와 payload 복사본을 캡처해
+                <code>lbPool_.GetWorker(lbRoundRobin_++)</code>로 <strong>라운드로빈</strong>
+                LB 워커에 <code>PostTask</code>한다(LB는 zoneId sticky가 아니다 -- 아직 zoneId를
+                모르니까).
+            </div>
+        </div>
+        <div class="connector">↓ PostTask (스레드 경계)</div>
+        <div class="step logic">
+            <div class="lane">LB 스레드 (ZoneServer, TaskWorker 풀)</div>
+            <div class="title"><code>WorldLinkHandler::DecodeAndDispatch</code> →
+                <code>HandleForwardToZone</code></div>
+            <div class="detail">
+                여기가 "recv 처리"의 실체다. <code>ZoneLinkPacketId</code>를 파싱해
+                <code>EnterZoneRequest</code>/<code>LeaveZoneNotify</code>/<code>ForwardToZone</code>을
+                가르고, <code>ForwardToZone</code>이면 <code>clientLocalZone_</code>(LB 스레드가
+                여럿이라 <code>shared_mutex</code>로 보호)에서 <strong>이 프로세스 안의 어느
+                zoneId인지</strong>를 찾는다. <strong>게임 상태(<code>ZoneWorld</code>)는 아직 전혀
+                건드리지 않는다.</strong>
             </div>
         </div>
     </div>
 
-    <h2>2. 패킷 타입에 따라 갈라진다</h2>
+    <h2>2. LB 스레드에서 갈라진다</h2>
     <div class="branch">
         <div class="branch-col">
             <div class="branch-label">Echo — 공유 상태 불필요</div>
-            <div class="step io">
-                <div class="lane">I/O 스레드 (ZoneServer)</div>
-                <div class="title"><code>DispatchInnerPacket</code>의 Echo 분기</div>
+            <div class="step logic">
+                <div class="lane">LB 스레드 (ZoneServer)</div>
+                <div class="title"><code>HandleForwardToZone</code>의
+                    <code>innerPacketId == PacketId::Echo</code> 분기</div>
                 <div class="detail">
-                    존 워커로 넘기지 않고 그 자리에서 바로 같은 envelope을
-                    <code>ForwardToWorld</code>로 되돌려 보낸다 -- 예전 <code>HandleEcho</code>와
-                    동기가 같다: 존 상태가 필요 없는 유일한 예외 경로.
+                    BASIC까지 가지 않고 <strong>이 LB 스레드에서 그대로</strong> 같은 envelope을
+                    <code>ForwardToWorld</code>로 되돌려 보낸다 --
+                    <code>ZoneWorld::HandleClientPacket</code>으로 넘기지 않는 유일한 예외 경로다
+                    (존 상태가 필요 없으니 BASIC을 점유할 이유가 없다).
                 </div>
             </div>
         </div>
         <div class="branch-col">
-            <div class="branch-label">Move / Chat — 존 상태 변경 필요</div>
-            <div class="step io">
-                <div class="lane">I/O 스레드 (ZoneServer)</div>
-                <div class="title"><code>DispatchInnerPacket</code>의 Move/Chat 분기</div>
+            <div class="branch-label">그 외(Move / Chat / MailAdd / MailDel) — 존 상태 필요</div>
+            <div class="step logic">
+                <div class="lane">LB 스레드 (ZoneServer)</div>
+                <div class="title"><code>zoneWorkers_.PostToBasic(zoneId, ...)</code></div>
                 <div class="detail">
-                    innerPayload를 <strong>소유한 값으로 복사</strong>한다(<code>MovePacket</code>
-                    구조체 복사 / <code>std::string message</code> 이동). payload는 이 함수가
-                    끝나면 I/O 스레드가 재사용할 버퍼를 가리키므로 그대로 넘기면 안 된다.
+                    innerPayload를 <strong>소유한 값으로 복사</strong>한 뒤
+                    <code>basicPool_.GetWorker(zoneId)</code> --
+                    즉 <code>zoneId % basicThreadCount</code>로 <strong>항상 같은 BASIC
+                    스레드</strong>에 맡긴다. LB는 패킷 내용이 뭔지 끝까지 들여다보지 않는다.
                 </div>
             </div>
             <div class="connector">↓ PostTask (스레드 경계)</div>
             <div class="step logic">
-                <div class="lane">로직 스레드 (TaskWorker)</div>
-                <div class="title"><code>ZoneWorld::OnMove</code> / <code>OnChat</code></div>
+                <div class="lane">BASIC 스레드 (zoneId sticky)</div>
+                <div class="title"><code>ZoneWorld::HandleClientPacket</code></div>
                 <div class="detail">
-                    이 존 전용 CPU 코어에 고정된 스레드에서 실행. <code>players_[clientSessionId]</code>를
-                    <strong>락 없이</strong> 갱신한다 -- 존 서버 프로세스 자체가 이 존 하나만
-                    담당하므로, 이 프로세스가 곧 이 존의 유일한 로직 스레드다.
-                    (<code>OnMove</code>는 x가 구간을 벗어나면 대신 핸드오프를 요청한다 --
-                    <a href="zone-handoff-and-mail.html">별도 다이어그램</a> 참고.)
+                    ① <code>players_</code>에서 <code>clientSessionId</code>로 Player를 먼저 찾고
+                    (입장하지 않았거나 이미 퇴장한 세션이면 여기서 버린다),
+                    ② <code>Packet::PacketDispatcher&lt;PacketId, PlayerState*&gt;</code>에
+                    등록해둔 핸들러로 콜백한다. <strong>와이어 포맷 파싱은 전부 여기서</strong>
+                    일어난다.
+                </div>
+            </div>
+            <div class="connector">↓ 등록된 핸들러 콜백</div>
+            <div class="step logic">
+                <div class="lane">BASIC 스레드 (zoneId sticky)</div>
+                <div class="title"><code>ZoneWorld::HandleMove</code> /
+                    <code>HandleChat</code></div>
+                <div class="detail">
+                    <code>players_</code>를 <strong>락 없이</strong> 갱신한다 -- 한 프로세스가 존을
+                    여러 개 호스팅해도(<code>ZoneServer.exe 0,1</code>) <code>zoneId %
+                    basicThreadCount</code> sticky 라우팅 때문에 <strong>같은 존의 패킷은 언제나 같은
+                    BASIC 스레드 하나</strong>로만 오기 때문이다.
+                    (<code>HandleMove</code>는 x가 <code>[xMin_, xMax_)</code>를 벗어나면 갱신 대신
+                    핸드오프를 요청한다 -- <a href="zone-handoff-and-mail.html">별도 다이어그램</a> 참고.)
                 </div>
             </div>
             <div class="connector">↓</div>
             <div class="step logic">
-                <div class="lane">로직 스레드 (TaskWorker)</div>
-                <div class="title"><code>ZoneWorld::BroadcastToZone</code></div>
+                <div class="lane">BASIC 스레드 (zoneId sticky)</div>
+                <div class="title"><code>ZoneWorld::BroadcastToZone</code> — 스냅샷만 복사</div>
                 <div class="detail">
-                    같은 존의 <code>players_</code>를 순회하며(본인 포함) 플레이어마다
-                    <code>SendToPlayer</code>로 <strong>별도 envelope</strong>을 만들어 World와의
-                    연결 하나 위에 다중화해 보낸다 -- 이제 Zone은 클라이언트 소켓을 직접 갖지
-                    않기 때문이다.
+                    <strong>여기서 직접 보내지 않는다.</strong> <code>players_</code>를 순회해
+                    대상 <code>clientSessionId</code> 목록(<code>std::vector</code>)과 payload를
+                    복사한 뒤 <code>BroadcastDispatcher::Broadcast(zoneId, targets, ...)</code>로
+                    넘기고 끝낸다 -- BROADCAST 스레드가 <code>players_</code> 맵을 직접 읽으면
+                    BASIC과 동시 접근이 되어버리므로, 넘기는 건 반드시 스냅샷이어야 한다.
+                </div>
+            </div>
+            <div class="connector">↓ PostTask (BASIC → BROADCAST, 또 한 번의 스레드 경계)</div>
+            <div class="step logic">
+                <div class="lane">BROADCAST 스레드 (<code>broadcastPool_.GetWorker(zoneId)</code>)</div>
+                <div class="title">스냅샷을 돌며 팬아웃 전송</div>
+                <div class="detail">
+                    복사해 받은 <code>targets</code>마다 <code>ClientEnvelopeHeader</code>를 새로
+                    만들어 <code>ForwardToWorld</code>로 World와의 <strong>연결 하나 위에 다중화</strong>해
+                    보낸다(Zone은 클라이언트 소켓을 직접 갖지 않는다). 팬아웃 비용이 BASIC에서
+                    빠져나가므로 인구가 많은 존에서도 BASIC이 다음 패킷을 계속 처리할 수 있다.
                 </div>
             </div>
         </div>
@@ -132,20 +205,30 @@
     <h2>3. 다시 클라이언트로 (왕복 경로를 그대로 거슬러 올라간다)</h2>
     <div class="flow">
         <div class="step io">
-            <div class="lane">I/O 스레드 (WorldServer)</div>
+            <div class="lane">I/O 스레드 (WorldServer, Session의 strand)</div>
+            <div class="title"><code>ZoneLinkHandler::OnPacket</code> — 복사 후 <code>PostTask</code>만</div>
+            <div class="detail">
+                Gateway 쪽과 대칭이다. 바이트를 복사해 <code>WorldWorker</code>로 넘기기만 하고
+                <code>ClientRegistry</code>는 건드리지 않는다.
+            </div>
+        </div>
+        <div class="connector">↓ PostTask (스레드 경계)</div>
+        <div class="step logic">
+            <div class="lane">WorldWorker (World의 단일 처리 스레드)</div>
             <div class="title"><code>ZoneLinkHandler::HandleForwardToWorld</code></div>
             <div class="detail">
                 <code>clientSessionId</code>로 <code>ClientRegistry</code>에서 Gateway 세션을 찾아
-                같은 바디를 <code>ToClient</code>로 그대로 전달한다.
+                같은 payload를 <code>ToClient</code>로 그대로 전달한다.
             </div>
         </div>
-        <div class="connector">↓</div>
+        <div class="connector">↓ TCP</div>
         <div class="step io">
             <div class="lane">I/O 스레드 (GatewayServer)</div>
             <div class="title"><code>WorldLinkHandler::HandleToClient</code></div>
             <div class="detail">
                 envelope을 벗기고 <code>innerPacketId</code>/원본 바디만 남겨 로컬 클라이언트
-                세션에 <code>SendPacket</code>한다.
+                세션에 <code>SendPacket</code>한다. Gateway는 워커가 없으므로 이것도 I/O
+                스레드에서 그대로 처리된다.
             </div>
         </div>
         <div class="connector">↓ TCP</div>
@@ -154,18 +237,21 @@
             <div class="title"><code>ReceiveLoop</code> 스레드가 응답 출력</div>
             <div class="detail">
                 <code>[recv] Echo: ...</code> / <code>[recv] Move x=.. y=..</code> /
-                <code>[recv] Chat from N: ...</code>로 콘솔에 찍힌다 -- 3계층을 거쳤다는 것을
-                클라이언트는 전혀 알 수 없다.
+                <code>[recv] Chat from N: ...</code>로 콘솔에 찍힌다 -- 3계층과 5개 풀을 거쳤다는
+                것을 클라이언트는 전혀 알 수 없다.
             </div>
         </div>
     </div>
 
     <div class="callout">
-        <strong>핵심 불변식:</strong> Gateway/World의 I/O 스레드는 <code>clientSessionId</code>
-        태그만 보고 라우팅할 뿐 패킷 내용을 해석하지 않는다. 게임 상태(<code>ZoneWorld</code>)는
-        여전히 그 존을 담당하는 프로세스의 로직 스레드에서만 직접 건드린다 -- 3계층으로
-        늘어났어도 "존 상태는 한 스레드에서만"이라는 원칙은 그대로다. 자세한 내용은
-        <a href="../../CLAUDE.md">CLAUDE.md</a> 참고.
+        <strong>핵심 불변식:</strong> ① Gateway는 순수 릴레이라 I/O 스레드에서 끝나지만,
+        <strong>World와 Zone의 I/O 스레드는 바이트를 복사해 넘기는 일만 한다</strong>
+        (World → <code>WorldWorker</code>, Zone → LB 풀). ② 게임 상태(<code>ZoneWorld</code>)를
+        건드리는 건 오직 BASIC 스레드뿐이고, <code>zoneId % basicThreadCount</code> sticky
+        라우팅이 "같은 존 = 같은 스레드"를 보장하기 때문에 <code>players_</code>에 락이 없다
+        -- 프로세스 개수나 한 프로세스가 맡은 존 개수와는 무관한 성질이다.
+        ③ BASIC이 소유한 컨테이너는 다른 풀(TICK/BROADCAST)에 절대 그대로 넘기지 않고
+        스냅샷을 복사해 넘긴다. 자세한 내용은 <a href="../../CLAUDE.md">CLAUDE.md</a> 참고.
     </div>
 </div>
 </body>

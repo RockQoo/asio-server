@@ -46,7 +46,7 @@ namespace Thread
             }));
         }
 
-        // Windows 전용: 이 스레드를 CPU 코어 하나에 고정한다 (인덱스는 실제 코어 수로 wrap됨).
+        // Windows 전용: 이 스레드를 CPU 코어 하나에 고정한다 (인덱스는 마스크 비트 수(64)로 wrap됨).
         // 다른 플랫폼에서는 아무 동작도 하지 않는다.
         void SetAffinity(const size_t cpuIndex) const;
 

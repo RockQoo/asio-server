@@ -35,12 +35,12 @@ namespace Mail
     // 플레이어 한 명의 우편함. 상태를 직접 바꾸고 끝내지 않고, 바뀐 내용을 Task::UnitOfWork에
     // 기록만 한다(Unit-of-Work) -- 실제 World 전송은 UnitOfWork가 스코프를 벗어날 때 한 번에
     // 처리한다. 평소(존 로직 스레드에서 클라이언트 요청 처리)와 만료 삭제(별도 유지보수
-    // 타이머 스레드)가 같은 인스턴스를 건드릴 수 있어 MailRegistry가 이 클래스를 ARef(=
+    // 타이머 스레드)가 같은 인스턴스를 건드릴 수 있어 MailRegistry가 이 클래스를 Sync(=
     // Threading::Synchronized<MailModel>)로 감싸서 보관한다 -- MailModel 자신은 락을 전혀 모른다.
     class MailModel
     {
     public:
-        using ARef = Threading::Synchronized<MailModel>;
+        using Sync = Threading::Synchronized<MailModel>;
 
         // 실제로 배정된 mailId를 반환한다 -- 호출자(ZoneWorld::HandleMailAdd)가 이 값을
         // MailAddAck으로 클라이언트에 돌려줘야 클라이언트가 자기가 만든 메일을 나중에 지울 수

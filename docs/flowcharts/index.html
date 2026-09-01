@@ -20,9 +20,11 @@
             <a href="testclient-echo-move-chat.html">
                 <div class="item-title">TestClient → Gateway → World → Zone: Echo / Move / Chat 흐름</div>
                 <div class="item-desc">
-                    클라이언트 패킷이 GatewayServer(순수 릴레이) → WorldServer(clientSessionId
-                    기반 라우팅) → ZoneServer(Echo는 즉시 응답 / Move·Chat은 TaskWorker로 라우팅
-                    후 존 브로드캐스트)를 거쳐 다시 클라이언트로 돌아오는 전체 경로.
+                    클라이언트 패킷이 GatewayServer(순수 릴레이) → WorldServer(I/O 스레드는
+                    PostTask만, 라우팅은 WorldWorker 단일 스레드) →
+                    ZoneServer(NETWORK → LB → BASIC → BROADCAST 풀 이동: Echo는 LB에서 즉시 응답 /
+                    Move·Chat은 zoneId sticky BASIC에서 처리 후 BROADCAST 풀에 스냅샷 위임)를
+                    거쳐 다시 클라이언트로 돌아오는 전체 경로.
                 </div>
             </a>
         </li>
@@ -30,10 +32,11 @@
             <a href="zone-handoff-and-mail.html">
                 <div class="item-title">존 경계 핸드오프 · Mail/UnitOfWork · 전체 브로드캐스트</div>
                 <div class="item-desc">
-                    존 서버 2개(인접) 사이의 투명한 핸드오프(World 라우팅 테이블 교체만),
-                    Mail::UnitOfWork Unit-of-Work가 변경을 모았다가 WorldServer DB 워커로 보내는
+                    인접한 존 2개 사이의 재접속 없는 핸드오프(World 라우팅 테이블 교체만 —
+                    Gateway는 아예 모르고, 클라이언트는 EnterZoneNotify 한 장을 받는다),
+                    Mail::MakeMailUnitOfWork가 만든 Task::UnitOfWork가 변경을 모았다가 WorldServer DB 워커로 보내는
                     흐름, Threading::Synchronized가 실제로 방어하는 지점(유지보수 타이머 vs 존
-                    로직 스레드), WorldServer가 Zone 없이 직접 하는 전체 브로드캐스트까지.
+                    BASIC 스레드), WorldServer가 Zone 없이 직접 하는 전체 브로드캐스트까지.
                 </div>
             </a>
         </li>

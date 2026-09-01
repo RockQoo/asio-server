@@ -27,7 +27,7 @@
   `Core::Task::UnitOfWork`(범용 Unit-of-Work)에 기록했다가 스코프 종료 시 한 번에 World로
   전송. `MailAddAck`/`MailDelAck`으로 클라이언트가 서버가 실제 배정한 mailId를 확인 가능.
 - **부하 테스트 도구(`LoadTestClient`)**: `Core::Network::Connector`/`Session`을 그대로
-  재사용해 세션당 스레드 없이 io_context 풀 하나로 최대 1만 소켓을 비동기 멀티플렉싱.
+  재사용해 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기 멀티플렉싱.
   Release 기준 1,000세션×200사이클은 18,337 사이클/초로 완전 통과(불일치 0, 스톨 0,
   브로드캐스트 100%, P95 40ms). 10,000세션은 데드락/데이터 불일치 0을 유지하면서도 처리량이
   471 사이클/초로 무너짐(P95 62초) — 원인·수정 계획은 `docs/load-test-fix-plan.md`.

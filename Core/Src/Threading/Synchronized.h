@@ -105,8 +105,8 @@ namespace Threading
     // 안 건드리므로 이 클래스가 필요 없다 -- 이건 그 불변식이 깨지는 자리(예: zone 워커가
     // 아닌 별도 유지보수 타이머 스레드가 zone 상태를 직접 만지는 경우)에서만 쓴다.
     //
-    // 콘텐츠 클래스는 보통 `using ARef = Threading::Synchronized<MyClass>;`를 자기 안에 선언해
-    // 두고 `MyClass::ARef`로 짧게 쓴다(MailModel 참고).
+    // 콘텐츠 클래스는 보통 `using Sync = Threading::Synchronized<MyClass>;`를 자기 안에 선언해
+    // 두고 `MyClass::Sync`로 짧게 쓴다(MailModel 참고).
     //
     // 접근 방법 두 가지:
     //   - `ref->Foo()` : 최상위 operator->()는 항상 읽기(shared_lock) 접근. 가장 흔한 경우가

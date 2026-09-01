@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 컴파일러 옵션 | MSVC, `PlatformToolset=v143`, `x64` 전용, `/std:c++20 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
 | 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`TestClient`/`LoadTestClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
 | 기동 순서 | `bat/server.bat`(World→Zone→Gateway) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
-| 테스트 도구 | `TestClient/Src/main.cpp`(수동 확인용 REPL), `LoadTestClient/Src/main.cpp`(비동기 부하 테스트, 최대 1만 세션) — 둘 다 자동화 스위트 아님 |
+| 테스트 도구 | `TestClient/Src/main.cpp`(수동 확인용 REPL), `LoadTestClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측) — 둘 다 자동화 스위트 아님 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
 
 ---
@@ -36,12 +36,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
   (`Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
-  `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 원래 `Zone` 하나뿐이라
+  `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
   변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
-  콘텐츠를 몰라야 해서 Core/ZoneServer가 각자 따로 갖는다(같은 문서 참고).
+  콘텐츠를 몰라야 해서 Core/Gateway/World/Zone/LoadTest가 각자 따로 갖는다(같은 문서 참고).
 - **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `PacketHeader`/`MovePacket`/
   `PlayerState`/`ZoneServerConfig` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
-- **인코딩**: UTF-8 **without BOM** + 두 vcxproj의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
+- **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
 - **include 경로는 솔루션 루트 기준**: `#include "Core/Src/Network/Session.h"`.
 - **모던 C++20 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
@@ -60,7 +60,7 @@ C:\Work\asio-server\
 ├── Core/                             게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
 │   └── Src/
 │       ├── pch.h / pch.cpp           precompiled header (asio.hpp + 무거운 표준 헤더)
-│       ├── Common/Types.h            SessionId 등 공용 별칭
+│       ├── Common/                   Types.h(SessionId 등 별칭), BasicTypes.h, ErrorCode.h, CoreException.h
 │       ├── Packet/                   PacketHeader/Buffer/Framer, BinaryWriter/Reader,
 │       │                             PacketDispatcher<TId,TContext>
 │       ├── Network/                  IoContextPool, Listener(accept), Connector(outbound
@@ -81,7 +81,7 @@ C:\Work\asio-server\
 │       │                             패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │       └── Mail/                     MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
 ├── TestClient/                       수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)
-├── LoadTestClient/                   비동기 멀티플렉싱 부하 테스트 도구(최대 1만 세션)
+├── LoadTestClient/                   비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
 ├── docs/flowcharts/                  기능별 HTML 플로우차트 (index.html부터, 오프라인 열람용)
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
@@ -166,9 +166,9 @@ BASIC이 소유한 컨테이너(`players_` 등)를 직접 건드리면 안 되�
 `/p:` 치환 우회법 정리.
 
 **테스트**: 자동화 스위트 없음. `TestClient.exe`가 실제 프로토콜(Echo/Move/Chat/Mail/
-EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `LoadTestClient.exe`가 최대 1만 세션
+EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `LoadTestClient.exe`가 1만 세션까지
 동시 접속 부하 테스트 도구 — 바이너리 프로토콜이라 telnet 검증 불가라 둘 다 직접 만들었다.
-사용법은 `README.md` "수동 테스트" 절 참고.
+사용법은 `README.md` "7. 테스트" 절 참고.
 
 ---
 
@@ -200,7 +200,7 @@ EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `LoadTestClient
 
 ## 로드맵 상태
 
-Gateway/World/Zone 4계층 분리, 존 핸드오프(투명), ZoneServer 5-풀 분리, WorldServer
+Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), ZoneServer 5-풀 분리, WorldServer
 WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(LoadTestClient)까지 완료.
 부하 테스트로 발견된 처리량 병목 수정이 진행 중(`docs/load-test-fix-plan.md`). 남은 것:
 실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI, 클라이언트. 자세한 표는
