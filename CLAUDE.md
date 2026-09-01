@@ -77,7 +77,7 @@ C:\Work\asio-server\
 │       ├── Worker/                   TaskWorker(범용 실행기), ZoneWorkerManager
 │       │                             (BASIC/TICK/BROADCAST 3개 풀 소유), BroadcastDispatcher
 │       ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
-│       ├── Game/ZoneWorld            존별 권위 상태(BASIC 전용, 락-프리), PacketDispatcher로
+│       ├── Game/ZoneWorld            존별 권위 상태(BASIC 전용, 공유 없음 = 락 없음), PacketDispatcher로
 │       │                             패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │       └── Mail/                     MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
 ├── TestClient/                       수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)

@@ -66,7 +66,7 @@ mutex가 아예 없습니다.
 | | |
 |---|---|
 | **역할** | 존 하나(또는 여럿)의 게임 상태를 소유하고 Mail 시스템을 운영 |
-| **핵심 기술** | ① **zoneId sticky 라우팅으로 락-프리 게임 상태** — `players_`가 순수 `unordered_map` ② **스냅샷 핸드오프** — BASIC이 대상 목록을 복사해 BROADCAST로 넘기고, BROADCAST는 공유 컨테이너를 절대 읽지 않음 ③ **`Synchronized` + Unit-of-Work** — 만료 스윕과 BASIC이 겹치는 유일한 지점만 `shared_mutex`로 보호 |
+| **핵심 기술** | ① **zoneId sticky 라우팅으로 락 없는 게임 상태** — `players_`가 순수 `unordered_map` ② **스냅샷 핸드오프** — BASIC이 대상 목록을 복사해 BROADCAST로 넘기고, BROADCAST는 공유 컨테이너를 절대 읽지 않음 ③ **`Synchronized` + Unit-of-Work** — 만료 스윕과 BASIC이 겹치는 유일한 지점만 `shared_mutex`로 보호 |
 | **왜 이렇게** | 스레드를 나누면 상태 공유 지점이 생깁니다. 그래서 각 풀이 "무엇을 소유하고 무엇을 넘겨받는지"를 코드 주석으로 못박았습니다. [ZoneWorld.h:32](ZoneServer/Src/Game/ZoneWorld.h#L32)는 **TICK 풀이 실제 상태를 만지는 순간 이 설계가 깨진다**는 미래의 파손 조건까지 명시합니다 |
 | **대표 코드** | [ZoneWorkerManager.h:67](ZoneServer/Src/Worker/ZoneWorkerManager.h#L67) (sticky 라우팅), [ZoneWorld.cpp:233](ZoneServer/Src/Game/ZoneWorld.cpp#L233) (스냅샷 브로드캐스트) |
 
@@ -102,6 +102,13 @@ mutex가 아예 없습니다.
 (`SessionManager`), Gateway·Zone의 World 링크 홀더 2곳, Zone LB 풀의 로컬 존 맵
 (`WorldLinkHandler`), 메일 레지스트리(`MailRegistry`), `Synchronized`가 감싸는
 `MailModel` 1개.
+
+> **"lock-free"가 아닙니다.** 이 프로젝트에 lock-free 자료구조는 하나도 없습니다 — 워커
+> 태스크 큐부터가 `std::queue` + `mutex` + `condition_variable`이고, `atomic`은 전부 단순
+> 플래그·카운터·라운드로빈 인덱스입니다. 여기서 락이 없는 이유는 **CAS로 경합을 이겨내서가
+> 아니라 애초에 경합이 생기지 않게 상태를 한 스레드에 가뒀기 때문**입니다(thread
+> confinement / shared-nothing). 진짜 lock-free는 여러 스레드가 같은 데이터를 동시에
+> 만지면서도 진행을 보장하는 것이고, 그건 이 프로젝트가 푼 문제가 아닙니다.
 
 ### Mail이 그 예제입니다
 
@@ -169,8 +176,8 @@ mutex가 아예 없습니다.
 1,000세션 대비 1/39로 무너졌고, 전 세션이 스톨 판정(20초 무응답)을 받았으며 브로드캐스트도
 절반만 도달했습니다.
 
-**원인은 테스트 설계 쪽이 컸습니다** — 이 테스트가 존 1개에 1만 명을 몰아넣어, 락-프리의
-전제인 zoneId 분산이 성립하지 않았습니다. 존을 2개 띄워도 신규 접속이 전부 존 0으로
+**원인은 테스트 설계 쪽이 컸습니다** — 이 테스트가 존 1개에 1만 명을 몰아넣어, "공유하지
+않으니 락이 없다"는 전제인 zoneId 분산이 성립하지 않았습니다. 존을 2개 띄워도 신규 접속이 전부 존 0으로
 배정되기 때문입니다(아래 1번 항목).
 
 진단한 병목 3가지와 수정 계획은 [`docs/load-test-fix-plan.md`](docs/load-test-fix-plan.md)에
