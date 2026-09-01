@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>TestClient → Gateway → World → Zone: Echo / Move / Chat 흐름</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+    <a class="back-link" href="index.html">&larr; 전체 목록</a>
+
+    <h1>TestClient가 패킷을 보내면 Gateway/World/Zone은 어떻게 동작하나</h1>
+    <p class="subtitle">
+        예전에는 <code>TestClient</code>가 <code>ZoneServer</code>에 직접 접속했지만, 지금은
+        <code>GatewayServer</code> → <code>WorldServer</code> → <code>ZoneServer</code> 3계층을
+        거친다(<a href="zone-handoff-and-mail.html">존 핸드오프/Mail 다이어그램</a>과 짝을 이루는
+        기본 패킷 왕복 경로). 실제 소스(<code>GatewayServer/Src/Handler/ClientLinkHandler.cpp</code>,
+        <code>WorldServer/Src/Handler/GatewayLinkHandler.cpp</code>,
+        <code>ZoneServer/Src/Handler/WorldLinkHandler.cpp</code>,
+        <code>ZoneServer/Src/Game/ZoneWorld.cpp</code>)를 그대로 따라간 흐름이다.
+    </p>
+
+    <div class="legend">
+        <span class="badge client">● TestClient (별도 프로세스)</span>
+        <span class="badge io">● I/O 스레드 (릴레이/라우팅만, 게임 상태 없음)</span>
+        <span class="badge logic">● 로직 스레드 (TaskWorker, CPU affinity 고정)</span>
+    </div>
+
+    <div class="callout">
+        <strong>접속 직후(이 다이어그램 이전 시점):</strong> Gateway가 클라이언트를 accept하면
+        <code>ClientConnected</code>를 World로 보내고, World는 기본 존(zoneId=0)에
+        <code>EnterZoneRequest</code>를 보낸다. Zone이 <code>OnPlayerEnter</code>로 플레이어를
+        만들고 <code>EnterZoneNotify</code>를 되돌려 보내는 것까지가 그 과정이다 -- 아래 흐름은
+        그 다음, 클라이언트가 실제 게임 패킷을 보낸 이후를 다룬다.
+    </div>
+
+    <h2>1. 클라이언트가 패킷을 만들어 보낸다 (여기까지는 예전과 동일)</h2>
+    <div class="flow">
+        <div class="step client">
+            <div class="lane">TestClient</div>
+            <div class="title">echo / move / chat 명령 입력</div>
+            <div class="detail">
+                <code>Packet::BuildFrame(packetId, payload)</code>로
+                <code>[bodySize:2][id:2][payload...]</code> 프레임을 만들어 <strong>Gateway의
+                클라이언트 포트(9000)</strong>로 그대로 전송한다. 클라이언트 프로토콜 자체는
+                3계층으로 나뉘기 전과 한 글자도 다르지 않다 -- Gateway/World는 이 바이트를
+                그대로 옮길 뿐이다.
+            </div>
+        </div>
+        <div class="connector">↓ TCP</div>
+        <div class="step io">
+            <div class="lane">I/O 스레드 (GatewayServer)</div>
+            <div class="title"><code>ClientLinkHandler::OnPacket</code></div>
+            <div class="detail">
+                받은 패킷 앞에 <code>ClientEnvelopeHeader{clientSessionId, innerPacketId}</code>를
+                얹어 <code>FromClient</code>로 World에 그대로 전달한다. 내용물(Echo인지 Move인지)은
+                전혀 해석하지 않는다 -- 순수 릴레이.
+            </div>
+        </div>
+        <div class="connector">↓ TCP (Gateway↔World 전용 연결)</div>
+        <div class="step io">
+            <div class="lane">I/O 스레드 (WorldServer)</div>
+            <div class="title"><code>GatewayLinkHandler::HandleFromClient</code></div>
+            <div class="detail">
+                <code>ClientEnvelopeHeader.clientSessionId</code>만 들여다보고
+                <code>ClientRegistry</code>에서 이 클라이언트의 현재 zoneId를 조회한 뒤,
+                <strong>바디를 그대로</strong> 그 존의 연결로 <code>ForwardToZone</code> 전송한다.
+            </div>
+        </div>
+        <div class="connector">↓ TCP (World↔Zone 전용 연결)</div>
+        <div class="step io">
+            <div class="lane">I/O 스레드 (ZoneServer)</div>
+            <div class="title"><code>WorldLinkHandler::HandleForwardToZone</code></div>
+            <div class="detail">
+                <code>ClientEnvelopeHeader.innerPacketId</code>로 실제 패킷 타입을 가려낸다.
+                <strong>여기까지는 아직 게임 상태를 전혀 건드리지 않는다.</strong>
+            </div>
+        </div>
+    </div>
+
+    <h2>2. 패킷 타입에 따라 갈라진다</h2>
+    <div class="branch">
+        <div class="branch-col">
+            <div class="branch-label">Echo — 공유 상태 불필요</div>
+            <div class="step io">
+                <div class="lane">I/O 스레드 (ZoneServer)</div>
+                <div class="title"><code>DispatchInnerPacket</code>의 Echo 분기</div>
+                <div class="detail">
+                    존 워커로 넘기지 않고 그 자리에서 바로 같은 envelope을
+                    <code>ForwardToWorld</code>로 되돌려 보낸다 -- 예전 <code>HandleEcho</code>와
+                    동기가 같다: 존 상태가 필요 없는 유일한 예외 경로.
+                </div>
+            </div>
+        </div>
+        <div class="branch-col">
+            <div class="branch-label">Move / Chat — 존 상태 변경 필요</div>
+            <div class="step io">
+                <div class="lane">I/O 스레드 (ZoneServer)</div>
+                <div class="title"><code>DispatchInnerPacket</code>의 Move/Chat 분기</div>
+                <div class="detail">
+                    innerPayload를 <strong>소유한 값으로 복사</strong>한다(<code>MovePacket</code>
+                    구조체 복사 / <code>std::string message</code> 이동). payload는 이 함수가
+                    끝나면 I/O 스레드가 재사용할 버퍼를 가리키므로 그대로 넘기면 안 된다.
+                </div>
+            </div>
+            <div class="connector">↓ PostTask (스레드 경계)</div>
+            <div class="step logic">
+                <div class="lane">로직 스레드 (TaskWorker)</div>
+                <div class="title"><code>ZoneWorld::OnMove</code> / <code>OnChat</code></div>
+                <div class="detail">
+                    이 존 전용 CPU 코어에 고정된 스레드에서 실행. <code>players_[clientSessionId]</code>를
+                    <strong>락 없이</strong> 갱신한다 -- 존 서버 프로세스 자체가 이 존 하나만
+                    담당하므로, 이 프로세스가 곧 이 존의 유일한 로직 스레드다.
+                    (<code>OnMove</code>는 x가 구간을 벗어나면 대신 핸드오프를 요청한다 --
+                    <a href="zone-handoff-and-mail.html">별도 다이어그램</a> 참고.)
+                </div>
+            </div>
+            <div class="connector">↓</div>
+            <div class="step logic">
+                <div class="lane">로직 스레드 (TaskWorker)</div>
+                <div class="title"><code>ZoneWorld::BroadcastToZone</code></div>
+                <div class="detail">
+                    같은 존의 <code>players_</code>를 순회하며(본인 포함) 플레이어마다
+                    <code>SendToPlayer</code>로 <strong>별도 envelope</strong>을 만들어 World와의
+                    연결 하나 위에 다중화해 보낸다 -- 이제 Zone은 클라이언트 소켓을 직접 갖지
+                    않기 때문이다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2>3. 다시 클라이언트로 (왕복 경로를 그대로 거슬러 올라간다)</h2>
+    <div class="flow">
+        <div class="step io">
+            <div class="lane">I/O 스레드 (WorldServer)</div>
+            <div class="title"><code>ZoneLinkHandler::HandleForwardToWorld</code></div>
+            <div class="detail">
+                <code>clientSessionId</code>로 <code>ClientRegistry</code>에서 Gateway 세션을 찾아
+                같은 바디를 <code>ToClient</code>로 그대로 전달한다.
+            </div>
+        </div>
+        <div class="connector">↓</div>
+        <div class="step io">
+            <div class="lane">I/O 스레드 (GatewayServer)</div>
+            <div class="title"><code>WorldLinkHandler::HandleToClient</code></div>
+            <div class="detail">
+                envelope을 벗기고 <code>innerPacketId</code>/원본 바디만 남겨 로컬 클라이언트
+                세션에 <code>SendPacket</code>한다.
+            </div>
+        </div>
+        <div class="connector">↓ TCP</div>
+        <div class="step client">
+            <div class="lane">TestClient</div>
+            <div class="title"><code>ReceiveLoop</code> 스레드가 응답 출력</div>
+            <div class="detail">
+                <code>[recv] Echo: ...</code> / <code>[recv] Move x=.. y=..</code> /
+                <code>[recv] Chat from N: ...</code>로 콘솔에 찍힌다 -- 3계층을 거쳤다는 것을
+                클라이언트는 전혀 알 수 없다.
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>핵심 불변식:</strong> Gateway/World의 I/O 스레드는 <code>clientSessionId</code>
+        태그만 보고 라우팅할 뿐 패킷 내용을 해석하지 않는다. 게임 상태(<code>ZoneWorld</code>)는
+        여전히 그 존을 담당하는 프로세스의 로직 스레드에서만 직접 건드린다 -- 3계층으로
+        늘어났어도 "존 상태는 한 스레드에서만"이라는 원칙은 그대로다. 자세한 내용은
+        <a href="../../CLAUDE.md">CLAUDE.md</a> 참고.
+    </div>
+</div>
+</body>
+</html>

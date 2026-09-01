@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="Core/Core.vcxproj" Id="7f5eacff-89b1-4967-8e20-b0a2de4a0ff5" />
+  <Project Path="WorldServer/WorldServer.vcxproj" Id="9a1b2c3d-4e5f-4a6b-8c7d-1e2f3a4b5c6d" />
+  <Project Path="GatewayServer/GatewayServer.vcxproj" Id="5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a" />
+  <Project Path="ZoneServer/ZoneServer.vcxproj" Id="829b2bd7-6135-4479-b304-808be97abf04" />
+  <Project Path="TestClient/TestClient.vcxproj" Id="78e54b08-2d3c-4ba7-827a-fe3446bc461b" />
+  <Project Path="LoadTestClient/LoadTestClient.vcxproj" Id="a3b4c5d6-1e2f-4a5b-9c8d-7e6f5a4b3c2d" />
+</Solution>

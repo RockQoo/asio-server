@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Log">
+      <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Handler">
+      <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000004}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Log\LogCategory.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\World\WorldLink.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\ClientLinkHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\WorldLinkHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\App\GatewayServerApp.h">
+      <Filter>App</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\Handler\ClientLinkHandler.cpp">
+      <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Handler\WorldLinkHandler.cpp">
+      <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\App\GatewayServerApp.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\main.cpp" />
+  </ItemGroup>
+</Project>

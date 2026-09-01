@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>asio-server 플로우차트</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+    <h1>asio-server 플로우차트</h1>
+    <p class="subtitle">
+        기능이 실제로 어떻게 동작하는지 한눈에 보기 위한 HTML 다이어그램 모음.
+        새 기능을 추가할 때마다 여기에 한 페이지씩 늘어난다 (규칙은
+        <a href="README.md">README.md</a> 참고). 전부 오프라인에서 그대로 열린다 —
+        외부 리소스(CDN 등) 의존 없음.
+    </p>
+
+    <ul class="index-list">
+        <li>
+            <a href="testclient-echo-move-chat.html">
+                <div class="item-title">TestClient → Gateway → World → Zone: Echo / Move / Chat 흐름</div>
+                <div class="item-desc">
+                    클라이언트 패킷이 GatewayServer(순수 릴레이) → WorldServer(clientSessionId
+                    기반 라우팅) → ZoneServer(Echo는 즉시 응답 / Move·Chat은 TaskWorker로 라우팅
+                    후 존 브로드캐스트)를 거쳐 다시 클라이언트로 돌아오는 전체 경로.
+                </div>
+            </a>
+        </li>
+        <li>
+            <a href="zone-handoff-and-mail.html">
+                <div class="item-title">존 경계 핸드오프 · Mail/UnitOfWork · 전체 브로드캐스트</div>
+                <div class="item-desc">
+                    존 서버 2개(인접) 사이의 투명한 핸드오프(World 라우팅 테이블 교체만),
+                    Mail::UnitOfWork Unit-of-Work가 변경을 모았다가 WorldServer DB 워커로 보내는
+                    흐름, Threading::Synchronized가 실제로 방어하는 지점(유지보수 타이머 vs 존
+                    로직 스레드), WorldServer가 Zone 없이 직접 하는 전체 브로드캐스트까지.
+                </div>
+            </a>
+        </li>
+    </ul>
+</div>
+</body>
+</html>

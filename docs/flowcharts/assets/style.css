@@ -1,0 +1,234 @@
+/* asio-server 플로우차트 공용 스타일. 새 플로우차트 HTML을 추가할 때 이 파일을 그대로
+   <link>하면 된다 (docs/flowcharts/README.md 참고). 외부 리소스 의존 없음 -- 오프라인에서도
+   그대로 열린다. */
+
+:root {
+    color-scheme: light dark;
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --text: #1b1f27;
+    --muted: #5b6472;
+    --border: #dde1e8;
+    --client: #6b7280;
+    --client-bg: #f1f2f4;
+    --io: #1d6fd6;
+    --io-bg: #e8f1fd;
+    --logic: #1a8f5c;
+    --logic-bg: #e8f8f0;
+    --arrow: #9aa3b2;
+    --code-bg: #eef0f4;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #14161c;
+        --panel: #1c1f27;
+        --text: #e7eaf0;
+        --muted: #9aa3b2;
+        --border: #2b3040;
+        --client: #a9b0bd;
+        --client-bg: #262a34;
+        --io: #6cb0ff;
+        --io-bg: #182338;
+        --logic: #57d59a;
+        --logic-bg: #142a20;
+        --arrow: #4a5060;
+        --code-bg: #22262f;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 2rem 1rem 4rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+    line-height: 1.55;
+}
+
+.page {
+    max-width: 920px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 1.6rem;
+    margin: 0 0 0.4rem;
+}
+
+h2 {
+    font-size: 1.1rem;
+    margin: 2.2rem 0 0.8rem;
+}
+
+.subtitle {
+    color: var(--muted);
+    margin: 0 0 2rem;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 1.2rem;
+    color: var(--io);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.legend {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.6rem;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge.client { background: var(--client-bg); color: var(--client); }
+.badge.io { background: var(--io-bg); color: var(--io); }
+.badge.logic { background: var(--logic-bg); color: var(--logic); }
+
+.flow {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.step {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.step.client { border-left: 4px solid var(--client); }
+.step.io { border-left: 4px solid var(--io); }
+.step.logic { border-left: 4px solid var(--logic); }
+
+.step .lane {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+}
+
+.step.client .lane { color: var(--client); }
+.step.io .lane { color: var(--io); }
+.step.logic .lane { color: var(--logic); }
+
+.step .title {
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+}
+
+.step .detail {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+.step code, .detail code {
+    background: var(--code-bg);
+    padding: 0.05rem 0.35rem;
+    border-radius: 5px;
+    font-size: 0.85em;
+}
+
+.connector {
+    display: flex;
+    justify-content: center;
+    color: var(--arrow);
+    font-size: 1.1rem;
+    line-height: 1;
+    margin: 0.15rem 0;
+}
+
+.branch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    margin: 0.2rem 0;
+}
+
+.branch-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.branch-col .connector {
+    margin: 0.15rem 0;
+}
+
+.branch-label {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+}
+
+@media (max-width: 640px) {
+    .branch {
+        grid-template-columns: 1fr;
+    }
+}
+
+.callout {
+    margin-top: 2rem;
+    padding: 0.9rem 1.1rem;
+    background: var(--io-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.88rem;
+    color: var(--text);
+}
+
+.index-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.index-list a {
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    color: var(--text);
+    text-decoration: none;
+}
+
+.index-list a:hover {
+    border-color: var(--io);
+}
+
+.index-list .item-title {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.index-list .item-desc {
+    color: var(--muted);
+    font-size: 0.88rem;
+}

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Packet">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Network">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Thread">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Timer">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000005}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000006}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Threading">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Task">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000008}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\pch.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Common\BasicTypes.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Common\Types.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Common\ErrorCode.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Common\CoreException.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Log\LogLevel.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Log\LogCategory.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Log\LogEntry.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Log\Logger.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Log\LogProxy.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\PacketHeader.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\PacketBuffer.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\PacketFramer.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\BinaryWriter.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\BinaryReader.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\PacketDispatcher.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Network\IPacketHandler.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Network\Session.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Network\Listener.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Network\Connector.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Network\SessionManager.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Network\IoContextPool.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Thread\WorkerThread.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Thread\AffinityWorkerPool.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Timer\RepeatingTimer.h">
+      <Filter>Timer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Threading\Synchronized.h">
+      <Filter>Threading</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Task\UnitOfWork.h">
+      <Filter>Task</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\pch.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Log\Logger.cpp">
+      <Filter>Log</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Packet\PacketBuffer.cpp">
+      <Filter>Packet</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Network\Session.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Network\Listener.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Network\Connector.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Network\SessionManager.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Network\IoContextPool.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Thread\WorkerThread.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Timer\RepeatingTimer.cpp">
+      <Filter>Timer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Task\UnitOfWork.cpp">
+      <Filter>Task</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

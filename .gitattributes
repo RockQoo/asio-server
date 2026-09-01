@@ -1,0 +1,12 @@
+# 줄바꿈은 저장소에 LF로 통일하고 체크아웃 시 OS에 맞춘다.
+* text=auto
+
+# 3rd/asio는 벤더링한 외부 코드다 -- GitHub 언어 통계와 diff에서 제외해야
+# 저장소가 "대부분 ASIO"로 집계되지 않고 실제 작성한 코드가 드러난다.
+3rd/** linguist-vendored
+
+# Visual Studio 프로젝트 파일은 CRLF를 유지한다(VS가 저장할 때 CRLF로 쓴다).
+*.vcxproj text eol=crlf
+*.filters text eol=crlf
+*.slnx text eol=crlf
+*.bat text eol=crlf

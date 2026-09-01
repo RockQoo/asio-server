@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Log">
+      <UniqueIdentifier>{d4d4d4d4-0006-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Stats">
+      <UniqueIdentifier>{d4d4d4d4-0006-4000-8000-000000000002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Session">
+      <UniqueIdentifier>{d4d4d4d4-0006-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{d4d4d4d4-0006-4000-8000-000000000004}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Log\LogCategory.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Stats\LatencyHistogram.h">
+      <Filter>Stats</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Stats\StressStats.h">
+      <Filter>Stats</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Session\StressSession.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\App\StressRunner.h">
+      <Filter>App</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\Stats\LatencyHistogram.cpp">
+      <Filter>Stats</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Stats\StressStats.cpp">
+      <Filter>Stats</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Session\StressSession.cpp">
+      <Filter>Session</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\App\StressRunner.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\main.cpp" />
+  </ItemGroup>
+</Project>

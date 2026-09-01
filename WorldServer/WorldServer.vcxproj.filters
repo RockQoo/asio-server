@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Log">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Packet">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Db">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Handler">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000005}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000006}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Worker">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000007}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Log\LogCategory.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\RelayEnvelope.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\GatewayLinkPacketId.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\ZoneLinkPacketId.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\ZoneLinkPackets.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\World\ClientRegistry.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\World\ZoneLinkRegistry.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Db\DbWorker.h">
+      <Filter>Db</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Worker\WorldWorker.h">
+      <Filter>Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\GatewayLinkHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\ZoneLinkHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\App\WorldServerApp.h">
+      <Filter>App</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\World\ClientRegistry.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\World\ZoneLinkRegistry.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\DbWorker.cpp">
+      <Filter>Db</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Worker\WorldWorker.cpp">
+      <Filter>Worker</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Handler\GatewayLinkHandler.cpp">
+      <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp">
+      <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\App\WorldServerApp.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\main.cpp" />
+  </ItemGroup>
+</Project>

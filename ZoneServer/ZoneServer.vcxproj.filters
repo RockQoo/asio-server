@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Packet">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Worker">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Handler">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000005}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000006}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Mail">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000008}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Log\LogCategory.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\PacketId.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\ZonePackets.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Game\PlayerState.h">
+      <Filter>Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Game\ZoneDef.h">
+      <Filter>Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Game\ZoneWorld.h">
+      <Filter>Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\World\WorldLink.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Mail\MailModel.h">
+      <Filter>Mail</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Mail\MailRegistry.h">
+      <Filter>Mail</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Mail\MailUnitOfWork.h">
+      <Filter>Mail</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Mail\MailExpiryService.h">
+      <Filter>Mail</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Worker\TaskWorker.h">
+      <Filter>Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Worker\BroadcastDispatcher.h">
+      <Filter>Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Worker\ZoneWorkerManager.h">
+      <Filter>Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\WorldLinkHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\App\ZoneServerApp.h">
+      <Filter>App</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\Game\ZoneWorld.cpp">
+      <Filter>Game</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Mail\MailModel.cpp">
+      <Filter>Mail</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Mail\MailRegistry.cpp">
+      <Filter>Mail</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Mail\MailUnitOfWork.cpp">
+      <Filter>Mail</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Mail\MailExpiryService.cpp">
+      <Filter>Mail</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Worker\TaskWorker.cpp">
+      <Filter>Worker</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp">
+      <Filter>Worker</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Worker\ZoneWorkerManager.cpp">
+      <Filter>Worker</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Handler\WorldLinkHandler.cpp">
+      <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\App\ZoneServerApp.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\main.cpp" />
+  </ItemGroup>
+</Project>
