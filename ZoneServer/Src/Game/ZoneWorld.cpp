@@ -110,7 +110,8 @@ namespace Zone
         if (move.x < xMin_ || move.x >= xMax_)
         {
             // 존 경계를 넘었다 -- 로컬 상태를 먼저 지우고 World에 핸드오프를 요청한다. World가
-            // 라우팅 테이블만 바꾸므로 클라이언트/Gateway는 이 사실을 전혀 모른다. player는
+            // 라우팅 테이블만 바꾸므로 Gateway는 이 사실을 아예 모르고, 클라이언트도 재접속
+            // 없이 대상 존의 EnterZoneNotify만 새로 받는다. player는
             // players_의 값이므로 erase 이전에 필요한 값을 전부 복사해둔다(erase 이후엔 댕글링).
             const auto clientSessionId = player.sessionId;
             const auto playerId = player.playerId;

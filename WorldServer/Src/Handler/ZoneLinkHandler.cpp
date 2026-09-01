@@ -141,7 +141,7 @@ namespace World
         targetZoneLink->zoneSession->SendPacket(static_cast<uint16_t>(ZoneLinkPacketId::EnterZoneRequest),
                                                  std::as_bytes(std::span(&state, 1)));
 
-        LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트는 모름)")
+        LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트 재접속 없음)")
             .KV("ClientSessionId", state.clientSessionId).KV("ToZoneId", *targetZoneId)
             .KV("X", state.x).KV("Y", state.y);
     }

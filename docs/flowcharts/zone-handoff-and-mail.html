@@ -12,7 +12,7 @@
     <h1>존 경계를 넘을 때, 메일을 보낼 때, 전체 공지를 보낼 때</h1>
     <p class="subtitle">
         분산 게임 서버 구조를 단순화해 이식한 네 가지 흐름을 한 페이지에
-        모았다: (1) 존 서버 프로세스 2개(x:[0,10)/x:[10,20)) 사이의 <strong>투명한 핸드오프</strong>,
+        모았다: (1) 존 서버 프로세스 2개(x:[0,10)/x:[10,20)) 사이의 <strong>재접속 없는 핸드오프</strong>,
         (2) <code>Task::UnitOfWork</code> Unit-of-Work + <code>MailAddAck</code>/<code>MailDelAck</code>
         왕복 확인, (3) <code>Threading::Synchronized</code>가 실제로 방어 역할을 하는 지점,
         (4) <code>WorldServer</code>가 Zone을 거치지 않고 직접 하는 전체 브로드캐스트. 기본
@@ -25,7 +25,7 @@
         <span class="badge logic">● 전용 로직 스레드 (TaskWorker / DB 워커 / 유지보수 타이머)</span>
     </div>
 
-    <h2>1. 존 경계 핸드오프 — 클라이언트/Gateway는 전혀 모른다</h2>
+    <h2>1. 존 경계 핸드오프 — 재접속 없이 라우팅 테이블만 교체</h2>
     <div class="flow">
         <div class="step client">
             <div class="lane">TestClient</div>
@@ -52,8 +52,9 @@
             <div class="detail">
                 <code>ZoneLinkRegistry::FindZoneContainingX(x)</code>로 대상 존(zoneId=1)을 찾고,
                 <code>ClientRegistry::SetZone</code>으로 <strong>라우팅 테이블만 교체</strong>한다.
-                Gateway나 클라이언트에는 아무 것도 알리지 않는다 -- Gateway와 클라이언트가 존 이동을
-                전혀 인지하지 못하는 완전히 투명한 설계.
+                World는 Gateway에 아무 것도 알리지 않는다 -- <strong>Gateway는 존 이동을 전혀
+                인지하지 못한다.</strong> 클라이언트에게도 World가 직접 알리는 건 없고, 아래에서
+                대상 존이 보내는 <code>EnterZoneNotify</code> 한 장만 도착한다(재접속·재인증 없음).
             </div>
         </div>
         <div class="connector">↓ W2Z <code>EnterZoneRequest</code> (같은 좌표 그대로)</div>

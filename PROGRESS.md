@@ -13,7 +13,8 @@
 - **4계층 분산 구조**: Client → GatewayServer(순수 릴레이) → WorldServer(라우팅+DB워커) →
   ZoneServer(존 상태). Gateway/World는 이번에 새로 추가된 프로젝트.
 - **존 핸드오프**: 존 경계를 넘으면 World가 라우팅 테이블(`ClientRegistry`)만 바꾼다 —
-  클라이언트/Gateway는 이동 사실 자체를 모르는 완전 투명 설계.
+  Gateway는 이동 자체를 모르고, 클라이언트는 EnterZoneNotify 통지만 받을 뿐 재접속 없이
+  같은 연결을 유지한다.
 - **ZoneServer 5-풀 구조**: NETWORK(소켓 I/O) → LB(패킷 파싱, zoneId 판단) → BASIC(zoneId
   sticky, 게임 로직) → TICK(존별 주기 처리, 현재 placeholder) → BROADCAST(zoneId sticky,
   팬아웃). 프로세스 1개가 존 여러 개를 동시에 호스팅 가능(`ZoneServer.exe 0,1`처럼 실행).

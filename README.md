@@ -57,7 +57,7 @@ mutex가 아예 없습니다.
 | | |
 |---|---|
 | **역할** | 클라이언트↔존 매핑, 존 등록, 존 핸드오프, DB 태스크 분배 |
-| **핵심 기술** | ① **단일 처리 스레드(`WorldWorker`)로 락 제거** — 샤딩 키가 없는 전역 라우팅 테이블이라 "풀 대신 스레드 1개"를 선택, 두 레지스트리에 mutex가 0개 ② **투명 존 핸드오프** — 라우팅 테이블만 교체하므로 클라이언트도 Gateway도 이동을 모름 ③ **owner-hash DB 워커 풀** — `ownerId % N`으로 "같은 플레이어 = 같은 스레드 = 순서 보장" |
+| **핵심 기술** | ① **단일 처리 스레드(`WorldWorker`)로 락 제거** — 샤딩 키가 없는 전역 라우팅 테이블이라 "풀 대신 스레드 1개"를 선택, 두 레지스트리에 mutex가 0개 ② **재접속 없는 존 핸드오프** — 라우팅 테이블만 교체하므로 Gateway는 이동 자체를 모르고, 클라이언트는 재접속·재인증 없이 같은 연결을 유지 ③ **owner-hash DB 워커 풀** — `ownerId % N`으로 "같은 플레이어 = 같은 스레드 = 순서 보장" |
 | **왜 이렇게** | 라우팅 상태와 영속화는 성격이 다릅니다. 전자는 전역이라 직렬화(스레드 1개)가 맞고, 후자는 owner 단위로 독립이라 샤딩이 맞습니다. I/O 스레드는 페이로드만 복사해 `PostTask`할 뿐 상태를 만지지 않습니다 |
 | **대표 코드** | [WorldWorker.h:9](WorldServer/Src/Worker/WorldWorker.h#L9) (선택 근거 주석), [ZoneLinkHandler.cpp:114](WorldServer/Src/Handler/ZoneLinkHandler.cpp#L114) (핸드오프) |
 
@@ -123,7 +123,7 @@ mutex가 아예 없습니다.
 
 ---
 
-## 4. 존 핸드오프 — 클라이언트가 모르는 이동
+## 4. 존 핸드오프 — 재접속 없이 존을 넘어간다
 
 존 경계(x=10)를 넘는 이동은 **WorldServer가 라우팅 테이블만 바꿔서** 처리합니다.
 
@@ -132,7 +132,11 @@ mutex가 아예 없습니다.
 2. World가 x좌표로 대상 존을 찾아 `ClientRegistry::SetZone` + Zone B에 `EnterZoneRequest`
 3. 이후 그 클라이언트의 패킷은 Zone B로 흐름
 
-클라이언트도 Gateway도 이동이 일어났다는 사실 자체를 모릅니다. 전체 흐름은
+**Gateway는 이동이 일어났다는 사실 자체를 모릅니다** — 라우팅 테이블은 World만 소유하고
+Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 새 존에서
+`EnterZoneNotify{playerId, zoneId}`를 받으므로 자기 존이 바뀐 것 자체는 알 수 있지만,
+**재접속도 재인증도 새 주소로의 연결도 필요 없고** 핸드오프를 요청하거나 처리할 일도
+없습니다 — 같은 TCP 연결을 그대로 쓰면서 통지 한 장만 더 받는 셈입니다. 전체 흐름은
 [`docs/flowcharts/zone-handoff-and-mail.html`](docs/flowcharts/zone-handoff-and-mail.html)에
 스레드별 색으로 정리돼 있습니다.
 
@@ -292,6 +296,8 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 - **영속화**: `Db::DbWorker`는 owner-hash 분배 **구조만** 있고 실제 쿼리는 로그만 남깁니다.
   프로세스 재시작 시 Mail은 소실됩니다
 - **인증/신원**: `playerId`를 `clientSessionId`에서 그대로 파생합니다. 인증 계층 없음
+- **핸드오프 시 우편함 초기화**: `MailModel`이 zone-local이라 존을 넘어가면 빈 우편함으로
+  시작합니다. 원래는 위 DB 계층이 소유해야 할 상태를 존이 들고 있어서 생기는 한계입니다
 - **수평 확장**: `Listener`의 세션 id가 프로세스별 1부터 시작하므로 Gateway를 2대 띄우면
   World의 라우팅 키가 충돌합니다. Gateway↔World 연결도 끊기면 재연결하지 않습니다
 - **TICK 풀**: 현재 `Tick()`이 비어 있어 실질적으로 4-풀입니다. 풀 분리 구조를 먼저 만들고
