@@ -36,7 +36,7 @@
   기록 — 수백만 샘플에도 상수 메모리·O(1)이라 계측이 실험 자체를 방해하지 않는다. 재는
   구간은 `MailAdd→Ack`, `MailDel→Ack`, 사이클 전체 3종. 추적 상한은 100초(처음 10초로
   뒀다가 과부하 실험에서 P95/P99가 전부 상한에 몰려 구분이 안 돼 넓혔다).
-- **`bat/server.bat`/`bat/client.bat`**: 전체 프로세스를 한 번에 띄우는 배치 파일.
+- **`bat/start_server_all.bat`/`bat/start_test_client.bat`**: 전체 프로세스를 한 번에 띄우는 배치 파일.
 - 새 기능 추가 시 `docs/flowcharts/`에 다이어그램을 같이 갱신하는 규칙이 실제로 잘 지켜지고
   있음(`zone-handoff-and-mail.html`, `testclient-echo-move-chat.html`).
 

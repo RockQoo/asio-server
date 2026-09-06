@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a C++20, x64-only Visual Studio solution. `Shared/Core/Src/` contains reusable networking, packet, threading, timer, logging, and task infrastructure and builds as a static library. `GatewayServer/`, `WorldServer/`, and `ZoneServer/` contain the distributed server processes; keep game-state logic in the owning server rather than `Core`. `TestClient/` is the interactive protocol client, while `LoadTestClient/` drives concurrent-session tests. Documentation lives in `docs/`, launch scripts in `bat/`, and vendored standalone Asio in `3rd/asio/`. Build outputs under `bin/`, `obj/`, and logs are generated and must not be committed.
+This is a C++20, x64-only Visual Studio solution. `Shared/Core/Src/` contains reusable networking, packet, threading, timer, logging, and task infrastructure and builds as a static library. `Server/GatewayServer/`, `Server/WorldServer/`, and `Server/ZoneServer/` contain the distributed server processes; keep game-state logic in the owning server rather than `Core`. `Tool/TestClient/` is the interactive protocol client, while `Tool/LoadTestClient/` drives concurrent-session tests. `Client/` is reserved for a future game client and is empty for now. Documentation lives in `docs/`, launch scripts in `bat/`, and vendored standalone Asio in `3rd/asio/`. Build outputs under `bin/`, `obj/`, and logs are generated and must not be committed.
 
 ## Build, Test, and Development Commands
 
@@ -10,12 +10,13 @@ Run commands from a Visual Studio 2022 Developer PowerShell (MSVC v143):
 
 ```powershell
 MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -m
-bat\server.bat
-bat\client.bat
+bat\start_server_all.bat
+bat\start_test_client.bat
+bat\stop_server_all.bat
 bin\x64\Debug\LoadTestClient.exe 127.0.0.1 9000 1000 200
 ```
 
-The first command builds all six projects; use `Release` for optimized binaries. `server.bat` starts World, Zone, then Gateway, and `client.bat` opens the REPL. The load-client example starts 1,000 sessions in batches of 200.
+The first command builds all six projects; use `Release` for optimized binaries. `start_server_all.bat` starts World, Zone, then Gateway and prints their PIDs for the Visual Studio attach dialog; `stop_server_all.bat` shuts them down. `start_test_client.bat` opens the REPL. The load-client example starts 1,000 sessions in batches of 200.
 
 ## Coding Style & Naming Conventions
 

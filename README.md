@@ -204,10 +204,16 @@ MSBuild.exe asio-server.slnx -p:Configuration=Release -p:Platform=x64 -m
 
 **전체 기동**(실행 파일이 5개라 개별 F5보다 권장):
 ```bat
-bat\server.bat            :: WorldServer → ZoneServer(0,1) → GatewayServer 순서로 새 창 3개 (Debug)
-bat\server.bat Release    :: 5절 성능 수치를 재현하려면 이쪽 — Debug는 약 5배 느립니다
-bat\client.bat            :: TestClient 실행 (127.0.0.1:9000)
+bat\start_server_all.bat          :: WorldServer → ZoneServer(0,1) → GatewayServer, 새 창 3개 (Debug)
+bat\start_server_all.bat Release  :: 5절 성능 수치를 재현하려면 이쪽 — Debug는 약 5배 느립니다
+bat\start_test_client.bat         :: TestClient 실행 (127.0.0.1:9000)
+bat\stop_server_all.bat           :: 서버 3종 종료 (-keep 을 주면 콘솔 창은 남김)
 ```
+
+`start_server_all.bat`은 기동 후 세 프로세스의 PID를 출력합니다. Visual Studio의
+**디버그 → 프로세스에 연결**(`Ctrl+Alt+P`)에서 Ctrl로 다중 선택하면 세 서버에 한 번에
+붙을 수 있습니다. 중단점이 정확히 걸리려면 Debug 빌드를 쓰세요. 클라이언트 쪽에
+중단점을 걸어야 하면 `start_test_client.bat -attach`로 별도 창에 띄웁니다.
 
 모든 실행 파일이 `Core.vcxproj`를 프로젝트 참조로 물고 있어 `Core` → 나머지 순서로 자동
 빌드됩니다. 산출물은 `bin/x64/{Debug,Release}/`.

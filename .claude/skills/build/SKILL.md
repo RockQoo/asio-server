@@ -60,7 +60,7 @@ cd /c/Work/asio-server
 
 ```bash
 cd /c/Work/asio-server
-"./bat/server.bat"   # WorldServer -> ZoneServer(0,1) -> GatewayServer 순서로 새 창 3개
+"./bat/start_server_all.bat"   # WorldServer -> ZoneServer(0,1) -> GatewayServer 순서로 새 창 3개
 ```
 
 각 창의 로그(`logs/*.log`)에 "대기 시작"/"연결 성공" 라인이 정상적으로 찍히는지 확인한다.
