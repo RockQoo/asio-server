@@ -44,7 +44,7 @@ obj/x86/
 bld/
 [Oo]bj/
 [Oo]ut/
-# 루트 기준으로만 무시한다 -- 앵커(/) 없이 두면 Core/Src/Log/, ZoneServer/Src/Log/ 같은
+# 루트 기준으로만 무시한다 -- 앵커(/) 없이 두면 Shared/Core/Src/Log/, Server/ZoneServer/Src/Log/ 같은
 # 소스 폴더까지 이름이 "Log"라는 이유로 전부 무시돼버린다 (실제로 한 번 이 문제로 Log 관련
 # 소스가 전부 git에서 빠질 뻔한 적이 있음).
 /[Ll]og/

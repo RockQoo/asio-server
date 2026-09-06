@@ -50,7 +50,7 @@ mutex가 아예 없습니다.
 | **역할** | 클라이언트 TCP를 accept해 `clientSessionId`만 붙여 World로 넘기는 무상태 릴레이 |
 | **핵심 기술** | ① `ClientEnvelopeHeader{clientSessionId, innerPacketId}`를 원본 패킷 앞에 붙여 **소켓 1개로 N명 다중화** ② 로직 스레드가 아예 없음 — 모든 처리가 Session strand(I/O 스레드) 위에서 끝남 ③ `Listener`(inbound)와 `Connector`(outbound)를 같은 `IPacketHandler` 인터페이스로 대칭 처리 |
 | **왜 이렇게** | 인증·게임 로직을 여기에 두지 않아야 접속 종단을 수평 확장할 수 있습니다. 실제로 클래스 4개, 450줄 남짓으로 유지됩니다 |
-| **대표 코드** | [ClientLinkHandler.cpp:49](GatewayServer/Src/Handler/ClientLinkHandler.cpp#L49) (envelope 씌우기) |
+| **대표 코드** | [ClientLinkHandler.cpp:49](Server/GatewayServer/Src/Handler/ClientLinkHandler.cpp#L49) (envelope 씌우기) |
 
 ### WorldServer — 라우팅 두뇌, 단일 스레드
 
@@ -59,7 +59,7 @@ mutex가 아예 없습니다.
 | **역할** | 클라이언트↔존 매핑, 존 등록, 존 핸드오프, DB 태스크 분배 |
 | **핵심 기술** | ① **단일 처리 스레드(`WorldWorker`)로 락 제거** — 샤딩 키가 없는 전역 라우팅 테이블이라 "풀 대신 스레드 1개"를 선택, 두 레지스트리에 mutex가 0개 ② **재접속 없는 존 핸드오프** — 라우팅 테이블만 교체하므로 Gateway는 이동 자체를 모르고, 클라이언트는 재접속·재인증 없이 같은 연결을 유지 ③ **owner-hash DB 워커 풀** — `ownerId % N`으로 "같은 플레이어 = 같은 스레드 = 순서 보장" |
 | **왜 이렇게** | 라우팅 상태와 영속화는 성격이 다릅니다. 전자는 전역이라 직렬화(스레드 1개)가 맞고, 후자는 owner 단위로 독립이라 샤딩이 맞습니다. I/O 스레드는 페이로드만 복사해 `PostTask`할 뿐 상태를 만지지 않습니다 |
-| **대표 코드** | [WorldWorker.h:9](WorldServer/Src/Worker/WorldWorker.h#L9) (선택 근거 주석), [ZoneLinkHandler.cpp:114](WorldServer/Src/Handler/ZoneLinkHandler.cpp#L114) (핸드오프) |
+| **대표 코드** | [WorldWorker.h:9](Server/WorldServer/Src/Worker/WorldWorker.h#L9) (선택 근거 주석), [ZoneLinkHandler.cpp:114](Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp#L114) (핸드오프) |
 
 ### ZoneServer — 존 권위 상태, 5-풀 분리
 
@@ -67,8 +67,8 @@ mutex가 아예 없습니다.
 |---|---|
 | **역할** | 존 하나(또는 여럿)의 게임 상태를 소유하고 Mail 시스템을 운영 |
 | **핵심 기술** | ① **zoneId sticky 라우팅으로 락 없는 게임 상태** — `players_`가 순수 `unordered_map` ② **스냅샷 핸드오프** — BASIC이 대상 목록을 복사해 BROADCAST로 넘기고, BROADCAST는 공유 컨테이너를 절대 읽지 않음 ③ **`Synchronized` + Unit-of-Work** — 만료 스윕과 BASIC이 겹치는 유일한 지점만 `shared_mutex`로 보호 |
-| **왜 이렇게** | 스레드를 나누면 상태 공유 지점이 생깁니다. 그래서 각 풀이 "무엇을 소유하고 무엇을 넘겨받는지"를 코드 주석으로 못박았습니다. [ZoneWorld.h:32](ZoneServer/Src/Game/ZoneWorld.h#L32)는 **TICK 풀이 실제 상태를 만지는 순간 이 설계가 깨진다**는 미래의 파손 조건까지 명시합니다 |
-| **대표 코드** | [ZoneWorkerManager.h:67](ZoneServer/Src/Worker/ZoneWorkerManager.h#L67) (sticky 라우팅), [ZoneWorld.cpp:234](ZoneServer/Src/Game/ZoneWorld.cpp#L234) (스냅샷 브로드캐스트) |
+| **왜 이렇게** | 스레드를 나누면 상태 공유 지점이 생깁니다. 그래서 각 풀이 "무엇을 소유하고 무엇을 넘겨받는지"를 코드 주석으로 못박았습니다. [ZoneWorld.h:32](Server/ZoneServer/Src/Game/ZoneWorld.h#L32)는 **TICK 풀이 실제 상태를 만지는 순간 이 설계가 깨진다**는 미래의 파손 조건까지 명시합니다 |
+| **대표 코드** | [ZoneWorkerManager.h:67](Server/ZoneServer/Src/Worker/ZoneWorkerManager.h#L67) (sticky 라우팅), [ZoneWorld.cpp:234](Server/ZoneServer/Src/Game/ZoneWorld.cpp#L234) (스냅샷 브로드캐스트) |
 
 ### Core — 게임 로직을 전혀 모르는 재사용 라이브러리
 
@@ -154,7 +154,7 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
   순간부터 잽니다
 - 원시 샘플을 다 들고 있지 않고 **551개 로그스케일 버킷 히스토그램**에 relaxed atomic으로
   기록합니다 — 수백만 샘플에도 상수 메모리·O(1)이라 측정이 실험 자체를 방해하지 않습니다
-  ([LatencyHistogram.h](LoadTestClient/Src/Stats/LatencyHistogram.h))
+  ([LatencyHistogram.h](Tool/LoadTestClient/Src/Stats/LatencyHistogram.h))
 - 추적 상한은 100초입니다. 처음엔 10초까지만 뒀는데 과부하 실험에서 P95·P99가 전부 최상위
   버킷에 몰려 "10초"로만 보고돼(실제 최대는 131초) **얼마나 나쁜지를 구분할 수 없었습니다.**
   상한에 걸린 값은 `≥100초`로 구분해 표기합니다
@@ -242,21 +242,24 @@ LoadTestClient.exe 127.0.0.1 9000 1000 200
 
 ```
 asio-server/
-├─ Core/            정적 라이브러리 — 게임 로직을 전혀 모름
-│   └─ Src/         Network(Session/Listener/Connector/IoContextPool), Packet(직렬화/디스패처),
+├─ Shared/          서버와 도구가 함께 쓰는 모듈
+│   └─ Core/        정적 라이브러리 — 게임 로직을 전혀 모름
+│       └─ Src/     Network(Session/Listener/Connector/IoContextPool), Packet(직렬화/디스패처),
 │                   Thread(WorkerThread/AffinityWorkerPool), Timer, Threading(Synchronized),
 │                   Task(UnitOfWork), Log
-├─ GatewayServer/   클라이언트 accept + World 릴레이
-├─ WorldServer/     라우팅(WorldWorker) + DB 워커 풀
-├─ ZoneServer/      존 상태(NETWORK/LB/BASIC/TICK/BROADCAST) + Mail
-├─ TestClient/      프로토콜 확인용 REPL
-├─ LoadTestClient/  부하 테스트 도구 (1만 세션까지 실측)
+├─ Server/
+│   ├─ GatewayServer/  클라이언트 accept + World 릴레이
+│   ├─ WorldServer/    라우팅(WorldWorker) + DB 워커 풀
+│   └─ ZoneServer/     존 상태(NETWORK/LB/BASIC/TICK/BROADCAST) + Mail
+├─ Tool/
+│   ├─ TestClient/     프로토콜 확인용 REPL
+│   └─ LoadTestClient/ 부하 테스트 도구 (1만 세션까지 실측)
 ├─ 3rd/asio/        standalone ASIO 벤더 코드 (수정하지 않음)
 ├─ docs/flowcharts/ 기능별 HTML 다이어그램 (오프라인 열람)
 └─ bat/             서버·클라이언트 기동 스크립트
 ```
 
-include 경로는 솔루션 루트 기준(`#include "Core/Src/Network/Session.h"`)이고, 클라이언트
+include 경로는 솔루션 루트 기준(`#include "Shared/Core/Src/Network/Session.h"`)이고, 클라이언트
 프로토콜 헤더(POD/enum)는 링크 없이 서로 직접 include합니다.
 
 ---

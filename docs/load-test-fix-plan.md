@@ -28,7 +28,7 @@
 
 ### 1. 인구를 여러 존에 분산 — 근본 원인 해결, 영향도 최고
 
-**문제**: `WorldServer/Src/Handler/GatewayLinkHandler.cpp`의 `HandleClientConnected`가
+**문제**: `Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp`의 `HandleClientConnected`가
 모든 신규 클라이언트를 항상 `kDefaultEntryZoneId`(=0)로만 배정한다. 존이 여러 개 떠 있어도
 전부 존 0으로만 몰린다.
 
@@ -46,7 +46,7 @@
 
 ### 2. WorldWorker에서 브로드캐스트 릴레이를 별도 큐로 분리 — 영향도 중간
 
-**문제**: `WorldServer/Src/Worker/WorldWorker.h`가 스레드 1개로 라우팅(Mail Ack 릴레이 등)과
+**문제**: `Server/WorldServer/Src/Worker/WorldWorker.h`가 스레드 1개로 라우팅(Mail Ack 릴레이 등)과
 브로드캐스트 릴레이(`ForwardToWorld` 다량 수신)를 같은 큐에서 처리한다. 브로드캐스트가 몰리면
 평소 트래픽이 그 뒤에서 계속 밀린다.
 
@@ -58,14 +58,14 @@
 
 ### 3. 브로드캐스트 팬아웃 프레임 배칭 — 영향도 중간
 
-**문제**: `ZoneServer/Src/Worker/BroadcastDispatcher.cpp`가 대상 1명당 `ForwardToWorld`
+**문제**: `Server/ZoneServer/Src/Worker/BroadcastDispatcher.cpp`가 대상 1명당 `ForwardToWorld`
 프레임을 하나씩 Zone↔World 단일 TCP 링크로 전송한다. 존 인구가 늘수록 프레임 수가 그대로
 비례해서 늘어난다.
 
 **할 일**:
 - 여러 clientSessionId를 한 프레임에 묶어 보내도록 와이어 포맷 확장(예: `targetCount +
   clientSessionId 배열 + innerPacketId + payload`).
-- `WorldServer/Src/Handler/ZoneLinkHandler.cpp`의 수신 쪽도 배치 언패킹하도록 같이 수정.
+- `Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp`의 수신 쪽도 배치 언패킹하도록 같이 수정.
 - 1번 수정 이후에도 남는 잔여 병목을 줄이는 용도.
 
 ## 검증 방법 (매 수정 후 공통)

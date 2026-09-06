@@ -21,7 +21,7 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 ## 헤더 Include 순서
 
 빈 줄로 구분된 4그룹: **① 대응 헤더**(.cpp면 같은 이름 .h, pch 다음 최상단) → **② 같은
-솔루션의 다른 헤더**(`Core/Src/...`, `ZoneServer/Src/...`) → **③ 서드파티**(`<asio.hpp>`) →
+솔루션의 다른 헤더**(`Shared/Core/Src/...`, `Server/ZoneServer/Src/...`) → **③ 서드파티**(`<asio.hpp>`) →
 **④ 표준 라이브러리**.
 
 ## Precompiled Header (`pch.h`)
@@ -91,7 +91,7 @@ template <typename E> requires std::is_enum_v<E>
 
 ## `byte`/`size_t`/고정폭 정수는 `std::` 생략
 
-`Core/Src/Common/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
+`Shared/Core/Src/Common/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
 전역으로 `using` 해놨고 양쪽 `pch.h`가 include한다(PCH 없는 `TestClient`는 직접 include).
 **이 10개 타입 한정** — `std::string`/`std::vector` 등 다른 표준 타입은 그대로 `std::`를 붙인다.
 
@@ -136,7 +136,7 @@ LOG.Info(ELogCategory::Zone, "플레이어 입장").KV("Zone", zoneId_).KV("Sess
 
 **`ELogCategory`는 프로젝트마다 따로 있다** — `Log::LogEntry<TCategory>`는 카테고리 값을
 직접 갖지 않고 템플릿으로 받는다(scoped enum + 같은 네임스페이스의 ADL `ToString()`만 있으면
-됨 = `LogCategoryType` concept). Core가 게임 콘텐츠를 몰라야 하므로: `Core/Src/Log/
+됨 = `LogCategoryType` concept). Core가 게임 콘텐츠를 몰라야 하므로: `Shared/Core/Src/Log/
 LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용, 콘텐츠 없음)와
 `ZoneServer`/`WorldServer`/`GatewayServer`/`LoadTestClient`가 각자 자기 폴더에 갖는
 `Zone`/`World`/`Gateway`/`Load` 네임스페이스의 `ELogCategory`(콘텐츠) — 이렇게 프로젝트 수만큼
@@ -147,8 +147,8 @@ LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용
 **왜 `Core::` 접두사가 없는가** — `Core` 아래 네임스페이스(`Network`/`Packet`/`Thread`/
 `Timer`/`Common`/`Log`)는 전부 `Core::`를 안 붙인다(`namespace Core {...}`로 감싼 코드 없음).
 계속 감싸면 거의 모든 시그니처가 `Core::`로 시작해 잡음이 컸다 — `Core`는 폴더/프로젝트
-이름으로만 남고, 폴더-네임스페이스 대응 원칙(`Core/Src/Network/` ↔ `namespace Network`)은
-그대로 유지하되 `Core/`라는 최상위 폴더 한 겹만 생략한다. `ZoneServer`/`WorldServer`/
+이름으로만 남고, 폴더-네임스페이스 대응 원칙(`Shared/Core/Src/Network/` ↔ `namespace Network`)은
+그대로 유지하되 `Shared/Core/`라는 상위 폴더 두 겹만 생략한다. `ZoneServer`/`WorldServer`/
 `GatewayServer`/`LoadTestClient`는 각자 원래 네임스페이스(`Zone`/`World`/`Gateway`/`Load`)
 하나뿐이라 이 얘기 자체가 해당 없음(폴더 한 겹 생략할 상위 폴더가 없음).
 

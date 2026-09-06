@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 컴파일러 옵션 | MSVC, `PlatformToolset=v143`, `x64` 전용, `/std:c++20 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
 | 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`TestClient`/`LoadTestClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
 | 기동 순서 | `bat/server.bat`(World→Zone→Gateway) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
-| 테스트 도구 | `TestClient/Src/main.cpp`(수동 확인용 REPL), `LoadTestClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측) — 둘 다 자동화 스위트 아님 |
+| 테스트 도구 | `Tool/TestClient/Src/main.cpp`(수동 확인용 REPL), `Tool/LoadTestClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측) — 둘 다 자동화 스위트 아님 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
 
 ---
@@ -24,8 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **세부 C++ 규칙**(include 순서/캐스팅/pch/asio 예외 안전 등): `.claude/rules/cpp-patterns.md`
 2. **`.claude/` 아래 새 md 파일명**(kebab-case, `SKILL.md`류 고정명은 예외): `.claude/rules/md-patterns.md`
 3. **CLI 빌드/MSBuild 에러 진단**: `.claude/skills/build/SKILL.md`
-4. **기존 코드 답습**: `Core/Src/`가 인프라, `WorldServer/Src/`·`ZoneServer/Src/`·
-   `GatewayServer/Src/`가 각 서버 로직 — 새 코드는 같은 프로젝트의 유사 패턴부터 확인.
+4. **기존 코드 답습**: `Shared/Core/Src/`가 인프라, `Server/WorldServer/Src/`·`Server/ZoneServer/Src/`·
+   `Server/GatewayServer/Src/`가 각 서버 로직 — 새 코드는 같은 프로젝트의 유사 패턴부터 확인.
 
 ---
 
@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **언어**: 응답/코드 주석 전부 한글. 주석은 "무엇을"이 아니라 "왜"(스레드 안전성/객체 수명
   트릭 위주)를 설명한다.
 - **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
-  (`Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
+  (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
   변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
@@ -43,7 +43,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   `PlayerState`/`ZoneServerConfig` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
-- **include 경로는 솔루션 루트 기준**: `#include "Core/Src/Network/Session.h"`.
+- **include 경로는 솔루션 루트 기준**: `#include "Shared/Core/Src/Network/Session.h"`.
 - **모던 C++20 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
   `std::move`. 세부 규칙(const/sink/emplace/Get const 등)은 `cpp-patterns.md`.
 - **`3rd/asio` 수정 금지** — `.claude/settings.json` PreToolUse 훅으로도 자동 차단.
@@ -57,31 +57,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 C:\Work\asio-server\
 ├── asio-server.slnx                  솔루션 (더블클릭으로 VS에서 바로 열림)
-├── Core/                             게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
-│   └── Src/
-│       ├── pch.h / pch.cpp           precompiled header (asio.hpp + 무거운 표준 헤더)
-│       ├── Common/                   Types.h(SessionId 등 별칭), BasicTypes.h, ErrorCode.h, CoreException.h
-│       ├── Packet/                   PacketHeader/Buffer/Framer, BinaryWriter/Reader,
-│       │                             PacketDispatcher<TId,TContext>
-│       ├── Network/                  IoContextPool, Listener(accept), Connector(outbound
-│       │                             connect, Listener와 대칭), Session, SessionManager
-│       ├── Thread/                   WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
-│       ├── Timer/                    RepeatingTimer
-│       ├── Threading/Synchronized.h  shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
-│       └── Task/UnitOfWork.h          범용 Unit-of-Work(taskKind+직렬화 바이트만 다룸)
-├── GatewayServer/                    클라이언트 accept + World로 순수 릴레이 (실행 파일)
-├── WorldServer/                      WorldWorker(단일 처리 스레드) 라우팅 + DB 워커 풀 (실행 파일)
-│   └── Src/World/                    ClientRegistry, ZoneLinkRegistry (WorldWorker 전용 접근)
-├── ZoneServer/                       존 상태 + Mail 시스템 (실행 파일)
-│   └── Src/
-│       ├── Worker/                   TaskWorker(범용 실행기), ZoneWorkerManager
-│       │                             (BASIC/TICK/BROADCAST 3개 풀 소유), BroadcastDispatcher
-│       ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
-│       ├── Game/ZoneWorld            존별 권위 상태(BASIC 전용, 공유 없음 = 락 없음), PacketDispatcher로
-│       │                             패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
-│       └── Mail/                     MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
-├── TestClient/                       수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)
-├── LoadTestClient/                   비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
+├── Shared/                           서버·툴이 공유하는 모듈 (Client가 Server를 의존하지 않게 하는 층)
+│   └── Core/                         게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
+│       └── Src/
+│           ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
+│           ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, ErrorCode.h, CoreException.h
+│           ├── Packet/               PacketHeader/Buffer/Framer, BinaryWriter/Reader,
+│           │                         PacketDispatcher<TId,TContext>
+│           ├── Network/              IoContextPool, Listener(accept), Connector(outbound
+│           │                         connect, Listener와 대칭), Session, SessionManager
+│           ├── Thread/               WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
+│           ├── Timer/                RepeatingTimer
+│           ├── Threading/Synchronized.h  shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
+│           └── Task/UnitOfWork.h     범용 Unit-of-Work(taskKind+직렬화 바이트만 다룸)
+├── Server/                           서버 실행 파일 3종
+│   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
+│   ├── WorldServer/                  WorldWorker(단일 처리 스레드) 라우팅 + DB 워커 풀 (실행 파일)
+│   │   └── Src/World/                ClientRegistry, ZoneLinkRegistry (WorldWorker 전용 접근)
+│   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
+│       └── Src/
+│           ├── Worker/               TaskWorker(범용 실행기), ZoneWorkerManager
+│           │                         (BASIC/TICK/BROADCAST 3개 풀 소유), BroadcastDispatcher
+│           ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
+│           ├── Game/ZoneWorld        존별 권위 상태(BASIC 전용, 공유 없음 = 락 없음), PacketDispatcher로
+│           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
+│           └── Mail/                 MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
+├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아님)
+│   ├── TestClient/                   수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)
+│   └── LoadTestClient/               비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
 ├── docs/flowcharts/                  기능별 HTML 플로우차트 (index.html부터, 오프라인 열람용)
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
@@ -122,8 +125,10 @@ BASIC이 소유한 컨테이너(`players_` 등)를 직접 건드리면 안 되�
 처리한다 — Gateway는 이동 자체를 모르고, 클라이언트는 EnterZoneNotify로 새 zoneId를 통지받을
 뿐 재접속/재인증 없이 같은 TCP 연결을 그대로 쓴다.
 
-`Core/`는 **게임 로직을 전혀 모르는** 정적 라이브러리, 각 서버 프로젝트가 자기 콘텐츠(존/
-라우팅/릴레이)를 담당한다.
+`Shared/Core/`는 **게임 로직을 전혀 모르는** 정적 라이브러리, 각 서버 프로젝트가 자기 콘텐츠(존/
+라우팅/릴레이)를 담당한다. Core를 `Server/` 밑이 아니라 `Shared/`에 둔 이유는 `Tool/`의
+TestClient/LoadTestClient도 이걸 참조하기 때문이다 — `Server/` 안에 두면 도구·클라이언트가
+서버를 의존하는 역방향 구조가 된다.
 
 ### 계층별 핵심 타입
 

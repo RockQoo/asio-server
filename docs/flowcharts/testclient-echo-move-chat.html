@@ -16,11 +16,11 @@
         거친다(<a href="zone-handoff-and-mail.html">존 핸드오프/Mail 다이어그램</a>과 짝을 이루는
         기본 패킷 왕복 경로). 특히 <strong>World와 Zone은 I/O 스레드에서 로직을 처리하지 않는다</strong> --
         World는 <code>WorldWorker</code> 단일 스레드로, Zone은 NETWORK → LB → BASIC → BROADCAST
-        순서로 스레드를 갈아타며 처리한다. 실제 소스(<code>GatewayServer/Src/Handler/ClientLinkHandler.cpp</code>,
-        <code>WorldServer/Src/Handler/GatewayLinkHandler.cpp</code>,
-        <code>ZoneServer/Src/Handler/WorldLinkHandler.cpp</code>,
-        <code>ZoneServer/Src/Game/ZoneWorld.cpp</code>,
-        <code>ZoneServer/Src/Worker/BroadcastDispatcher.cpp</code>)를 그대로 따라간 흐름이다.
+        순서로 스레드를 갈아타며 처리한다. 실제 소스(<code>Server/GatewayServer/Src/Handler/ClientLinkHandler.cpp</code>,
+        <code>Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp</code>,
+        <code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code>,
+        <code>Server/ZoneServer/Src/Game/ZoneWorld.cpp</code>,
+        <code>Server/ZoneServer/Src/Worker/BroadcastDispatcher.cpp</code>)를 그대로 따라간 흐름이다.
     </p>
 
     <div class="legend">
@@ -37,7 +37,7 @@
         <code>BROADCAST</code>(<code>zoneId</code> sticky, 팬아웃 전송) 4개가 이 경로에 등장하고,
         나머지 하나인 <code>TICK</code> 풀은 패킷과 무관하게 <code>RepeatingTimer</code>가
         <code>ZoneWorld::Tick</code>을 돌리는 용도라 여기엔 나타나지 않는다.
-        기본 스레드 수는 <code>ZoneServer/Src/main.cpp</code>에서 LB/BASIC/TICK/BROADCAST 전부 2개다.
+        기본 스레드 수는 <code>Server/ZoneServer/Src/main.cpp</code>에서 LB/BASIC/TICK/BROADCAST 전부 2개다.
     </div>
 
     <div class="callout">
