@@ -156,7 +156,9 @@ TestClient/LoadTestClient도 이걸 참조하기 때문이다 — `Server/` 안�
 
 ## 빌드 / 실행
 
-1. `asio-server.slnx`를 Visual Studio 2022로 연다 (`PlatformToolset=v143`, `x64`만 지원).
+1. `asio-server.slnx`를 Visual Studio 2022 **이상**으로 연다 (`PlatformToolset=v143`, `x64`만
+   지원). VS 2026에서도 v143 툴셋만 설치돼 있으면 그대로 빌드된다 — 솔루션 탐색기에
+   `(Visual Studio 2022)`로 표시되는 것은 IDE가 아니라 대상 툴셋 표시라 정상이다.
 2. 실행 파일이 5개(`GatewayServer`/`WorldServer`/`ZoneServer`/`TestClient`/`LoadTestClient`)라
    개별 F5보다 **`bat/start_server_all.bat`**(World→Zone→Gateway 순서로 새 창 3개)로 한 번에 띄우고
    `bat/start_test_client.bat`으로 `TestClient`를 붙이는 걸 권장.
@@ -197,8 +199,15 @@ EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `LoadTestClient
 - `ZoneWorkerManager::Start()`는 `ZoneWorld&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
   `Stop()`은 반드시 **타이머를 먼저 취소한 뒤** 워커를 정지시키는 순서를 지켜야 안전하다
   (순서를 바꾸면 안 됨).
-- `PlatformToolset`은 `v143`으로 맞춰져 있다(설치된 VS 2022 Professional 기준). 다른 머신에서
-  vcxproj를 열었는데 `MSB8020` 툴셋 오류가 나면, 그 머신에 맞는 툴셋으로 다시 맞출 것.
+- `PlatformToolset`은 `v143`(VS 2022 툴셋)으로 **의도적으로** 고정돼 있다. 개발 환경은 Visual
+  Studio 2026 Community이고 v143·v145 툴셋이 모두 설치돼 있지만, 저장소는 v143을 유지한다 —
+  공개 포트폴리오라 VS 2022만 가진 사람도 clone해서 바로 빌드할 수 있어야 하기 때문이다.
+  v145로 올리면 VS 2026 설치자만 빌드 가능해진다. VS가 "v145로 업그레이드" 대화상자를 띄우면
+  `모두 무시`를 누를 것.
+  최신 컴파일러로 확인만 하고 싶을 때는 vcxproj를 고치지 말고 빌드 인자로 덮어쓴다:
+  `MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -p:PlatformToolset=v145 -m`
+  (v145로도 에러·경고 0으로 빌드되는 것을 확인했다.)
+  다른 머신에서 `MSB8020` 툴셋 오류가 나면 v143 빌드 도구를 설치하는 쪽이 우선이다.
 - `3rd/asio` 수정 금지는 `.claude/settings.json`의 PreToolUse 훅으로도 강제된다(Edit/Write가
   해당 경로를 건드리면 자동 차단).
 

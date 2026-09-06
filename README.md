@@ -196,6 +196,9 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
 ## 6. 빌드 & 실행
 
 **Visual Studio**: `asio-server.slnx` 열기 → `Ctrl+F5`. `PlatformToolset=v143`, x64 전용.
+VS 2022 이상이면 열립니다 — VS 2026에서도 v143 빌드 도구만 설치돼 있으면 그대로 빌드되고,
+"v145로 업그레이드" 안내가 뜨면 무시하세요. v143을 유지하는 이유는 VS 2022 사용자도
+clone 후 바로 빌드할 수 있게 하기 위해서입니다.
 
 **CLI**:
 ```bash

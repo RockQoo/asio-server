@@ -6,7 +6,7 @@ This is a C++20, x64-only Visual Studio solution. `Shared/Core/Src/` contains re
 
 ## Build, Test, and Development Commands
 
-Run commands from a Visual Studio 2022 Developer PowerShell (MSVC v143):
+Run commands from a Visual Studio Developer PowerShell (2022 or newer) with the v143 toolset installed. The solution deliberately stays on `PlatformToolset=v143` so that VS 2022 users can build it; decline the IDE's "upgrade to v145" prompt. To check a build against a newer compiler without editing the project files, override it on the command line: `-p:PlatformToolset=v145`.
 
 ```powershell
 MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -m
