@@ -24,8 +24,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **세부 C++ 규칙**(include 순서/캐스팅/pch/asio 예외 안전 등): `.claude/rules/cpp-patterns.md`
 2. **`.claude/` 아래 새 md 파일명**(kebab-case, `SKILL.md`류 고정명은 예외): `.claude/rules/md-patterns.md`
-3. **CLI 빌드/MSBuild 에러 진단**: `.claude/skills/build/SKILL.md`
-4. **기존 코드 답습**: `Shared/Core/Src/`가 인프라, `Server/WorldServer/Src/`·`Server/ZoneServer/Src/`·
+3. **패킷 id 네이밍/번호 대역**(`C2Z::Move` 형식, 방향별 1000 단위 대역): `.claude/rules/packet-naming.md`
+4. **CLI 빌드/MSBuild 에러 진단**: `.claude/skills/build/SKILL.md`
+5. **기존 코드 답습**: `Shared/Core/Src/`가 인프라, `Server/WorldServer/Src/`·`Server/ZoneServer/Src/`·
    `Server/GatewayServer/Src/`가 각 서버 로직 — 새 코드는 같은 프로젝트의 유사 패턴부터 확인.
 
 ---
@@ -201,6 +202,7 @@ EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClient.e
 |------|------|
 | C++ 세부 패턴(include 순서/캐스팅/pch/const/emplace_back/asio 예외 안전) | `.claude/rules/cpp-patterns.md` |
 | MD 파일명 규약 | `.claude/rules/md-patterns.md` |
+| 패킷 id 네이밍 규칙 / 방향별 번호 대역 | `.claude/rules/packet-naming.md` |
 | CLI 빌드 절차 | `.claude/skills/build/SKILL.md` |
 | 기능별 HTML 플로우차트 | `docs/flowcharts/` (규칙: `docs/flowcharts/README.md`) |
 
