@@ -4,9 +4,9 @@
 
 #include <string_view>
 
-namespace Load
+namespace Stress
 {
-    // LoadTestClient(부하 테스트 도구)만의 로그 카테고리 -- 다른 프로젝트와 동일한 이유로
+    // StressClient(부하 테스트 도구)만의 로그 카테고리 -- 다른 프로젝트와 동일한 이유로
     // Core::Log와 분리해 여기 따로 둔다.
     enum class ELogCategory : uint8_t
     {
@@ -25,4 +25,4 @@ namespace Load
     }
 }
 
-using Load::ELogCategory;
+using Stress::ELogCategory;

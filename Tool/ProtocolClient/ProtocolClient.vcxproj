@@ -13,8 +13,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{a3b4c5d6-1e2f-4a5b-9c8d-7e6f5a4b3c2d}</ProjectGuid>
-    <RootNamespace>LoadTestClient</RootNamespace>
+    <ProjectGuid>{78e54b08-2d3c-4ba7-827a-fe3446bc461b}</ProjectGuid>
+    <RootNamespace>ProtocolClient</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -60,8 +60,6 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)3rd\asio\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Tool/LoadTestClient/Src/pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -83,8 +81,6 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)3rd\asio\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Tool/LoadTestClient/Src/pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -96,22 +92,6 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h" />
-    <ClInclude Include="Src\Stats\LatencyHistogram.h" />
-    <ClInclude Include="Src\Stats\StressStats.h" />
-    <ClInclude Include="Src\Session\StressSession.h" />
-    <ClInclude Include="Src\App\StressRunner.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Src\pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="Src\Stats\LatencyHistogram.cpp" />
-    <ClCompile Include="Src\Stats\StressStats.cpp" />
-    <ClCompile Include="Src\Session\StressSession.cpp" />
-    <ClCompile Include="Src\App\StressRunner.cpp" />
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>
   <ItemGroup>

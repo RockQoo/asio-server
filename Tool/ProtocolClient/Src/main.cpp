@@ -63,7 +63,7 @@ namespace
             {
                 if (running.exchange(false))
                 {
-                    std::cout << "[TestClient] 연결 종료: " << ec.message() << '\n';
+                    std::cout << "[ProtocolClient] 연결 종료: " << ec.message() << '\n';
                 }
                 break;
             }
@@ -169,7 +169,7 @@ namespace
 
 int main(const int argc, char** argv)
 {
-    Log::Logger::Instance().Initialize("logs/testclient.log");
+    Log::Logger::Instance().Initialize("logs/protocolclient.log");
 
     try
     {
@@ -181,7 +181,7 @@ int main(const int argc, char** argv)
         asio::ip::tcp::resolver resolver(ioContext);
         asio::connect(socket, resolver.resolve(host, port));
 
-        std::cout << "[TestClient] " << host << ":" << port << " 접속 완료\n";
+        std::cout << "[ProtocolClient] " << host << ":" << port << " 접속 완료\n";
         PrintHelp();
 
         std::atomic<bool> running{true};

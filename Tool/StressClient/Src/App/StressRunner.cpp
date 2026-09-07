@@ -1,12 +1,12 @@
-#include "Tool/LoadTestClient/Src/pch.h"
-#include "Tool/LoadTestClient/Src/App/StressRunner.h"
+#include "Tool/StressClient/Src/pch.h"
+#include "Tool/StressClient/Src/App/StressRunner.h"
 
 #include <algorithm>
 #include <format>
 #include <iostream>
 #include <thread>
 
-namespace Load
+namespace Stress
 {
     namespace
     {
@@ -56,7 +56,7 @@ namespace Load
             if (now - lastPrint >= std::chrono::seconds(5))
             {
                 lastPrint = now;
-                std::cout << "[LoadTestClient] 진행 중... 접속=" << stats_.Connected()
+                std::cout << "[StressClient] 진행 중... 접속=" << stats_.Connected()
                           << "/" << config_.sessionCount << ", 완료=" << stats_.Done()
                           << ", 사이클=" << stats_.CyclesCompleted()
                           << ", 불일치=" << stats_.MismatchTotalCount()
@@ -206,7 +206,7 @@ namespace Load
         logLatency("MailDelRtt", stats_.MailDelRtt());
         logLatency("CycleTotal", stats_.CycleRtt());
 
-        std::cout << "\n========== LoadTestClient 결과 요약 ==========\n"
+        std::cout << "\n========== StressClient 결과 요약 ==========\n"
                   << "시도/접속/완료 세션: " << stats_.Attempted() << " / " << stats_.Connected()
                   << " / " << stats_.Done() << '\n'
                   << "Mail Add 송신/Ack: " << stats_.MailAddSent() << " / " << stats_.MailAddAcked() << '\n'

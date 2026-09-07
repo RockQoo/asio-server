@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Tool/LoadTestClient/Src/Stats/LatencyHistogram.h"
+#include "Tool/StressClient/Src/Stats/LatencyHistogram.h"
 
 #include <atomic>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace Load
+namespace Stress
 {
     // 세션 하나의 Mail Add->Del 사이클 중 하나가 어긋났을 때 남기는 기록. 상한이 있는
     // 벡터에만 쌓는다 -- 1만 세션 전부가 어긋나는 최악의 경우에도 메모리가 안 터지게.

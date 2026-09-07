@@ -1,10 +1,10 @@
-#include "Tool/LoadTestClient/Src/pch.h"
-#include "Tool/LoadTestClient/Src/Stats/LatencyHistogram.h"
+#include "Tool/StressClient/Src/pch.h"
+#include "Tool/StressClient/Src/Stats/LatencyHistogram.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace Load
+namespace Stress
 {
     double LatencyHistogram::AverageUs() const noexcept
     {

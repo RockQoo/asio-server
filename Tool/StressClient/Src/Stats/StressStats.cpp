@@ -1,7 +1,7 @@
-#include "Tool/LoadTestClient/Src/pch.h"
-#include "Tool/LoadTestClient/Src/Stats/StressStats.h"
+#include "Tool/StressClient/Src/pch.h"
+#include "Tool/StressClient/Src/Stats/StressStats.h"
 
-namespace Load
+namespace Stress
 {
     void StressStats::RecordMismatch(const Network::SessionId sessionId, const uint32_t cycleIndex,
                                       const uint32_t expectedMailId, const uint32_t actualMailId, std::string reason)

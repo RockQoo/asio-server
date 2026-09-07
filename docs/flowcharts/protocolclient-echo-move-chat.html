@@ -2,16 +2,16 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>TestClient → Gateway → World → Zone: Echo / Move / Chat 흐름</title>
+<title>ProtocolClient → Gateway → World → Zone: Echo / Move / Chat 흐름</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <div class="page">
     <a class="back-link" href="index.html">&larr; 전체 목록</a>
 
-    <h1>TestClient가 패킷을 보내면 Gateway/World/Zone은 어떻게 동작하나</h1>
+    <h1>ProtocolClient가 패킷을 보내면 Gateway/World/Zone은 어떻게 동작하나</h1>
     <p class="subtitle">
-        예전에는 <code>TestClient</code>가 <code>ZoneServer</code>에 직접 접속했지만, 지금은
+        예전에는 <code>ProtocolClient</code>가 <code>ZoneServer</code>에 직접 접속했지만, 지금은
         <code>GatewayServer</code> → <code>WorldServer</code> → <code>ZoneServer</code> 3계층을
         거친다(<a href="zone-handoff-and-mail.html">존 핸드오프/Mail 다이어그램</a>과 짝을 이루는
         기본 패킷 왕복 경로). 특히 <strong>World와 Zone은 I/O 스레드에서 로직을 처리하지 않는다</strong> --
@@ -24,7 +24,7 @@
     </p>
 
     <div class="legend">
-        <span class="badge client">● TestClient (별도 프로세스)</span>
+        <span class="badge client">● ProtocolClient (별도 프로세스)</span>
         <span class="badge io">● NETWORK / I/O 스레드 (asio strand — 바이트 복사·릴레이만)</span>
         <span class="badge logic">● 워커 스레드 (WorldWorker / LB / BASIC / BROADCAST)</span>
     </div>
@@ -52,7 +52,7 @@
     <h2>1. 클라이언트 → Gateway → World → Zone (도착까지)</h2>
     <div class="flow">
         <div class="step client">
-            <div class="lane">TestClient</div>
+            <div class="lane">ProtocolClient</div>
             <div class="title">echo / move / chat 명령 입력</div>
             <div class="detail">
                 <code>Packet::BuildFrame(packetId, payload)</code>로
@@ -233,7 +233,7 @@
         </div>
         <div class="connector">↓ TCP</div>
         <div class="step client">
-            <div class="lane">TestClient</div>
+            <div class="lane">ProtocolClient</div>
             <div class="title"><code>ReceiveLoop</code> 스레드가 응답 출력</div>
             <div class="detail">
                 <code>[recv] Echo: ...</code> / <code>[recv] Move x=.. y=..</code> /

@@ -6,7 +6,7 @@
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
 #include "Shared/Core/Src/Log/LogProxy.h"
-#include "Tool/LoadTestClient/Src/Log/LogCategory.h"
+#include "Tool/StressClient/Src/Log/LogCategory.h"
 
 #include <array>
 #include <atomic>

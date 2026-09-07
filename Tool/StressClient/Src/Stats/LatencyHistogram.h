@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdint>
 
-namespace Load
+namespace Stress
 {
     // 요청->응답 왕복 지연(RTT)을 마이크로초 단위로 모으는 고정 버킷 히스토그램.
     //

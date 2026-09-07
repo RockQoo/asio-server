@@ -4,7 +4,7 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
-#include "Tool/LoadTestClient/Src/Stats/StressStats.h"
+#include "Tool/StressClient/Src/Stats/StressStats.h"
 
 #include <asio.hpp>
 
@@ -15,7 +15,7 @@
 #include <memory>
 #include <string>
 
-namespace Load
+namespace Stress
 {
     // 시뮬레이션 클라이언트 1개. Network::IPacketHandler를 구현해 자기 전용 Connector로
     // Gateway에 접속하고, EnterZoneNotify를 받으면 MailAdd->MailAddAck->MailDel->MailDelAck

@@ -2,8 +2,8 @@
 
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
-#include "Tool/LoadTestClient/Src/Session/StressSession.h"
-#include "Tool/LoadTestClient/Src/Stats/StressStats.h"
+#include "Tool/StressClient/Src/Session/StressSession.h"
+#include "Tool/StressClient/Src/Stats/StressStats.h"
 
 #include <chrono>
 #include <cstddef>
@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace Load
+namespace Stress
 {
     struct StressConfig
     {

@@ -1,5 +1,5 @@
-#include "Tool/LoadTestClient/Src/pch.h"
-#include "Tool/LoadTestClient/Src/Session/StressSession.h"
+#include "Tool/StressClient/Src/pch.h"
+#include "Tool/StressClient/Src/Session/StressSession.h"
 
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/ZoneServer/Src/Packet/PacketId.h"
@@ -7,7 +7,7 @@
 
 #include <utility>
 
-namespace Load
+namespace Stress
 {
     StressSession::StressSession(const size_t index, asio::io_context& ioContext, std::string host, const uint16_t port,
                                   const uint32_t cyclesTarget, const bool isBroadcaster, StressStats& stats)
