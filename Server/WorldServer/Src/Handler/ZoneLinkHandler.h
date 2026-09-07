@@ -43,6 +43,6 @@ namespace World
         ZoneLinkRegistry& zoneLinkRegistry_;
         Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers_;
         WorldWorker& worldWorker_;
-        Packet::PacketDispatcher<Protocol::PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::PacketDispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

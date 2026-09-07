@@ -27,14 +27,10 @@ namespace World
 
     void ZoneLinkHandler::RegisterHandlers()
     {
-        dispatcher_.Register(Protocol::PacketId::Z2WZoneRegister,
-            [this](const auto& session, const auto payload) { HandleZoneRegister(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::Z2WRelay,
-            [this](const auto& session, const auto payload) { HandleForwardToWorld(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::Z2WZoneTransferRequest,
-            [this](const auto& session, const auto payload) { HandleZoneTransferRequest(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::Z2WUnitOfWorkStream,
-            [this](const auto& session, const auto payload) { HandleUnitOfWorkStream(session, payload); });
+        dispatcher_.Register(PacketId::Z2WZoneRegister, this, &ZoneLinkHandler::HandleZoneRegister);
+        dispatcher_.Register(PacketId::Z2WRelay, this, &ZoneLinkHandler::HandleForwardToWorld);
+        dispatcher_.Register(PacketId::Z2WZoneTransferRequest, this, &ZoneLinkHandler::HandleZoneTransferRequest);
+        dispatcher_.Register(PacketId::Z2WUnitOfWorkStream, this, &ZoneLinkHandler::HandleUnitOfWorkStream);
     }
 
     void ZoneLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
@@ -50,7 +46,7 @@ namespace World
         // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 바이트만 복사해서 WorldWorker로
         // 넘기고, 실제 ClientRegistry/ZoneLinkRegistry 접근(RegisterHandlers로 등록해둔
         // Handle* 메서드들)은 그 스레드에서 일어난다.
-        const auto packetId = static_cast<Protocol::PacketId>(header.id);
+        const auto packetId = static_cast<PacketId>(header.id);
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
         worldWorker_.PostTask([this, session, packetId, payloadCopy = std::move(payloadCopy)]
@@ -108,7 +104,7 @@ namespace World
             return;
         }
 
-        client->gatewaySession->SendPacket(Protocol::PacketId::W2GRelay, payload);
+        client->gatewaySession->SendPacket(PacketId::W2GRelay, payload);
     }
 
     void ZoneLinkHandler::HandleZoneTransferRequest(const std::shared_ptr<Network::Session>& /*zoneSession*/,
@@ -138,7 +134,7 @@ namespace World
 
         clientRegistry_.SetZone(state.clientSessionId, *targetZoneId);
         state.zoneId = *targetZoneId;  // 목표 존으로 덮어써서 그대로 EnterZoneRequest에 재사용
-        targetZoneLink->zoneSession->SendPacket(Protocol::PacketId::W2ZEnterZoneRequest,
+        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZoneRequest,
                                                  std::as_bytes(std::span(&state, 1)));
 
         LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트 재접속 없음)")

@@ -16,7 +16,7 @@ namespace Zone
     }
 
     void BroadcastDispatcher::Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
-                                        const Protocol::PacketId innerPacketId, std::vector<byte> payload)
+                                        const PacketId innerPacketId, std::vector<byte> payload)
     {
         broadcastPool_.GetWorker(zoneId).PostTask(
             [&worldLink = worldLink_, targets = std::move(targets), innerPacketId, payload = std::move(payload)]
@@ -36,7 +36,7 @@ namespace Zone
                     Packet::BinaryWriter writer;
                     writer.Write(header);
                     writer.WriteBytes(payload);
-                    worldSession->SendPacket(Protocol::PacketId::Z2WRelay, writer.GetBuffer());
+                    worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
                 }
             });
     }

@@ -55,13 +55,13 @@ namespace World
     //
     // NoticeRequest(T2W)
     //   requestId(uint32) + String(message)
-    //   -> World가 Zone을 거치지 않고 접속 중 전체 클라이언트에게 Protocol::PacketId::W2CNotice를 직접 보낸다.
+    //   -> World가 Zone을 거치지 않고 접속 중 전체 클라이언트에게 PacketId::W2CNotice를 직접 보낸다.
     //
     // MailSendRequest(T2W)
     //   requestId(uint32) + targetKind(uint8) + clientSessionId(uint64)
     //     + String(title) + String(body) + durationSec(int64)
     //   targetKind: 0 = 접속 중 전체(clientSessionId 무시), 1 = clientSessionId 한 명
-    //   -> 존으로 ForwardToZone(innerPacketId = Protocol::PacketId::C2ZMailAdd) 형태로 "그 클라이언트가
+    //   -> 존으로 ForwardToZone(innerPacketId = PacketId::C2ZMailAdd) 형태로 "그 클라이언트가
     //      직접 보낸 것처럼" 주입한다. 그래서 Zone/Mail 쪽은 코드를 한 줄도 고치지 않아도 되고,
     //      MailAddAck / UnitOfWork(DB 반영) 경로도 평소와 완전히 동일하게 흐른다.
     //

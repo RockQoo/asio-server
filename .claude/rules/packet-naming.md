@@ -141,6 +141,26 @@ enum을 직접 선언하고, 클라이언트 패킷 정의를 "참고용"으로 
 운영툴의 공지/우편은 클라이언트 패킷을 존에 주입하는 방식이지만 그 변환은 전적으로 World의
 `Tool::ToolProcessor`가 하므로, 운영툴은 어떤 클라이언트 패킷으로 바뀌는지 알 필요가 없다.
 
+## 호출부 표기: `PacketId::C2ZMove`
+
+정의는 `namespace Protocol` 안이지만, `PacketId.h` 맨 끝의 `using Protocol::PacketId;`로
+전역에 노출해서 **호출부는 `Protocol::`을 붙이지 않는다**. `Protocol::PacketId::C2ZMove`는
+같은 얘기를 두 번 하는 셈이라(`Protocol` + `PacketId`) 시그니처가 길어질 뿐이었다.
+
+```cpp
+dispatcher_.Register(PacketId::T2WToolHello, this, &ToolProcessor::HandleToolHello);
+void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId, ...);
+```
+
+`ELogCategory`(`Shared/Core/Src/Log/LogCategory.h`)와 같은 방식이다. 다만 `ELogCategory`는
+프로젝트마다 자기 것을 같은 이름으로 노출하는 반면 `PacketId`는 저장소 전체에 하나뿐이라
+이름이 겹칠 여지도 없다.
+
+**`using enum`은 쓰지 않는다.** `using enum Protocol::PacketId;`까지 가면 `T2WToolHello`처럼
+한정자 없이 쓸 수 있지만, 열거자 30여 개가 전역 이름이 되고 이 헤더를 include한 모든 TU가
+그걸 떠안는다. `PacketId::` 한 겹은 "이 값이 패킷 id"라는 표시로 남겨둔다. 타입 안전성은
+어느 쪽이든 그대로다(`enum class`이므로 정수로의 암묵 변환은 계속 막힌다).
+
 ## 캐스팅을 없애는 오버로드
 
 `enum class`라 그대로는 `uint16_t` 자리에 못 넣는데, 호출부마다 `static_cast`를 쓰면 잡음이
@@ -150,7 +170,7 @@ enum을 직접 선언하고, 클라이언트 패킷 정의를 "참고용"으로 
 
 콘텐츠를 아는 쪽(`ZoneWorld::SendToPlayer`/`BroadcastToZone`, `BroadcastDispatcher::Broadcast`,
 `ToolProcessor::InjectClientPacket`, `WorldServerApp::BroadcastToAll`,
-`ZoneWorld::HandleClientPacket`)은 아예 매개변수 타입을 `Protocol::PacketId`로 바꿨다.
+`ZoneWorld::HandleClientPacket`)은 아예 매개변수 타입을 `PacketId`로 바꿨다.
 남은 `static_cast`는 `ClientEnvelopeHeader::innerPacketId`(POD 필드가 `uint16_t`)에 넣는
 두 곳과 로그 출력 한 곳뿐이다.
 

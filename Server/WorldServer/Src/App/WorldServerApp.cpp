@@ -68,7 +68,7 @@ namespace World
         ioPool_.Stop();
     }
 
-    void WorldServerApp::BroadcastToAll(const Protocol::PacketId clientPacketId, const std::span<const byte> payload)
+    void WorldServerApp::BroadcastToAll(const PacketId clientPacketId, const std::span<const byte> payload)
     {
         // 콘솔 REPL 스레드에서 호출되므로(I/O 스레드가 아닌 또 다른 생산자) clientRegistry_를
         // 직접 순회하지 않고 WorldWorker로 넘긴다. payload는 호출자의 지역 버퍼를 가리키므로,
@@ -92,7 +92,7 @@ namespace World
                 Packet::BinaryWriter envelopeWriter;
                 envelopeWriter.Write(header);
                 envelopeWriter.WriteBytes(payloadCopy);
-                info.gatewaySession->SendPacket(Protocol::PacketId::W2GRelay, envelopeWriter.GetBuffer());
+                info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeWriter.GetBuffer());
                 ++sentCount;
             });
 

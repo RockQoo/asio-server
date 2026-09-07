@@ -34,6 +34,6 @@ namespace Gateway
 
         Network::SessionManager& sessionManager_;
         WorldLink& worldLink_;
-        Packet::PacketDispatcher<Protocol::PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::PacketDispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

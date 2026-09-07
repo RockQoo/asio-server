@@ -109,3 +109,10 @@ namespace Protocol
         return rawId >= 1 && rawId < 4000;
     }
 }
+
+// 어디서든 `Protocol::` 없이 `PacketId::T2WToolHello`처럼 바로 쓰기 위한 전역 노출.
+// `ELogCategory`(Shared/Core/Src/Log/LogCategory.h)와 같은 방식이고, 이쪽은 프로젝트를
+// 통틀어 이 enum 하나뿐이라 이름이 겹칠 여지도 없다. `enum class`라 `using enum`이
+// 아니므로 열거자는 여전히 `PacketId::`로 한정해야 하고, 정수로의 암묵 변환도 그대로
+// 막힌다 -- 줄어드는 건 네임스페이스 한 겹뿐이다.
+using Protocol::PacketId;

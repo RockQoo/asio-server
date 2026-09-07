@@ -44,7 +44,7 @@
   **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라
   `authenticatedSessions_`에도 락이 없다. 툴 쪽은 Blazor Web App + Minimal API +
   SqlKata/Microsoft.Data.SqlClient 구성.
-  - **우편은 새 패킷을 만들지 않는다**: 기존 `Protocol::PacketId::C2ZMailAdd`/`C2ZMailDel`을
+  - **우편은 새 패킷을 만들지 않는다**: 기존 `PacketId::C2ZMailAdd`/`C2ZMailDel`을
     `ClientEnvelopeHeader`로 감싸 `W2ZRelay`으로 주입한다. 존 입장에서는 클라이언트가
     직접 보낸 것과 바이트 단위로 구분이 안 되므로, Mail/`UnitOfWork`/DbWorker 경로가 그대로
     재사용된다(운영 전용 우회로를 만들면 "운영툴 우편만 만료가 안 되는" 사고가 난다).

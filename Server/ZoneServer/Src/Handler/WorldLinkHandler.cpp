@@ -44,7 +44,7 @@ namespace Zone
             registerPacket.zoneId = def.zoneId;
             registerPacket.xMin = def.xMin;
             registerPacket.xMax = def.xMax;
-            session->SendPacket(Protocol::PacketId::Z2WZoneRegister,
+            session->SendPacket(PacketId::Z2WZoneRegister,
                                  std::as_bytes(std::span(&registerPacket, 1)));
 
             LOG.Info(ELogCategory::Zone, "World 연결 성공, 존 등록")
@@ -78,15 +78,15 @@ namespace Zone
     void WorldLinkHandler::DecodeAndDispatch(const uint16_t packetId, const std::span<const byte> payload)
     {
         // 여기부터는 LB 스레드. "recv 처리"(패킷 타입 파싱 + 1차 분기)가 여기서 일어난다.
-        switch (static_cast<Protocol::PacketId>(packetId))
+        switch (static_cast<PacketId>(packetId))
         {
-        case Protocol::PacketId::W2ZEnterZoneRequest:
+        case PacketId::W2ZEnterZoneRequest:
             HandleEnterZoneRequest(payload);
             break;
-        case Protocol::PacketId::W2ZLeaveZoneNotify:
+        case PacketId::W2ZLeaveZoneNotify:
             HandleLeaveZoneNotify(payload);
             break;
-        case Protocol::PacketId::W2ZRelay:
+        case PacketId::W2ZRelay:
             HandleForwardToZone(payload);
             break;
         default:
@@ -161,8 +161,8 @@ namespace Zone
             return;
         }
 
-        const auto innerPacketId = static_cast<Protocol::PacketId>(header.innerPacketId);
-        if (innerPacketId == Protocol::PacketId::C2ZEcho)
+        const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
+        if (innerPacketId == PacketId::C2ZEcho)
         {
             // 공유 게임 상태가 필요 없으니 BASIC까지 안 가고 이 LB 스레드에서 바로 되돌려
             // 보낸다 -- ZoneWorld::HandleClientPacket으로 넘기지 않는 유일한 예외.
@@ -171,12 +171,12 @@ namespace Zone
                 // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과
                 // 응답이 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
                 World::ClientEnvelopeHeader replyHeader = header;
-                replyHeader.innerPacketId = static_cast<uint16_t>(Protocol::PacketId::Z2CEchoAck);
+                replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
 
                 Packet::BinaryWriter writer;
                 writer.Write(replyHeader);
                 writer.WriteBytes(innerPayload);
-                worldSession->SendPacket(Protocol::PacketId::Z2WRelay, writer.GetBuffer());
+                worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
             }
             return;
         }

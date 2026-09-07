@@ -22,7 +22,7 @@ namespace Mail
             Packet::BinaryWriter writer;
             writer.Write(playerId);
             writer.WriteBytes(serialized);
-            worldSession->SendPacket(Protocol::PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
+            worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
         });
     }
 }

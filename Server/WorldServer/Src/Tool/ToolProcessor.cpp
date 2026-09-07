@@ -59,18 +59,12 @@ namespace World
 
     void ToolProcessor::RegisterHandlers()
     {
-        dispatcher_.Register(Protocol::PacketId::T2WToolHello,
-            [this](const auto& session, const auto payload) { HandleToolHello(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::T2WNoticeRequest,
-            [this](const auto& session, const auto payload) { HandleNoticeRequest(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::T2WMailSendRequest,
-            [this](const auto& session, const auto payload) { HandleMailSendRequest(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::T2WMailDeleteRequest,
-            [this](const auto& session, const auto payload) { HandleMailDeleteRequest(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::T2WCouponChunkPush,
-            [this](const auto& session, const auto payload) { HandleCouponChunkPush(session, payload); });
-        dispatcher_.Register(Protocol::PacketId::T2WClientListRequest,
-            [this](const auto& session, const auto payload) { HandleClientListRequest(session, payload); });
+        dispatcher_.Register(PacketId::T2WToolHello, this, &ToolProcessor::HandleToolHello);
+        dispatcher_.Register(PacketId::T2WNoticeRequest, this, &ToolProcessor::HandleNoticeRequest);
+        dispatcher_.Register(PacketId::T2WMailSendRequest, this, &ToolProcessor::HandleMailSendRequest);
+        dispatcher_.Register(PacketId::T2WMailDeleteRequest, this, &ToolProcessor::HandleMailDeleteRequest);
+        dispatcher_.Register(PacketId::T2WCouponChunkPush, this, &ToolProcessor::HandleCouponChunkPush);
+        dispatcher_.Register(PacketId::T2WClientListRequest, this, &ToolProcessor::HandleClientListRequest);
     }
 
     void ToolProcessor::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
@@ -85,14 +79,14 @@ namespace World
     {
         // 여기는 이 연결의 I/O 스레드다. GatewayLinkHandler/ZoneLinkHandler와 동일하게 바이트만
         // 복사해서 WorldWorker로 넘기고, 실제 레지스트리 접근은 그 스레드에서 한다.
-        const auto packetId = static_cast<Protocol::PacketId>(header.id);
+        const auto packetId = static_cast<PacketId>(header.id);
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
         worldWorker_.PostTask([this, session, packetId, payloadCopy = std::move(payloadCopy)]
         {
             // ToolHello 이전에는 어떤 요청도 받지 않는다. requestId는 모든 요청 페이로드의 맨
             // 앞 4바이트로 고정이라, 본문 파싱 없이도 여기서 꺼내 거절 응답에 실을 수 있다.
-            if (packetId != Protocol::PacketId::T2WToolHello && !IsAuthenticated(session->Id()))
+            if (packetId != PacketId::T2WToolHello && !IsAuthenticated(session->Id()))
             {
                 uint32_t requestId = 0;
                 Packet::BinaryReader reader(payloadCopy);
@@ -130,11 +124,11 @@ namespace World
         ack.requestId = requestId;
         ack.resultCode = static_cast<uint16_t>(resultCode);
         ack.affectedCount = affectedCount;
-        toolSession->SendPacket(Protocol::PacketId::W2TToolCommandAck,
+        toolSession->SendPacket(PacketId::W2TToolCommandAck,
                                 std::as_bytes(std::span(&ack, 1)));
     }
 
-    bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId, const Protocol::PacketId innerPacketId,
+    bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                                             const std::span<const byte> innerPayload) const
     {
         const auto client = clientRegistry_.Find(clientSessionId);
@@ -159,7 +153,7 @@ namespace World
         Packet::BinaryWriter writer;
         writer.Write(envelopeHeader);
         writer.WriteBytes(innerPayload);
-        zoneLink->zoneSession->SendPacket(Protocol::PacketId::W2ZRelay, writer.GetBuffer());
+        zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, writer.GetBuffer());
         return true;
     }
 
@@ -202,7 +196,7 @@ namespace World
         ack.requestId = requestId;
         ack.accepted = accepted ? uint8_t{1} : uint8_t{0};
         ack.protocolVersion = kToolLinkProtocolVersion;
-        toolSession->SendPacket(Protocol::PacketId::W2TToolHelloAck,
+        toolSession->SendPacket(PacketId::W2TToolHelloAck,
                                 std::as_bytes(std::span(&ack, 1)));
 
         if (!accepted)
@@ -241,12 +235,12 @@ namespace World
 
             ClientEnvelopeHeader envelopeHeader{};
             envelopeHeader.clientSessionId = clientSessionId;
-            envelopeHeader.innerPacketId = static_cast<uint16_t>(Protocol::PacketId::W2CNotice);
+            envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
 
             Packet::BinaryWriter envelopeWriter;
             envelopeWriter.Write(envelopeHeader);
             envelopeWriter.WriteBytes(noticePayload);
-            info.gatewaySession->SendPacket(Protocol::PacketId::W2GRelay,
+            info.gatewaySession->SendPacket(PacketId::W2GRelay,
                                             envelopeWriter.GetBuffer());
             ++sentCount;
         });
@@ -302,7 +296,7 @@ namespace World
             uint32_t sentCount = 0;
             for (const auto target : targets)
             {
-                if (InjectClientPacket(target, Protocol::PacketId::C2ZMailAdd, mailPayload))
+                if (InjectClientPacket(target, PacketId::C2ZMailAdd, mailPayload))
                 {
                     ++sentCount;
                 }
@@ -329,7 +323,7 @@ namespace World
             return;
         }
 
-        if (!InjectClientPacket(clientSessionId, Protocol::PacketId::C2ZMailAdd, mailPayload))
+        if (!InjectClientPacket(clientSessionId, PacketId::C2ZMailAdd, mailPayload))
         {
             SendCommandAck(toolSession, requestId, EToolResultCode::ZoneUnavailable, 0);
             return;
@@ -363,7 +357,7 @@ namespace World
         Packet::BinaryWriter mailWriter;
         mailWriter.Write(request.mailId);
 
-        if (!InjectClientPacket(request.clientSessionId, Protocol::PacketId::C2ZMailDel,
+        if (!InjectClientPacket(request.clientSessionId, PacketId::C2ZMailDel,
                                 mailWriter.GetBuffer()))
         {
             SendCommandAck(toolSession, request.requestId, EToolResultCode::ZoneUnavailable, 0);
@@ -464,7 +458,7 @@ namespace World
             writer.Write(entry);
         }
 
-        toolSession->SendPacket(Protocol::PacketId::W2TClientListReply, writer.GetBuffer());
+        toolSession->SendPacket(PacketId::W2TClientListReply, writer.GetBuffer());
 
         LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
             .KV("RequestId", request.requestId).KV("Total", clientRegistry_.Count())

@@ -22,7 +22,7 @@ namespace Zone
         BroadcastDispatcher(Thread::AffinityWorkerPool<TaskWorker>& broadcastPool, WorldLink& worldLink);
 
         void Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
-                       const Protocol::PacketId innerPacketId, std::vector<byte> payload);
+                       const PacketId innerPacketId, std::vector<byte> payload);
 
     private:
         Thread::AffinityWorkerPool<TaskWorker>& broadcastPool_;

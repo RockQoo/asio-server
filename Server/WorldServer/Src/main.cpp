@@ -38,7 +38,7 @@ namespace
 
                 Packet::BinaryWriter writer;
                 writer.WriteString(message);
-                app.BroadcastToAll(Protocol::PacketId::W2CNotice, writer.GetBuffer());
+                app.BroadcastToAll(PacketId::W2CNotice, writer.GetBuffer());
                 std::cout << "[notice 전송] " << message << "\n";
             }
             else if (command == "quit" || command == "exit")
