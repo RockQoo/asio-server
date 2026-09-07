@@ -3,6 +3,7 @@
 
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Core/Src/Task/UnitOfWork.h"
+#include "Shared/Protocol/Src/TaskKind.h"
 
 namespace Mail
 {
@@ -16,7 +17,8 @@ namespace Mail
         writer.WriteString(info.body);
         writer.Write(info.sendUt);
         writer.Write(info.endUt);
-        unitOfWork.RecordTask(static_cast<uint16_t>(MailTaskKind::Added), writer.GetBuffer());
+        unitOfWork.RecordTask(Protocol::MakeTaskKind(Protocol::ETaskCategory::Mail, Protocol::EMailTask::Added),
+                              writer.GetBuffer());
 
         const auto mailId = info.mailId;
         mails_[mailId] = std::move(info);
@@ -37,7 +39,8 @@ namespace Mail
         writer.WriteString(it->second.body);
         writer.Write(it->second.sendUt);
         writer.Write(it->second.endUt);
-        unitOfWork.RecordTask(static_cast<uint16_t>(MailTaskKind::Removed), writer.GetBuffer());
+        unitOfWork.RecordTask(Protocol::MakeTaskKind(Protocol::ETaskCategory::Mail, Protocol::EMailTask::Removed),
+                              writer.GetBuffer());
 
         mails_.erase(it);
         return true;

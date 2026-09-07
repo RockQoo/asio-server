@@ -101,6 +101,8 @@
     <ClInclude Include="Src\Packet\RelayEnvelope.h" />
     <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
     <ClInclude Include="Src\Packet\ToolResultCode.h" />
+    <ClInclude Include="..\..\Shared\Protocol\Src\ErrorCode.h" />
+    <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
     <ClInclude Include="Src\Tool\ToolProcessor.h" />

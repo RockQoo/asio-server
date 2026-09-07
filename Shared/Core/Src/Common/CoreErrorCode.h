@@ -4,7 +4,7 @@ namespace Common
 {
     // 앞으로 종류가 계속 늘어날 걸 감안해 int32_t로 넉넉하게 잡는다 (원소가 적은 일반 enum은
     // uint8_t가 기본이지만, 에러 코드는 예외로 둔다).
-    enum class EErrorCode : int32_t
+    enum class ECoreErrorCode : int32_t
     {
         Success = 0,
 

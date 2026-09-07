@@ -5,16 +5,51 @@
 #include "Server/WorldServer/Src/Worker/WorldWorker.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace World
 {
+    namespace
+    {
+        // Mail 카테고리 태스크 하나를 DB에 반영한다. DbWorker 스레드에서 불린다 --
+        // owner-hash로 같은 플레이어는 항상 같은 스레드라 순서가 보장되고 락이 없다.
+        void ApplyMailTask(const Protocol::EMailTask subTask, const uint64_t ownerId, const uint32_t playerId,
+                           const std::span<const byte> taskPayload)
+        {
+            Packet::BinaryReader reader(taskPayload);
+            uint32_t mailId{};
+            std::string title;
+            std::string body;
+            int64_t sendUt{};
+            int64_t endUt{};
+            if (!reader.Read(mailId) || !reader.ReadString(title) || !reader.ReadString(body)
+                || !reader.Read(sendUt) || !reader.Read(endUt))
+            {
+                return;
+            }
+
+            // TODO: 실제로는 여기서 DB에 INSERT/DELETE 쿼리(SP)를 실행한다(Docker DB 연동 후
+            // 구현 예정). 지금은 DB 워커 스레드가 owner-hash로 순서대로 태스크를 처리한다는
+            // 구조만 보여준다.
+            // Debug 레벨 -- 부하 테스트처럼 세션/사이클 수가 많으면 태스크 1건마다 Info로 찍을
+            // 경우 로그 I/O 자체가 병목이 되어 "락 경합으로 인한 정체"와 구분이 안 된다. 기본
+            // 실행(main.cpp의 Logger::Initialize)은 Info 레벨이라 평소엔 파일에 안 쌓이고,
+            // 필요할 때만 Debug로 켜서 본다.
+            LOG.Debug(ELogCategory::Db, "Mail 태스크 처리 (DB 반영은 TODO)")
+                .KV("OwnerId", ownerId).KV("PlayerId", playerId)
+                .KV("SubTask", subTask == Protocol::EMailTask::Added ? "Added" : "Removed")
+                .KV("MailId", mailId).KV("Title", title);
+        }
+    }
+
     ZoneLinkHandler::ZoneLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry& zoneLinkRegistry,
                                       Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers, WorldWorker& worldWorker)
         : clientRegistry_(clientRegistry)
@@ -194,31 +229,23 @@ namespace World
                         break;
                     }
 
-                    // 지금은 Mail 태스크(kind 0=Added/1=Removed)만 있다 -- 새 콘텐츠 태스크가
-                    // 추가되면 kind별 분기만 늘어난다(이 레이어는 그 의미를 몰라도 되는 게
-                    // Task::UnitOfWork를 Core로 올린 이유다).
-                    Packet::BinaryReader mailReader(*taskPayload);
-                    uint32_t mailId{};
-                    std::string title;
-                    std::string body;
-                    int64_t sendUt{};
-                    int64_t endUt{};
-                    if (!mailReader.Read(mailId) || !mailReader.ReadString(title) || !mailReader.ReadString(body)
-                        || !mailReader.Read(sendUt) || !mailReader.Read(endUt))
+                    // taskKind는 "상위 8비트 = 콘텐츠 카테고리 / 하위 8비트 = 세부 동작"이라
+                    // (Shared/Protocol/Src/TaskKind.h) 여기서 2단으로 분기한다. 콘텐츠가 늘면
+                    // case가 하나씩 붙을 뿐, 태스크를 실어 나르는 Task::UnitOfWork(Core)는
+                    // 여전히 이 의미를 몰라도 된다.
+                    switch (Protocol::CategoryOf(kind))
                     {
-                        continue;
+                    case Protocol::ETaskCategory::Mail:
+                        ApplyMailTask(static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind)),
+                                      ownerId, playerId, *taskPayload);
+                        break;
+                    default:
+                        // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면
+                        // 나머지 태스크는 정상 처리된다.
+                        LOG.Warning(ELogCategory::Db, "알 수 없는 UnitOfWork 태스크 카테고리")
+                            .KV("OwnerId", ownerId).KV("TaskKind", kind);
+                        break;
                     }
-
-                    // TODO: 실제로는 여기서 DB에 INSERT/DELETE 쿼리를 실행한다(Docker DB 연동 후
-                    // 구현 예정). 지금은 DB 워커 스레드가 owner-hash로 순서대로 태스크를
-                    // 처리한다는 구조만 보여준다.
-                    // Debug 레벨 -- 부하 테스트처럼 세션/사이클 수가 많으면 태스크 1건마다
-                    // Info로 찍을 경우 로그 I/O 자체가 병목이 되어 "락 경합으로 인한 정체"와
-                    // 구분이 안 된다. 기본 실행(main.cpp의 Logger::Initialize)은 Info 레벨이라
-                    // 평소엔 파일에 안 쌓이고, 필요할 때만 Debug로 켜서 본다.
-                    LOG.Debug(ELogCategory::Db, "UnitOfWork 태스크 처리 (DB 반영은 TODO)")
-                        .KV("OwnerId", ownerId).KV("PlayerId", playerId)
-                        .KV("Kind", kind == 0 ? "Add" : "Del").KV("MailId", mailId).KV("Title", title);
                 }
             });
     }

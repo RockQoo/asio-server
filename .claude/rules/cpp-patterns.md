@@ -98,7 +98,7 @@ template <typename E> requires std::is_enum_v<E>
 ## `enum`은 항상 `enum class` + underlying type 명시
 
 일반 enum 금지. **원소 적은 enum은 `uint8_t`가 기본**(`Log::ELogLevel`), **에러 코드처럼 계속
-늘어나는 enum은 `int32_t`**(`Common::EErrorCode`, `uint8_t`는 256개로 부족).
+늘어나는 enum은 `int32_t`**(`Common::ECoreErrorCode`/`Protocol::EErrorCode`, `uint8_t`는 256개로 부족).
 
 ## `int` 대신 `int32_t`/`int64_t`
 
@@ -106,12 +106,24 @@ template <typename E> requires std::is_enum_v<E>
 `main(const int argc, ...)`, asio 콜백처럼 언어/라이브러리가 정확히 `int`를 강제하는 자리는
 그대로 둔다.
 
-## 에러는 문자열이 아니라 `Common::EErrorCode`로 식별
+## 에러는 문자열이 아니라 에러 코드로 식별 (Core용/콘텐츠용 두 개)
 
-`Common::ErrorCode.h`(`EErrorCode : int32_t`)와 `Common::CoreException`(`: std::runtime_error`,
-메시지+`EErrorCode`를 함께 들고 다님, `.Code()`로 조회)을 쓴다. 문자열(`ex.what()`) 파싱으로
-에러 종류를 구분하지 않는다 — 검증 실패는 `throw CoreException(EErrorCode::Xxx, "메시지")`.
-새 에러 조건은 `EErrorCode`에 **항상 맨 뒤에 추가**(기존 값 정수가 바뀌면 과거 로그와 어긋남).
+에러 코드 enum이 **두 개**이고, 서로 섞어 쓰지 않는다:
+
+| enum | 위치 | 무엇 | 누가 보나 |
+|------|------|------|-----------|
+| `Common::ECoreErrorCode` | `Shared/Core/Src/Common/CoreErrorCode.h` | 프레이밍/인자 검증 실패(`PacketTooLarge`, `InvalidArgument`) | Core 내부. 밖으로 안 나감 |
+| `Protocol::EErrorCode` | `Shared/Protocol/Src/ErrorCode.h` | 콘텐츠 처리 실패(`MailNotFound` 등) | Zone이 판정, 클라이언트가 표시 |
+
+**콘텐츠 에러를 Core에 추가하지 않는다** — Core는 콘텐츠를 모르는 정적 라이브러리라,
+에러가 하나 늘 때마다 `Core.lib`과 그걸 참조하는 실행 파일 전부가 다시 빌드된다
+(`ELogCategory`를 프로젝트별로 나눈 것과 같은 이유). `Protocol::EErrorCode`는 클라이언트와
+공유하는 계약이라 `PacketId`와 같은 곳에 있고, 콘텐츠별 100 단위 대역을 쓴다.
+
+`Common::CoreException`(`: std::runtime_error`, 메시지+`ECoreErrorCode`를 함께 들고 다님,
+`.Code()`로 조회)과 함께 쓴다. 문자열(`ex.what()`) 파싱으로 에러 종류를 구분하지 않는다 —
+검증 실패는 `throw CoreException(ECoreErrorCode::Xxx, "메시지")`. 새 에러 조건은 **자기 대역
+맨 뒤에 추가**(기존 값 정수가 바뀌면 과거 로그와 어긋남).
 asio의 `std::error_code`/`std::system_error`(네트워크 계층)는 이미 코드 기반이라 대상 아님.
 
 ## 로그는 `std::cout`/`std::cerr` 대신 `LOG`
@@ -161,5 +173,5 @@ message`(값)였지만 생성자 안에서 즉시 `std::format`으로 소비되�
 `std::string_view`로 바꿔 복사를 없앴다. `ZoneInstance::OnChat`도 같은 이유로 `const
 std::string_view message`로 바꾸고 호출부의 불필요한 `std::move`도 제거했다. **판단 기준**:
 "본문에서 이 매개변수를 다른 곳(멤버/컨테이너/다른 스레드로 가는 캡처)에 진짜 move하는가?" —
-그렇다면 sink라 by-value가 맞고(`CoreException(EErrorCode, std::string message)`처럼),
+그렇다면 sink라 by-value가 맞고(`CoreException(ECoreErrorCode, std::string message)`처럼),
 아니면 `string_view`/`const T&`/`span<const T>`를 쓴다.

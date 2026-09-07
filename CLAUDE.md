@@ -70,7 +70,7 @@ C:\Work\asio-server\
 │   ├── Core/                         게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
 │   │   └── Src/
 │   │       ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
-│   │       ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, ErrorCode.h, CoreException.h
+│   │       ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, CoreErrorCode.h, CoreException.h
 │   │       ├── Packet/               PacketHeader/Buffer/Framer, BinaryWriter/Reader,
 │   │       │                         PacketDispatcher<TId,TContext>
 │   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
@@ -79,8 +79,11 @@ C:\Work\asio-server\
 │   │       ├── Timer/                RepeatingTimer
 │   │       ├── Threading/Synchronized.h  shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
 │   │       └── Task/UnitOfWork.h     범용 Unit-of-Work(taskKind+직렬화 바이트만 다룸)
-│   └── Protocol/Src/PacketId.h   모든 패킷 id 하나로 통합(Protocol::PacketId).
-│                                 규약: .claude/rules/packet-naming.md
+│   └── Protocol/Src/             Zone/World/클라이언트가 공유하는 계약(전부 헤더 전용)
+│       ├── PacketId.h            모든 패킷 id 하나로 통합(Protocol::PacketId).
+│       │                         규약: .claude/rules/packet-naming.md
+│       ├── ErrorCode.h           콘텐츠 처리 결과 코드(Protocol::EErrorCode, 콘텐츠별 100 단위)
+│       └── TaskKind.h            UnitOfWork taskKind 인코딩(상위 8비트 카테고리 + 하위 8비트 동작)
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
 │   ├── WorldServer/                  WorldWorker(단일 처리 스레드) 라우팅 + DB 워커 풀 (실행 파일)

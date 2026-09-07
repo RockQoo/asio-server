@@ -32,7 +32,7 @@ namespace Packet
 
         if (header.bodySize > PacketHeader::MaxBodySize())
         {
-            throw Common::CoreException(Common::EErrorCode::PacketTooLarge,
+            throw Common::CoreException(Common::ECoreErrorCode::PacketTooLarge,
                                          "PacketBuffer: 본문 크기가 MaxBodySize를 초과하여 연결을 종료한다");
         }
 

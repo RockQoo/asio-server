@@ -9,7 +9,7 @@ namespace Network
     {
         if (size == 0)
         {
-            throw Common::CoreException(Common::EErrorCode::InvalidArgument,
+            throw Common::CoreException(Common::ECoreErrorCode::InvalidArgument,
                                          "IoContextPool: size는 0보다 커야 한다");
         }
 

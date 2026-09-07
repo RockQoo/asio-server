@@ -23,14 +23,9 @@ namespace Mail
         int64_t endUt{};
     };
 
-    // Task::UnitOfWork::RecordTask에 넘기는 taskKind 값 -- Mail 콘텐츠가 정의하는 값이라
-    // Core는 이 enum을 모른다. WorldServer의 HandleUnitOfWorkStream이 이 값으로 각 태스크가
-    // 추가인지 삭제인지 구분해서 읽는다.
-    enum class MailTaskKind : uint8_t
-    {
-        Added = 0,
-        Removed = 1,
-    };
+    // taskKind 값은 Protocol::MakeTaskKind(ETaskCategory::Mail, EMailTask::Xxx)로 만든다
+    // (Shared/Protocol/Src/TaskKind.h). Zone에서 기록하고 World가 DB에 반영하는, 두 프로세스가
+    // 공유하는 값이라 ZoneServer 안에 둘 수 없다.
 
     // 플레이어 한 명의 우편함. 상태를 직접 바꾸고 끝내지 않고, 바뀐 내용을 Task::UnitOfWork에
     // 기록만 한다(Unit-of-Work) -- 실제 World 전송은 UnitOfWork가 스코프를 벗어날 때 한 번에

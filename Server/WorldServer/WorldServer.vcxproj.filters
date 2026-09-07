@@ -40,6 +40,12 @@
     <ClInclude Include="Src\Packet\ToolResultCode.h">
       <Filter>Packet</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Shared\Protocol\Src\ErrorCode.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h">
       <Filter>Packet</Filter>
     </ClInclude>
