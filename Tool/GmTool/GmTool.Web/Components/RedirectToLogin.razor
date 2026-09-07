@@ -1,0 +1,14 @@
+@inject NavigationManager Navigation
+
+@code {
+    // 미인증 접근을 로그인 페이지로 돌린다. 원래 가려던 주소를 returnUrl로 실어서
+    // 로그인 후 그 자리로 돌아가게 한다 -- 안 그러면 매번 대시보드로 튕겨서
+    // 북마크한 화면을 열 수 없다.
+    protected override void OnInitialized()
+    {
+        var returnUrl = Uri.EscapeDataString(
+            Navigation.ToBaseRelativePath(Navigation.Uri));
+
+        Navigation.NavigateTo($"login?returnUrl={returnUrl}", forceLoad: true);
+    }
+}

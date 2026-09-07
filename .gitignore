@@ -451,3 +451,9 @@ FodyWeavers.xsd
 # 로컬 전용 문서
 /docs/*.local.html
 /docs/local/
+
+# GmTool(운영툴) 런타임 산출물 -- 쿠폰 스풀 파일은 수십 MB까지 커지고,
+# 발급할 때마다 새로 생기므로 커밋 대상이 아니다.
+/Tool/GmTool/GmTool.Web/spool/
+/Tool/GmTool/GmTool.Web/logs/
+/Tool/GmTool/**/appsettings.Local.json

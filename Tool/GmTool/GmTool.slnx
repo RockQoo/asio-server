@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GmTool.Core/GmTool.Core.csproj" />
+  <Project Path="GmTool.Tests/GmTool.Tests.csproj" />
+  <Project Path="GmTool.Web/GmTool.Web.csproj" />
+</Solution>

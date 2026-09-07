@@ -1,0 +1,221 @@
+@page "/coupon/issue"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using System.Security.Claims
+@inject CouponIssueService Coupons
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>쿠폰 대량 발급 · GmTool</PageTitle>
+
+<h1>쿠폰 대량 발급</h1>
+
+<div class="alert alert-light border">
+    <strong>발급 경로</strong>
+    <ol class="mb-0 mt-2">
+        <li>이 프로세스 메모리에서 CSPRNG로 코드를 생성하고 <code>HashSet</code>으로 중복 검사
+            (검사 범위는 이 캠페인뿐)</li>
+        <li>스풀 파일에 먼저 append — 중간에 죽어도 생성분이 남는다</li>
+        <li>청크(@chunkSizeText)마다 MySQL <code>INSERT IGNORE</code> 벌크 (한 트랜잭션)</li>
+        <li>DB 적재 성공 후 스풀 <code>fsync</code> + 오프셋 기록 → 재개 지점 확정</li>
+        <li>(옵션) 같은 청크를 WorldServer <code>CouponChunkPush</code>로 전송 → <code>DbWorker</code>가
+            캠페인별로 순서대로 처리</li>
+    </ol>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageOk ? "alert-success" : "alert-danger")">@message</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">캠페인</label>
+                <select class="form-select" @bind="selectedCode">
+                    <option value="">선택하세요</option>
+                    @foreach (var campaign in campaigns)
+                    {
+                        <option value="@campaign.CampaignCode">
+                            @campaign.CampaignCode — @campaign.CampaignName (@campaign.IssuedCount.ToString("N0")장)
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">발급 개수</label>
+                <input class="form-control" type="number" min="1" max="5000000" @bind="issueCount" />
+            </div>
+
+            <div class="col-md-5">
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => issueCount = 10">10</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => issueCount = 1000">1천</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => issueCount = 100000">10만</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => issueCount = 1000000">100만</button>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary mt-3" disabled="@(busy || string.IsNullOrEmpty(selectedCode))"
+                @onclick="IssueAsync">
+            @(busy ? "발급 중…" : "발급 시작")
+        </button>
+
+        @if (busy && progress is { } p)
+        {
+            var percent = p.RequestedCount == 0 ? 0 : (int)(p.GeneratedCount * 100 / p.RequestedCount);
+            <div class="progress mt-3" style="height: 1.2rem;">
+                <div class="progress-bar" role="progressbar" style="width:@(percent)%">@percent%</div>
+            </div>
+            <p class="text-muted small mt-1">
+                @p.GeneratedCount.ToString("N0") / @p.RequestedCount.ToString("N0") 장 ·
+                청크 @p.ChunkSeq · @p.ElapsedMilliseconds.ToString("N0") ms
+            </p>
+        }
+    </div>
+</div>
+
+@if (summary is { } s)
+{
+    <div class="card mb-4 border-success">
+        <div class="card-body">
+            <h5 class="card-title">발급 결과 (배치 #@s.BatchId)</h5>
+            <table class="table table-sm mb-2" style="max-width: 32rem;">
+                <tbody>
+                    <tr><th>캠페인</th><td><code>@s.CampaignCode</code></td></tr>
+                    <tr><th>요청 / 생성</th><td>@s.Requested.ToString("N0") / @s.Generated.ToString("N0") 장</td></tr>
+                    <tr><th>DB 적재</th><td>@s.Inserted.ToString("N0") 장</td></tr>
+                    <tr><th>중복 재시도</th><td>@s.DuplicateRejected.ToString("N0") 회</td></tr>
+                    <tr><th>청크 수</th><td>@s.ChunkCount.ToString("N0")</td></tr>
+                    <tr><th>소요 시간</th><td>@s.ElapsedMs.ToString("N0") ms (@s.CodesPerSecond.ToString("N0") 장/초)</td></tr>
+                    <tr><th>스풀 파일</th><td><code>@s.SpoolPath</code></td></tr>
+                </tbody>
+            </table>
+            <a class="btn btn-sm btn-outline-primary" href="/api/coupon/download/@s.CampaignCode" target="_blank">
+                CSV 다운로드 (API 토큰 필요)
+            </a>
+        </div>
+    </div>
+}
+
+<h2>최근 발급 배치</h2>
+@if (batches.Count == 0)
+{
+    <p class="text-muted">아직 발급 이력이 없습니다.</p>
+}
+else
+{
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>캠페인</th>
+                <th class="text-end">요청</th>
+                <th class="text-end">생성</th>
+                <th class="text-end">적재</th>
+                <th class="text-end">중복</th>
+                <th class="text-end">소요</th>
+                <th>상태</th>
+                <th>시각</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var batch in batches)
+            {
+                <tr>
+                    <td>@batch.BatchId</td>
+                    <td><code>@batch.CampaignCode</code></td>
+                    <td class="text-end">@batch.RequestedCount.ToString("N0")</td>
+                    <td class="text-end">@batch.GeneratedCount.ToString("N0")</td>
+                    <td class="text-end">@batch.InsertedCount.ToString("N0")</td>
+                    <td class="text-end">@batch.DuplicateCount.ToString("N0")</td>
+                    <td class="text-end">@batch.ElapsedMs.ToString("N0") ms</td>
+                    <td>
+                        @if (batch.Status == "Completed")
+                        {
+                            <span class="text-success">완료</span>
+                        }
+                        else if (batch.Status == "Failed")
+                        {
+                            <span class="text-danger" title="@batch.ErrorMessage">실패</span>
+                        }
+                        else
+                        {
+                            <span class="text-warning">진행 중</span>
+                        }
+                    </td>
+                    <td>@batch.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<CouponCampaign> campaigns = [];
+    private IReadOnlyList<CouponIssueBatch> batches = [];
+
+    private string selectedCode = string.Empty;
+    private long issueCount = 1000;
+
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private CouponIssueSummary? summary;
+    private CouponBatchProgress? progress;
+
+    private ulong operatorId;
+
+    private string chunkSizeText = "1만";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _ = ulong.TryParse(state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out operatorId);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        campaigns = await Coupons.ListCampaignsAsync();
+        batches = await Coupons.ListBatchesAsync(15);
+    }
+
+    private async Task IssueAsync()
+    {
+        busy = true;
+        message = null;
+        summary = null;
+        progress = null;
+
+        // IProgress 콜백은 발급을 돌리는 스레드에서 호출되므로, UI를 건드리기 전에
+        // InvokeAsync로 Blazor의 렌더 컨텍스트로 넘겨야 한다.
+        var reporter = new Progress<CouponBatchProgress>(p =>
+        {
+            progress = p;
+            _ = InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            summary = await Coupons.IssueAsync(selectedCode, issueCount, operatorId, reporter);
+            messageOk = true;
+            message = $"발급 완료: {summary.Generated:N0}장 / {summary.ElapsedMs:N0}ms "
+                    + $"({summary.CodesPerSecond:N0}장/초)";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = $"발급 실패: {ex.Message}";
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+            progress = null;
+        }
+    }
+}

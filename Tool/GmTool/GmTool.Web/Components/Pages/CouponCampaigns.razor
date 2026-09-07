@@ -1,0 +1,230 @@
+@page "/coupon/campaigns"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using System.Security.Claims
+@inject CouponIssueService Coupons
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>쿠폰 캠페인 · GmTool</PageTitle>
+
+<h1>쿠폰 캠페인</h1>
+<p class="text-muted">
+    캠페인 코드 5자리가 쿠폰 번호의 <strong>네임스페이스</strong>입니다. 전역 유일성을 검사하는
+    대상은 이 5자리뿐이고, 그 아래 수십만~수백만 장의 쿠폰은 캠페인 전용 테이블
+    (<code>coupon_&lt;코드&gt;</code>) 안에서만 유일하면 됩니다.
+</p>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageOk ? "alert-success" : "alert-danger")">@message</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">새 캠페인 등록</h5>
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">캠페인 코드(5자)</label>
+                <div class="input-group">
+                    <input class="form-control text-uppercase" maxlength="5" @bind="draftCode" />
+                    <button class="btn btn-outline-secondary" @onclick="SuggestCodeAsync">추천</button>
+                </div>
+                <div class="form-text">Crockford Base32 (I, L, O, U 제외)</div>
+            </div>
+
+            <div class="col-md-5">
+                <label class="form-label">캠페인 이름</label>
+                <input class="form-control" @bind="draftName" maxlength="128" />
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">사용 횟수</label>
+                <input class="form-control" type="number" min="0" @bind="draftMaxUse" />
+                <div class="form-text">0 = 무제한</div>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">발급 후 유효일</label>
+                <input class="form-control" type="number" min="0" @bind="draftValidDays" />
+                <div class="form-text">0 = 미사용</div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">보상 우편 제목</label>
+                <input class="form-control" @bind="draftRewardTitle" maxlength="128" />
+            </div>
+
+            <div class="col-md-5">
+                <label class="form-label">보상 우편 본문</label>
+                <input class="form-control" @bind="draftRewardBody" maxlength="1024" />
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">보상 우편 유효기간(초)</label>
+                <input class="form-control" type="number" min="1" @bind="draftRewardDuration" />
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">절대 유효기간 시작</label>
+                <input class="form-control" type="datetime-local" @bind="draftValidFrom" />
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">절대 유효기간 종료</label>
+                <input class="form-control" type="datetime-local" @bind="draftValidTo" />
+                <div class="form-text">상대 유효일과 함께 두면 더 이른 쪽이 만료 시점</div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary mt-3" disabled="@busy" @onclick="CreateAsync">
+            @(busy ? "등록 중…" : "캠페인 등록 (전용 테이블 생성)")
+        </button>
+    </div>
+</div>
+
+<h2>등록된 캠페인</h2>
+@if (campaigns.Count == 0)
+{
+    <p class="text-muted">아직 등록된 캠페인이 없습니다.</p>
+}
+else
+{
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>코드</th>
+                <th>이름</th>
+                <th>전용 테이블</th>
+                <th class="text-end">발급 수량</th>
+                <th>사용 횟수</th>
+                <th>유효기간</th>
+                <th>상태</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var campaign in campaigns)
+            {
+                <tr>
+                    <td><code>@campaign.CampaignCode</code></td>
+                    <td>@campaign.CampaignName</td>
+                    <td><code>@campaign.CouponTable</code></td>
+                    <td class="text-end">@campaign.IssuedCount.ToString("N0")</td>
+                    <td>@(campaign.MaxUseCount == 0 ? "무제한" : $"{campaign.MaxUseCount}회")</td>
+                    <td>@DescribeValidity(campaign)</td>
+                    <td>@campaign.Status</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<CouponCampaign> campaigns = [];
+
+    private string draftCode = string.Empty;
+    private string draftName = string.Empty;
+    private int draftMaxUse = 1;
+    private int draftValidDays = 30;
+    private string draftRewardTitle = "쿠폰 보상";
+    private string draftRewardBody = "쿠폰 등록 보상입니다.";
+    private long draftRewardDuration = 604800;
+    private DateTime? draftValidFrom;
+    private DateTime? draftValidTo;
+
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private ulong operatorId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _ = ulong.TryParse(state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out operatorId);
+
+        await LoadAsync();
+        draftCode = await Coupons.SuggestCampaignCodeAsync() ?? string.Empty;
+    }
+
+    private async Task LoadAsync() => campaigns = await Coupons.ListCampaignsAsync();
+
+    private async Task SuggestCodeAsync()
+    {
+        draftCode = await Coupons.SuggestCampaignCodeAsync() ?? string.Empty;
+    }
+
+    private async Task CreateAsync()
+    {
+        var code = (draftCode ?? string.Empty).Trim().ToUpperInvariant();
+
+        if (!CouponCodeFormat.IsValidCampaignCode(code))
+        {
+            messageOk = false;
+            message = "캠페인 코드는 Crockford Base32 5자여야 합니다(I, L, O, U 제외).";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draftName))
+        {
+            messageOk = false;
+            message = "캠페인 이름을 입력하세요.";
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var created = await Coupons.CreateCampaignAsync(new CouponCampaign
+            {
+                CampaignCode = code,
+                CampaignName = draftName,
+                RewardKind = "Mail",
+                RewardTitle = draftRewardTitle,
+                RewardBody = draftRewardBody,
+                RewardDurationSec = draftRewardDuration,
+                MaxUseCount = draftMaxUse,
+                ValidFrom = draftValidFrom?.ToUniversalTime(),
+                ValidTo = draftValidTo?.ToUniversalTime(),
+                ValidDaysAfterIssue = draftValidDays,
+                CreatedBy = operatorId,
+            });
+
+            messageOk = true;
+            message = $"캠페인 '{created.CampaignName}'({created.CampaignCode}) 등록 완료 — 전용 테이블 {created.CouponTable} 생성됨";
+
+            draftName = string.Empty;
+            draftCode = await Coupons.SuggestCampaignCodeAsync() ?? string.Empty;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string DescribeValidity(CouponCampaign campaign)
+    {
+        var parts = new List<string>();
+        if (campaign.ValidFrom is { } from)
+        {
+            parts.Add($"{from.ToLocalTime():MM-dd} ~");
+        }
+
+        if (campaign.ValidTo is { } to)
+        {
+            parts.Add($"~ {to.ToLocalTime():MM-dd}");
+        }
+
+        if (campaign.ValidDaysAfterIssue > 0)
+        {
+            parts.Add($"발급+{campaign.ValidDaysAfterIssue}일");
+        }
+
+        return parts.Count == 0 ? "무기한" : string.Join(" / ", parts);
+    }
+}

@@ -1,0 +1,169 @@
+@page "/coupon/lookup"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject CouponRedeemService Redeem
+@inject GmTool.Web.Repositories.CouponRepository CouponRepository
+@inject CouponIssueService Coupons
+
+<PageTitle>쿠폰 조회 / 등록 · GmTool</PageTitle>
+
+<h1>쿠폰 조회 / 등록</h1>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">쿠폰 조회 (사용 처리 없음)</h5>
+                <p class="text-muted small">
+                    운영자 화면이라 실제 실패 사유를 그대로 보여줍니다. 외부 사용자용
+                    <code>/api/coupon/redeem</code>은 어떤 실패든 "유효하지 않은 쿠폰입니다" 한 줄로만
+                    답합니다 — 구체적인 사유를 알려주면 공격자가 유효 번호의 범위를 좁힐 수 있습니다.
+                </p>
+
+                <div class="input-group mb-3">
+                    <input class="form-control text-uppercase" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                           @bind="inspectCode" />
+                    <button class="btn btn-primary" @onclick="InspectAsync">조회</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(inspectResult))
+                {
+                    <div class="alert alert-info mb-0">@inspectResult</div>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">쿠폰 등록 (사용 처리 + 보상 우편)</h5>
+                <p class="text-muted small">
+                    실제 사용 처리 경로입니다. 조건부 <code>UPDATE</code> 한 번으로 처리해서 같은
+                    코드가 동시에 두 번 들어와도 한쪽만 성공합니다.
+                </p>
+
+                <div class="mb-2">
+                    <label class="form-label">쿠폰 번호</label>
+                    <input class="form-control text-uppercase" @bind="redeemCode" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">보상 받을 clientSessionId (선택)</label>
+                    <input class="form-control" type="number" min="0" @bind="redeemSessionId" />
+                    <div class="form-text">0이면 사용 처리만 하고 우편은 보내지 않습니다.</div>
+                </div>
+
+                <button class="btn btn-outline-primary" @onclick="RedeemAsync">등록</button>
+
+                @if (!string.IsNullOrEmpty(redeemResult))
+                {
+                    <div class="alert @(redeemOk ? "alert-success" : "alert-danger") mt-3 mb-0">
+                        @redeemResult
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">캠페인 쿠폰 미리보기</h5>
+
+                <div class="input-group mb-3">
+                    <select class="form-select" @bind="previewCode">
+                        <option value="">캠페인 선택</option>
+                        @foreach (var campaign in campaigns)
+                        {
+                            <option value="@campaign.CampaignCode">
+                                @campaign.CampaignCode — @campaign.CampaignName
+                            </option>
+                        }
+                    </select>
+                    <button class="btn btn-outline-secondary" disabled="@string.IsNullOrEmpty(previewCode)"
+                            @onclick="PreviewAsync">불러오기</button>
+                </div>
+
+                @if (previewTotal is { } total)
+                {
+                    <p class="text-muted">전체 @total.ToString("N0") 장 중 상위 @preview.Count 장</p>
+                }
+
+                @if (preview.Count > 0)
+                {
+                    <table class="table table-sm font-monospace">
+                        <thead><tr><th>쿠폰 번호</th><th>상태</th><th>만료</th></tr></thead>
+                        <tbody>
+                            @foreach (var record in preview)
+                            {
+                                <tr>
+                                    <td>@CouponCodeFormat.ToDisplay(record.CouponCode)</td>
+                                    <td>@DescribeStatus(record.Status)</td>
+                                    <td>@(record.ExpiresAt is { } e ? e.ToLocalTime().ToString("yyyy-MM-dd") : "무기한")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<CouponCampaign> campaigns = [];
+
+    private string inspectCode = string.Empty;
+    private string? inspectResult;
+
+    private string redeemCode = string.Empty;
+    private ulong redeemSessionId;
+    private string? redeemResult;
+    private bool redeemOk;
+
+    private string previewCode = string.Empty;
+    private IReadOnlyList<CouponRecord> preview = [];
+    private long? previewTotal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        campaigns = await Coupons.ListCampaignsAsync();
+    }
+
+    private async Task InspectAsync()
+    {
+        inspectResult = await Redeem.InspectAsync(inspectCode);
+    }
+
+    private async Task RedeemAsync()
+    {
+        // 운영 화면에서의 등록은 레이트 리밋 기준 키를 별도로 둔다 — 운영자의 테스트 등록이
+        // 실제 사용자 IP의 백오프 카운터에 섞이면 안 된다.
+        var result = await Redeem.RedeemAsync(
+            "gmtool-console", redeemCode, redeemSessionId == 0 ? null : redeemSessionId);
+
+        redeemOk = result.Succeeded;
+        // 운영 화면이므로 내부 사유까지 같이 보여준다.
+        redeemResult = $"{result.PublicMessage} (내부 사유: {result.InternalReason})";
+    }
+
+    private async Task PreviewAsync()
+    {
+        if (string.IsNullOrEmpty(previewCode))
+        {
+            return;
+        }
+
+        previewTotal = await CouponRepository.CountAsync(previewCode);
+        preview = await CouponRepository.TakeAsync(previewCode, 20);
+    }
+
+    private static string DescribeStatus(byte status) => (GmTool.Web.Data.CouponStatus)status switch
+    {
+        GmTool.Web.Data.CouponStatus.Created => "생성됨",
+        GmTool.Web.Data.CouponStatus.Issued => "사용 가능",
+        GmTool.Web.Data.CouponStatus.Used => "사용 완료",
+        GmTool.Web.Data.CouponStatus.Expired => "만료",
+        GmTool.Web.Data.CouponStatus.Revoked => "회수됨",
+        _ => $"알 수 없음({status})",
+    };
+}

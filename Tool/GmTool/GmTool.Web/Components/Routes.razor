@@ -1,0 +1,17 @@
+@*
+    AuthorizeRouteView를 쓰면 [Authorize]가 붙은 페이지에 미인증 상태로 접근했을 때
+    NotAuthorized 조각이 렌더된다. 여기서는 로그인 페이지로 보낸다.
+*@
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+            <Authorizing>
+                <p class="text-muted">인증 확인 중…</p>
+            </Authorizing>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

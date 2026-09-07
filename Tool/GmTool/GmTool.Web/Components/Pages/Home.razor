@@ -1,0 +1,98 @@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject GameCommandService Commands
+@inject CouponIssueService Coupons
+
+<PageTitle>대시보드 · GmTool</PageTitle>
+
+<h1>대시보드</h1>
+
+<div class="row g-3 mt-2">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">WorldServer 링크</h5>
+                @if (Commands.IsWorldConnected)
+                {
+                    <p class="text-success mb-1">연결됨 — @Commands.WorldEndpoint</p>
+                    <p class="text-muted mb-0">접속 중 클라이언트: @onlineCount 명</p>
+                }
+                else
+                {
+                    <p class="text-danger mb-1">연결 끊김 — @Commands.WorldEndpoint</p>
+                    <p class="text-muted mb-0">@(Commands.WorldLastError ?? "재연결을 시도하고 있습니다.")</p>
+                }
+                <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="RefreshAsync">새로고침</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">쿠폰 캠페인</h5>
+                <p class="mb-1">등록된 캠페인: @campaigns.Count 개</p>
+                <p class="text-muted mb-0">
+                    총 발급 수량: @campaigns.Sum(c => (long)c.IssuedCount).ToString("N0") 장
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="mt-4">최근 운영 명령</h2>
+@if (logs.Count == 0)
+{
+    <p class="text-muted">아직 기록이 없습니다.</p>
+}
+else
+{
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>시각</th>
+                <th>종류</th>
+                <th>대상</th>
+                <th>제목/내용</th>
+                <th>결과</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in logs)
+            {
+                <tr>
+                    <td>@log.RequestedAt.ToLocalTime().ToString("MM-dd HH:mm:ss")</td>
+                    <td>@log.CommandKind</td>
+                    <td>@(log.TargetKind == 0 ? "전체" : $"세션 {log.ClientSessionId}")</td>
+                    <td>@(string.IsNullOrEmpty(log.Title) ? log.Body : log.Title)</td>
+                    <td>
+                        @if (log.ResultCode == 0)
+                        {
+                            <span class="text-success">성공 (@log.AffectedCount)</span>
+                        }
+                        else
+                        {
+                            <span class="text-danger">코드 @log.ResultCode</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<GmCommandLogEntry> logs = [];
+    private IReadOnlyList<CouponCampaign> campaigns = [];
+    private int onlineCount;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        logs = await Commands.GetRecentLogsAsync(20);
+        campaigns = await Coupons.ListCampaignsAsync();
+        onlineCount = (await Commands.GetOnlineClientsAsync()).Count;
+    }
+}

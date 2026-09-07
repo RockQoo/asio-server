@@ -1,0 +1,116 @@
+@page "/login"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject OperatorAuthService Auth
+@inject NavigationManager Navigation
+
+@*
+    이 페이지는 의도적으로 @rendermode를 붙이지 않는다(정적 SSR).
+
+    이유: 쿠키를 굽는 HttpContext.SignInAsync는 응답 헤더를 써야 하는데, 대화형(Server)
+    렌더 모드에서는 이미 응답이 시작된 뒤 WebSocket 회로 안에서 코드가 도므로 헤더를 더
+    쓸 수 없다("Headers are read-only" 예외). 정적 SSR에서 폼을 POST 받으면 일반 HTTP 요청
+    처리 중이라 SignInAsync가 정상 동작한다. 로그인 화면만 정적으로 두고, 로그인 후의
+    운영 화면들은 대화형으로 두는 것이 표준 구성이다.
+*@
+
+<PageTitle>로그인 · GmTool</PageTitle>
+
+<div class="login-wrap">
+    <div class="login-card">
+        <h1>운영툴 로그인</h1>
+        <p class="text-muted">asio-server 운영 도구</p>
+
+        <EditForm Model="Input" FormName="login" OnValidSubmit="SignInAsync">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label" for="loginId">아이디</label>
+                <InputText id="loginId" class="form-control" @bind-Value="Input!.LoginId" autocomplete="username" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="password">비밀번호</label>
+                <InputText id="password" type="password" class="form-control" @bind-Value="Input!.Password"
+                           autocomplete="current-password" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger py-2">@errorMessage</div>
+            }
+
+            <button type="submit" class="btn btn-primary w-100">로그인</button>
+        </EditForm>
+    </div>
+</div>
+
+<style>
+    .login-wrap { display: flex; justify-content: center; padding-top: 4rem; }
+    .login-card { width: 22rem; padding: 2rem; border: 1px solid #dee2e6; border-radius: .5rem; background: #fff; }
+    .login-card h1 { font-size: 1.4rem; margin-bottom: .25rem; }
+</style>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    // 초기화자를 두면 BL0008 경고가 난다 -- 폼 POST 시 바인딩이 이 프로퍼티를 null로
+    // 덮어쓸 수 있어서, 초기값은 OnInitialized에서 채운다.
+    [SupplyParameterFromForm]
+    private LoginInput? Input { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? errorMessage;
+
+    protected override void OnInitialized() => Input ??= new LoginInput();
+
+    private async Task SignInAsync()
+    {
+        if (HttpContext is null)
+        {
+            errorMessage = "요청 컨텍스트를 찾을 수 없습니다.";
+            return;
+        }
+
+        var result = await Auth.LoginAsync(Input!.LoginId, Input.Password, HttpContext.RequestAborted);
+        if (!result.Succeeded || result.Account is null)
+        {
+            // 아이디 존재 여부를 구분하지 않는 통일된 메시지가 그대로 올라온다
+            // (OperatorAuthService 참고).
+            errorMessage = result.Message;
+            return;
+        }
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, result.Account.OperatorId.ToString()),
+            new(ClaimTypes.Name, result.Account.DisplayName),
+            new("login_id", result.Account.LoginId),
+            new(ClaimTypes.Role, result.Account.Role),
+            // API 토큰을 클레임에 실어두면, 화면에서 자기 API 토큰을 확인해
+            // 스크립트/다른 도구에 붙여 쓸 수 있다.
+            new("api_token", result.ApiToken ?? string.Empty),
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+
+        // forceLoad로 전체 리로드해야 새 쿠키가 반영된 인증 상태로 다음 화면이 렌더된다.
+        var target = string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : ReturnUrl;
+        Navigation.NavigateTo(target, forceLoad: true);
+    }
+
+    private sealed class LoginInput
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "아이디를 입력하세요.")]
+        public string LoginId { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "비밀번호를 입력하세요.")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

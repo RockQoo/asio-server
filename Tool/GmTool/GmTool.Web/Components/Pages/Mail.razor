@@ -1,0 +1,258 @@
+@page "/mail"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using System.Security.Claims
+@inject GameCommandService Commands
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>우편 / 공지 · GmTool</PageTitle>
+
+<h1>우편 / 공지</h1>
+<p class="text-muted">
+    운영툴이 보낸 우편은 WorldServer의 <code>ToolProcessor</code>가 받아, 대상 클라이언트가
+    직접 보낸 것처럼 존에 <code>MailAdd</code>를 주입합니다 — 그래서 존/우편/DB 경로가 평소
+    클라이언트 요청과 완전히 동일하게 흐릅니다.
+</p>
+
+@if (!Commands.IsWorldConnected)
+{
+    <div class="alert alert-warning">
+        WorldServer(@Commands.WorldEndpoint)에 연결되어 있지 않습니다. 서버를 먼저 기동하세요.
+        @if (!string.IsNullOrEmpty(Commands.WorldLastError))
+        {
+            <div class="small mt-1">@Commands.WorldLastError</div>
+        }
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(resultMessage))
+{
+    <div class="alert @(resultOk ? "alert-success" : "alert-danger")">@resultMessage</div>
+}
+
+<div class="row g-4">
+    <!-- 접속 중 클라이언트 -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title d-flex justify-content-between align-items-center">
+                    접속 중 클라이언트
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshClientsAsync">새로고침</button>
+                </h5>
+
+                @if (clients.Count == 0)
+                {
+                    <p class="text-muted mb-0">접속 중인 클라이언트가 없습니다. ProtocolClient를 붙여보세요.</p>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>세션</th><th>존</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var client in clients)
+                            {
+                                <tr>
+                                    <td>@client.ClientSessionId</td>
+                                    <td>@client.ZoneId</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-link p-0"
+                                                @onclick="() => SelectTarget(client.ClientSessionId)">선택</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- 우편 발송 -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">우편 발송</h5>
+
+                <div class="mb-2">
+                    <label class="form-label">대상</label>
+                    <select class="form-select" @bind="targetMode">
+                        <option value="all">접속 중 전체</option>
+                        <option value="single">특정 세션</option>
+                    </select>
+                </div>
+
+                @if (targetMode == "single")
+                {
+                    <div class="mb-2">
+                        <label class="form-label">clientSessionId</label>
+                        <input class="form-control" type="number" min="1" @bind="targetSessionId" />
+                    </div>
+                }
+
+                <div class="mb-2">
+                    <label class="form-label">제목</label>
+                    <input class="form-control" @bind="mailTitle" maxlength="128" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">본문</label>
+                    <textarea class="form-control" rows="3" @bind="mailBody" maxlength="1024"></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">유효 기간(초)</label>
+                    <input class="form-control" type="number" min="1" @bind="mailDurationSec" />
+                    <div class="form-text">
+                        존의 만료 서비스가 이 시간이 지난 우편을 자동 삭제합니다(604800 = 7일).
+                    </div>
+                </div>
+
+                <button class="btn btn-primary w-100" disabled="@busy" @onclick="SendMailAsync">
+                    @(busy ? "전송 중…" : "우편 발송")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 우편 삭제 / 공지 -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">우편 삭제</h5>
+                <div class="mb-2">
+                    <label class="form-label">clientSessionId</label>
+                    <input class="form-control" type="number" min="1" @bind="deleteSessionId" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">mailId</label>
+                    <input class="form-control" type="number" min="1" @bind="deleteMailId" />
+                    <div class="form-text">
+                        존이 MailAddAck으로 클라이언트에게 알려준 mailId입니다.
+                    </div>
+                </div>
+                <button class="btn btn-outline-danger w-100" disabled="@busy" @onclick="DeleteMailAsync">
+                    우편 삭제
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">전체 공지</h5>
+                <div class="mb-3">
+                    <input class="form-control" @bind="noticeMessage" placeholder="공지 내용" maxlength="512" />
+                    <div class="form-text">존을 거치지 않고 World가 전체 클라이언트에 직접 보냅니다.</div>
+                </div>
+                <button class="btn btn-outline-primary w-100" disabled="@busy" @onclick="SendNoticeAsync">
+                    공지 전송
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<WorldClientEntry> clients = [];
+
+    private string targetMode = "all";
+    private ulong targetSessionId = 1;
+    private string mailTitle = "운영자 우편";
+    private string mailBody = "운영툴에서 발송한 우편입니다.";
+    private long mailDurationSec = 604800;
+
+    private ulong deleteSessionId = 1;
+    private uint deleteMailId = 1;
+
+    private string noticeMessage = "점검 예정 안내";
+
+    private bool busy;
+    private bool resultOk;
+    private string? resultMessage;
+
+    private ulong operatorId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var idClaim = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        _ = ulong.TryParse(idClaim, out operatorId);
+
+        await RefreshClientsAsync();
+    }
+
+    private async Task RefreshClientsAsync()
+    {
+        clients = await Commands.GetOnlineClientsAsync();
+    }
+
+    private void SelectTarget(ulong sessionId)
+    {
+        targetMode = "single";
+        targetSessionId = sessionId;
+        deleteSessionId = sessionId;
+    }
+
+    private async Task SendMailAsync()
+    {
+        if (string.IsNullOrWhiteSpace(mailTitle))
+        {
+            Show(false, "제목을 입력하세요.");
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            ulong? target = targetMode == "all" ? null : targetSessionId;
+            var result = await Commands.SendMailAsync(operatorId, target, mailTitle, mailBody, mailDurationSec);
+            Show(result.IsSuccess, $"우편 발송 — {result.Describe()}");
+            await RefreshClientsAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task DeleteMailAsync()
+    {
+        busy = true;
+        try
+        {
+            var result = await Commands.DeleteMailAsync(operatorId, deleteSessionId, deleteMailId);
+            // 존이 실제로 그 mailId를 찾아 지웠는지는 MailDelAck으로 클라이언트에게만 가므로
+            // 운영툴은 "존까지 전달됨"까지만 알 수 있다.
+            Show(result.IsSuccess, $"우편 삭제 요청 전달 — {result.Describe()} (실제 삭제 여부는 클라이언트의 MailDelAck 확인)");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task SendNoticeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(noticeMessage))
+        {
+            Show(false, "공지 내용을 입력하세요.");
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = await Commands.SendNoticeAsync(operatorId, noticeMessage);
+            Show(result.IsSuccess, $"공지 전송 — {result.Describe()}");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Show(bool ok, string message)
+    {
+        resultOk = ok;
+        resultMessage = message;
+    }
+}
