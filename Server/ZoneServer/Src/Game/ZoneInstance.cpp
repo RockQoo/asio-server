@@ -5,13 +5,14 @@
 #include "Server/ZoneServer/Src/Worker/BroadcastDispatcher.h"
 #include "Server/ZoneServer/Src/Mail/MailModel.h"
 #include "Server/ZoneServer/Src/Mail/MailRegistry.h"
-#include "Server/ZoneServer/Src/Mail/MailUnitOfWork.h"
+#include "Server/ZoneServer/Src/Task/ZoneUnitOfWork.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Protocol/Src/ErrorCode.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
 #include <chrono>
@@ -142,14 +143,24 @@ namespace Zone
         std::string title;
         std::string body;
         int64_t durationSec{};
+
+        // UnitOfWork를 먼저 열어두는 이유: 파싱 실패도 "이 요청의 결말"이라 클라이언트에는
+        // 같은 경로(Z2CTaskResult)로 에러가 돌아가야 한다.
+        ZoneUnitOfWork unitOfWork(worldLink_, mailRegistry_, player.sessionId, player.playerId,
+                                  PacketId::C2ZMailAdd);
+
         if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
         {
+            unitOfWork.SetError(EErrorCode::InvalidPayload);
+            unitOfWork.Commit();
             return;
         }
 
         const auto mailModel = mailRegistry_.Find(player.sessionId);
         if (!mailModel)
         {
+            unitOfWork.SetError(EErrorCode::MailBoxNotFound);
+            unitOfWork.Commit();
             return;
         }
 
@@ -162,20 +173,23 @@ namespace Zone
         info.sendUt = nowUt;
         info.endUt = nowUt + durationSec;
 
-        auto unitOfWork = Mail::MakeMailUnitOfWork(worldLink_, player.sessionId, player.playerId);
-        const auto assignedMailId = mailModel->Write()->AddMail(std::move(info), unitOfWork);
+        mailModel->Write()->AddMail(std::move(info), unitOfWork);
 
-        MailAddAckPacket ack{};
-        ack.mailId = assignedMailId;
-        SendToPlayer(player.sessionId, PacketId::Z2CMailAddAck,
-                     std::as_bytes(std::span(&ack, 1)));
+        // 성공하면 Added 태스크가 DB(World)와 클라이언트 양쪽으로, 실패하면 메모리를 되돌린 뒤
+        // 에러 코드만 클라이언트로 나간다 -- 어느 쪽이든 결말은 이 한 줄이 낸다.
+        unitOfWork.Commit();
     }
 
     void ZoneInstance::HandleMailDel(const PlayerState& player, const std::span<const byte> payload)
     {
+        ZoneUnitOfWork unitOfWork(worldLink_, mailRegistry_, player.sessionId, player.playerId,
+                                  PacketId::C2ZMailDel);
+
         uint32_t mailId{};
         if (payload.size() < sizeof(mailId))
         {
+            unitOfWork.SetError(EErrorCode::InvalidPayload);
+            unitOfWork.Commit();
             return;
         }
         std::memcpy(&mailId, payload.data(), sizeof(mailId));
@@ -183,17 +197,13 @@ namespace Zone
         const auto mailModel = mailRegistry_.Find(player.sessionId);
         if (!mailModel)
         {
+            unitOfWork.SetError(EErrorCode::MailBoxNotFound);
+            unitOfWork.Commit();
             return;
         }
 
-        auto unitOfWork = Mail::MakeMailUnitOfWork(worldLink_, player.sessionId, player.playerId);
-        const auto success = mailModel->Write()->DelMail(mailId, unitOfWork, false);
-
-        MailDelAckPacket ack{};
-        ack.mailId = mailId;
-        ack.success = success ? 1 : 0;
-        SendToPlayer(player.sessionId, PacketId::Z2CMailDelAck,
-                     std::as_bytes(std::span(&ack, 1)));
+        mailModel->Write()->DelMail(mailId, unitOfWork, false);
+        unitOfWork.Commit();
     }
 
     void ZoneInstance::Tick(const float /*deltaSeconds*/)

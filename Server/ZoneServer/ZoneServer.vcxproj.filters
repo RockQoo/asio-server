@@ -25,6 +25,9 @@
     <Filter Include="Mail">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000008}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Task">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -61,8 +64,8 @@
     <ClInclude Include="Src\Mail\MailRegistry.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\MailUnitOfWork.h">
-      <Filter>Mail</Filter>
+    <ClInclude Include="Src\Task\ZoneUnitOfWork.h">
+      <Filter>Task</Filter>
     </ClInclude>
     <ClInclude Include="Src\Mail\MailExpiryService.h">
       <Filter>Mail</Filter>
@@ -94,8 +97,8 @@
     <ClCompile Include="Src\Mail\MailRegistry.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\MailUnitOfWork.cpp">
-      <Filter>Mail</Filter>
+    <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp">
+      <Filter>Task</Filter>
     </ClCompile>
     <ClCompile Include="Src\Mail\MailExpiryService.cpp">
       <Filter>Mail</Filter>

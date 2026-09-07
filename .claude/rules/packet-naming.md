@@ -94,8 +94,9 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 | 1002 | `Z2CChatNotify` | `Chat` 재사용이었음 |
 | 1003 | `Z2CMoveNotify` | `Move` 재사용이었음, **본문에 sessionId 추가** |
 | 1004 | `Z2CEnterZoneNotify` | `Zone::PacketId::EnterZoneNotify` |
-| 1005 | `Z2CMailAddAck` | `Zone::PacketId::MailAddAck` |
-| 1006 | `Z2CMailDelAck` | `Zone::PacketId::MailDelAck` |
+| ~~1005~~ | ~~`Z2CMailAddAck`~~ | `Z2CTaskResult`로 통합되며 폐기(번호 재사용 안 함) |
+| ~~1006~~ | ~~`Z2CMailDelAck`~~ | 〃 |
+| 1007 | `Z2CTaskResult` | 신규 — UnitOfWork 결과 공통 응답 |
 | 3001 | `W2CNotice` | `Zone::PacketId::Notice` |
 | 4001 | `G2WClientConnected` | `GatewayLinkPacketId::ClientConnected` |
 | 4002 | `G2WClientDisconnected` | `GatewayLinkPacketId::ClientDisconnected` |
@@ -130,6 +131,21 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 **겉봉투의 방향과 안쪽 내용물의 방향은 별개다.** 존이 클라이언트에게 보내는 패킷도 World를
 거쳐야 하므로 `Z2WRelay`(홉 방향)에 `innerPacketId = Z2CMoveNotify`(내용물 방향)가 실린다.
 접두 3글자 규칙이 두 층에 각각 따로 적용되고, 안쪽은 항상 클라이언트 대역(1~3999)이다.
+
+### 콘텐츠마다 Ack를 새로 만들지 않는다
+
+상태를 바꾸는 요청(우편/인벤/친구 등)의 응답은 콘텐츠별 Ack 패킷이 아니라 **`Z2CTaskResult`
+하나**로 돌아간다. 본문은 `errorCode(4) + requestPacketId(2) + UnitOfWork 태스크 스트림`이고,
+클라이언트는 그 태스크 목록을 자기 메모리에 그대로 적용해서 서버와 동기화한다 -- 서버가 DB에
+남기는 변경과 클라이언트가 적용하는 변경이 같은 목록이라 한쪽만 빠뜨릴 여지가 없다.
+
+- `requestPacketId`: 어느 요청의 결과인지 짝짓는 키. **0이면 요청 없이 서버가 만든 변경**
+  (메일 자동 만료 등)이라 클라이언트는 통지로 받아 적용만 한다.
+- 실패하면 태스크 스트림 없이 `errorCode`(`Protocol::EErrorCode`)만 온다 -- 서버는 이미
+  메모리를 되돌린 뒤다.
+
+그래서 새 콘텐츠를 추가할 때 Z2C 응답 id를 새로 딸 필요가 없다. 필요한 건 태스크 종류
+(`Protocol::ETaskCategory` + 세부 동작)와 에러 코드뿐이다.
 
 ## 가시성
 

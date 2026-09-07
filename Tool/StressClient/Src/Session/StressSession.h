@@ -45,8 +45,12 @@ namespace Stress
 
     private:
         void HandleEnterZoneNotify(const std::span<const byte> payload);
-        void HandleMailAddAck(const std::span<const byte> payload);
-        void HandleMailDelAck(const std::span<const byte> payload);
+
+        // Mail 요청의 결과는 콘텐츠별 Ack가 아니라 Z2CTaskResult 하나로 온다 -- 어느 요청의
+        // 결과인지는 그 안의 requestPacketId로 갈린다.
+        void HandleTaskResult(const std::span<const byte> payload);
+        void HandleMailAddResult(const int32_t errorCode, const std::span<const byte> stream);
+        void HandleMailDelResult(const int32_t errorCode, const std::span<const byte> stream);
         void HandleBroadcastPacket();
 
         void SendMailAdd();

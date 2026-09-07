@@ -39,6 +39,9 @@
     <ClInclude Include="Src\Common\CoreErrorCode.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Common\EnumFlags.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Common\CoreException.h">
       <Filter>Common</Filter>
     </ClInclude>

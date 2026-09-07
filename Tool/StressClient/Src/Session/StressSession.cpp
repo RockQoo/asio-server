@@ -1,14 +1,67 @@
 #include "Tool/StressClient/Src/pch.h"
 #include "Tool/StressClient/Src/Session/StressSession.h"
 
+#include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
+#include <optional>
 #include <utility>
 
 namespace Stress
 {
+    namespace
+    {
+        // Z2CTaskResult에 실려 온 UnitOfWork 태스크 스트림에서 원하는 Mail 태스크의 mailId를
+        // 꺼낸다. 스트림 포맷은 Shared/Core/Src/Task/UnitOfWork.h 주석 참고 --
+        // 부하 도구라 첫 번째로 맞는 태스크 하나만 보면 충분하다.
+        [[nodiscard]] std::optional<uint32_t> FindMailTaskId(const std::span<const byte> stream,
+                                                             const Protocol::EMailTask subTask)
+        {
+            Packet::BinaryReader reader(stream);
+            uint64_t ownerId{};
+            uint16_t taskCount{};
+            if (!reader.Read(ownerId) || !reader.Read(taskCount))
+            {
+                return std::nullopt;
+            }
+
+            for (uint16_t i = 0; i < taskCount; ++i)
+            {
+                uint16_t kind{};
+                uint32_t payloadLen{};
+                if (!reader.Read(kind) || !reader.Read(payloadLen))
+                {
+                    return std::nullopt;
+                }
+
+                const auto taskPayload = reader.ReadBytes(payloadLen);
+                if (!taskPayload)
+                {
+                    return std::nullopt;
+                }
+
+                if (Protocol::CategoryOf(kind) != Protocol::ETaskCategory::Mail
+                    || Protocol::SubTaskOf(kind) != static_cast<uint8_t>(subTask))
+                {
+                    continue;
+                }
+
+                Packet::BinaryReader mailReader(*taskPayload);
+                uint32_t mailId{};
+                if (!mailReader.Read(mailId))
+                {
+                    return std::nullopt;
+                }
+                return mailId;
+            }
+
+            return std::nullopt;
+        }
+    }
+
     StressSession::StressSession(const size_t index, asio::io_context& ioContext, std::string host, const uint16_t port,
                                   const uint32_t cyclesTarget, const bool isBroadcaster, StressStats& stats)
         : index_(index)
@@ -63,11 +116,8 @@ namespace Stress
         case PacketId::Z2CEnterZoneNotify:
             HandleEnterZoneNotify(payload);
             break;
-        case PacketId::Z2CMailAddAck:
-            HandleMailAddAck(payload);
-            break;
-        case PacketId::Z2CMailDelAck:
-            HandleMailDelAck(payload);
+        case PacketId::Z2CTaskResult:
+            HandleTaskResult(payload);
             break;
         case PacketId::Z2CMoveNotify:
         case PacketId::Z2CChatNotify:
@@ -93,34 +143,58 @@ namespace Stress
         SendMailAdd();
     }
 
-    void StressSession::HandleMailAddAck(const std::span<const byte> payload)
+    void StressSession::HandleTaskResult(const std::span<const byte> payload)
     {
-        Zone::MailAddAckPacket ack{};
-        if (payload.size() < sizeof(ack))
+        Packet::BinaryReader reader(payload);
+        int32_t errorCode{};
+        uint16_t requestPacketId{};
+        if (!reader.Read(errorCode) || !reader.Read(requestPacketId))
         {
             return;
         }
-        std::memcpy(&ack, payload.data(), sizeof(ack));
+
+        // 남은 바이트가 UnitOfWork 태스크 스트림이다(실패면 비어 있다).
+        const auto stream = reader.RemainingBytes();
+        switch (static_cast<PacketId>(requestPacketId))
+        {
+        case PacketId::C2ZMailAdd:
+            HandleMailAddResult(errorCode, stream);
+            break;
+        case PacketId::C2ZMailDel:
+            HandleMailDelResult(errorCode, stream);
+            break;
+        default:
+            // requestPacketId=0(서버가 스스로 만든 변경, 예: 메일 만료)은 이 도구의 사이클과
+            // 무관하다 -- 부하 테스트는 만료 시간을 길게 잡아 만료가 끼어들지 않게 한다.
+            break;
+        }
+    }
+
+    void StressSession::HandleMailAddResult(const int32_t errorCode, const std::span<const byte> stream)
+    {
+        const auto testSessionId = static_cast<Network::SessionId>(index_);
+        const auto addedMailId = FindMailTaskId(stream, Protocol::EMailTask::Added);
+        if (errorCode != 0 || !addedMailId)
+        {
+            stats_.RecordMismatch(testSessionId, cycleIndex_, 0, 0, "mail add failed");
+            MarkProgress();
+            return;
+        }
 
         stats_.RecordMailAddAcked();
         if (mailAddSentAt_.time_since_epoch().count() != 0)
         {
             stats_.RecordMailAddLatency(ElapsedUs(mailAddSentAt_));
         }
-        lastAddedMailId_ = ack.mailId;
+        lastAddedMailId_ = *addedMailId;
         MarkProgress();
 
         SendMailDel(lastAddedMailId_);
     }
 
-    void StressSession::HandleMailDelAck(const std::span<const byte> payload)
+    void StressSession::HandleMailDelResult(const int32_t errorCode, const std::span<const byte> stream)
     {
-        Zone::MailDelAckPacket ack{};
-        if (payload.size() < sizeof(ack))
-        {
-            return;
-        }
-        std::memcpy(&ack, payload.data(), sizeof(ack));
+        const auto removedMailId = FindMailTaskId(stream, Protocol::EMailTask::Removed);
 
         stats_.RecordMailDelAcked();
         if (mailDelSentAt_.time_since_epoch().count() != 0)
@@ -136,10 +210,15 @@ namespace Stress
         // 리포트용 식별자 -- 실제 TCP 세션 id가 아니라 이 도구가 부여한 인덱스다(Connector가
         // 자체적으로 매기는 SessionId는 세션마다 1부터 다시 시작해 전역 식별에 못 쓴다).
         const auto testSessionId = static_cast<Network::SessionId>(index_);
-        if (ack.mailId != lastAddedMailId_ || !ack.success)
+        if (errorCode != 0 || !removedMailId)
         {
-            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, ack.mailId,
-                                   !ack.success ? "delete reported failure" : "mailId mismatch");
+            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, 0,
+                                   "delete reported failure");
+        }
+        else if (*removedMailId != lastAddedMailId_)
+        {
+            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, *removedMailId,
+                                   "mailId mismatch");
         }
         else
         {

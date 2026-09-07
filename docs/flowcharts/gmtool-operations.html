@@ -142,7 +142,7 @@
                     <div class="detail">
                         존은 이 우편이 운영툴에서 왔는지 클라이언트에서 왔는지 <strong>구분할 수
                         없고, 구분할 필요도 없다</strong>. <code>MailModel</code>이 mailId를 배정하고
-                        <code>Z2CMailAddAck</code>/<code>Z2CMailDelAck</code>을 그 클라이언트에게 되돌리며,
+                        <code>Z2CTaskResult</code>(태스크 목록)를 그 클라이언트에게 되돌리며,
                         변경분은 <code>Task::UnitOfWork</code>에 모여 World의 <code>DbWorker</code>로
                         간다 — 평소와 완전히 동일한 경로.
                     </div>
@@ -153,9 +153,10 @@
 
     <div class="callout">
         <strong>우편 삭제의 결과는 운영툴이 알 수 없다:</strong> 그 <code>mailId</code>가 실제로
-        존재했는지는 존이 <code>Z2CMailDelAck(success)</code>로 <em>해당 클라이언트에게</em> 보낸다.
+        존재했는지는 존이 <code>Z2CTaskResult</code>(Removed 태스크가 실리거나, 없으면 errorCode)로
+        <em>해당 클라이언트에게</em> 보낸다.
         운영툴의 <code>ToolCommandAck</code>은 "존까지 전달됐다"까지만 보장한다.
-        결과까지 보려면 <code>Z2CMailDelAck</code>을 툴로도 되돌리는 경로가 따로 필요하다(현재 미구현).
+        결과까지 보려면 <code>Z2CTaskResult</code>를 툴로도 되돌리는 경로가 따로 필요하다(현재 미구현).
     </div>
 
     <h2>3. 대량 쿠폰 발급 — 로컬 메모리 · 스풀 · 청크</h2>

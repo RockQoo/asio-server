@@ -6,6 +6,7 @@
 #include "Shared/Core/Src/Packet/PacketFramer.h"
 #include "Server/ZoneServer/Src/Log/LogCategory.h"
 #include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
 #include <asio.hpp>
@@ -45,6 +46,75 @@ namespace
     {
         const auto frame = Packet::BuildFrame(packetId, payload);
         asio::write(socket, asio::buffer(frame));
+    }
+
+    // Z2CTaskResult 하나를 사람이 읽을 수 있게 풀어 찍는다. 실제 게임 클라이언트라면 여기서
+    // 화면에 찍는 대신 같은 태스크 목록을 자기 메모리(우편함 등)에 적용해서 서버와 동기화한다
+    // -- 콘텐츠마다 Ack 패킷을 따로 만들지 않는 이유가 이것이다.
+    void PrintTaskResult(const std::span<const byte> payload)
+    {
+        Packet::BinaryReader reader(payload);
+        int32_t errorCode{};
+        uint16_t requestPacketId{};
+        if (!reader.Read(errorCode) || !reader.Read(requestPacketId))
+        {
+            return;
+        }
+
+        if (errorCode != 0)
+        {
+            std::cout << "[recv] TaskResult 실패 request=" << requestPacketId
+                      << " error=" << errorCode << '\n';
+            return;
+        }
+
+        uint64_t ownerId{};
+        uint16_t taskCount{};
+        if (!reader.Read(ownerId) || !reader.Read(taskCount))
+        {
+            return;
+        }
+
+        // requestPacketId=0은 요청 없이 서버가 만든 변경(메일 만료 삭제 등)이다.
+        std::cout << "[recv] TaskResult request=" << requestPacketId << " tasks=" << taskCount << '\n';
+
+        for (uint16_t i = 0; i < taskCount; ++i)
+        {
+            uint16_t kind{};
+            uint32_t payloadLen{};
+            if (!reader.Read(kind) || !reader.Read(payloadLen))
+            {
+                return;
+            }
+
+            const auto taskPayload = reader.ReadBytes(payloadLen);
+            if (!taskPayload)
+            {
+                return;
+            }
+
+            if (Protocol::CategoryOf(kind) != Protocol::ETaskCategory::Mail)
+            {
+                std::cout << "        - 알 수 없는 태스크 kind=" << kind << '\n';
+                continue;
+            }
+
+            Packet::BinaryReader mailReader(*taskPayload);
+            uint32_t mailId{};
+            std::string title;
+            std::string body;
+            int64_t sendUt{};
+            int64_t endUt{};
+            if (!mailReader.Read(mailId) || !mailReader.ReadString(title) || !mailReader.ReadString(body)
+                || !mailReader.Read(sendUt) || !mailReader.Read(endUt))
+            {
+                continue;
+            }
+
+            const auto subTask = static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind));
+            std::cout << "        - Mail " << (subTask == Protocol::EMailTask::Added ? "Added" : "Removed")
+                      << " mailId=" << mailId << " title=" << title << '\n';
+        }
     }
 
     // 서버가 보내는 패킷(EnterZoneNotify/Echo/Move/Chat)을 계속 읽어서 화면에 찍는다.
@@ -127,27 +197,9 @@ namespace
                     }
                     break;
                 }
-                case PacketId::Z2CMailAddAck:
-                {
-                    Zone::MailAddAckPacket ack{};
-                    if (payload.size() >= sizeof(ack))
-                    {
-                        std::memcpy(&ack, payload.data(), sizeof(ack));
-                        std::cout << "[recv] MailAddAck mailId=" << ack.mailId << '\n';
-                    }
+                case PacketId::Z2CTaskResult:
+                    PrintTaskResult(payload);
                     break;
-                }
-                case PacketId::Z2CMailDelAck:
-                {
-                    Zone::MailDelAckPacket ack{};
-                    if (payload.size() >= sizeof(ack))
-                    {
-                        std::memcpy(&ack, payload.data(), sizeof(ack));
-                        std::cout << "[recv] MailDelAck mailId=" << ack.mailId
-                                  << " success=" << (ack.success ? "true" : "false") << '\n';
-                    }
-                    break;
-                }
                 default:
                     std::cout << "[recv] 알 수 없는 패킷 id=" << header.id
                               << " size=" << payload.size() << '\n';

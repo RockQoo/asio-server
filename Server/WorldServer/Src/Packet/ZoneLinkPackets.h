@@ -37,12 +37,13 @@ namespace World
     //   playerId(uint32) +
     //   [Core::Task::UnitOfWork가 직렬화한 제너릭 태스크 목록: ownerId(uint64, = clientSessionId)
     //    + taskCount(uint16) + taskCount개의 { kind(uint16) + payloadLen(uint32) + payload }]
-    // Core는 이 kind/payload의 실제 의미를 모른다 -- 지금 유일하게 이 스트림을 쓰는 Mail
-    // 태스크의 kind 값(Mail::MailTaskKind)과 payload 레이아웃은 다음과 같다: kind=0(Added)/
-    // kind=1(Removed) 둘 다 동일 레이아웃, mailId(uint32) + WriteString(title) +
-    // WriteString(body) + sendUt(int64) + endUt(int64). 새 콘텐츠 태스크(예: 재화 지급)가
-    // 생기면 여기에 kind 값과 payload 레이아웃만 추가하면 된다.
+    // Core는 이 kind/payload의 실제 의미를 모른다 -- kind는 Shared/Protocol/Src/TaskKind.h가
+    // 정의하는 "상위 8비트 카테고리 + 하위 8비트 세부 동작"이다. 지금 유일하게 이 스트림을
+    // 쓰는 Mail 태스크는 카테고리 Mail + Added/Removed이고, 둘 다 payload 레이아웃이 같다:
+    // mailId(uint32) + WriteString(title) + WriteString(body) + sendUt(int64) + endUt(int64).
+    // 삭제 태스크가 지워진 내용을 통째로 싣는 이유는 그게 곧 롤백(되살리기)에 필요한
+    // 정보이기 때문이다(Shared/Core/Src/Task/UnitOfWork.h 주석 참고).
     // 쓰는 쪽: Server/ZoneServer/Src/Mail/MailModel.cpp(태스크별 payload 직렬화) +
-    // Server/ZoneServer/Src/Mail/MailUnitOfWork.cpp(playerId 접두 + UnitOfWorkStream 전송).
+    // Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp(playerId 접두 + UnitOfWorkStream 전송).
     // 읽는 쪽: Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp.
 }

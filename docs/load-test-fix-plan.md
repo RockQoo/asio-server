@@ -85,4 +85,4 @@
 
 - 부하 도구(`StressClient`) 자체의 스톨 감지 오탐 버그는 이전 세션에서 이미 수정 완료
   (`StressSession::HandleBroadcastPacket`이 더 이상 `MarkProgress()`를 호출하지 않음).
-- `Z2CMailAddAck`/`Z2CMailDelAck` 프로토콜 확장은 이미 반영·빌드 완료.
+- 우편 요청의 응답 프로토콜은 이미 반영·빌드 완료(이후 `Z2CTaskResult` 하나로 통합됐다).

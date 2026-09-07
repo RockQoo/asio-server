@@ -24,8 +24,9 @@
 - **Mail 시스템**: `MailModel`/`MailRegistry`/`MailExpiryService`(만료 자동삭제, 별도
   유지보수 타이머). `Threading::Synchronized`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
   BASIC 스레드와 유지보수 타이머가 만나는 유일한 지점만 락"을 보여준다. 상태 변경은
-  `Core::Task::UnitOfWork`(범용 Unit-of-Work)에 기록했다가 스코프 종료 시 한 번에 World로
-  전송. `Z2CMailAddAck`/`Z2CMailDelAck`으로 클라이언트가 서버가 실제 배정한 mailId를 확인 가능.
+  `Task::UnitOfWork`(범용 Unit-of-Work)에 기록했다가 `Commit()` 시점에 한 번에 내보낸다 —
+  성공하면 같은 태스크 목록이 World(DB)와 클라이언트(`Z2CTaskResult`) 양쪽으로 가고,
+  실패하면 역순으로 되짚어 메모리를 롤백한 뒤 에러 코드만 클라이언트로 간다.
 - **부하 테스트 도구(`StressClient`)**: `Core::Network::Connector`/`Session`을 그대로
   재사용해 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기 멀티플렉싱.
   Release 기준 1,000세션×200사이클은 18,337 사이클/초로 완전 통과(불일치 0, 스톨 0,
@@ -60,8 +61,8 @@
     마지막 측정은 WorldServer를 일부러 죽인 채 돌렸는데 발급이 정상 완료됐다 —
     World 전송이 부가 경로라는 설계가 의도대로 동작함을 확인.
   - 검증: 서버 3종 + 운영툴을 실제로 띄워 공지·우편 발송/삭제·쿠폰 발급/등록을 왕복시켰고,
-    `ProtocolClient`가 `W2CNotice`/`Z2CMailAddAck`/`Z2CMailDelAck(success=true/false)`을 실제로 수신하는 것까지
-    확인했다. 툴 자체는 xUnit 77개.
+    `ProtocolClient`가 `W2CNotice`와 우편 결과(당시 `Z2CMailAddAck`/`Z2CMailDelAck`, 지금은
+    `Z2CTaskResult`)를 실제로 수신하는 것까지 확인했다. 툴 자체는 xUnit 77개.
 - **패킷 id 통합/네이밍**(2026-09-07): 링크별로 흩어져 있던 4개 enum(`Zone::PacketId`,
   `GatewayLinkPacketId`, `ZoneLinkPacketId`, `ToolLinkPacketId`)이 전부 1번부터 값을 쓰고
   있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Shared/Protocol/Src/PacketId.h`의
@@ -77,6 +78,24 @@
     `ZoneClientPacketId.cs`는 삭제(테스트 3건도 함께, 80→77개).
   - 검증: Debug/Release 클린 리빌드 에러·경고 0, GmTool 테스트 77개 통과, 서버 3종을 띄워
     `ProtocolClient`로 Echo/Move/Chat/Mail/존 핸드오프 왕복까지 실제 확인.
+- **UnitOfWork 트랜잭션화 + 클라이언트 동기화**(2026-09-08): 기록만 하고 스코프 끝에
+  내보내던 `Task::UnitOfWork`에 **실패/롤백/대상 구분**을 넣었다.
+  - `Task::UnitOfWork`는 기반 클래스가 되고, 콘텐츠가 아는 일(전송·역연산)은
+    `Zone::ZoneUnitOfWork`가 맡는다. 내보내기는 소멸자가 아니라 **명시적 `Commit()`**이다 —
+    기반 소멸자 시점에는 파생이 이미 파괴돼 가상 함수가 파생 구현으로 불리지 않기 때문.
+    소멸자는 "Commit 없이 소멸"을 잡는 안전망만 맡는다(예외 전파 중이면 죽이지 않는다).
+  - 롤백은 기록해둔 태스크를 **역순으로 되짚어 역연산**(Added↔Removed)을 부르는 방식이라,
+    태스크 페이로드에 역연산에 필요한 정보가 들어 있어야 한다는 규칙이 생겼다. 역연산은
+    모델의 `Undo*` 전용 함수를 쓴다(롤백 중 재기록 금지).
+  - 태스크에 대상(`Db`/`Client`/`Both`)이 붙었다. 성공하면 같은 목록이 World와 클라이언트로
+    나가고, 클라이언트는 `Z2CTaskResult`로 받아 자기 메모리에 적용한다 — 콘텐츠마다 Ack를
+    새로 만들던 `Z2CMailAddAck`/`Z2CMailDelAck`은 폐기됐다(**와이어 포맷 변경**).
+  - `ZoneWorld` → `ZoneInstance` 리네임(WorldServer와 헷갈렸다), 콘텐츠 에러 코드는
+    `Protocol::EErrorCode`로 분리(Core의 것은 `Common::ECoreErrorCode`), taskKind는
+    `Protocol::TaskKind.h`에서 **상위 8비트 카테고리 + 하위 8비트 세부 동작**으로 인코딩한다.
+  - 검증: Debug 빌드 에러·경고 0, 서버 3종을 띄워 `ProtocolClient`로 mail add/del 왕복과
+    없는 mailId 삭제 시 `error=100(MailNotFound)` 응답까지 확인, `StressClient` 20세션×5사이클
+    100/100 완료(불일치 0).
 
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 

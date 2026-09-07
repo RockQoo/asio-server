@@ -24,8 +24,8 @@ namespace Mail
     };
 
     // taskKind 값은 Protocol::MakeTaskKind(ETaskCategory::Mail, EMailTask::Xxx)로 만든다
-    // (Shared/Protocol/Src/TaskKind.h). Zone에서 기록하고 World가 DB에 반영하는, 두 프로세스가
-    // 공유하는 값이라 ZoneServer 안에 둘 수 없다.
+    // (Shared/Protocol/Src/TaskKind.h). Zone에서 기록하고 World가 DB에 반영하고 클라이언트가
+    // 자기 메모리에 적용하는, 세 프로세스가 공유하는 값이라 ZoneServer 안에 둘 수 없다.
 
     // 플레이어 한 명의 우편함. 상태를 직접 바꾸고 끝내지 않고, 바뀐 내용을 Task::UnitOfWork에
     // 기록만 한다(Unit-of-Work) -- 실제 World 전송은 UnitOfWork가 스코프를 벗어날 때 한 번에
@@ -37,17 +37,22 @@ namespace Mail
     public:
         using Sync = Threading::Synchronized<MailModel>;
 
-        // 실제로 배정된 mailId를 반환한다 -- 호출자(ZoneInstance::HandleMailAdd)가 이 값을
-        // MailAddAck으로 클라이언트에 돌려줘야 클라이언트가 자기가 만든 메일을 나중에 지울 수
-        // 있다.
-        [[nodiscard]] uint32_t AddMail(MailInfo info, Task::UnitOfWork& unitOfWork);
+        // 성공/실패는 반환값이 아니라 unitOfWork에 실린다 -- 한 요청이 여러 모델을 건드릴 때
+        // (메일 추가 + 재화 차감 등) 어느 단계에서 실패했든 호출부는 Commit() 한 번으로
+        // 롤백까지 끝내야 하기 때문이다. 배정된 mailId도 반환하지 않는다: 클라이언트는
+        // Added 태스크를 그대로 받아 적용하므로 그 안에 이미 들어 있다.
+        void AddMail(MailInfo info, Task::UnitOfWork& unitOfWork);
 
-        // 실제로 찾아서 지웠는지를 반환한다(false면 이미 없는 mailId) -- 호출자가 MailDelAck의
-        // 성공 여부로 그대로 돌려준다.
-        [[nodiscard]] bool DelMail(const uint32_t mailId, Task::UnitOfWork& unitOfWork, const bool isTimeout);
+        void DelMail(const uint32_t mailId, Task::UnitOfWork& unitOfWork, const bool isTimeout);
 
         // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.
         [[nodiscard]] std::vector<uint32_t> TakeExpiredMailIds(const int64_t nowUt) const;
+
+        // 롤백 전용 역연산. **UnitOfWork를 받지 않는다** -- 롤백 중에 태스크가 다시 쌓이면
+        // 되돌리기가 또 되돌려야 할 변경을 만들어낸다. Zone::ZoneUnitOfWork::OnRollback만
+        // 호출한다.
+        void UndoAdd(const uint32_t mailId);
+        void UndoRemove(MailInfo info);
 
     private:
         uint32_t nextMailId_{1};

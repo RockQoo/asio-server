@@ -31,8 +31,11 @@ namespace Protocol
         Z2CChatNotify = 1002,       // sessionId + 메시지. 존 내부 브로드캐스트
         Z2CMoveNotify = 1003,       // sessionId + MovePacket. 존 내부 브로드캐스트
         Z2CEnterZoneNotify = 1004,  // 존 배정(신규 입장 또는 핸드오프 전입) 통지
-        Z2CMailAddAck = 1005,       // 실제 배정된 mailId(MailAddAckPacket)
-        Z2CMailDelAck = 1006,       // 삭제 요청 결과(MailDelAckPacket)
+        // 1005/1006(MailAddAck/MailDelAck)은 Z2CTaskResult로 통합되어 폐기됨 -- 번호는 재사용하지 않는다
+        Z2CTaskResult = 1007,       // errorCode(4) + requestPacketId(2) + UnitOfWork 태스크 스트림.
+                                    // 성공하면 클라이언트가 그 태스크를 자기 메모리에 그대로
+                                    // 적용해 서버와 동기화하고, 실패하면 스트림 없이 에러만 온다.
+                                    // requestPacketId=0은 요청 없이 서버가 만든 변경(메일 만료 등).
 
         // ---- C2W : 클라이언트 -> World (2000 ~ 2999) ----
         // 로그인/인증 자리. 현재 비어 있다.
@@ -111,8 +114,9 @@ namespace Protocol
 }
 
 // 어디서든 `Protocol::` 없이 `PacketId::T2WToolHello`처럼 바로 쓰기 위한 전역 노출.
-// `ELogCategory`(Shared/Core/Src/Log/LogCategory.h)와 같은 방식이고, 이쪽은 프로젝트를
-// 통틀어 이 enum 하나뿐이라 이름이 겹칠 여지도 없다. `enum class`라 `using enum`이
+// `ELogCategory`(Shared/Core/Src/Log/LogCategory.h)와 같은 방식이다. 같은 이유로 전역에
+// 노출하는 이름은 이것과 `Protocol::EErrorCode` 둘뿐이고, 둘 다 저장소를 통틀어 하나씩이라
+// 이름이 겹칠 여지가 없다. `enum class`라 `using enum`이
 // 아니므로 열거자는 여전히 `PacketId::`로 한정해야 하고, 정수로의 암묵 변환도 그대로
 // 막힌다 -- 줄어드는 건 네임스페이스 한 겹뿐이다.
 using Protocol::PacketId;

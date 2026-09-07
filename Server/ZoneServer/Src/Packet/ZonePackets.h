@@ -20,19 +20,8 @@ namespace Zone
         uint32_t zoneId;
     };
 
-    // MailAdd 요청 하나당 정확히 하나씩 돌아온다 -- 클라이언트는 이 mailId로만 MailDel을
-    // 보낼 수 있다(서버가 실제로 배정한 값을 몰라서는 자기가 만든 메일을 못 지운다).
-    struct MailAddAckPacket
-    {
-        uint32_t mailId;
-    };
-
-    // MailDel 요청 하나당 정확히 하나씩 돌아온다. success=0은 그 mailId가 이미 없어졌거나
-    // (만료 자동삭제와 겹침 등) 애초에 존재한 적이 없었다는 뜻이다.
-    struct MailDelAckPacket
-    {
-        uint32_t mailId;
-        uint8_t success;
-    };
+    // Mail 요청의 결과는 고정 구조체가 아니라 Z2CTaskResult(UnitOfWork 태스크 스트림)로
+    // 돌아간다 -- 응답 구조체를 콘텐츠마다 새로 만드는 대신, 클라이언트가 서버와 같은
+    // 태스크 목록을 그대로 적용하는 방식이다(Shared/Protocol/Src/TaskKind.h 참고).
 #pragma pack(pop)
 }
