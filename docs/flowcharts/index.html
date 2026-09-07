@@ -33,7 +33,7 @@
                 <div class="item-title">존 경계 핸드오프 · Mail/UnitOfWork · 전체 브로드캐스트</div>
                 <div class="item-desc">
                     인접한 존 2개 사이의 재접속 없는 핸드오프(World 라우팅 테이블 교체만 —
-                    Gateway는 아예 모르고, 클라이언트는 EnterZoneNotify 한 장을 받는다),
+                    Gateway는 아예 모르고, 클라이언트는 Z2CEnterZoneNotify 한 장을 받는다),
                     Mail::MakeMailUnitOfWork가 만든 Task::UnitOfWork가 변경을 모았다가 WorldServer DB 워커로 보내는
                     흐름, Threading::Synchronized가 실제로 방어하는 지점(유지보수 타이머 vs 존
                     BASIC 스레드), WorldServer가 Zone 없이 직접 하는 전체 브로드캐스트까지.

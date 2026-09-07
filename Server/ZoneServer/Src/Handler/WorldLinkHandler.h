@@ -4,7 +4,7 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Thread/AffinityWorkerPool.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Game/ZoneDef.h"
 #include "Server/ZoneServer/Src/Worker/TaskWorker.h"
 
@@ -23,7 +23,7 @@ namespace Zone
 
     // World와의 연결(Network::Connector로 생성) 하나의 IPacketHandler. "recv 처리 전용" LB
     // 풀을 안에 둔다: NETWORK 스레드(Session의 strand, OnPacket이 실행되는 곳)는 바이트만
-    // 복사해서 LB 풀에 넘기고, ZoneLinkPacketId 파싱과 1차 분기(EnterZoneRequest/
+    // 복사해서 LB 풀에 넘기고, 패킷 id 파싱과 1차 분기(EnterZoneRequest/
     // LeaveZoneNotify/ForwardToZone 구분)는 LB 스레드에서 일어난다. ForwardToZone 안의
     // innerPacketId는 Echo만 예외적으로 여기서 곧바로 되돌려 보내고(공유 게임 상태가 필요
     // 없어 BASIC까지 갈 이유가 없다), 그 외에는 어떤 패킷인지 들여다보지 않고 그대로

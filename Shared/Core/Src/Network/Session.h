@@ -13,6 +13,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace Network
@@ -37,6 +38,15 @@ namespace Network
 
         // [헤더 + 페이로드] 프레임을 만들어 비동기 전송 큐에 넣는다. 스레드 세이프하다.
         void SendPacket(const uint16_t packetId, const std::span<const byte> payload);
+
+        // 패킷 id enum을 그대로 받는 오버로드. 호출부마다 static_cast<uint16_t>를 쓰던 것을
+        // 없애려고 둔다 -- Core는 어떤 enum인지 알 필요가 없으므로(콘텐츠를 모르는 라이브러리)
+        // 구체 타입 대신 "scoped enum이면 무엇이든"으로 제약만 건다.
+        template <typename TPacketId> requires std::is_enum_v<TPacketId>
+        void SendPacket(const TPacketId packetId, const std::span<const byte> payload)
+        {
+            SendPacket(static_cast<uint16_t>(packetId), payload);
+        }
 
         [[nodiscard]] asio::ip::tcp::socket& Socket() noexcept { return socket_; }
         [[nodiscard]] SessionId Id() const noexcept { return id_; }

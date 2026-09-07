@@ -2,7 +2,7 @@
 #include "Tool/StressClient/Src/Session/StressSession.h"
 
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/ZoneServer/Src/Packet/PacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
 #include <utility>
@@ -58,19 +58,19 @@ namespace Stress
                                  const Packet::PacketHeader& header,
                                  const std::span<const byte> payload)
     {
-        switch (static_cast<Zone::PacketId>(header.id))
+        switch (static_cast<Protocol::PacketId>(header.id))
         {
-        case Zone::PacketId::EnterZoneNotify:
+        case Protocol::PacketId::Z2CEnterZoneNotify:
             HandleEnterZoneNotify(payload);
             break;
-        case Zone::PacketId::MailAddAck:
+        case Protocol::PacketId::Z2CMailAddAck:
             HandleMailAddAck(payload);
             break;
-        case Zone::PacketId::MailDelAck:
+        case Protocol::PacketId::Z2CMailDelAck:
             HandleMailDelAck(payload);
             break;
-        case Zone::PacketId::Move:
-        case Zone::PacketId::Chat:
+        case Protocol::PacketId::Z2CMoveNotify:
+        case Protocol::PacketId::Z2CChatNotify:
             HandleBroadcastPacket();
             break;
         default:
@@ -179,7 +179,7 @@ namespace Stress
         writer.WriteString("lt-mail");
         writer.WriteString("stress-body");
         writer.Write(static_cast<int64_t>(3600));  // 테스트 도중 자동 만료로 뒤섞이지 않게 충분히 길게
-        session_->SendPacket(static_cast<uint16_t>(Zone::PacketId::MailAdd), writer.GetBuffer());
+        session_->SendPacket(Protocol::PacketId::C2ZMailAdd, writer.GetBuffer());
 
         // 사이클(Add->AddAck->Del->DelAck)의 시작점도 여기다 -- Add 송신이 곧 사이클 시작.
         mailAddSentAt_ = std::chrono::steady_clock::now();
@@ -196,7 +196,7 @@ namespace Stress
             return;
         }
 
-        session_->SendPacket(static_cast<uint16_t>(Zone::PacketId::MailDel), std::as_bytes(std::span(&mailId, 1)));
+        session_->SendPacket(Protocol::PacketId::C2ZMailDel, std::as_bytes(std::span(&mailId, 1)));
 
         mailDelSentAt_ = std::chrono::steady_clock::now();
 
@@ -226,7 +226,7 @@ namespace Stress
             Zone::MovePacket move{};
             move.x = 1.0f + static_cast<float>(index_ % 8);
             move.y = 0.0f;
-            session_->SendPacket(static_cast<uint16_t>(Zone::PacketId::Move), std::as_bytes(std::span(&move, 1)));
+            session_->SendPacket(Protocol::PacketId::C2ZMove, std::as_bytes(std::span(&move, 1)));
 
             stats_.RecordBroadcastSent(stats_.ActiveSessionCount());
         });

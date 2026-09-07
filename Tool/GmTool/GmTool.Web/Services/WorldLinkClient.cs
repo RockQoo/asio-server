@@ -74,7 +74,7 @@ public sealed class WorldLinkClient : BackgroundService
     /// <summary>접속 중인 전체 클라이언트에게 공지를 브로드캐스트한다.</summary>
     public Task<ToolCommandResult> SendNoticeAsync(string message, CancellationToken cancellationToken = default)
     {
-        return SendCommandAsync(ToolLinkPacketId.NoticeRequest, (writer, requestId) =>
+        return SendCommandAsync(PacketId.T2WNoticeRequest, (writer, requestId) =>
         {
             writer.WriteUInt32(requestId);
             writer.WriteString(message);
@@ -88,7 +88,7 @@ public sealed class WorldLinkClient : BackgroundService
         ulong? clientSessionId, string title, string body, long durationSec,
         CancellationToken cancellationToken = default)
     {
-        return SendCommandAsync(ToolLinkPacketId.MailSendRequest, (writer, requestId) =>
+        return SendCommandAsync(PacketId.T2WMailSendRequest, (writer, requestId) =>
         {
             writer.WriteUInt32(requestId);
             writer.WriteUInt8(clientSessionId is null
@@ -105,7 +105,7 @@ public sealed class WorldLinkClient : BackgroundService
     public Task<ToolCommandResult> DeleteMailAsync(
         ulong clientSessionId, uint mailId, CancellationToken cancellationToken = default)
     {
-        return SendCommandAsync(ToolLinkPacketId.MailDeleteRequest, (writer, requestId) =>
+        return SendCommandAsync(PacketId.T2WMailDeleteRequest, (writer, requestId) =>
         {
             // ToolMailDeleteRequestPacket: requestId(u32) + clientSessionId(u64) + mailId(u32)
             writer.WriteUInt32(requestId);
@@ -136,7 +136,7 @@ public sealed class WorldLinkClient : BackgroundService
             }
 
             var seq = ++subChunkSeq;
-            var result = await SendCommandAsync(ToolLinkPacketId.CouponChunkPush, (writer, requestId) =>
+            var result = await SendCommandAsync(PacketId.T2WCouponChunkPush, (writer, requestId) =>
             {
                 writer.WriteUInt32(requestId);
                 writer.WriteString(campaignCode);
@@ -174,7 +174,7 @@ public sealed class WorldLinkClient : BackgroundService
         {
             var writer = new BinaryPacketWriter();
             writer.WriteUInt32(requestId);
-            await SendFrameAsync(ToolLinkPacketId.ClientListRequest, writer, cancellationToken).ConfigureAwait(false);
+            await SendFrameAsync(PacketId.T2WClientListRequest, writer, cancellationToken).ConfigureAwait(false);
 
             var response = await WaitForResponseAsync(requestId, completion, cancellationToken).ConfigureAwait(false);
             return response.Clients ?? [];
@@ -261,7 +261,7 @@ public sealed class WorldLinkClient : BackgroundService
         writer.WriteString(options_.SharedSecret);
         writer.WriteString(Environment.MachineName);
 
-        await SendFrameAsync(ToolLinkPacketId.ToolHello, writer, cancellationToken).ConfigureAwait(false);
+        await SendFrameAsync(PacketId.T2WToolHello, writer, cancellationToken).ConfigureAwait(false);
 
         var response = await WaitForResponseAsync(requestId, completion, cancellationToken).ConfigureAwait(false);
         var accepted = response.Command is { ResultCode: ToolResultCode.Ok };
@@ -286,7 +286,7 @@ public sealed class WorldLinkClient : BackgroundService
                 .ConfigureAwait(false);
 
             var bodySize = BinaryPrimitives.ReadUInt16LittleEndian(header);
-            var packetId = (ToolLinkPacketId)BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(2));
+            var packetId = (PacketId)BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(2));
 
             if (bodySize > ToolLinkProtocol.MaxBodySize)
             {
@@ -302,11 +302,11 @@ public sealed class WorldLinkClient : BackgroundService
         }
     }
 
-    private void HandlePacket(ToolLinkPacketId packetId, ReadOnlySpan<byte> payload)
+    private void HandlePacket(PacketId packetId, ReadOnlySpan<byte> payload)
     {
         switch (packetId)
         {
-            case ToolLinkPacketId.ToolHelloAck:
+            case PacketId.W2TToolHelloAck:
             {
                 // ToolHelloAckPacket: requestId(u32) + accepted(u8) + protocolVersion(u32)
                 var reader = new BinaryPacketReader(payload);
@@ -322,7 +322,7 @@ public sealed class WorldLinkClient : BackgroundService
                 break;
             }
 
-            case ToolLinkPacketId.ToolCommandAck:
+            case PacketId.W2TToolCommandAck:
             {
                 // ToolCommandAckPacket: requestId(u32) + resultCode(u16) + affectedCount(u32)
                 var reader = new BinaryPacketReader(payload);
@@ -338,7 +338,7 @@ public sealed class WorldLinkClient : BackgroundService
                 break;
             }
 
-            case ToolLinkPacketId.ClientListReply:
+            case PacketId.W2TClientListReply:
             {
                 // requestId(u32) + count(u32) + count * { clientSessionId(u64) + zoneId(u32) }
                 var reader = new BinaryPacketReader(payload);
@@ -371,7 +371,7 @@ public sealed class WorldLinkClient : BackgroundService
     // 내부 유틸
 
     private async Task<ToolCommandResult> SendCommandAsync(
-        ToolLinkPacketId packetId,
+        PacketId packetId,
         Action<BinaryPacketWriter, uint> writeBody,
         CancellationToken cancellationToken)
     {
@@ -406,7 +406,7 @@ public sealed class WorldLinkClient : BackgroundService
     }
 
     private async Task SendFrameAsync(
-        ToolLinkPacketId packetId, BinaryPacketWriter body, CancellationToken cancellationToken)
+        PacketId packetId, BinaryPacketWriter body, CancellationToken cancellationToken)
     {
         if (body.Length > ToolLinkProtocol.MaxBodySize)
         {

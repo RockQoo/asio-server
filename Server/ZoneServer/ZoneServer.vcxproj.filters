@@ -31,7 +31,7 @@
     <ClInclude Include="Src\Log\LogCategory.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\PacketId.h">
+    <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h">
       <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="Src\Packet\ZonePackets.h">

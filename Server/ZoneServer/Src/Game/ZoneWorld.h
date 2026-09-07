@@ -2,8 +2,8 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Game/PlayerState.h"
-#include "Server/ZoneServer/Src/Packet/PacketId.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -53,7 +53,7 @@ namespace Zone
         // WorldLinkHandler(LB 스레드)는 이제 어느 zone인지만 판단하면 되고, 패킷 내용이 뭔지는
         // 몰라도 된다 -- Move/Chat/MailAdd/MailDel 각각의 와이어 포맷 파싱은 전부 여기,
         // BASIC 스레드에서 일어난다.
-        void HandleClientPacket(const Network::SessionId clientSessionId, const uint16_t packetId,
+        void HandleClientPacket(const Network::SessionId clientSessionId, const Protocol::PacketId packetId,
                                  const std::span<const byte> payload);
 
         // tick 훅 자리(placeholder). 실제로는 AI/물리/회복 등이 여기 들어갈 것이다.
@@ -72,9 +72,9 @@ namespace Zone
         void HandleMailAdd(const PlayerState& player, const std::span<const byte> payload);
         void HandleMailDel(const PlayerState& player, const std::span<const byte> payload);
 
-        void SendToPlayer(const Network::SessionId clientSessionId, const uint16_t innerPacketId,
+        void SendToPlayer(const Network::SessionId clientSessionId, const Protocol::PacketId innerPacketId,
                            const std::span<const byte> payload) const;
-        void BroadcastToZone(const uint16_t innerPacketId, const std::span<const byte> payload,
+        void BroadcastToZone(const Protocol::PacketId innerPacketId, const std::span<const byte> payload,
                              const Network::SessionId excludeClientSessionId = 0) const;
         void RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
                                   const float x, const float y) const;
@@ -92,6 +92,6 @@ namespace Zone
         // 컨텍스트로 PlayerState*를 쓰는 이유: 등록되는 핸들러가 전부 이 클래스의 private
         // 멤버 함수라 this로 zone 상태(worldLink_/mailRegistry_ 등)에 이미 접근 가능하고,
         // 여기엔 "이미 찾아낸 그 Player"만 넘기면 충분하기 때문이다.
-        Packet::PacketDispatcher<PacketId, PlayerState*> packetDispatcher_;
+        Packet::PacketDispatcher<Protocol::PacketId, PlayerState*> packetDispatcher_;
     };
 }

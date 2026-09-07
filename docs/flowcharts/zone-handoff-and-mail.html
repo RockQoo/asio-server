@@ -16,7 +16,7 @@
         (기본 실행 <code>ZoneServer.exe 0,1</code>에서는 <strong>한 프로세스가 두 존을 같이
         호스팅</strong>하고, 존을 가르는 건 프로세스가 아니라 <code>zoneId % basicThreadCount</code>
         sticky 라우팅이다),
-        (2) <code>Task::UnitOfWork</code> Unit-of-Work + <code>MailAddAck</code>/<code>MailDelAck</code>
+        (2) <code>Task::UnitOfWork</code> Unit-of-Work + <code>Z2CMailAddAck</code>/<code>Z2CMailDelAck</code>
         왕복 확인, (3) <code>Threading::Synchronized</code>가 실제로 방어 역할을 하는 지점,
         (4) <code>WorldServer</code>가 Zone을 거치지 않고 직접 하는 전체 브로드캐스트. 기본
         패킷 왕복 경로와 ZoneServer의 5-풀(NETWORK/LB/BASIC/TICK/BROADCAST) 구조는
@@ -49,7 +49,7 @@
                 <code>clientSessionId</code>/<code>playerId</code>를 erase 전에 복사해둔다.
             </div>
         </div>
-        <div class="connector">↓ Z2W <code>ZoneTransferRequest{zoneId, clientSessionId, playerId, x, y}</code></div>
+        <div class="connector">↓ Z2W <code>Z2WZoneTransferRequest{zoneId, clientSessionId, playerId, x, y}</code></div>
         <div class="step io">
             <div class="lane">I/O 스레드 (WorldServer, Session의 strand)</div>
             <div class="title"><code>ZoneLinkHandler::OnPacket</code> — 복사 후 <code>PostTask</code>만</div>
@@ -70,18 +70,18 @@
                 (두 레지스트리는 이 스레드 하나만 건드리므로 락이 없다).
                 World는 Gateway에 아무 것도 알리지 않는다 -- <strong>Gateway는 존 이동을 전혀
                 인지하지 못한다.</strong> 클라이언트에게도 World가 직접 알리는 건 없고, 아래에서
-                대상 존이 보내는 <code>EnterZoneNotify</code> 한 장만 도착한다(재접속·재인증 없음).
+                대상 존이 보내는 <code>Z2CEnterZoneNotify</code> 한 장만 도착한다(재접속·재인증 없음).
             </div>
         </div>
-        <div class="connector">↓ W2Z <code>EnterZoneRequest</code> (zoneId만 대상 존으로 덮어쓰고 좌표는 그대로)</div>
+        <div class="connector">↓ W2Z <code>W2ZEnterZoneRequest</code> (zoneId만 대상 존으로 덮어쓰고 좌표는 그대로)</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드 (Zone 1, LB 스레드가
                 <code>PostToBasic(zoneId=1)</code>로 넘긴 뒤)</div>
             <div class="title"><code>ZoneWorld::OnPlayerEnter</code></div>
             <div class="detail">
                 Zone 1이 이 플레이어를 새로 만들고(빈 우편함으로 시작 -- Mail은 zone-local이라
-                핸드오프 시 초기화되는 게 이 프로젝트의 알려진 단순화다) <code>EnterZoneNotify</code>를
-                되돌려 보낸다. 클라이언트 입장에서는 재접속 없이 <code>[recv] EnterZoneNotify
+                핸드오프 시 초기화되는 게 이 프로젝트의 알려진 단순화다) <code>Z2CEnterZoneNotify</code>를
+                되돌려 보낸다. 클라이언트 입장에서는 재접속 없이 <code>[recv] Z2CEnterZoneNotify
                 playerId=N zoneId=1</code>만 새로 받을 뿐이다 -- 그래서 Gateway에게는 완전히
                 투명하지만, <strong>클라이언트에게는 투명하지 않다</strong>(알림 한 장을 받는다).
             </div>
@@ -126,13 +126,13 @@
             <div class="detail">
                 누적된 태스크가 있으면 그때서야 <code>ownerId + taskCount + {kind, payloadLen,
                 payload}...</code>로 직렬화해 flush 콜백(<code>MakeMailUnitOfWork</code>가 만든
-                람다, playerId를 앞에 붙임)을 호출 → Z2W <code>UnitOfWorkStream</code> 한 번으로
+                람다, playerId를 앞에 붙임)을 호출 → Z2W <code>Z2WUnitOfWorkStream</code> 한 번으로
                 전송한다(전송 자체는 <code>Session</code>의 strand가 직렬화해주므로 어느
                 스레드에서 호출해도 안전하다) -- "패킷 처리 = 스택에 diff를 쌓았다가 함수 종료 시
                 자동 전송"하는 Unit-of-Work 패턴이다.
             </div>
         </div>
-        <div class="connector">↓ Z2W <code>UnitOfWorkStream</code> (World의 I/O 스레드는 복사 후 PostTask만)</div>
+        <div class="connector">↓ Z2W <code>Z2WUnitOfWorkStream</code> (World의 I/O 스레드는 복사 후 PostTask만)</div>
         <div class="step logic">
             <div class="lane">WorldWorker (World의 단일 처리 스레드)</div>
             <div class="title"><code>ZoneLinkHandler::HandleUnitOfWorkStream</code></div>
@@ -156,32 +156,32 @@
         </div>
     </div>
 
-    <h3>2-1. MailAddAck / MailDelAck — 클라이언트가 자기 mailId를 확인할 수 있어야 한다</h3>
+    <h3>2-1. Z2CMailAddAck / Z2CMailDelAck — 클라이언트가 자기 mailId를 확인할 수 있어야 한다</h3>
     <div class="flow">
         <div class="step client">
             <div class="lane">ProtocolClient / StressClient</div>
             <div class="title"><code>mail add ...</code> 전송</div>
             <div class="detail">
                 서버가 실제로 어떤 mailId를 배정했는지는 클라이언트가 알 방법이 없다 — 그래서
-                <code>MailDel</code>로 "자기가 만든 그 메일"을 정확히 지정해 지우려면 Ack이
+                <code>C2ZMailDel</code>로 "자기가 만든 그 메일"을 정확히 지정해 지우려면 Ack이
                 반드시 있어야 한다(부하 테스트가 id 불일치를 검증하려는 지점이기도 하다).
             </div>
         </div>
-        <div class="connector">↓ C2Z <code>MailAdd</code> → ... → BASIC 스레드에서 처리</div>
+        <div class="connector">↓ C2Z <code>C2ZMailAdd</code> → ... → BASIC 스레드에서 처리</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드</div>
             <div class="title"><code>ZoneWorld::HandleMailAdd</code></div>
             <div class="detail">
                 <code>AddMail</code>이 반환한 <code>mailId</code>를 그대로
-                <code>SendToPlayer(..., PacketId::MailAddAck, {mailId})</code>로 즉시 되돌려준다
+                <code>SendToPlayer(..., Protocol::PacketId::Z2CMailAddAck, {mailId})</code>로 즉시 되돌려준다
                 (본인 한 명에게만 보내면 되므로 BROADCAST 풀을 거치지 않는다).
             </div>
         </div>
-        <div class="connector">↓ S2C <code>MailAddAck{mailId}</code></div>
+        <div class="connector">↓ S2C <code>Z2CMailAddAck{mailId}</code></div>
         <div class="step client">
             <div class="lane">ProtocolClient / StressClient</div>
-            <div class="title"><code>[recv] MailAddAck mailId=N</code></div>
-            <div class="detail">이 mailId로 <code>MailDel</code>을 보낸다.</div>
+            <div class="title"><code>[recv] Z2CMailAddAck mailId=N</code></div>
+            <div class="detail">이 mailId로 <code>C2ZMailDel</code>을 보낸다.</div>
         </div>
         <div class="connector">↓ C2Z <code>MailDel{mailId}</code> → ... → BASIC 스레드</div>
         <div class="step logic">
@@ -189,7 +189,7 @@
             <div class="title"><code>ZoneWorld::HandleMailDel</code></div>
             <div class="detail">
                 <code>DelMail</code>이 반환한 성공 여부를
-                <code>MailDelAck{mailId, success}</code>로 되돌려준다. <code>success=false</code>는
+                <code>Z2CMailDelAck{mailId, success}</code>로 되돌려준다. <code>success=false</code>는
                 그 mailId가 이미 없었다는 뜻 — 부하 테스트는 이 값과 자신이 요청한 mailId가
                 일치하는지를 사이클마다 검증한다.
             </div>
@@ -234,7 +234,7 @@
             <div class="lane">WorldServer 콘솔 REPL 스레드 (수동 테스트용)</div>
             <div class="title"><code>notice &lt;메시지&gt;</code> 입력</div>
             <div class="detail"><code>main.cpp</code>의 <code>ConsoleLoop</code>가
-                <code>app.BroadcastToAll(PacketId::Notice, ...)</code>를 호출한다 -- I/O 스레드도
+                <code>app.BroadcastToAll(Protocol::PacketId::W2CNotice, ...)</code>를 호출한다 -- I/O 스레드도
                 워커도 아닌 <strong>제3의 생산자 스레드</strong>다.</div>
         </div>
         <div class="connector">↓ payload 복사 후 PostTask (스레드 경계)</div>

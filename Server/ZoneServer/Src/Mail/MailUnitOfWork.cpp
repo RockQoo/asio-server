@@ -4,7 +4,7 @@
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 namespace Mail
 {
@@ -22,7 +22,7 @@ namespace Mail
             Packet::BinaryWriter writer;
             writer.Write(playerId);
             writer.WriteBytes(serialized);
-            worldSession->SendPacket(static_cast<uint16_t>(World::ZoneLinkPacketId::UnitOfWorkStream), writer.GetBuffer());
+            worldSession->SendPacket(Protocol::PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
         });
     }
 }

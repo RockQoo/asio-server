@@ -43,7 +43,7 @@ bat\start_gmtool.bat          http://127.0.0.1:5080
 dotnet test GmTool.slnx
 ```
 
-xUnit 80개. 전부 `GmTool.Core`(쿠폰 코드/체크문자/배치 생성/와이어 코덱)를 보고 DB를 참조하지
+xUnit 77개. 전부 `GmTool.Core`(쿠폰 코드/체크문자/배치 생성/와이어 코덱)를 보고 DB를 참조하지
 않는다. 저장 계층은 실제 DB를 띄워 API로 왕복 확인한다.
 
 ## 구성
@@ -60,7 +60,7 @@ GmTool.slnx
 │   ├── Data/             연결 팩토리, 쿠폰 테이블 이름 규칙, 벌크 인서트 리더
 │   ├── Repositories/     테이블별 접근
 │   └── Services/         인증, World 링크, 쿠폰 발급/등록, 스키마 초기화
-└── GmTool.Tests/         xUnit 80개
+└── GmTool.Tests/         xUnit 77개
 ```
 
 ---

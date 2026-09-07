@@ -2,7 +2,7 @@ namespace GmTool.Core.Protocol;
 
 /// <summary>
 /// 운영툴 ↔ WorldServer 링크의 와이어 프로토콜 상수. C++ 쪽
-/// <c>Server/WorldServer/Src/Packet/ToolLinkPacketId.h</c> / <c>ToolLinkPackets.h</c>와 짝을
+/// <c>Shared/Protocol/Src/PacketId.h</c> / <c>Server/WorldServer/Src/Packet/ToolLinkPackets.h</c>와 짝을
 /// 이룬다 — <b>한쪽만 고치면 안 된다.</b>
 /// </summary>
 public static class ToolLinkProtocol

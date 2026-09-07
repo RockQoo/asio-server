@@ -141,18 +141,34 @@ enum을 직접 선언하고, 클라이언트 패킷 정의를 "참고용"으로 
 운영툴의 공지/우편은 클라이언트 패킷을 존에 주입하는 방식이지만 그 변환은 전적으로 World의
 `Tool::ToolProcessor`가 하므로, 운영툴은 어떤 클라이언트 패킷으로 바뀌는지 알 필요가 없다.
 
+## 캐스팅을 없애는 오버로드
+
+`enum class`라 그대로는 `uint16_t` 자리에 못 넣는데, 호출부마다 `static_cast`를 쓰면 잡음이
+크다(치환 전 38곳). 그래서 Core에 enum을 받는 오버로드를 하나씩 얹어뒀다 --
+`Session::SendPacket`과 `Packet::BuildFrame`이고, 둘 다 `std::is_enum_v` 제약만 걸어서
+**Core는 여전히 어떤 enum인지 모른다**(콘텐츠를 모르는 라이브러리라는 원칙 유지).
+
+콘텐츠를 아는 쪽(`ZoneWorld::SendToPlayer`/`BroadcastToZone`, `BroadcastDispatcher::Broadcast`,
+`ToolProcessor::InjectClientPacket`, `WorldServerApp::BroadcastToAll`,
+`ZoneWorld::HandleClientPacket`)은 아예 매개변수 타입을 `Protocol::PacketId`로 바꿨다.
+남은 `static_cast`는 `ClientEnvelopeHeader::innerPacketId`(POD 필드가 `uint16_t`)에 넣는
+두 곳과 로그 출력 한 곳뿐이다.
+
 ## 적용 상태
 
-**규칙만 확정됐고 코드에는 아직 반영 전이다.** 현재 코드는 링크별 4개 enum이 각각 1번부터
-쓰고 있다(`Zone::PacketId`, `World::GatewayLinkPacketId`, `World::ZoneLinkPacketId`,
-`World::ToolLinkPacketId`). 반영할 때 같이 처리해야 하는 것:
+**적용 완료.** 링크별 4개 enum(`Zone::PacketId`, `World::GatewayLinkPacketId`,
+`World::ZoneLinkPacketId`, `World::ToolLinkPacketId`)은 삭제됐고 전부 `Protocol::PacketId`로
+합쳐졌다. `World::EToolResultCode`만 `Server/WorldServer/Src/Packet/ToolResultCode.h`로
+따로 남았다(패킷 id가 아니라 결과 코드라 대역과 무관).
 
-- `Echo`/`Move`/`Chat`은 지금 요청과 응답이 같은 id를 쓴다 -> 방향별로 갈라진다.
-  특히 `Chat`은 이미 본문이 다르다(요청 `string`, 브로드캐스트 `sessionId + string`).
-- `Z2CMoveNotify` 본문에 `sessionId(uint32)`를 추가한다 -- 현재 브로드캐스트에는 누가
-  움직였는지가 없어서 `Z2CChatNotify`와 형태가 어긋나 있다.
-- `WorldLinkHandler`의 Echo 즉시 응답은 받은 envelope을 그대로 되돌려 보내므로,
-  `header.innerPacketId`를 `Z2CEchoAck`로 바꿔 쓰는 처리가 추가로 필요하다.
-- `Tool/GmTool/GmTool.Core/Protocol/ZoneClientPacketId.cs`와 이 값을 고정하는 테스트는
-  위 가시성 규칙에 따라 삭제 대상이다.
+같이 처리한 것:
+
+- `Echo`/`Move`/`Chat`은 요청과 응답이 같은 id를 쓰고 있었다 -> 방향별로 갈라졌다
+  (`C2ZEcho`/`Z2CEchoAck`, `C2ZMove`/`Z2CMoveNotify`, `C2ZChat`/`Z2CChatNotify`).
+- `Z2CMoveNotify` 본문 앞에 `sessionId(uint32)`를 추가했다 -- 그전에는 브로드캐스트에 누가
+  움직였는지가 없어서 `Z2CChatNotify`와 형태가 어긋나 있었다. **와이어 포맷 변경이다.**
+- `WorldLinkHandler`의 Echo 즉시 응답은 받은 envelope을 그대로 되돌려 보내던 것을,
+  `innerPacketId`만 `Z2CEchoAck`로 바꿔 쓰도록 고쳤다.
+- `Tool/GmTool`의 `ZoneClientPacketId.cs`와 그 값을 고정하던 테스트 3건은 위 가시성 규칙에
+  따라 삭제했다(xUnit 80 -> 77개). `ToolLinkPacketId.cs`는 `PacketId.cs`로 바뀌었다.
 - 새 `Shared/Protocol/` 프로젝트(또는 헤더 전용 폴더)를 6개 vcxproj가 참조하도록 추가한다.

@@ -19,7 +19,7 @@ namespace Gateway
 
     void WorldLinkHandler::RegisterHandlers()
     {
-        dispatcher_.Register(World::GatewayLinkPacketId::ToClient,
+        dispatcher_.Register(Protocol::PacketId::W2GRelay,
             [this](const auto& session, const auto payload) { HandleToClient(session, payload); });
     }
 
@@ -33,7 +33,7 @@ namespace Gateway
                                      const Packet::PacketHeader& header,
                                      const std::span<const byte> payload)
     {
-        dispatcher_.Dispatch(static_cast<World::GatewayLinkPacketId>(header.id), session, payload);
+        dispatcher_.Dispatch(static_cast<Protocol::PacketId>(header.id), session, payload);
     }
 
     void WorldLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& /*session*/, const std::error_code& reason)

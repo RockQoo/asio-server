@@ -99,10 +99,9 @@
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
     <ClInclude Include="Src\Packet\RelayEnvelope.h" />
-    <ClInclude Include="Src\Packet\GatewayLinkPacketId.h" />
-    <ClInclude Include="Src\Packet\ZoneLinkPacketId.h" />
     <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
-    <ClInclude Include="Src\Packet\ToolLinkPacketId.h" />
+    <ClInclude Include="Src\Packet\ToolResultCode.h" />
+    <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
     <ClInclude Include="Src\Tool\ToolProcessor.h" />
     <ClInclude Include="Src\World\ClientRegistry.h" />

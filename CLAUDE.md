@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **세부 C++ 규칙**(include 순서/캐스팅/pch/asio 예외 안전 등): `.claude/rules/cpp-patterns.md`
 2. **`.claude/` 아래 새 md 파일명**(kebab-case, `SKILL.md`류 고정명은 예외): `.claude/rules/md-patterns.md`
-3. **패킷 id 네이밍/번호 대역**(`C2Z::Move` 형식, 방향별 1000 단위 대역): `.claude/rules/packet-naming.md`
+3. **패킷 id 네이밍/번호 대역**(`C2ZMove` 형식, 방향별 1000 단위 대역): `.claude/rules/packet-naming.md`
 4. **CLI 빌드/MSBuild 에러 진단**: `.claude/skills/build/SKILL.md`
 5. **기존 코드 답습**: `Shared/Core/Src/`가 인프라, `Server/WorldServer/Src/`·`Server/ZoneServer/Src/`·
    `Server/GatewayServer/Src/`가 각 서버 로직 — 새 코드는 같은 프로젝트의 유사 패턴부터 확인.
@@ -67,18 +67,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 C:\Work\asio-server\
 ├── asio-server.slnx                  솔루션 (더블클릭으로 VS에서 바로 열림)
 ├── Shared/                           서버·툴이 공유하는 모듈 (Client가 Server를 의존하지 않게 하는 층)
-│   └── Core/                         게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
-│       └── Src/
-│           ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
-│           ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, ErrorCode.h, CoreException.h
-│           ├── Packet/               PacketHeader/Buffer/Framer, BinaryWriter/Reader,
-│           │                         PacketDispatcher<TId,TContext>
-│           ├── Network/              IoContextPool, Listener(accept), Connector(outbound
-│           │                         connect, Listener와 대칭), Session, SessionManager
-│           ├── Thread/               WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
-│           ├── Timer/                RepeatingTimer
-│           ├── Threading/Synchronized.h  shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
-│           └── Task/UnitOfWork.h     범용 Unit-of-Work(taskKind+직렬화 바이트만 다룸)
+│   ├── Core/                         게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
+│   │   └── Src/
+│   │       ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
+│   │       ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, ErrorCode.h, CoreException.h
+│   │       ├── Packet/               PacketHeader/Buffer/Framer, BinaryWriter/Reader,
+│   │       │                         PacketDispatcher<TId,TContext>
+│   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
+│   │       │                         connect, Listener와 대칭), Session, SessionManager
+│   │       ├── Thread/               WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
+│   │       ├── Timer/                RepeatingTimer
+│   │       ├── Threading/Synchronized.h  shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
+│   │       └── Task/UnitOfWork.h     범용 Unit-of-Work(taskKind+직렬화 바이트만 다룸)
+│   └── Protocol/Src/PacketId.h   모든 패킷 id 하나로 통합(Protocol::PacketId).
+│                                 규약: .claude/rules/packet-naming.md
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
 │   ├── WorldServer/                  WorldWorker(단일 처리 스레드) 라우팅 + DB 워커 풀 (실행 파일)
@@ -92,14 +94,14 @@ C:\Work\asio-server\
 │           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │           └── Mail/                 MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아님)
-│   ├── ProtocolClient/                   수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)
+│   ├── ProtocolClient/                   수동 테스트용 REPL (Core + Shared/Protocol 참조)
 │   ├── StressClient/               비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
 │   └── GmTool/                       서버 기능 검증용 운영툴 — C#/.NET 10, 별도 솔루션(기능 개발 중단)
 │       ├── GmTool.slnx               (C++ 솔루션에 섞으면 서버만 빌드할 때 NuGet 복원까지 끌려온다)
 │       ├── Sql/schema.sql            운영자/명령로그/쿠폰 캠페인·배치·등록시도 (쿠폰 테이블은 캠페인별 동적 생성)
 │       ├── GmTool.Core/Src           Protocol(C++ BinaryWriter와 바이트 호환 코덱), Coupons(생성 엔진)
 │       ├── GmTool.Web/               Blazor Web App(InteractiveServer) + Minimal API + SqlKata 리포지토리
-│       └── GmTool.Tests/             xUnit 80개 (쿠폰 체계/대량 발급/와이어 호환성)
+│       └── GmTool.Tests/             xUnit 77개 (쿠폰 체계/대량 발급/와이어 호환성)
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
 ├── docs/flowcharts/                  기능별 HTML 플로우차트 (index.html부터, 오프라인 열람용)
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
@@ -109,7 +111,7 @@ C:\Work\asio-server\
 ├── obj/                              중간 산출물 (gitignored)
 └── .claude/
     ├── settings.json                 PreToolUse/PostToolUse 훅 등록
-    ├── rules/                        C++ / MD 코딩 규약
+    ├── rules/                        C++ / MD / 패킷 네이밍 규약
     ├── skills/build/SKILL.md         CLI 빌드 스킬
     └── hooks/                        벤더 코드 차단, 빌드 결과 알림 스크립트
 ```
@@ -131,7 +133,7 @@ Client → GatewayServer(릴레이) → WorldServer(WorldWorker 단일 스레드
 
 핵심 불변식: **같은 zoneId의 패킷은 항상 같은 BASIC 스레드로만 라우팅된다**(`zoneId %
 BASIC풀크기`) — 그 존 상태(`ZoneWorld`)는 항상 그 스레드에서만 접근되므로 락이 필요 없다.
-NETWORK/LB 스레드는 게임 상태를 직접 안 건드리고 바이트만 복사해 넘긴다(예외: `Echo`는
+NETWORK/LB 스레드는 게임 상태를 직접 안 건드리고 바이트만 복사해 넘긴다(예외: `C2ZEcho`는
 공유 상태가 없어 LB 스레드에서 즉시 응답). TICK/BROADCAST는 BASIC과 "다른" 스레드이므로,
 BASIC이 소유한 컨테이너(`players_` 등)를 직접 건드리면 안 되고 스냅샷을 넘겨야 한다
 (`BroadcastDispatcher` 참고). **한 존에 인구가 과도하게 몰리면 이 불변식이 곧 "BASIC
@@ -190,7 +192,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 `/p:` 치환 우회법 정리.
 
 **테스트**: 자동화 스위트 없음. `ProtocolClient.exe`가 실제 프로토콜(Echo/Move/Chat/Mail/
-EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClient.exe`가 1만 세션까지
+Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClient.exe`가 1만 세션까지
 동시 접속 부하 테스트 도구 — 바이너리 프로토콜이라 telnet 검증 불가라 둘 다 직접 만들었다.
 사용법은 `README.md` "7. 테스트" 절 참고.
 

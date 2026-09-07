@@ -2,7 +2,7 @@
 
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
-#include "Server/WorldServer/Src/Packet/GatewayLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 namespace Network
 {
@@ -34,6 +34,6 @@ namespace Gateway
 
         Network::SessionManager& sessionManager_;
         WorldLink& worldLink_;
-        Packet::PacketDispatcher<World::GatewayLinkPacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::PacketDispatcher<Protocol::PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

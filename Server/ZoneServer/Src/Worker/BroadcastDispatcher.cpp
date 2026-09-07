@@ -5,7 +5,7 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
 {
@@ -16,7 +16,7 @@ namespace Zone
     }
 
     void BroadcastDispatcher::Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
-                                        const uint16_t innerPacketId, std::vector<byte> payload)
+                                        const Protocol::PacketId innerPacketId, std::vector<byte> payload)
     {
         broadcastPool_.GetWorker(zoneId).PostTask(
             [&worldLink = worldLink_, targets = std::move(targets), innerPacketId, payload = std::move(payload)]
@@ -31,12 +31,12 @@ namespace Zone
                 {
                     World::ClientEnvelopeHeader header{};
                     header.clientSessionId = clientSessionId;
-                    header.innerPacketId = innerPacketId;
+                    header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
                     Packet::BinaryWriter writer;
                     writer.Write(header);
                     writer.WriteBytes(payload);
-                    worldSession->SendPacket(static_cast<uint16_t>(World::ZoneLinkPacketId::ForwardToWorld), writer.GetBuffer());
+                    worldSession->SendPacket(Protocol::PacketId::Z2WRelay, writer.GetBuffer());
                 }
             });
     }

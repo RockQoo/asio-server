@@ -34,16 +34,13 @@
     <ClInclude Include="Src\Packet\RelayEnvelope.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\GatewayLinkPacketId.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Packet\ZoneLinkPacketId.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Packet\ZoneLinkPackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\ToolLinkPacketId.h">
+    <ClInclude Include="Src\Packet\ToolResultCode.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h">
       <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="Src\Packet\ToolLinkPackets.h">

@@ -13,7 +13,7 @@
 - **4계층 분산 구조**: Client → GatewayServer(순수 릴레이) → WorldServer(라우팅+DB워커) →
   ZoneServer(존 상태). Gateway/World는 이번에 새로 추가된 프로젝트.
 - **존 핸드오프**: 존 경계를 넘으면 World가 라우팅 테이블(`ClientRegistry`)만 바꾼다 —
-  Gateway는 이동 자체를 모르고, 클라이언트는 EnterZoneNotify 통지만 받을 뿐 재접속 없이
+  Gateway는 이동 자체를 모르고, 클라이언트는 Z2CEnterZoneNotify 통지만 받을 뿐 재접속 없이
   같은 연결을 유지한다.
 - **ZoneServer 5-풀 구조**: NETWORK(소켓 I/O) → LB(패킷 파싱, zoneId 판단) → BASIC(zoneId
   sticky, 게임 로직) → TICK(존별 주기 처리, 현재 placeholder) → BROADCAST(zoneId sticky,
@@ -25,7 +25,7 @@
   유지보수 타이머). `Threading::Synchronized`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
   BASIC 스레드와 유지보수 타이머가 만나는 유일한 지점만 락"을 보여준다. 상태 변경은
   `Core::Task::UnitOfWork`(범용 Unit-of-Work)에 기록했다가 스코프 종료 시 한 번에 World로
-  전송. `MailAddAck`/`MailDelAck`으로 클라이언트가 서버가 실제 배정한 mailId를 확인 가능.
+  전송. `Z2CMailAddAck`/`Z2CMailDelAck`으로 클라이언트가 서버가 실제 배정한 mailId를 확인 가능.
 - **부하 테스트 도구(`StressClient`)**: `Core::Network::Connector`/`Session`을 그대로
   재사용해 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기 멀티플렉싱.
   Release 기준 1,000세션×200사이클은 18,337 사이클/초로 완전 통과(불일치 0, 스톨 0,
@@ -44,8 +44,8 @@
   **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라
   `authenticatedSessions_`에도 락이 없다. 툴 쪽은 Blazor Web App + Minimal API +
   SqlKata/Microsoft.Data.SqlClient 구성.
-  - **우편은 새 패킷을 만들지 않는다**: 기존 `Zone::PacketId::MailAdd`/`MailDel`을
-    `ClientEnvelopeHeader`로 감싸 `ForwardToZone`으로 주입한다. 존 입장에서는 클라이언트가
+  - **우편은 새 패킷을 만들지 않는다**: 기존 `Protocol::PacketId::C2ZMailAdd`/`C2ZMailDel`을
+    `ClientEnvelopeHeader`로 감싸 `W2ZRelay`으로 주입한다. 존 입장에서는 클라이언트가
     직접 보낸 것과 바이트 단위로 구분이 안 되므로, Mail/`UnitOfWork`/DbWorker 경로가 그대로
     재사용된다(운영 전용 우회로를 만들면 "운영툴 우편만 만료가 안 되는" 사고가 난다).
   - **대량 쿠폰 발급**: 캠페인 코드 5자리를 네임스페이스로 써서 중복 검사 범위를 캠페인
@@ -60,8 +60,23 @@
     마지막 측정은 WorldServer를 일부러 죽인 채 돌렸는데 발급이 정상 완료됐다 —
     World 전송이 부가 경로라는 설계가 의도대로 동작함을 확인.
   - 검증: 서버 3종 + 운영툴을 실제로 띄워 공지·우편 발송/삭제·쿠폰 발급/등록을 왕복시켰고,
-    `ProtocolClient`가 `Notice`/`MailAddAck`/`MailDelAck(success=true/false)`을 실제로 수신하는 것까지
-    확인했다. 툴 자체는 xUnit 80개.
+    `ProtocolClient`가 `W2CNotice`/`Z2CMailAddAck`/`Z2CMailDelAck(success=true/false)`을 실제로 수신하는 것까지
+    확인했다. 툴 자체는 xUnit 77개.
+- **패킷 id 통합/네이밍**(2026-09-07): 링크별로 흩어져 있던 4개 enum(`Zone::PacketId`,
+  `GatewayLinkPacketId`, `ZoneLinkPacketId`, `ToolLinkPacketId`)이 전부 1번부터 값을 쓰고
+  있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Shared/Protocol/Src/PacketId.h`의
+  **`Protocol::PacketId` 하나**로 합치고 이름 앞 3글자를 발신→수신 방향으로 고정했다
+  (`C2ZMove`, `W2TToolCommandAck`). 방향마다 1000 단위로 대역을 잘라 **값 하나로 어느
+  소켓의 패킷인지 판정**된다 — 규약 원문은 `.claude/rules/packet-naming.md`.
+  - 부수로 갈라진 것: 요청과 응답이 id를 공유하던 `C2ZEcho`/`C2ZMove`/`C2ZChat`이 분리됐고
+    (`C2ZEcho`/`Z2CEchoAck` 등), `Z2CMoveNotify` 본문 앞에 `sessionId(uint32)`가 붙었다
+    (그전에는 브로드캐스트에 누가 움직였는지가 없었다 — **와이어 포맷 변경**).
+  - `Session::SendPacket`/`Packet::BuildFrame`에 `std::is_enum_v` 제약의 enum 오버로드를
+    얹어 호출부 `static_cast` 38곳을 없앴다(Core는 여전히 콘텐츠를 모른다).
+  - 운영툴은 자기 대역(`T2W`/`W2T`)만 선언한다 — 클라이언트 패킷을 참고용으로 미러링하던
+    `ZoneClientPacketId.cs`는 삭제(테스트 3건도 함께, 80→77개).
+  - 검증: Debug/Release 클린 리빌드 에러·경고 0, GmTool 테스트 77개 통과, 서버 3종을 띄워
+    `ProtocolClient`로 Echo/Move/Chat/Mail/존 핸드오프 왕복까지 실제 확인.
 
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 
@@ -90,7 +105,7 @@
 3. **AOI/몬스터**: 존 내부를 그리드로 나눠 "가까운 플레이어에게만" 브로드캐스트하도록
    확장, 몬스터(NPC)와 간단한 FSM 추가.
 4. **자동화 테스트**: C++ 쪽은 여전히 `ProtocolClient`/`StressClient` 수동·부하 확인뿐 —
-   회귀 방지용 자동화 스위트가 없다. 운영툴은 xUnit 80개가 붙어 있으니(`cd Tool\GmTool &&
+   회귀 방지용 자동화 스위트가 없다. 운영툴은 xUnit 77개가 붙어 있으니(`cd Tool\GmTool &&
    dotnet test`), 같은 방식으로 C++ 쪽에도 최소한 패킷 코덱/프레이밍 단위 테스트부터
    붙이는 게 다음 후보다.
 5. **운영툴 기능 추가 — 지금은 보류.** `Tool/GmTool`은 서버 기능을 검증하기 위한 도구이고,

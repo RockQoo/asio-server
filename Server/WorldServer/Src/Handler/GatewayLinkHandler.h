@@ -3,7 +3,7 @@
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
-#include "Server/WorldServer/Src/Packet/GatewayLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 #include <cstdint>
 
@@ -41,6 +41,6 @@ namespace World
         ClientRegistry& clientRegistry_;
         ZoneLinkRegistry& zoneLinkRegistry_;
         WorldWorker& worldWorker_;
-        Packet::PacketDispatcher<GatewayLinkPacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::PacketDispatcher<Protocol::PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

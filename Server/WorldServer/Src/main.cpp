@@ -2,7 +2,7 @@
 #include "Server/WorldServer/Src/App/WorldServerApp.h"
 
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/ZoneServer/Src/Packet/PacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 #include <atomic>
 #include <cstdlib>
@@ -38,7 +38,7 @@ namespace
 
                 Packet::BinaryWriter writer;
                 writer.WriteString(message);
-                app.BroadcastToAll(static_cast<uint16_t>(Zone::PacketId::Notice), writer.GetBuffer());
+                app.BroadcastToAll(Protocol::PacketId::W2CNotice, writer.GetBuffer());
                 std::cout << "[notice 전송] " << message << "\n";
             }
             else if (command == "quit" || command == "exit")

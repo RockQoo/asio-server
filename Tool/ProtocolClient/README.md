@@ -36,7 +36,7 @@ Gateway뿐이라는 구조를 그대로 따른다.
 
 ```
 move 5 5      -> 존 0에서 브로드캐스트
-move 15 5     -> [recv] EnterZoneNotify zoneId=1
+move 15 5     -> [recv] Z2CEnterZoneNotify zoneId=1
 ```
 
 **재접속도 재인증도 없이 같은 TCP 연결에서 zoneId만 바뀐다.** WorldServer가 라우팅

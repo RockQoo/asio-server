@@ -6,7 +6,7 @@
 #include "Shared/Core/Src/Network/SessionManager.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/GatewayLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 namespace Gateway
 {
@@ -29,7 +29,7 @@ namespace Gateway
         }
 
         const Network::SessionId clientSessionId = session->Id();
-        worldSession->SendPacket(static_cast<uint16_t>(World::GatewayLinkPacketId::ClientConnected),
+        worldSession->SendPacket(Protocol::PacketId::G2WClientConnected,
                                   std::as_bytes(std::span(&clientSessionId, 1)));
 
         LOG.Info(ELogCategory::Client, "클라이언트 접속").KV("SessionId", clientSessionId)
@@ -53,7 +53,7 @@ namespace Gateway
         Packet::BinaryWriter writer;
         writer.Write(envelopeHeader);
         writer.WriteBytes(payload);
-        worldSession->SendPacket(static_cast<uint16_t>(World::GatewayLinkPacketId::FromClient), writer.GetBuffer());
+        worldSession->SendPacket(Protocol::PacketId::G2WRelay, writer.GetBuffer());
     }
 
     void ClientLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
@@ -63,7 +63,7 @@ namespace Gateway
         if (const auto worldSession = worldLink_.Get())
         {
             const Network::SessionId clientSessionId = session->Id();
-            worldSession->SendPacket(static_cast<uint16_t>(World::GatewayLinkPacketId::ClientDisconnected),
+            worldSession->SendPacket(Protocol::PacketId::G2WClientDisconnected,
                                       std::as_bytes(std::span(&clientSessionId, 1)));
         }
 

@@ -5,7 +5,7 @@
 #include "Shared/Core/Src/Packet/PacketBuffer.h"
 #include "Shared/Core/Src/Packet/PacketFramer.h"
 #include "Server/ZoneServer/Src/Log/LogCategory.h"
-#include "Server/ZoneServer/Src/Packet/PacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
 #include <asio.hpp>
@@ -40,7 +40,7 @@ namespace
             "  quit / exit      - 종료\n";
     }
 
-    void SendPacket(asio::ip::tcp::socket& socket, const uint16_t packetId,
+    void SendPacket(asio::ip::tcp::socket& socket, const Protocol::PacketId packetId,
                      const std::span<const byte> payload)
     {
         const auto frame = Packet::BuildFrame(packetId, payload);
@@ -74,9 +74,9 @@ namespace
             std::vector<byte> payload;
             while (packetBuffer.TryExtract(header, payload))
             {
-                switch (static_cast<Zone::PacketId>(header.id))
+                switch (static_cast<Protocol::PacketId>(header.id))
                 {
-                case Zone::PacketId::EnterZoneNotify:
+                case Protocol::PacketId::Z2CEnterZoneNotify:
                 {
                     Zone::EnterZoneNotifyPacket notify{};
                     if (payload.size() >= sizeof(notify))
@@ -87,23 +87,26 @@ namespace
                     }
                     break;
                 }
-                case Zone::PacketId::Echo:
+                case Protocol::PacketId::Z2CEchoAck:
                 {
                     const std::string text(reinterpret_cast<const char*>(payload.data()), payload.size());
-                    std::cout << "[recv] Echo: " << text << '\n';
+                    std::cout << "[recv] EchoAck: " << text << '\n';
                     break;
                 }
-                case Zone::PacketId::Move:
+                case Protocol::PacketId::Z2CMoveNotify:
                 {
+                    // 요청(C2ZMove)과 달리 브로드캐스트에는 sessionId가 앞에 붙는다.
+                    Packet::BinaryReader reader(payload);
+                    uint32_t moverId{};
                     Zone::MovePacket move{};
-                    if (payload.size() >= sizeof(move))
+                    if (reader.Read(moverId) && reader.Read(move))
                     {
-                        std::memcpy(&move, payload.data(), sizeof(move));
-                        std::cout << "[recv] Move x=" << move.x << " y=" << move.y << '\n';
+                        std::cout << "[recv] MoveNotify from " << moverId
+                                  << " x=" << move.x << " y=" << move.y << '\n';
                     }
                     break;
                 }
-                case Zone::PacketId::Chat:
+                case Protocol::PacketId::Z2CChatNotify:
                 {
                     Packet::BinaryReader reader(payload);
                     uint32_t senderId{};
@@ -114,7 +117,7 @@ namespace
                     }
                     break;
                 }
-                case Zone::PacketId::Notice:
+                case Protocol::PacketId::W2CNotice:
                 {
                     Packet::BinaryReader reader(payload);
                     std::string message;
@@ -124,7 +127,7 @@ namespace
                     }
                     break;
                 }
-                case Zone::PacketId::MailAddAck:
+                case Protocol::PacketId::Z2CMailAddAck:
                 {
                     Zone::MailAddAckPacket ack{};
                     if (payload.size() >= sizeof(ack))
@@ -134,7 +137,7 @@ namespace
                     }
                     break;
                 }
-                case Zone::PacketId::MailDelAck:
+                case Protocol::PacketId::Z2CMailDelAck:
                 {
                     Zone::MailDelAckPacket ack{};
                     if (payload.size() >= sizeof(ack))
@@ -206,20 +209,20 @@ int main(const int argc, char** argv)
             {
                 const auto text = RestOfLine(iss);
                 const auto* const bytes = reinterpret_cast<const byte*>(text.data());
-                SendPacket(socket, static_cast<uint16_t>(Zone::PacketId::Echo), std::span(bytes, text.size()));
+                SendPacket(socket, Protocol::PacketId::C2ZEcho, std::span(bytes, text.size()));
             }
             else if (command == "move")
             {
                 Zone::MovePacket move{};
                 iss >> move.x >> move.y;
-                SendPacket(socket, static_cast<uint16_t>(Zone::PacketId::Move),
+                SendPacket(socket, Protocol::PacketId::C2ZMove,
                            std::as_bytes(std::span(&move, 1)));
             }
             else if (command == "chat")
             {
                 Packet::BinaryWriter writer;
                 writer.WriteString(RestOfLine(iss));
-                SendPacket(socket, static_cast<uint16_t>(Zone::PacketId::Chat), writer.GetBuffer());
+                SendPacket(socket, Protocol::PacketId::C2ZChat, writer.GetBuffer());
             }
             else if (command == "mail")
             {
@@ -236,13 +239,13 @@ int main(const int argc, char** argv)
                     writer.WriteString(title);
                     writer.WriteString(body);
                     writer.Write(durationSec);
-                    SendPacket(socket, static_cast<uint16_t>(Zone::PacketId::MailAdd), writer.GetBuffer());
+                    SendPacket(socket, Protocol::PacketId::C2ZMailAdd, writer.GetBuffer());
                 }
                 else if (sub == "del")
                 {
                     uint32_t mailId{};
                     iss >> mailId;
-                    SendPacket(socket, static_cast<uint16_t>(Zone::PacketId::MailDel),
+                    SendPacket(socket, Protocol::PacketId::C2ZMailDel,
                                std::as_bytes(std::span(&mailId, 1)));
                 }
                 else

@@ -10,7 +10,7 @@ MMORPG 서버 구조를 4개 프로세스로 단순화해, **"게임 상태에 �
 | **핵심 주장** | 락을 없애는 게 목적이 아니라, **락이 필요한 지점을 세어서 줄이는 것**이 목적 — 상황별로 4가지 전략(스레드 어피니티 / 단일 스레드 / 스냅샷 전달 / 명시적 락)을 나눠 적용했고, 서버 3종에 남은 mutex **선언 지점은 전부 8곳**으로 셀 수 있습니다 |
 | **규모** | C++ 소스 115개 파일 / 프로젝트 6개(정적 라이브러리 1 + 실행 파일 5) + C# 운영툴 3개 프로젝트 |
 | **환경** | MSVC v143, x64 전용, `/std:c++20`, 외부 의존성은 벤더링한 standalone ASIO 하나뿐 (운영툴만 .NET 10 / SQL Server 별도) |
-| **검증** | 서버는 자동화 스위트 없음 — 프로토콜 REPL 클라이언트와 **1만 세션까지 실측한 부하 도구를 직접 만들어** 정확성·처리량·지연을 측정. 운영툴은 xUnit 80개 |
+| **검증** | 서버는 자동화 스위트 없음 — 프로토콜 REPL 클라이언트와 **1만 세션까지 실측한 부하 도구를 직접 만들어** 정확성·처리량·지연을 측정. 운영툴은 xUnit 77개 |
 
 ---
 
@@ -66,7 +66,7 @@ mutex가 아예 없습니다.
 
 운영툴 링크는 세 번째 accept 포트(9300)로 분리돼 있고, `ToolProcessor`가 위 두 링크 핸들러와
 **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)을 그대로 따릅니다.
-운영 우편은 새 패킷을 만들지 않고 기존 클라이언트 패킷(`MailAdd`/`MailDel`)을 봉투에 싸서
+운영 우편은 새 패킷을 만들지 않고 기존 클라이언트 패킷(`C2ZMailAdd`/`C2ZMailDel`)을 봉투에 싸서
 존에 주입하므로, 존·우편·`UnitOfWork`·DB 경로가 평소 클라이언트 요청과 동일하게 흐릅니다 —
 운영 전용 우회로를 만들면 "운영툴로 넣은 우편만 만료가 안 된다" 같은 사고가 나기 때문입니다.
 자세한 흐름은 [운영툴 플로우차트](docs/flowcharts/gmtool-operations.html) 참고.
@@ -128,8 +128,8 @@ mutex가 아예 없습니다.
 - 그 교차 지점만 `Threading::Synchronized`로 보호 (`ref->`=읽기 / `ref.Write()->`=쓰기)
 - 상태 변경은 즉시 전송하지 않고 `Task::UnitOfWork`에 기록했다가 **스코프 종료 시 한 번에**
   World로 flush
-- 클라이언트는 `MailAdd`/`MailDel`을 보내고, 서버가 실제 배정한 `mailId`를
-  `MailAddAck`/`MailDelAck`으로 돌려받아 왕복을 확인
+- 클라이언트는 `C2ZMailAdd`/`C2ZMailDel`을 보내고, 서버가 실제 배정한 `mailId`를
+  `Z2CMailAddAck`/`Z2CMailDelAck`으로 돌려받아 왕복을 확인
 
 ---
 
@@ -138,13 +138,13 @@ mutex가 아예 없습니다.
 존 경계(x=10)를 넘는 이동은 **WorldServer가 라우팅 테이블만 바꿔서** 처리합니다.
 
 1. Zone A가 좌표를 보고 자기 담당이 아님을 판단 → 로컬 상태를 먼저 정리하고 World에
-   `ZoneTransferRequest`
-2. World가 x좌표로 대상 존을 찾아 `ClientRegistry::SetZone` + Zone B에 `EnterZoneRequest`
+   `Z2WZoneTransferRequest`
+2. World가 x좌표로 대상 존을 찾아 `ClientRegistry::SetZone` + Zone B에 `W2ZEnterZoneRequest`
 3. 이후 그 클라이언트의 패킷은 Zone B로 흐름
 
 **Gateway는 이동이 일어났다는 사실 자체를 모릅니다** — 라우팅 테이블은 World만 소유하고
 Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 새 존에서
-`EnterZoneNotify{playerId, zoneId}`를 받으므로 자기 존이 바뀐 것 자체는 알 수 있지만,
+`Z2CEnterZoneNotify{playerId, zoneId}`를 받으므로 자기 존이 바뀐 것 자체는 알 수 있지만,
 **재접속도 재인증도 새 주소로의 연결도 필요 없고** 핸드오프를 요청하거나 처리할 일도
 없습니다 — 같은 TCP 연결을 그대로 쓰면서 통지 한 장만 더 받는 셈입니다. 전체 흐름은
 [`docs/flowcharts/zone-handoff-and-mail.html`](docs/flowcharts/zone-handoff-and-mail.html)에
@@ -159,7 +159,7 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
 
 측정 방식:
 
-- **지연**: `MailAdd` 송신 → `MailAddAck` 수신까지의 **클라이언트 체감 왕복 시간**. 서버 내부
+- **지연**: `C2ZMailAdd` 송신 → `Z2CMailAddAck` 수신까지의 **클라이언트 체감 왕복 시간**. 서버 내부
   처리 시간만 재면 큐에서 밀린 시간이 빠져 실제보다 낙관적인 값이 나오므로, 소켓에 얹은
   순간부터 잽니다
 - 원시 샘플을 다 들고 있지 않고 **551개 로그스케일 버킷 히스토그램**에 relaxed atomic으로
@@ -173,14 +173,14 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
 
 측정 환경: AMD Ryzen 7 9800X3D(8코어 16스레드), Windows 11, **Release 빌드**. 서버 3개와
 부하 클라이언트가 **같은 머신**에서 CPU를 나눠 쓰므로, 지연 값에는 클라이언트 측 경합도
-포함돼 있습니다. 1 사이클 = `MailAdd → Ack → MailDel → Ack` 왕복 2회.
+포함돼 있습니다. 1 사이클 = `C2ZMailAdd → Ack → C2ZMailDel → Ack` 왕복 2회.
 
 | 시나리오 | 처리량 | P50 | P95 | P99 | 최대 | 정확성 | 브로드캐스트 수신율 |
 |---|---|---|---|---|---|---|---|
 | **1,000 세션 × 200 사이클** | **18,337 사이클/초** (200,000 사이클 / 10.9초) | 16 ms | 40 ms | 180 ms | 359 ms | 불일치 0 / 스톨 0 | **100%** (200,000/200,000) |
 | **10,000 세션 × 100 사이클** (전원 존 1개) | 471 사이클/초 (300초에 목표의 14.2%) | 73 ms | 62 초 | ≥100 초 | 148 초 | **불일치 0** / 스톨 10,000 | 49.5% |
 
-지연은 `MailAdd → MailAddAck` 왕복 기준이고, 두 시나리오 모두 2회 측정해 재현을
+지연은 `C2ZMailAdd → Z2CMailAddAck` 왕복 기준이고, 두 시나리오 모두 2회 측정해 재현을
 확인했습니다(1,000세션: 18,350 / 18,337 사이클/초).
 
 ### 운영툴 대량 쿠폰 발급 (같은 머신, SQL Server 2022 컨테이너)
@@ -275,7 +275,7 @@ bat\start_gmtool.bat         :: http://127.0.0.1:5080  (초기 계정 admin / ad
 **`ProtocolClient`** — 프로토콜 왕복을 눈으로 확인하는 REPL:
 ```
 echo hello-asio
-move 12 4            # 존 경계를 넘으면 재접속 없이 다음 존으로 핸드오프(EnterZoneNotify 한 장을 받는다)
+move 12 4            # 존 경계를 넘으면 재접속 없이 다음 존으로 핸드오프(Z2CEnterZoneNotify 한 장을 받는다)
 chat hi
 mail add 제목 본문 5   # 5초 뒤 자동 만료, MailAddAck으로 실제 mailId 확인
 mail del <id>
@@ -289,7 +289,7 @@ StressClient.exe 127.0.0.1 9000 1000 200
 ```
 종료 시 처리량·지연 백분위(P50/P95/P99/P99.9)·불일치·스톨·브로드캐스트 수신율을 요약합니다.
 
-**운영툴(GmTool)** 은 xUnit 80개가 붙어 있습니다:
+**운영툴(GmTool)** 은 xUnit 77개가 붙어 있습니다:
 
 ```bat
 cd Tool\GmTool && dotnet test
@@ -326,7 +326,7 @@ asio-server/
 │   └─ GmTool/         검증용 운영툴 (C# / .NET 10 / SQL Server) — 별도 솔루션
 │       ├─ GmTool.Core/  프로토콜 코덱 + 쿠폰 생성 엔진 (의존성 없음)
 │       ├─ GmTool.Web/   Blazor Web App + Minimal API + SqlKata 리포지토리
-│       ├─ GmTool.Tests/ xUnit 80개 (쿠폰 체계 / 대량 발급 / 와이어 호환성)
+│       ├─ GmTool.Tests/ xUnit 77개 (쿠폰 체계 / 대량 발급 / 와이어 호환성)
 │       └─ Sql/schema.sql
 ├─ 3rd/asio/        standalone ASIO 벤더 코드 (수정하지 않음)
 ├─ docs/flowcharts/ 기능별 HTML 다이어그램 (오프라인 열람)
@@ -375,7 +375,7 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 - **영속화**: `Db::DbWorker`는 owner-hash 분배 **구조만** 있고 실제 쿼리는 로그만 남깁니다.
   프로세스 재시작 시 Mail은 소실됩니다. 운영툴이 보내는 쿠폰 청크도 같은 워커로 들어가지만
   아직 적재하지 않습니다 — 쿠폰의 권위 저장소는 운영툴 쪽 SQL Server입니다
-- **운영툴의 우편 삭제 결과**: `MailDelAck`이 클라이언트에게만 가므로, 운영툴은 "존까지
+- **운영툴의 우편 삭제 결과**: `Z2CMailDelAck`이 클라이언트에게만 가므로, 운영툴은 "존까지
   전달됨"까지만 알 수 있고 실제로 그 `mailId`가 있었는지는 모릅니다
 - **운영툴 인증**: 공유 시크릿 한 줄이 전부입니다. 실질적인 방어선은 툴 포트를
   루프백/내부 네트워크로 제한하는 것이고, mTLS나 IP 화이트리스트는 넣지 않았습니다

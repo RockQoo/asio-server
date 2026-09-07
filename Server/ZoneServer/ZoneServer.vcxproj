@@ -98,7 +98,7 @@
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
-    <ClInclude Include="Src\Packet\PacketId.h" />
+    <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ZonePackets.h" />
     <ClInclude Include="Src\Game\PlayerState.h" />
     <ClInclude Include="Src\Game\ZoneDef.h" />

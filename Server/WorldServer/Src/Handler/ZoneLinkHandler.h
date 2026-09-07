@@ -4,7 +4,7 @@
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
 #include "Shared/Core/Src/Thread/AffinityWorkerPool.h"
 #include "Server/WorldServer/Src/Db/DbWorker.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 namespace World
 {
@@ -43,6 +43,6 @@ namespace World
         ZoneLinkRegistry& zoneLinkRegistry_;
         Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers_;
         WorldWorker& worldWorker_;
-        Packet::PacketDispatcher<ZoneLinkPacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::PacketDispatcher<Protocol::PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

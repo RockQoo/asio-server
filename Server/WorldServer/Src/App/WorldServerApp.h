@@ -3,6 +3,7 @@
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Network/Listener.h"
 #include "Shared/Core/Src/Thread/AffinityWorkerPool.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/Db/DbWorker.h"
 #include "Server/WorldServer/Src/Handler/GatewayLinkHandler.h"
 #include "Server/WorldServer/Src/Handler/ZoneLinkHandler.h"
@@ -50,7 +51,7 @@ namespace World
         // 전체 클라이언트 레지스트리를 들고 있기 때문에 가능하다. 콘솔 REPL 스레드에서
         // 호출되므로(I/O 스레드가 아닌 또 다른 생산자) 이 역시 clientRegistry_를 직접 만지지
         // 않고 WorldWorker로 넘긴다.
-        void BroadcastToAll(const uint16_t clientPacketId, const std::span<const byte> payload);
+        void BroadcastToAll(const Protocol::PacketId clientPacketId, const std::span<const byte> payload);
 
     private:
         void SetupSignalHandling();

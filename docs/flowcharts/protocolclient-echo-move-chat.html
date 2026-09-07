@@ -43,9 +43,9 @@
     <div class="callout">
         <strong>접속 직후(이 다이어그램 이전 시점):</strong> Gateway가 클라이언트를 accept하면
         <code>ClientConnected</code>를 World로 보내고, World(<code>WorldWorker</code> 스레드)는
-        기본 존(<code>kDefaultEntryZoneId</code> = 0)에 <code>EnterZoneRequest</code>를 보낸다.
+        기본 존(<code>kDefaultEntryZoneId</code> = 0)에 <code>W2ZEnterZoneRequest</code>를 보낸다.
         Zone의 LB 스레드가 그것을 받아 BASIC으로 넘기고, BASIC에서 <code>ZoneWorld::OnPlayerEnter</code>가
-        플레이어를 만들고 <code>EnterZoneNotify</code>를 되돌려 보내는 것까지가 그 과정이다 --
+        플레이어를 만들고 <code>Z2CEnterZoneNotify</code>를 되돌려 보내는 것까지가 그 과정이다 --
         아래 흐름은 그 다음, 클라이언트가 실제 게임 패킷을 보낸 이후를 다룬다.
     </div>
 
@@ -91,7 +91,7 @@
                 <code>ClientEnvelopeHeader.clientSessionId</code>만 들여다보고
                 <code>ClientRegistry</code>에서 이 클라이언트의 현재 zoneId를,
                 <code>ZoneLinkRegistry</code>에서 그 존의 연결을 조회한 뒤 <strong>payload를 통째로</strong>
-                <code>ForwardToZone</code>으로 보낸다. 두 레지스트리는 <strong>이 스레드 하나만</strong>
+                <code>W2ZRelay</code>으로 보낸다. 두 레지스트리는 <strong>이 스레드 하나만</strong>
                 건드리므로 락이 없다.
             </div>
         </div>
@@ -112,9 +112,9 @@
             <div class="title"><code>WorldLinkHandler::DecodeAndDispatch</code> →
                 <code>HandleForwardToZone</code></div>
             <div class="detail">
-                여기가 "recv 처리"의 실체다. <code>ZoneLinkPacketId</code>를 파싱해
-                <code>EnterZoneRequest</code>/<code>LeaveZoneNotify</code>/<code>ForwardToZone</code>을
-                가르고, <code>ForwardToZone</code>이면 <code>clientLocalZone_</code>(LB 스레드가
+                여기가 "recv 처리"의 실체다. <code>Protocol::PacketId</code>를 파싱해
+                <code>W2ZEnterZoneRequest</code>/<code>W2ZLeaveZoneNotify</code>/<code>W2ZRelay</code>을
+                가르고, <code>W2ZRelay</code>이면 <code>clientLocalZone_</code>(LB 스레드가
                 여럿이라 <code>shared_mutex</code>로 보호)에서 <strong>이 프로세스 안의 어느
                 zoneId인지</strong>를 찾는다. <strong>게임 상태(<code>ZoneWorld</code>)는 아직 전혀
                 건드리지 않는다.</strong>
@@ -129,10 +129,10 @@
             <div class="step logic">
                 <div class="lane">LB 스레드 (ZoneServer)</div>
                 <div class="title"><code>HandleForwardToZone</code>의
-                    <code>innerPacketId == PacketId::Echo</code> 분기</div>
+                    <code>innerPacketId == Protocol::PacketId::C2ZEcho</code> 분기</div>
                 <div class="detail">
                     BASIC까지 가지 않고 <strong>이 LB 스레드에서 그대로</strong> 같은 envelope을
-                    <code>ForwardToWorld</code>로 되돌려 보낸다 --
+                    <code>Z2WRelay</code>로 되돌려 보낸다 --
                     <code>ZoneWorld::HandleClientPacket</code>으로 넘기지 않는 유일한 예외 경로다
                     (존 상태가 필요 없으니 BASIC을 점유할 이유가 없다).
                 </div>
@@ -157,7 +157,7 @@
                 <div class="detail">
                     ① <code>players_</code>에서 <code>clientSessionId</code>로 Player를 먼저 찾고
                     (입장하지 않았거나 이미 퇴장한 세션이면 여기서 버린다),
-                    ② <code>Packet::PacketDispatcher&lt;PacketId, PlayerState*&gt;</code>에
+                    ② <code>Packet::PacketDispatcher&lt;Protocol::PacketId, PlayerState*&gt;</code>에
                     등록해둔 핸들러로 콜백한다. <strong>와이어 포맷 파싱은 전부 여기서</strong>
                     일어난다.
                 </div>
@@ -194,7 +194,7 @@
                 <div class="title">스냅샷을 돌며 팬아웃 전송</div>
                 <div class="detail">
                     복사해 받은 <code>targets</code>마다 <code>ClientEnvelopeHeader</code>를 새로
-                    만들어 <code>ForwardToWorld</code>로 World와의 <strong>연결 하나 위에 다중화</strong>해
+                    만들어 <code>Z2WRelay</code>로 World와의 <strong>연결 하나 위에 다중화</strong>해
                     보낸다(Zone은 클라이언트 소켓을 직접 갖지 않는다). 팬아웃 비용이 BASIC에서
                     빠져나가므로 인구가 많은 존에서도 BASIC이 다음 패킷을 계속 처리할 수 있다.
                 </div>

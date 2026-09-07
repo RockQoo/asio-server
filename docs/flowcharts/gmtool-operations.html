@@ -15,7 +15,7 @@
         <strong>운영툴 전용 포트(9300)</strong>에 붙어 공지·우편·쿠폰 명령을 보내고,
         World의 <code>ToolProcessor</code>가 그것을 받아 처리하는 경로.
         핵심은 <strong>운영툴이 게임 로직의 우회로를 만들지 않는다</strong>는 것이다 --
-        우편은 새 운영 전용 패킷이 아니라 기존 클라이언트 패킷(<code>Zone::PacketId::MailAdd</code>)을
+        우편은 새 운영 전용 패킷이 아니라 기존 클라이언트 패킷(<code>Protocol::PacketId::C2ZMailAdd</code>)을
         <code>ClientEnvelopeHeader</code>로 감싸 존에 주입하므로, 존/우편/UnitOfWork/DB 경로가
         평소 클라이언트 요청과 한 글자도 다르지 않게 흐른다.
         실제 소스(<code>Server/WorldServer/Src/Tool/ToolProcessor.cpp</code>,
@@ -65,7 +65,7 @@
             <div class="lane">World — I/O 스레드 (Session strand)</div>
             <div class="title">ToolProcessor::OnPacket — 바이트만 복사</div>
             <div class="detail">
-                <code>ToolLinkPacketId</code>를 헤더에서 꺼내고 페이로드를 복사해
+                <code>Protocol::PacketId</code>를 헤더에서 꺼내고 페이로드를 복사해
                 <code>WorldWorker::PostTask</code>로 넘긴다. 여기서 레지스트리를 만지지 않는다.
             </div>
         </div>
@@ -98,7 +98,7 @@
                     <div class="title">HandleNoticeRequest</div>
                     <div class="detail">
                         <code>ClientRegistry</code>를 직접 순회해 접속 중인 전체 클라이언트의
-                        Gateway 세션으로 <code>Zone::PacketId::Notice</code>를 감싼
+                        Gateway 세션으로 <code>Protocol::PacketId::W2CNotice</code>를 감싼
                         <code>ToClient</code> 봉투를 보낸다. World가 전체 클라이언트 목록을
                         들고 있어서 가능한 경로다.
                         <br><br>
@@ -124,10 +124,10 @@
                     <div class="title">InjectClientPacket</div>
                     <div class="detail">
                         존이 기대하는 <strong>원본 클라이언트 패킷 본문</strong>을 그대로 만든다:
-                        <code>MailAdd</code>는 <code>String(title)+String(body)+durationSec(i64)</code>,
-                        <code>MailDel</code>은 <code>mailId(u32)</code>.
+                        <code>C2ZMailAdd</code>는 <code>String(title)+String(body)+durationSec(i64)</code>,
+                        <code>C2ZMailDel</code>은 <code>mailId(u32)</code>.
                         그 앞에 <code>ClientEnvelopeHeader{clientSessionId, innerPacketId}</code>를
-                        붙여 <code>ForwardToZone</code>으로 보낸다 —
+                        붙여 <code>W2ZRelay</code>으로 보낸다 —
                         <code>GatewayLinkHandler::HandleFromClient</code>가 릴레이하는 것과
                         <strong>바이트 단위로 같은 모양</strong>이다.
                         <br><br>
@@ -135,14 +135,14 @@
                         수만 <code>affectedCount</code>로 돌려준다.
                     </div>
                 </div>
-                <div class="connector">↓ ForwardToZone</div>
+                <div class="connector">↓ W2ZRelay</div>
                 <div class="step logic">
                     <div class="lane">Zone — LB → BASIC (zoneId sticky)</div>
                     <div class="title">ZoneWorld::HandleMailAdd / HandleMailDel</div>
                     <div class="detail">
                         존은 이 우편이 운영툴에서 왔는지 클라이언트에서 왔는지 <strong>구분할 수
                         없고, 구분할 필요도 없다</strong>. <code>MailModel</code>이 mailId를 배정하고
-                        <code>MailAddAck</code>/<code>MailDelAck</code>을 그 클라이언트에게 되돌리며,
+                        <code>Z2CMailAddAck</code>/<code>Z2CMailDelAck</code>을 그 클라이언트에게 되돌리며,
                         변경분은 <code>Task::UnitOfWork</code>에 모여 World의 <code>DbWorker</code>로
                         간다 — 평소와 완전히 동일한 경로.
                     </div>
@@ -153,9 +153,9 @@
 
     <div class="callout">
         <strong>우편 삭제의 결과는 운영툴이 알 수 없다:</strong> 그 <code>mailId</code>가 실제로
-        존재했는지는 존이 <code>MailDelAck(success)</code>로 <em>해당 클라이언트에게</em> 보낸다.
+        존재했는지는 존이 <code>Z2CMailDelAck(success)</code>로 <em>해당 클라이언트에게</em> 보낸다.
         운영툴의 <code>ToolCommandAck</code>은 "존까지 전달됐다"까지만 보장한다.
-        결과까지 보려면 <code>MailDelAck</code>을 툴로도 되돌리는 경로가 따로 필요하다(현재 미구현).
+        결과까지 보려면 <code>Z2CMailDelAck</code>을 툴로도 되돌리는 경로가 따로 필요하다(현재 미구현).
     </div>
 
     <h2>3. 대량 쿠폰 발급 — 로컬 메모리 · 스풀 · 청크</h2>

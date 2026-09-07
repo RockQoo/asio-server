@@ -2,6 +2,7 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Thread/AffinityWorkerPool.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Worker/TaskWorker.h"
 
 #include <cstdint>
@@ -21,7 +22,7 @@ namespace Zone
         BroadcastDispatcher(Thread::AffinityWorkerPool<TaskWorker>& broadcastPool, WorldLink& worldLink);
 
         void Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
-                       const uint16_t innerPacketId, std::vector<byte> payload);
+                       const Protocol::PacketId innerPacketId, std::vector<byte> payload);
 
     private:
         Thread::AffinityWorkerPool<TaskWorker>& broadcastPool_;

@@ -11,7 +11,7 @@
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
 #include <chrono>
@@ -33,19 +33,19 @@ namespace Zone
 
     void ZoneWorld::RegisterPacketHandlers()
     {
-        packetDispatcher_.Register(PacketId::Move, [this](PlayerState* const& player, const std::span<const byte> payload)
+        packetDispatcher_.Register(Protocol::PacketId::C2ZMove, [this](PlayerState* const& player, const std::span<const byte> payload)
         {
             HandleMove(*player, payload);
         });
-        packetDispatcher_.Register(PacketId::Chat, [this](PlayerState* const& player, const std::span<const byte> payload)
+        packetDispatcher_.Register(Protocol::PacketId::C2ZChat, [this](PlayerState* const& player, const std::span<const byte> payload)
         {
             HandleChat(*player, payload);
         });
-        packetDispatcher_.Register(PacketId::MailAdd, [this](PlayerState* const& player, const std::span<const byte> payload)
+        packetDispatcher_.Register(Protocol::PacketId::C2ZMailAdd, [this](PlayerState* const& player, const std::span<const byte> payload)
         {
             HandleMailAdd(*player, payload);
         });
-        packetDispatcher_.Register(PacketId::MailDel, [this](PlayerState* const& player, const std::span<const byte> payload)
+        packetDispatcher_.Register(Protocol::PacketId::C2ZMailDel, [this](PlayerState* const& player, const std::span<const byte> payload)
         {
             HandleMailDel(*player, payload);
         });
@@ -69,7 +69,7 @@ namespace Zone
         EnterZoneNotifyPacket notify{};
         notify.playerId = playerId;
         notify.zoneId = zoneId_;
-        SendToPlayer(clientSessionId, static_cast<uint16_t>(PacketId::EnterZoneNotify),
+        SendToPlayer(clientSessionId, Protocol::PacketId::Z2CEnterZoneNotify,
                      std::as_bytes(std::span(&notify, 1)));
     }
 
@@ -83,7 +83,7 @@ namespace Zone
         }
     }
 
-    void ZoneWorld::HandleClientPacket(const Network::SessionId clientSessionId, const uint16_t packetId,
+    void ZoneWorld::HandleClientPacket(const Network::SessionId clientSessionId, const Protocol::PacketId packetId,
                                         const std::span<const byte> payload)
     {
         // 1) Player를 먼저 찾는다 -- 아직 입장하지 않았거나 이미 퇴장한 세션의 패킷은 여기서
@@ -95,7 +95,7 @@ namespace Zone
         }
 
         // 2) 패킷 종류별로 등록해둔 핸들러를 찾아 콜백한다.
-        packetDispatcher_.Dispatch(static_cast<PacketId>(packetId), &it->second, payload);
+        packetDispatcher_.Dispatch(packetId, &it->second, payload);
     }
 
     void ZoneWorld::HandleMove(PlayerState& player, const std::span<const byte> payload)
@@ -124,9 +124,12 @@ namespace Zone
         player.x = move.x;
         player.y = move.y;
 
+        // 요청(C2ZMove)과 브로드캐스트(Z2CMoveNotify)는 id도 본문도 다르다 -- 받는 쪽은
+        // "누가" 움직였는지 알아야 하므로 sessionId를 앞에 붙인다(Z2CChatNotify와 같은 형태).
         Packet::BinaryWriter writer;
+        writer.Write(static_cast<uint32_t>(player.sessionId));
         writer.Write(move);
-        BroadcastToZone(static_cast<uint16_t>(PacketId::Move), writer.GetBuffer());
+        BroadcastToZone(Protocol::PacketId::Z2CMoveNotify, writer.GetBuffer());
     }
 
     void ZoneWorld::HandleChat(const PlayerState& player, const std::span<const byte> payload)
@@ -142,7 +145,7 @@ namespace Zone
         writer.Write(static_cast<uint32_t>(player.sessionId));
         writer.WriteString(message);
 
-        BroadcastToZone(static_cast<uint16_t>(PacketId::Chat), writer.GetBuffer());
+        BroadcastToZone(Protocol::PacketId::Z2CChatNotify, writer.GetBuffer());
     }
 
     void ZoneWorld::HandleMailAdd(const PlayerState& player, const std::span<const byte> payload)
@@ -176,7 +179,7 @@ namespace Zone
 
         MailAddAckPacket ack{};
         ack.mailId = assignedMailId;
-        SendToPlayer(player.sessionId, static_cast<uint16_t>(PacketId::MailAddAck),
+        SendToPlayer(player.sessionId, Protocol::PacketId::Z2CMailAddAck,
                      std::as_bytes(std::span(&ack, 1)));
     }
 
@@ -201,7 +204,7 @@ namespace Zone
         MailDelAckPacket ack{};
         ack.mailId = mailId;
         ack.success = success ? 1 : 0;
-        SendToPlayer(player.sessionId, static_cast<uint16_t>(PacketId::MailDelAck),
+        SendToPlayer(player.sessionId, Protocol::PacketId::Z2CMailDelAck,
                      std::as_bytes(std::span(&ack, 1)));
     }
 
@@ -212,7 +215,7 @@ namespace Zone
         // 담당한다 -- ZoneServerApp 주석 참고.
     }
 
-    void ZoneWorld::SendToPlayer(const Network::SessionId clientSessionId, const uint16_t innerPacketId,
+    void ZoneWorld::SendToPlayer(const Network::SessionId clientSessionId, const Protocol::PacketId innerPacketId,
                                  const std::span<const byte> payload) const
     {
         const auto worldSession = worldLink_.Get();
@@ -223,15 +226,15 @@ namespace Zone
 
         World::ClientEnvelopeHeader header{};
         header.clientSessionId = clientSessionId;
-        header.innerPacketId = innerPacketId;
+        header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
         Packet::BinaryWriter writer;
         writer.Write(header);
         writer.WriteBytes(payload);
-        worldSession->SendPacket(static_cast<uint16_t>(World::ZoneLinkPacketId::ForwardToWorld), writer.GetBuffer());
+        worldSession->SendPacket(Protocol::PacketId::Z2WRelay, writer.GetBuffer());
     }
 
-    void ZoneWorld::BroadcastToZone(const uint16_t innerPacketId, const std::span<const byte> payload,
+    void ZoneWorld::BroadcastToZone(const Protocol::PacketId innerPacketId, const std::span<const byte> payload,
                                     const Network::SessionId excludeClientSessionId) const
     {
         // 대상 목록은 지금(players_를 소유한 유일한 스레드인 BASIC) 스냅샷으로 복사해서
@@ -267,7 +270,7 @@ namespace Zone
         state.playerId = playerId;
         state.x = x;
         state.y = y;
-        worldSession->SendPacket(static_cast<uint16_t>(World::ZoneLinkPacketId::ZoneTransferRequest),
+        worldSession->SendPacket(Protocol::PacketId::Z2WZoneTransferRequest,
                                  std::as_bytes(std::span(&state, 1)));
 
         LOG.Info(ELogCategory::Zone, "존 경계 넘음, World에 핸드오프 요청")

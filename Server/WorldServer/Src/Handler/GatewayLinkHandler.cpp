@@ -4,7 +4,7 @@
 #include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
 #include "Server/WorldServer/Src/Worker/WorldWorker.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPacketId.h"
+#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
 #include "Shared/Core/Src/Network/Session.h"
@@ -26,11 +26,11 @@ namespace World
 
     void GatewayLinkHandler::RegisterHandlers()
     {
-        dispatcher_.Register(GatewayLinkPacketId::ClientConnected,
+        dispatcher_.Register(Protocol::PacketId::G2WClientConnected,
             [this](const auto& session, const auto payload) { HandleClientConnected(session, payload); });
-        dispatcher_.Register(GatewayLinkPacketId::ClientDisconnected,
+        dispatcher_.Register(Protocol::PacketId::G2WClientDisconnected,
             [this](const auto& session, const auto payload) { HandleClientDisconnected(session, payload); });
-        dispatcher_.Register(GatewayLinkPacketId::FromClient,
+        dispatcher_.Register(Protocol::PacketId::G2WRelay,
             [this](const auto& session, const auto payload) { HandleFromClient(session, payload); });
     }
 
@@ -47,7 +47,7 @@ namespace World
         // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 바이트만 복사해서 WorldWorker로
         // 넘기고, 실제 ClientRegistry/ZoneLinkRegistry 접근(RegisterHandlers로 등록해둔
         // Handle* 메서드들)은 그 스레드에서 일어난다.
-        const auto packetId = static_cast<GatewayLinkPacketId>(header.id);
+        const auto packetId = static_cast<Protocol::PacketId>(header.id);
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
         worldWorker_.PostTask([this, session, packetId, payloadCopy = std::move(payloadCopy)]
@@ -87,7 +87,7 @@ namespace World
         enterState.playerId = static_cast<uint32_t>(clientSessionId);
         enterState.x = 0.0f;
         enterState.y = 0.0f;
-        zoneLink->zoneSession->SendPacket(static_cast<uint16_t>(ZoneLinkPacketId::EnterZoneRequest),
+        zoneLink->zoneSession->SendPacket(Protocol::PacketId::W2ZEnterZoneRequest,
                                            std::as_bytes(std::span(&enterState, 1)));
 
         LOG.Info(ELogCategory::Gateway, "클라이언트 접속, 기본 존 배정")
@@ -119,7 +119,7 @@ namespace World
 
         LeaveZoneNotifyPacket leave{};
         leave.clientSessionId = clientSessionId;
-        zoneLink->zoneSession->SendPacket(static_cast<uint16_t>(ZoneLinkPacketId::LeaveZoneNotify),
+        zoneLink->zoneSession->SendPacket(Protocol::PacketId::W2ZLeaveZoneNotify,
                                            std::as_bytes(std::span(&leave, 1)));
 
         LOG.Info(ELogCategory::Gateway, "클라이언트 접속 종료").KV("ClientSessionId", clientSessionId);
@@ -150,6 +150,6 @@ namespace World
             return;
         }
 
-        zoneLink->zoneSession->SendPacket(static_cast<uint16_t>(ZoneLinkPacketId::ForwardToZone), payload);
+        zoneLink->zoneSession->SendPacket(Protocol::PacketId::W2ZRelay, payload);
     }
 }

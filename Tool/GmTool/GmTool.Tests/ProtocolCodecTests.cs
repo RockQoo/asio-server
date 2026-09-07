@@ -161,16 +161,16 @@ public class BinaryPacketCodecTests
 public class ToolLinkEnumTests
 {
     [Theory]
-    [InlineData(ToolLinkPacketId.ToolHello, 1)]
-    [InlineData(ToolLinkPacketId.ToolHelloAck, 2)]
-    [InlineData(ToolLinkPacketId.NoticeRequest, 3)]
-    [InlineData(ToolLinkPacketId.MailSendRequest, 4)]
-    [InlineData(ToolLinkPacketId.MailDeleteRequest, 5)]
-    [InlineData(ToolLinkPacketId.CouponChunkPush, 6)]
-    [InlineData(ToolLinkPacketId.ClientListRequest, 7)]
-    [InlineData(ToolLinkPacketId.ClientListReply, 8)]
-    [InlineData(ToolLinkPacketId.ToolCommandAck, 9)]
-    public void 패킷_id가_Cpp쪽_ToolLinkPacketId와_같다(ToolLinkPacketId id, int expected)
+    [InlineData(PacketId.T2WToolHello, 8001)]
+    [InlineData(PacketId.W2TToolHelloAck, 9001)]
+    [InlineData(PacketId.T2WNoticeRequest, 8002)]
+    [InlineData(PacketId.T2WMailSendRequest, 8003)]
+    [InlineData(PacketId.T2WMailDeleteRequest, 8004)]
+    [InlineData(PacketId.T2WCouponChunkPush, 8005)]
+    [InlineData(PacketId.T2WClientListRequest, 8006)]
+    [InlineData(PacketId.W2TClientListReply, 9002)]
+    [InlineData(PacketId.W2TToolCommandAck, 9003)]
+    public void 패킷_id가_Cpp쪽_PacketId와_같다(PacketId id, int expected)
     {
         Assert.Equal(expected, (int)id);
     }
@@ -192,14 +192,5 @@ public class ToolLinkEnumTests
         // 서버 enum이 앞으로 늘어나도 부딪히지 않게 큰 값을 쓴다.
         Assert.True((int)ToolResultCode.ToolTimeout >= 1000);
         Assert.True((int)ToolResultCode.ToolNotConnected >= 1000);
-    }
-
-    [Theory]
-    [InlineData(ZoneClientPacketId.MailAdd, 5)]
-    [InlineData(ZoneClientPacketId.MailDel, 6)]
-    [InlineData(ZoneClientPacketId.Notice, 7)]
-    public void 클라이언트_패킷_id가_Cpp쪽_ZonePacketId와_같다(ZoneClientPacketId id, int expected)
-    {
-        Assert.Equal(expected, (int)id);
     }
 }

@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 namespace Packet
@@ -25,5 +26,14 @@ namespace Packet
         }
 
         return frame;
+    }
+
+    // 패킷 id enum을 그대로 받는 오버로드. Session::SendPacket과 같은 이유로 둔다 --
+    // 호출부에서 static_cast<uint16_t>를 반복하지 않게 하되, Core는 어떤 enum인지 모른다.
+    template <typename TPacketId> requires std::is_enum_v<TPacketId>
+    [[nodiscard]] inline std::vector<byte> BuildFrame(const TPacketId packetId,
+                                                      const std::span<const byte> payload)
+    {
+        return BuildFrame(static_cast<uint16_t>(packetId), payload);
     }
 }

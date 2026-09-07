@@ -47,7 +47,7 @@
 ### 2. WorldWorker에서 브로드캐스트 릴레이를 별도 큐로 분리 — 영향도 중간
 
 **문제**: `Server/WorldServer/Src/Worker/WorldWorker.h`가 스레드 1개로 라우팅(Mail Ack 릴레이 등)과
-브로드캐스트 릴레이(`ForwardToWorld` 다량 수신)를 같은 큐에서 처리한다. 브로드캐스트가 몰리면
+브로드캐스트 릴레이(`Z2WRelay` 다량 수신)를 같은 큐에서 처리한다. 브로드캐스트가 몰리면
 평소 트래픽이 그 뒤에서 계속 밀린다.
 
 **할 일**:
@@ -58,7 +58,7 @@
 
 ### 3. 브로드캐스트 팬아웃 프레임 배칭 — 영향도 중간
 
-**문제**: `Server/ZoneServer/Src/Worker/BroadcastDispatcher.cpp`가 대상 1명당 `ForwardToWorld`
+**문제**: `Server/ZoneServer/Src/Worker/BroadcastDispatcher.cpp`가 대상 1명당 `Z2WRelay`
 프레임을 하나씩 Zone↔World 단일 TCP 링크로 전송한다. 존 인구가 늘수록 프레임 수가 그대로
 비례해서 늘어난다.
 
@@ -85,4 +85,4 @@
 
 - 부하 도구(`StressClient`) 자체의 스톨 감지 오탐 버그는 이전 세션에서 이미 수정 완료
   (`StressSession::HandleBroadcastPacket`이 더 이상 `MarkProgress()`를 호출하지 않음).
-- `MailAddAck`/`MailDelAck` 프로토콜 확장은 이미 반영·빌드 완료.
+- `Z2CMailAddAck`/`Z2CMailDelAck` 프로토콜 확장은 이미 반영·빌드 완료.
