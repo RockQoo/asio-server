@@ -18,6 +18,7 @@ namespace World
         , dbWorkers_(config_.dbWorkerCount)
         , gatewayLinkHandler_(clientRegistry_, zoneLinkRegistry_, worldWorker_)
         , zoneLinkHandler_(clientRegistry_, zoneLinkRegistry_, dbWorkers_, worldWorker_)
+        , toolProcessor_(clientRegistry_, zoneLinkRegistry_, dbWorkers_, worldWorker_, config_.toolSharedSecret)
         , signals_(ioPool_.At(0), SIGINT, SIGTERM)
     {
     }
@@ -33,11 +34,14 @@ namespace World
         zoneListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.zonePort, zoneLinkHandler_);
         zoneListener_->Start();
 
+        toolListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.toolPort, toolProcessor_);
+        toolListener_->Start();
+
         SetupSignalHandling();
 
         LOG.Info(ELogCategory::General, "WorldServer 대기 시작")
             .KV("GatewayPort", config_.gatewayPort).KV("ZonePort", config_.zonePort)
-            .KV("DbWorkers", config_.dbWorkerCount);
+            .KV("ToolPort", config_.toolPort).KV("DbWorkers", config_.dbWorkerCount);
 
         ioPool_.Run();
         ioPool_.Join();
@@ -56,6 +60,10 @@ namespace World
         if (zoneListener_)
         {
             zoneListener_->Stop();
+        }
+        if (toolListener_)
+        {
+            toolListener_->Stop();
         }
         ioPool_.Stop();
     }

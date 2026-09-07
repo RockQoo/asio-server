@@ -102,6 +102,9 @@
     <ClInclude Include="Src\Packet\GatewayLinkPacketId.h" />
     <ClInclude Include="Src\Packet\ZoneLinkPacketId.h" />
     <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
+    <ClInclude Include="Src\Packet\ToolLinkPacketId.h" />
+    <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
+    <ClInclude Include="Src\Tool\ToolProcessor.h" />
     <ClInclude Include="Src\World\ClientRegistry.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
     <ClInclude Include="Src\Db\DbWorker.h" />
@@ -121,6 +124,7 @@
     <ClCompile Include="Src\Worker\WorldWorker.cpp" />
     <ClCompile Include="Src\Handler\GatewayLinkHandler.cpp" />
     <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp" />
+    <ClCompile Include="Src\Tool\ToolProcessor.cpp" />
     <ClCompile Include="Src\App\WorldServerApp.cpp" />
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>

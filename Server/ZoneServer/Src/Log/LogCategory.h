@@ -29,7 +29,7 @@ namespace Zone
     }
 }
 
-// 어디서든 `Zone::` 없이 `ELogCategory::Zone`처럼 바로 쓰기 위한 전역 노출. ZoneServer/TestClient
+// 어디서든 `Zone::` 없이 `ELogCategory::Zone`처럼 바로 쓰기 위한 전역 노출. ZoneServer/ProtocolClient
 // 프로젝트에서만 include되므로, Core가 자기 것(Log::ELogCategory)을 같은 이름으로 전역에
 // 끌어와도(Shared/Core/Src/Log/LogCategory.h) 서로 다른 프로젝트(PCH)라 충돌하지 않는다.
 using Zone::ELogCategory;

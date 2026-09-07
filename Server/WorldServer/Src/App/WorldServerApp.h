@@ -6,6 +6,7 @@
 #include "Server/WorldServer/Src/Db/DbWorker.h"
 #include "Server/WorldServer/Src/Handler/GatewayLinkHandler.h"
 #include "Server/WorldServer/Src/Handler/ZoneLinkHandler.h"
+#include "Server/WorldServer/Src/Tool/ToolProcessor.h"
 #include "Server/WorldServer/Src/World/ClientRegistry.h"
 #include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
 #include "Server/WorldServer/Src/Worker/WorldWorker.h"
@@ -16,6 +17,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 
 namespace World
 {
@@ -23,8 +25,14 @@ namespace World
     {
         uint16_t gatewayPort{9100};
         uint16_t zonePort{9200};
+        // 운영툴(Tool/GmTool) 전용 accept 포트. 클라이언트 트래픽이 오는 게이트웨이 포트와
+        // 분리해둬야 "운영 권한 패킷은 이 포트에서만 온다"가 성립한다(ToolProcessor 주석 참고).
+        uint16_t toolPort{9300};
         size_t ioThreadCount{2};
         size_t dbWorkerCount{2};
+        // 운영툴 링크의 공유 시크릿. 개발 기본값이며 실제 운영에서는 환경 변수
+        // ASIO_SERVER_TOOL_SECRET로 덮어쓴다(main.cpp 참고).
+        std::string toolSharedSecret{"dev-only-gmtool-secret"};
     };
 
     // 전체를 조립하는 곳: Gateway용/Zone용 accept 포트 두 개, 클라이언트/Zone 라우팅 테이블,
@@ -55,8 +63,10 @@ namespace World
         WorldWorker worldWorker_;
         GatewayLinkHandler gatewayLinkHandler_;
         ZoneLinkHandler zoneLinkHandler_;
+        ToolProcessor toolProcessor_;
         std::shared_ptr<Network::Listener> gatewayListener_;
         std::shared_ptr<Network::Listener> zoneListener_;
+        std::shared_ptr<Network::Listener> toolListener_;
         asio::signal_set signals_;
     };
 }

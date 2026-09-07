@@ -8,7 +8,7 @@
 
 namespace Packet
 {
-    // [헤더 + 페이로드] 프레임을 만든다. Session::SendPacket과 TestClient가 같은 로직을 쓰도록
+    // [헤더 + 페이로드] 프레임을 만든다. Session::SendPacket과 ProtocolClient가 같은 로직을 쓰도록
     // 여기 하나로 모아뒀다 -- 프레임 포맷이 바뀌면 이 함수만 고치면 된다.
     [[nodiscard]] inline std::vector<byte> BuildFrame(const uint16_t packetId,
                                                              const std::span<const byte> payload)

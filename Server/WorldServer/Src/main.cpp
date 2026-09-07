@@ -63,8 +63,23 @@ int main()
         World::WorldServerConfig config{};
         config.gatewayPort = 9100;
         config.zonePort = 9200;
+        config.toolPort = 9300;
         config.ioThreadCount = 2;
         config.dbWorkerCount = 2;
+
+        // 운영툴 공유 시크릿은 소스에 박힌 개발 기본값(WorldServerConfig)을 쓰되, 환경 변수가
+        // 있으면 그걸 우선한다 -- 공개 저장소에 실제 시크릿을 커밋하지 않기 위한 최소 장치다.
+        // 운영툴 쪽도 같은 이름의 환경 변수(또는 appsettings)를 읽으므로 둘을 같이 바꿔야 한다.
+        // std::getenv는 SDLCheck(/sdl) 아래에서 C4996으로 걸리므로 getenv_s를 쓴다.
+        // 성공 시 secretLength는 널 종단 문자를 포함한 길이라, 값이 있으면 2 이상이다.
+        char toolSecretBuffer[256]{};
+        size_t secretLength = 0;
+        if (getenv_s(&secretLength, toolSecretBuffer, sizeof(toolSecretBuffer), "ASIO_SERVER_TOOL_SECRET") == 0
+            && secretLength > 1)
+        {
+            config.toolSharedSecret = toolSecretBuffer;
+            LOG.Info(ELogCategory::General, "운영툴 시크릿을 환경 변수에서 로드");
+        }
 
         World::WorldServerApp app(std::move(config));
 

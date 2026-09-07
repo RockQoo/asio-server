@@ -14,6 +14,7 @@ namespace World
         Gateway,  // Gateway <-> World 연결/릴레이 관련
         Zone,     // Zone <-> World 연결/라우팅/핸드오프 관련
         Db,       // DB 워커 풀(UnitOfWork 태스크 처리) 관련
+        Tool,     // 운영툴(GmTool) <-> World 연결/공지/우편/쿠폰 관련
     };
 
     [[nodiscard]] inline std::string_view ToString(const ELogCategory category)
@@ -24,6 +25,7 @@ namespace World
         case ELogCategory::Gateway: return "Gateway";
         case ELogCategory::Zone:    return "Zone";
         case ELogCategory::Db:      return "Db";
+        case ELogCategory::Tool:    return "Tool";
         }
         return "Unknown";
     }
