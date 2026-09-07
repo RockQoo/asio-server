@@ -4,7 +4,7 @@ using GmTool.Web.Services;
 namespace GmTool.Web.Endpoints;
 
 /// <summary>
-/// HTTP API. 웹 UI와 별개로, 다른 사내 도구나 스크립트가 운영툴 기능을 호출할 수 있게 한다.
+/// HTTP API. 웹 UI와 별개로, 다른 운영 도구나 스크립트가 운영툴 기능을 호출할 수 있게 한다.
 ///
 /// 인증은 두 갈래다:
 /// <list type="bullet">

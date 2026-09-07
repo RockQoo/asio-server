@@ -29,7 +29,7 @@ namespace World
         constexpr uint8_t kMailTargetSingle = 1;
 
         // 시크릿 비교를 길이만 같으면 항상 같은 시간에 끝내도록 한다. 운영툴 링크는 루프백/
-        // 사내망 전제라 타이밍 공격이 현실적 위협은 아니지만, 조기 종료하는 비교 코드를
+        // 신뢰 네트워크 전제라 타이밍 공격이 현실적 위협은 아니지만, 조기 종료하는 비교 코드를
         // 남겨두면 나중에 이 링크를 넓은 망에 열 때 그대로 약점이 된다.
         [[nodiscard]] bool SecretEquals(const std::string_view lhs, const std::string_view rhs) noexcept
         {
