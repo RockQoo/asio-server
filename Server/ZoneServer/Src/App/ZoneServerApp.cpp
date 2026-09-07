@@ -31,7 +31,7 @@ namespace Zone
 
         // zone 워커 스레드가 아니라 io_context 하나를 그대로 빌려서 도는 별도 스레드다 --
         // 존 로직 스레드와 겹치지 않아야 Synchronized가 방어하는 "진짜 교차 스레드" 시나리오가
-        // 성립한다(ZoneWorld.h/Mail::MailExpiryService 주석 참고).
+        // 성립한다(ZoneInstance.h/Mail::MailExpiryService 주석 참고).
         mailExpiryTimer_ = std::make_unique<Timer::RepeatingTimer>(ioPool_.Next());
         mailExpiryTimer_->Start(config_.mailSweepInterval, [this]
         {

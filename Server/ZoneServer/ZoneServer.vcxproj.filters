@@ -43,7 +43,7 @@
     <ClInclude Include="Src\Game\ZoneDef.h">
       <Filter>Game</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Game\ZoneWorld.h">
+    <ClInclude Include="Src\Game\ZoneInstance.h">
       <Filter>Game</Filter>
     </ClInclude>
     <ClInclude Include="Src\World\WorldLink.h">
@@ -79,7 +79,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
-    <ClCompile Include="Src\Game\ZoneWorld.cpp">
+    <ClCompile Include="Src\Game\ZoneInstance.cpp">
       <Filter>Game</Filter>
     </ClCompile>
     <ClCompile Include="Src\Mail\MailModel.cpp">

@@ -16,8 +16,8 @@ namespace Zone
     {
         for (const auto& def : zoneDefs_)
         {
-            zoneWorlds_.emplace(def.zoneId,
-                std::make_unique<ZoneWorld>(def.zoneId, def.xMin, def.xMax, worldLink, broadcastDispatcher_, mailRegistry));
+            zoneInstances_.emplace(def.zoneId,
+                std::make_unique<ZoneInstance>(def.zoneId, def.xMin, def.xMax, worldLink, broadcastDispatcher_, mailRegistry));
         }
     }
 
@@ -41,8 +41,8 @@ namespace Zone
 
             // world/tickPool_ 참조는 이 매니저보다 먼저 파괴되지 않는다(Stop()이 타이머부터
             // 먼저 취소한 뒤 풀을 정지시키므로). TICK 풀로 태스크를 맡긴다 -- BASIC과는 다른
-            // 스레드라는 점을 ZoneWorld.h 주석에 적어뒀다.
-            auto& world = *zoneWorlds_.at(def.zoneId);
+            // 스레드라는 점을 ZoneInstance.h 주석에 적어뒀다.
+            auto& world = *zoneInstances_.at(def.zoneId);
             auto& tickPool = tickPool_;
             const auto zoneId = def.zoneId;
             timer->Start(tickInterval, [&tickPool, &world, zoneId, deltaSeconds]

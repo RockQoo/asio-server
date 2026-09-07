@@ -113,9 +113,9 @@ namespace Zone
 
         SetLocalZone(state.clientSessionId, state.zoneId);
 
-        zoneWorkers_.PostToBasic(state.zoneId, [&world = zoneWorkers_.GetZoneWorld(state.zoneId), state]
+        zoneWorkers_.PostToBasic(state.zoneId, [&zone = zoneWorkers_.GetZoneInstance(state.zoneId), state]
         {
-            world.OnPlayerEnter(state.clientSessionId, state.playerId, state.x, state.y);
+            zone.OnPlayerEnter(state.clientSessionId, state.playerId, state.x, state.y);
         });
     }
 
@@ -138,9 +138,9 @@ namespace Zone
         const auto zoneId = *zoneIdOpt;
         RemoveLocalZone(leave.clientSessionId);
 
-        zoneWorkers_.PostToBasic(zoneId, [&world = zoneWorkers_.GetZoneWorld(zoneId), clientSessionId = leave.clientSessionId]
+        zoneWorkers_.PostToBasic(zoneId, [&zone = zoneWorkers_.GetZoneInstance(zoneId), clientSessionId = leave.clientSessionId]
         {
-            world.OnPlayerLeave(clientSessionId);
+            zone.OnPlayerLeave(clientSessionId);
         });
     }
 
@@ -165,7 +165,7 @@ namespace Zone
         if (innerPacketId == PacketId::C2ZEcho)
         {
             // 공유 게임 상태가 필요 없으니 BASIC까지 안 가고 이 LB 스레드에서 바로 되돌려
-            // 보낸다 -- ZoneWorld::HandleClientPacket으로 넘기지 않는 유일한 예외.
+            // 보낸다 -- ZoneInstance::HandleClientPacket으로 넘기지 않는 유일한 예외.
             if (const auto worldSession = worldLink_.Get())
             {
                 // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과
@@ -181,15 +181,15 @@ namespace Zone
             return;
         }
 
-        // Echo를 제외한 나머지는 패킷 내용을 전혀 들여다보지 않고 그대로 BASIC(ZoneWorld)에
-        // 넘긴다 -- 와이어 포맷 파싱은 ZoneWorld::HandleClientPacket 쪽 몫이다.
+        // Echo를 제외한 나머지는 패킷 내용을 전혀 들여다보지 않고 그대로 BASIC(ZoneInstance)에
+        // 넘긴다 -- 와이어 포맷 파싱은 ZoneInstance::HandleClientPacket 쪽 몫이다.
         const auto zoneId = *zoneIdOpt;
         const auto clientSessionId = header.clientSessionId;
         std::vector<byte> innerPayloadCopy(innerPayload.begin(), innerPayload.end());
-        zoneWorkers_.PostToBasic(zoneId, [&world = zoneWorkers_.GetZoneWorld(zoneId), clientSessionId,
+        zoneWorkers_.PostToBasic(zoneId, [&zone = zoneWorkers_.GetZoneInstance(zoneId), clientSessionId,
                                           innerPacketId, innerPayloadCopy = std::move(innerPayloadCopy)]
         {
-            world.HandleClientPacket(clientSessionId, innerPacketId, innerPayloadCopy);
+            zone.HandleClientPacket(clientSessionId, innerPacketId, innerPayloadCopy);
         });
     }
 

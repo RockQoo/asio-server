@@ -90,7 +90,7 @@ C:\Work\asio-server\
 │           ├── Worker/               TaskWorker(범용 실행기), ZoneWorkerManager
 │           │                         (BASIC/TICK/BROADCAST 3개 풀 소유), BroadcastDispatcher
 │           ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
-│           ├── Game/ZoneWorld        존별 권위 상태(BASIC 전용, 공유 없음 = 락 없음), PacketDispatcher로
+│           ├── Game/ZoneInstance        존별 권위 상태(BASIC 전용, 공유 없음 = 락 없음), PacketDispatcher로
 │           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │           └── Mail/                 MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아님)
@@ -132,7 +132,7 @@ Client → GatewayServer(릴레이) → WorldServer(WorldWorker 단일 스레드
 ```
 
 핵심 불변식: **같은 zoneId의 패킷은 항상 같은 BASIC 스레드로만 라우팅된다**(`zoneId %
-BASIC풀크기`) — 그 존 상태(`ZoneWorld`)는 항상 그 스레드에서만 접근되므로 락이 필요 없다.
+BASIC풀크기`) — 그 존 상태(`ZoneInstance`)는 항상 그 스레드에서만 접근되므로 락이 필요 없다.
 NETWORK/LB 스레드는 게임 상태를 직접 안 건드리고 바이트만 복사해 넘긴다(예외: `C2ZEcho`는
 공유 상태가 없어 LB 스레드에서 즉시 응답). TICK/BROADCAST는 BASIC과 "다른" 스레드이므로,
 BASIC이 소유한 컨테이너(`players_` 등)를 직접 건드리면 안 되고 스냅샷을 넘겨야 한다
@@ -162,7 +162,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | `WorldServer` | `WorldWorker` | 단일 처리 스레드. I/O는 여기 `PostTask`로만 넘김 |
 | | `ClientRegistry` / `ZoneLinkRegistry` | WorldWorker 전용 접근 전제라 락 없음 |
 | | `Db::DbWorker` | owner-hash 기반 DB 워커 풀(현재 로그만, 실제 쿼리는 TODO) |
-| `ZoneServer` | `ZoneWorld` | 존 하나의 권위 상태. `PacketDispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
+| `ZoneServer` | `ZoneInstance` | 존 하나의 권위 상태. `PacketDispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
 | | `TaskWorker` | 특정 존을 소유하지 않는 범용 실행기(BASIC/TICK/BROADCAST 풀이 이걸 사용) |
 | | `ZoneWorkerManager` | BASIC/TICK/BROADCAST 3개 풀 + 존별 tick 타이머 소유 |
 | | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 풀 소유 |
@@ -215,7 +215,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 - **개발 환경(Windows/NTFS)은 대소문자를 구분하지 않는다.** 새 폴더를 만들 때 기존 폴더와
   대소문자만 다른 이름(`core` vs `Core`처럼)을 쓰면 같은 폴더로 병합돼버린다. 실제로 이 문제로
   한 번 정리한 이력이 있음.
-- `ZoneWorkerManager::Start()`는 `ZoneWorld&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
+- `ZoneWorkerManager::Start()`는 `ZoneInstance&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
   `Stop()`은 반드시 **타이머를 먼저 취소한 뒤** 워커를 정지시키는 순서를 지켜야 안전하다
   (순서를 바꾸면 안 됨).
 - `PlatformToolset`은 `v143`(VS 2022 툴셋)으로 **의도적으로** 고정돼 있다. 개발 환경은 Visual

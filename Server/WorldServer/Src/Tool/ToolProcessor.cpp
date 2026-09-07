@@ -273,7 +273,7 @@ namespace World
             return;
         }
 
-        // 존이 기대하는 MailAdd 본문(ZoneWorld::HandleMailAdd)과 정확히 같은 순서로 만든다:
+        // 존이 기대하는 MailAdd 본문(ZoneInstance::HandleMailAdd)과 정확히 같은 순서로 만든다:
         // String(title) + String(body) + durationSec(int64).
         Packet::BinaryWriter mailWriter;
         mailWriter.WriteString(title);
@@ -353,7 +353,7 @@ namespace World
             return;
         }
 
-        // 존이 기대하는 MailDel 본문은 mailId(uint32) 하나다(ZoneWorld::HandleMailDel).
+        // 존이 기대하는 MailDel 본문은 mailId(uint32) 하나다(ZoneInstance::HandleMailDel).
         Packet::BinaryWriter mailWriter;
         mailWriter.Write(request.mailId);
 

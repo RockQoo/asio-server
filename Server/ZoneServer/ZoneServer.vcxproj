@@ -102,7 +102,7 @@
     <ClInclude Include="Src\Packet\ZonePackets.h" />
     <ClInclude Include="Src\Game\PlayerState.h" />
     <ClInclude Include="Src\Game\ZoneDef.h" />
-    <ClInclude Include="Src\Game\ZoneWorld.h" />
+    <ClInclude Include="Src\Game\ZoneInstance.h" />
     <ClInclude Include="Src\World\WorldLink.h" />
     <ClInclude Include="Src\Mail\MailModel.h" />
     <ClInclude Include="Src\Mail\MailRegistry.h" />
@@ -119,7 +119,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Src\Game\ZoneWorld.cpp" />
+    <ClCompile Include="Src\Game\ZoneInstance.cpp" />
     <ClCompile Include="Src\Mail\MailModel.cpp" />
     <ClCompile Include="Src\Mail\MailRegistry.cpp" />
     <ClCompile Include="Src\Mail\MailUnitOfWork.cpp" />

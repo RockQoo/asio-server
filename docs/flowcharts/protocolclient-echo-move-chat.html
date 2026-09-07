@@ -19,7 +19,7 @@
         순서로 스레드를 갈아타며 처리한다. 실제 소스(<code>Server/GatewayServer/Src/Handler/ClientLinkHandler.cpp</code>,
         <code>Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp</code>,
         <code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code>,
-        <code>Server/ZoneServer/Src/Game/ZoneWorld.cpp</code>,
+        <code>Server/ZoneServer/Src/Game/ZoneInstance.cpp</code>,
         <code>Server/ZoneServer/Src/Worker/BroadcastDispatcher.cpp</code>)를 그대로 따라간 흐름이다.
     </p>
 
@@ -36,7 +36,7 @@
         <code>BASIC</code>(<code>zoneId % basicThreadCount</code> sticky, 게임 상태 전담) →
         <code>BROADCAST</code>(<code>zoneId</code> sticky, 팬아웃 전송) 4개가 이 경로에 등장하고,
         나머지 하나인 <code>TICK</code> 풀은 패킷과 무관하게 <code>RepeatingTimer</code>가
-        <code>ZoneWorld::Tick</code>을 돌리는 용도라 여기엔 나타나지 않는다.
+        <code>ZoneInstance::Tick</code>을 돌리는 용도라 여기엔 나타나지 않는다.
         기본 스레드 수는 <code>Server/ZoneServer/Src/main.cpp</code>에서 LB/BASIC/TICK/BROADCAST 전부 2개다.
     </div>
 
@@ -44,7 +44,7 @@
         <strong>접속 직후(이 다이어그램 이전 시점):</strong> Gateway가 클라이언트를 accept하면
         <code>ClientConnected</code>를 World로 보내고, World(<code>WorldWorker</code> 스레드)는
         기본 존(<code>kDefaultEntryZoneId</code> = 0)에 <code>W2ZEnterZoneRequest</code>를 보낸다.
-        Zone의 LB 스레드가 그것을 받아 BASIC으로 넘기고, BASIC에서 <code>ZoneWorld::OnPlayerEnter</code>가
+        Zone의 LB 스레드가 그것을 받아 BASIC으로 넘기고, BASIC에서 <code>ZoneInstance::OnPlayerEnter</code>가
         플레이어를 만들고 <code>Z2CEnterZoneNotify</code>를 되돌려 보내는 것까지가 그 과정이다 --
         아래 흐름은 그 다음, 클라이언트가 실제 게임 패킷을 보낸 이후를 다룬다.
     </div>
@@ -116,7 +116,7 @@
                 <code>W2ZEnterZoneRequest</code>/<code>W2ZLeaveZoneNotify</code>/<code>W2ZRelay</code>을
                 가르고, <code>W2ZRelay</code>이면 <code>clientLocalZone_</code>(LB 스레드가
                 여럿이라 <code>shared_mutex</code>로 보호)에서 <strong>이 프로세스 안의 어느
-                zoneId인지</strong>를 찾는다. <strong>게임 상태(<code>ZoneWorld</code>)는 아직 전혀
+                zoneId인지</strong>를 찾는다. <strong>게임 상태(<code>ZoneInstance</code>)는 아직 전혀
                 건드리지 않는다.</strong>
             </div>
         </div>
@@ -133,7 +133,7 @@
                 <div class="detail">
                     BASIC까지 가지 않고 <strong>이 LB 스레드에서 그대로</strong> 같은 envelope을
                     <code>Z2WRelay</code>로 되돌려 보낸다 --
-                    <code>ZoneWorld::HandleClientPacket</code>으로 넘기지 않는 유일한 예외 경로다
+                    <code>ZoneInstance::HandleClientPacket</code>으로 넘기지 않는 유일한 예외 경로다
                     (존 상태가 필요 없으니 BASIC을 점유할 이유가 없다).
                 </div>
             </div>
@@ -153,7 +153,7 @@
             <div class="connector">↓ PostTask (스레드 경계)</div>
             <div class="step logic">
                 <div class="lane">BASIC 스레드 (zoneId sticky)</div>
-                <div class="title"><code>ZoneWorld::HandleClientPacket</code></div>
+                <div class="title"><code>ZoneInstance::HandleClientPacket</code></div>
                 <div class="detail">
                     ① <code>players_</code>에서 <code>clientSessionId</code>로 Player를 먼저 찾고
                     (입장하지 않았거나 이미 퇴장한 세션이면 여기서 버린다),
@@ -165,7 +165,7 @@
             <div class="connector">↓ 등록된 핸들러 콜백</div>
             <div class="step logic">
                 <div class="lane">BASIC 스레드 (zoneId sticky)</div>
-                <div class="title"><code>ZoneWorld::HandleMove</code> /
+                <div class="title"><code>ZoneInstance::HandleMove</code> /
                     <code>HandleChat</code></div>
                 <div class="detail">
                     <code>players_</code>를 <strong>락 없이</strong> 갱신한다 -- 한 프로세스가 존을
@@ -179,7 +179,7 @@
             <div class="connector">↓</div>
             <div class="step logic">
                 <div class="lane">BASIC 스레드 (zoneId sticky)</div>
-                <div class="title"><code>ZoneWorld::BroadcastToZone</code> — 스냅샷만 복사</div>
+                <div class="title"><code>ZoneInstance::BroadcastToZone</code> — 스냅샷만 복사</div>
                 <div class="detail">
                     <strong>여기서 직접 보내지 않는다.</strong> <code>players_</code>를 순회해
                     대상 <code>clientSessionId</code> 목록(<code>std::vector</code>)과 payload를
@@ -246,7 +246,7 @@
     <div class="callout">
         <strong>핵심 불변식:</strong> ① Gateway는 순수 릴레이라 I/O 스레드에서 끝나지만,
         <strong>World와 Zone의 I/O 스레드는 바이트를 복사해 넘기는 일만 한다</strong>
-        (World → <code>WorldWorker</code>, Zone → LB 풀). ② 게임 상태(<code>ZoneWorld</code>)를
+        (World → <code>WorldWorker</code>, Zone → LB 풀). ② 게임 상태(<code>ZoneInstance</code>)를
         건드리는 건 오직 BASIC 스레드뿐이고, <code>zoneId % basicThreadCount</code> sticky
         라우팅이 "같은 존 = 같은 스레드"를 보장하기 때문에 <code>players_</code>에 락이 없다
         -- 프로세스 개수나 한 프로세스가 맡은 존 개수와는 무관한 성질이다.

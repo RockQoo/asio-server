@@ -27,7 +27,7 @@ namespace Zone
     // LeaveZoneNotify/ForwardToZone 구분)는 LB 스레드에서 일어난다. ForwardToZone 안의
     // innerPacketId는 Echo만 예외적으로 여기서 곧바로 되돌려 보내고(공유 게임 상태가 필요
     // 없어 BASIC까지 갈 이유가 없다), 그 외에는 어떤 패킷인지 들여다보지 않고 그대로
-    // ZoneWorld::HandleClientPacket으로 넘긴다 -- "패킷 내용이 뭔지"는 BASIC 스레드(ZoneWorld)
+    // ZoneInstance::HandleClientPacket으로 넘긴다 -- "패킷 내용이 뭔지"는 BASIC 스레드(ZoneInstance)
     // 만 알면 된다. 이 프로세스가 여러 존을 호스팅할 수 있으므로, LB 스레드가 clientSessionId로
     // "이 프로세스 안에서 지금 어느 zoneId에 있는지"를 찾아(clientLocalZone_) 그 zoneId로
     // BASIC 풀에 라우팅한다.

@@ -36,7 +36,7 @@ NETWORK ──바이트만 복사──► LB ──PostToBasic(zoneId)──►
 ```
 
 **핵심 불변식**: 같은 `zoneId`의 패킷은 항상 같은 BASIC 스레드로만 라우팅된다
-(`zoneId % BASIC풀크기`). 그 존의 상태(`ZoneWorld::players_`)는 그 스레드에서만 접근되므로
+(`zoneId % BASIC풀크기`). 그 존의 상태(`ZoneInstance::players_`)는 그 스레드에서만 접근되므로
 mutex가 아예 없습니다.
 
 이 불변식은 **인구가 여러 존에 분산돼 있을 때만** 성립합니다. 한 존에 몰아넣으면 BASIC
@@ -77,8 +77,8 @@ mutex가 아예 없습니다.
 |---|---|
 | **역할** | 존 하나(또는 여럿)의 게임 상태를 소유하고 Mail 시스템을 운영 |
 | **핵심 기술** | ① **zoneId sticky 라우팅으로 락 없는 게임 상태** — `players_`가 순수 `unordered_map` ② **스냅샷 핸드오프** — BASIC이 대상 목록을 복사해 BROADCAST로 넘기고, BROADCAST는 공유 컨테이너를 절대 읽지 않음 ③ **`Synchronized` + Unit-of-Work** — 만료 스윕과 BASIC이 겹치는 유일한 지점만 `shared_mutex`로 보호 |
-| **왜 이렇게** | 스레드를 나누면 상태 공유 지점이 생깁니다. 그래서 각 풀이 "무엇을 소유하고 무엇을 넘겨받는지"를 코드 주석으로 못박았습니다. [ZoneWorld.h:32](Server/ZoneServer/Src/Game/ZoneWorld.h#L32)는 **TICK 풀이 실제 상태를 만지는 순간 이 설계가 깨진다**는 미래의 파손 조건까지 명시합니다 |
-| **대표 코드** | [ZoneWorkerManager.h:67](Server/ZoneServer/Src/Worker/ZoneWorkerManager.h#L67) (sticky 라우팅), [ZoneWorld.cpp:234](Server/ZoneServer/Src/Game/ZoneWorld.cpp#L234) (스냅샷 브로드캐스트) |
+| **왜 이렇게** | 스레드를 나누면 상태 공유 지점이 생깁니다. 그래서 각 풀이 "무엇을 소유하고 무엇을 넘겨받는지"를 코드 주석으로 못박았습니다. [ZoneInstance.h:32](Server/ZoneServer/Src/Game/ZoneInstance.h#L32)는 **TICK 풀이 실제 상태를 만지는 순간 이 설계가 깨진다**는 미래의 파손 조건까지 명시합니다 |
+| **대표 코드** | [ZoneWorkerManager.h:67](Server/ZoneServer/Src/Worker/ZoneWorkerManager.h#L67) (sticky 라우팅), [ZoneInstance.cpp:234](Server/ZoneServer/Src/Game/ZoneInstance.cpp#L234) (스냅샷 브로드캐스트) |
 
 ### Core — 게임 로직을 전혀 모르는 재사용 라이브러리
 
@@ -102,7 +102,7 @@ mutex가 아예 없습니다.
 
 | 전략 | 적용 대상 | 락 |
 |---|---|---|
-| 스레드 어피니티(`key % N`) | `ZoneWorld::players_` (BASIC 풀) | **없음** |
+| 스레드 어피니티(`key % N`) | `ZoneInstance::players_` (BASIC 풀) | **없음** |
 | 단일 처리 스레드 | `ClientRegistry` / `ZoneLinkRegistry` (WorldWorker) | **없음** |
 | 스냅샷 전달 | BROADCAST 풀이 받는 대상 목록 | **없음** |
 | strand 직렬화 | `Session`의 소켓·송신 큐 | strand 1곳 |

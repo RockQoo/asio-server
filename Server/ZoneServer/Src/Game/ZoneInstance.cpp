@@ -1,5 +1,5 @@
 #include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Game/ZoneWorld.h"
+#include "Server/ZoneServer/Src/Game/ZoneInstance.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 #include "Server/ZoneServer/Src/World/WorldLink.h"
 #include "Server/ZoneServer/Src/Worker/BroadcastDispatcher.h"
@@ -19,7 +19,7 @@
 
 namespace Zone
 {
-    ZoneWorld::ZoneWorld(const uint32_t zoneId, const float xMin, const float xMax,
+    ZoneInstance::ZoneInstance(const uint32_t zoneId, const float xMin, const float xMax,
                          WorldLink& worldLink, BroadcastDispatcher& broadcastDispatcher, Mail::MailRegistry& mailRegistry)
         : zoneId_(zoneId)
         , xMin_(xMin)
@@ -31,15 +31,15 @@ namespace Zone
         RegisterPacketHandlers();
     }
 
-    void ZoneWorld::RegisterPacketHandlers()
+    void ZoneInstance::RegisterPacketHandlers()
     {
-        packetDispatcher_.Register(PacketId::C2ZMove, this, &ZoneWorld::HandleMove);
-        packetDispatcher_.Register(PacketId::C2ZChat, this, &ZoneWorld::HandleChat);
-        packetDispatcher_.Register(PacketId::C2ZMailAdd, this, &ZoneWorld::HandleMailAdd);
-        packetDispatcher_.Register(PacketId::C2ZMailDel, this, &ZoneWorld::HandleMailDel);
+        packetDispatcher_.Register(PacketId::C2ZMove, this, &ZoneInstance::HandleMove);
+        packetDispatcher_.Register(PacketId::C2ZChat, this, &ZoneInstance::HandleChat);
+        packetDispatcher_.Register(PacketId::C2ZMailAdd, this, &ZoneInstance::HandleMailAdd);
+        packetDispatcher_.Register(PacketId::C2ZMailDel, this, &ZoneInstance::HandleMailDel);
     }
 
-    void ZoneWorld::OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
+    void ZoneInstance::OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
                                   const float x, const float y)
     {
         PlayerState state{};
@@ -61,7 +61,7 @@ namespace Zone
                      std::as_bytes(std::span(&notify, 1)));
     }
 
-    void ZoneWorld::OnPlayerLeave(const Network::SessionId clientSessionId)
+    void ZoneInstance::OnPlayerLeave(const Network::SessionId clientSessionId)
     {
         if (players_.erase(clientSessionId) > 0)
         {
@@ -71,7 +71,7 @@ namespace Zone
         }
     }
 
-    void ZoneWorld::HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId,
+    void ZoneInstance::HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId,
                                         const std::span<const byte> payload)
     {
         // 1) Player를 먼저 찾는다 -- 아직 입장하지 않았거나 이미 퇴장한 세션의 패킷은 여기서
@@ -86,7 +86,7 @@ namespace Zone
         packetDispatcher_.Dispatch(packetId, &it->second, payload);
     }
 
-    void ZoneWorld::HandleMove(PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleMove(PlayerState& player, const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(MovePacket))
         {
@@ -120,7 +120,7 @@ namespace Zone
         BroadcastToZone(PacketId::Z2CMoveNotify, writer.GetBuffer());
     }
 
-    void ZoneWorld::HandleChat(const PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleChat(const PlayerState& player, const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
         std::string message;
@@ -136,7 +136,7 @@ namespace Zone
         BroadcastToZone(PacketId::Z2CChatNotify, writer.GetBuffer());
     }
 
-    void ZoneWorld::HandleMailAdd(const PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleMailAdd(const PlayerState& player, const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
         std::string title;
@@ -171,7 +171,7 @@ namespace Zone
                      std::as_bytes(std::span(&ack, 1)));
     }
 
-    void ZoneWorld::HandleMailDel(const PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleMailDel(const PlayerState& player, const std::span<const byte> payload)
     {
         uint32_t mailId{};
         if (payload.size() < sizeof(mailId))
@@ -196,14 +196,14 @@ namespace Zone
                      std::as_bytes(std::span(&ack, 1)));
     }
 
-    void ZoneWorld::Tick(const float /*deltaSeconds*/)
+    void ZoneInstance::Tick(const float /*deltaSeconds*/)
     {
         // 존별 AI/물리/회복 등을 붙일 확장 지점. 지금은 의도적으로 아무 것도 하지 않는다.
         // 메일 만료 삭제는 이 tick이 아니라 별도 유지보수 타이머(Mail::MailExpiryService)가
         // 담당한다 -- ZoneServerApp 주석 참고.
     }
 
-    void ZoneWorld::SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
+    void ZoneInstance::SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                                  const std::span<const byte> payload) const
     {
         const auto worldSession = worldLink_.Get();
@@ -222,7 +222,7 @@ namespace Zone
         worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
     }
 
-    void ZoneWorld::BroadcastToZone(const PacketId innerPacketId, const std::span<const byte> payload,
+    void ZoneInstance::BroadcastToZone(const PacketId innerPacketId, const std::span<const byte> payload,
                                     const Network::SessionId excludeClientSessionId) const
     {
         // 대상 목록은 지금(players_를 소유한 유일한 스레드인 BASIC) 스냅샷으로 복사해서
@@ -243,7 +243,7 @@ namespace Zone
         broadcastDispatcher_.Broadcast(zoneId_, std::move(targets), innerPacketId, std::move(payloadCopy));
     }
 
-    void ZoneWorld::RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
+    void ZoneInstance::RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
                                         const float x, const float y) const
     {
         const auto worldSession = worldLink_.Get();

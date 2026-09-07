@@ -40,7 +40,7 @@
         <div class="connector">↓ (Gateway → World의 WorldWorker → Zone의 NETWORK → LB를 거쳐 BASIC에 도착)</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드 (Zone 0, <code>zoneId % basicThreadCount</code> sticky)</div>
-            <div class="title"><code>ZoneWorld::HandleMove</code> — 경계 검사</div>
+            <div class="title"><code>ZoneInstance::HandleMove</code> — 경계 검사</div>
             <div class="detail">
                 <code>move.x &lt; xMin_ || move.x &gt;= xMax_</code>이면 좌표를 갱신하는 대신
                 <strong>로컬 <code>players_</code>에서 즉시 지우고</strong>(그리고
@@ -77,7 +77,7 @@
         <div class="step logic">
             <div class="lane">BASIC 스레드 (Zone 1, LB 스레드가
                 <code>PostToBasic(zoneId=1)</code>로 넘긴 뒤)</div>
-            <div class="title"><code>ZoneWorld::OnPlayerEnter</code></div>
+            <div class="title"><code>ZoneInstance::OnPlayerEnter</code></div>
             <div class="detail">
                 Zone 1이 이 플레이어를 새로 만들고(빈 우편함으로 시작 -- Mail은 zone-local이라
                 핸드오프 시 초기화되는 게 이 프로젝트의 알려진 단순화다) <code>Z2CEnterZoneNotify</code>를
@@ -97,7 +97,7 @@
         <code>std::nullopt</code> → <code>"핸드오프 대상 존을 찾지 못함"</code> 경고 로그만 남기고
         <code>return</code> → <code>ClientRegistry</code>의 zoneId는 여전히 0이라 이후 패킷은
         Zone 0으로 계속 라우팅되지만 <code>players_</code>에 없으므로
-        <code>ZoneWorld::HandleClientPacket</code>이 전부 버린다. <strong>즉 재접속하기 전까지
+        <code>ZoneInstance::HandleClientPacket</code>이 전부 버린다. <strong>즉 재접속하기 전까지
         플레이어가 영구 유실된다</strong> -- 실서비스라면 대상 존 확인 후 지우거나 실패 시
         롤백해야 하지만, 여기서는 흐름을 단순하게 보여주려고 일부러 남겨둔 지점이다.
     </div>
@@ -106,7 +106,7 @@
         Ack으로 왕복 확인</h2>
     <div class="flow">
         <div class="step logic">
-            <div class="lane">BASIC 스레드 (해당 존, <code>ZoneWorld::HandleMailAdd</code>)</div>
+            <div class="lane">BASIC 스레드 (해당 존, <code>ZoneInstance::HandleMailAdd</code>)</div>
             <div class="title"><code>Mail::MakeMailUnitOfWork</code> + <code>mailModel-&gt;Write()-&gt;AddMail</code></div>
             <div class="detail">
                 <code>Task::UnitOfWork</code>(Core 소유, 콘텐츠를 몰라도 되는 범용 클래스)를
@@ -170,7 +170,7 @@
         <div class="connector">↓ C2Z <code>C2ZMailAdd</code> → ... → BASIC 스레드에서 처리</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드</div>
-            <div class="title"><code>ZoneWorld::HandleMailAdd</code></div>
+            <div class="title"><code>ZoneInstance::HandleMailAdd</code></div>
             <div class="detail">
                 <code>AddMail</code>이 반환한 <code>mailId</code>를 그대로
                 <code>SendToPlayer(..., Protocol::PacketId::Z2CMailAddAck, {mailId})</code>로 즉시 되돌려준다
@@ -186,7 +186,7 @@
         <div class="connector">↓ C2Z <code>MailDel{mailId}</code> → ... → BASIC 스레드</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드</div>
-            <div class="title"><code>ZoneWorld::HandleMailDel</code></div>
+            <div class="title"><code>ZoneInstance::HandleMailDel</code></div>
             <div class="detail">
                 <code>DelMail</code>이 반환한 성공 여부를
                 <code>Z2CMailDelAck{mailId, success}</code>로 되돌려준다. <code>success=false</code>는
@@ -215,7 +215,7 @@
         <div class="connector">↕ 동시에 발생할 수 있음</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드 (클라이언트의 <code>mail del</code> 요청 처리 중)</div>
-            <div class="title"><code>ZoneWorld::HandleMailDel</code> → 같은 <code>MailModel</code>의
+            <div class="title"><code>ZoneInstance::HandleMailDel</code> → 같은 <code>MailModel</code>의
                 <code>Write()</code></div>
             <div class="detail">
                 두 스레드가 <strong>같은 플레이어의 같은 <code>MailModel</code> 인스턴스</strong>를

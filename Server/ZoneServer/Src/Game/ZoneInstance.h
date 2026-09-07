@@ -37,10 +37,10 @@ namespace Zone
     // 이 프로세스는 클라이언트와 직접 연결되지 않는다(GatewayServer/WorldServer 경유).
     // World와의 연결 하나(WorldLink) 위에서 clientSessionId로 구분된 여러 플레이어의 패킷을
     // 처리한다.
-    class ZoneWorld
+    class ZoneInstance
     {
     public:
-        ZoneWorld(const uint32_t zoneId, const float xMin, const float xMax,
+        ZoneInstance(const uint32_t zoneId, const float xMin, const float xMax,
                   WorldLink& worldLink, BroadcastDispatcher& broadcastDispatcher, Mail::MailRegistry& mailRegistry);
 
         void OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,

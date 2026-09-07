@@ -32,7 +32,7 @@ namespace Thread
 
         void PostTask(Task task);
 
-        // 콜러블에 추가 인자를 함께 바인딩한다. 예: PostTask(&ZoneWorld::OnMove, &world, id, x, y).
+        // 콜러블에 추가 인자를 함께 바인딩한다. 예: PostTask(&ZoneInstance::OnMove, &world, id, x, y).
         // 최소 1개 이상의 바인딩 인자를 요구하도록 만들어서, 단일 콜러블 호출은 항상 위의
         // PostTask(Task)로 해석되게 하고(중복 래핑 방지) 이 오버로드와 겹치지 않게 한다.
         template <typename F, typename Arg0, typename... Args>

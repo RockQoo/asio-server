@@ -42,7 +42,7 @@ namespace Mail
     public:
         using Sync = Threading::Synchronized<MailModel>;
 
-        // 실제로 배정된 mailId를 반환한다 -- 호출자(ZoneWorld::HandleMailAdd)가 이 값을
+        // 실제로 배정된 mailId를 반환한다 -- 호출자(ZoneInstance::HandleMailAdd)가 이 값을
         // MailAddAck으로 클라이언트에 돌려줘야 클라이언트가 자기가 만든 메일을 나중에 지울 수
         // 있다.
         [[nodiscard]] uint32_t AddMail(MailInfo info, Task::UnitOfWork& unitOfWork);

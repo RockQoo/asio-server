@@ -72,7 +72,7 @@ GmTool.slnx
 ## 게임 DB를 직접 건드리지 않는다
 
 우편 발송을 SQL로 직접 INSERT하지 않고 9300 포트로 패킷을 보낸다. **접속 중인 플레이어의
-권위 있는 상태는 DB가 아니라 ZoneServer의 메모리**(`ZoneWorld`, `MailModel`)에 있기 때문이다.
+권위 있는 상태는 DB가 아니라 ZoneServer의 메모리**(`ZoneInstance`, `MailModel`)에 있기 때문이다.
 DB를 직접 고치면 서버가 나중에 자기 메모리를 내려쓰면서 그 변경을 덮어쓴다(lost update).
 
 그래서 이 툴의 DB에는 운영툴 자기 데이터만 있다 — 운영자 계정, 명령 로그, 쿠폰. 게임

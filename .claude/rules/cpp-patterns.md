@@ -60,7 +60,7 @@ move로 넘겼어도) const 가능.
 ## Get 계열은 `const` 필수 (가변 참조 반환 접근자는 예외)
 
 읽기 전용 getter(`GetXxx`/`IsXxx`/`Xxx()`)는 예외 없이 `const`. **예외**: 호출자가 내부 상태를
-의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`ZoneWorkerManager::GetZoneWorld()`,
+의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`ZoneWorkerManager::GetZoneInstance()`,
 `AffinityWorkerPool::GetWorker()`, `IoContextPool::Next()`/`At()`, `Session::Socket()`)는
 `const`로 선언할 수 없다(컴파일 에러). 새 getter는 "호출자가 반환값으로 상태를 바꿔야
 하는가?"로 판단.
@@ -158,7 +158,7 @@ LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용
 값으로 받지 않는다** — 읽기만 할 거면 `std::string_view`/`const T&`를 쓴다(by-value는 "이
 함수가 소유권을 가져간다"는 신호로만). 실제 사례: `Log::LogEntry` 생성자가 원래 `std::string
 message`(값)였지만 생성자 안에서 즉시 `std::format`으로 소비되고 저장 안 되길래
-`std::string_view`로 바꿔 복사를 없앴다. `ZoneWorld::OnChat`도 같은 이유로 `const
+`std::string_view`로 바꿔 복사를 없앴다. `ZoneInstance::OnChat`도 같은 이유로 `const
 std::string_view message`로 바꾸고 호출부의 불필요한 `std::move`도 제거했다. **판단 기준**:
 "본문에서 이 매개변수를 다른 곳(멤버/컨테이너/다른 스레드로 가는 캡처)에 진짜 move하는가?" —
 그렇다면 sink라 by-value가 맞고(`CoreException(EErrorCode, std::string message)`처럼),
