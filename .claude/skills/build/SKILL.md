@@ -40,7 +40,7 @@ cd /c/Work/asio-server
 - 클린 재빌드가 필요하면 `-t:Rebuild` 추가. 특정 프로젝트만 빌드하려면 `-t:ZoneServer`처럼
   프로젝트명 추가(`-t:Rebuild`와 같이 못 씀 — 하나만 선택).
 - 산출물: `bin/x64/$Configuration/{Core.lib, GatewayServer, WorldServer, ZoneServer,
-  TestClient, LoadTestClient}.exe`.
+  ProtocolClient, StressClient}.exe`.
 
 ## 4. 에러 읽는 법
 

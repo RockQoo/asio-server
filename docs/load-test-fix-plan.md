@@ -2,7 +2,7 @@
 
 작성일: 2026-08-04. 이 문서는 계획만 담는다 — **아직 아무 코드도 고치지 않았다.**
 배경/원본 데이터는 부하 테스트 리포트(대화 중 Artifact로 공유한 HTML, 재생성 필요하면
-`LoadTestClient.exe 127.0.0.1 9000 1000 200` / `... 10000 100 1000 20 900`로 재현) 참고.
+`StressClient.exe 127.0.0.1 9000 1000 200` / `... 10000 100 1000 20 900`로 재현) 참고.
 
 ## 요약
 
@@ -40,7 +40,7 @@
   단순 라운드로빈 배정 시 입장 좌표(x,y)도 그 존의 구간 안에 있도록 같이 맞춰야 한다(현재
   `ZoneWorld::OnPlayerEnter`가 좌표를 그대로 받아들이므로, 배정 존과 안 맞는 좌표를 주면
   다음 Move에서 바로 핸드오프가 발생해버림).
-- 검증: `ZoneServer.exe 0,1,2,3`처럼 존 여러 개를 띄운 뒤 `LoadTestClient.exe`로 10,000세션
+- 검증: `ZoneServer.exe 0,1,2,3`처럼 존 여러 개를 띄운 뒤 `StressClient.exe`로 10,000세션
   재실행 → 인구가 각 존에 고르게 나뉘는지(`zoneserver-*.log`의 "플레이어 입장" 로그로 확인),
   처리량이 존 개수에 비례해 회복되는지 확인.
 
@@ -72,7 +72,7 @@
 
 1. `.claude/skills/build/SKILL.md` 절차로 빌드.
 2. WorldServer → ZoneServer(존 여러 개) → GatewayServer 기동.
-3. `LoadTestClient.exe 127.0.0.1 9000 10000 100 1000 20 900` 재실행.
+3. `StressClient.exe 127.0.0.1 9000 10000 100 1000 20 900` 재실행.
 4. 확인 포인트:
    - `Done` 이 `Attempted`에 도달하는지(전 세션이 제한 시간 안에 완료).
    - `MismatchTotal`/`StalledCount` 여전히 0인지(수정이 정확성을 깨지 않았는지).
@@ -83,6 +83,6 @@
 
 ## 참고: 이미 해결된 항목 (재작업 불필요)
 
-- 부하 도구(`LoadTestClient`) 자체의 스톨 감지 오탐 버그는 이전 세션에서 이미 수정 완료
+- 부하 도구(`StressClient`) 자체의 스톨 감지 오탐 버그는 이전 세션에서 이미 수정 완료
   (`StressSession::HandleBroadcastPacket`이 더 이상 `MarkProgress()`를 호출하지 않음).
 - `MailAddAck`/`MailDelAck` 프로토콜 확장은 이미 반영·빌드 완료.

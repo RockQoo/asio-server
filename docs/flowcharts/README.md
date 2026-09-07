@@ -10,7 +10,7 @@
 
 1. `assets/style.css`를 그대로 `<link>`한다 (새 CSS를 만들지 않는다 — 스타일이 페이지마다
    달라지면 "한눈에 보기"라는 목적이 흐려진다).
-2. 기존 페이지(`testclient-echo-move-chat.html`)의 구조를 그대로 따른다:
+2. 기존 페이지(`protocolclient-echo-move-chat.html`)의 구조를 그대로 따른다:
    - 상단에 `back-link`로 `index.html`로 돌아가는 링크
    - `legend`로 어떤 스레드/행위자가 등장하는지 뱃지 표시
    - `.flow` 안에 `.step`(client/io/logic 중 하나)을 순서대로 나열, 사이사이 `.connector`

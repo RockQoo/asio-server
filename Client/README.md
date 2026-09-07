@@ -3,7 +3,7 @@
 게임 클라이언트 자리. 아직 비어 있다.
 
 MonoGame(C#) 또는 Python 클라이언트를 붙일 예정이며, 둘 다 C++ `Shared/Core`를 쓰지 않는다.
-현재 저장소에 있는 `Tool/TestClient`(프로토콜 REPL)와 `Tool/LoadTestClient`(부하 측정)는
+현재 저장소에 있는 `Tool/ProtocolClient`(프로토콜 REPL)와 `Tool/StressClient`(부하 측정)는
 게임 클라이언트가 아니라 서버를 두드리는 도구라 `Tool/`에 있다.
 
 ## 붙이기 전에 정리해야 할 것

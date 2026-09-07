@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>운영툴(GmTool) → World ToolProcessor: 공지 / 우편 / 쿠폰 흐름</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+    <a class="back-link" href="index.html">&larr; 전체 목록</a>
+
+    <h1>운영툴에서 보낸 명령이 게임 서버까지 어떻게 도달하나</h1>
+    <p class="subtitle">
+        <code>Tool/GmTool</code>(ASP.NET Core / .NET 10)이 <code>WorldServer</code>의
+        <strong>운영툴 전용 포트(9300)</strong>에 붙어 공지·우편·쿠폰 명령을 보내고,
+        World의 <code>ToolProcessor</code>가 그것을 받아 처리하는 경로.
+        핵심은 <strong>운영툴이 게임 로직의 우회로를 만들지 않는다</strong>는 것이다 --
+        우편은 새 운영 전용 패킷이 아니라 기존 클라이언트 패킷(<code>Zone::PacketId::MailAdd</code>)을
+        <code>ClientEnvelopeHeader</code>로 감싸 존에 주입하므로, 존/우편/UnitOfWork/DB 경로가
+        평소 클라이언트 요청과 한 글자도 다르지 않게 흐른다.
+        실제 소스(<code>Server/WorldServer/Src/Tool/ToolProcessor.cpp</code>,
+        <code>Tool/GmTool/GmTool.Web/Services/WorldLinkClient.cs</code>,
+        <code>Tool/GmTool/GmTool.Core/Coupons/CouponBatchGenerator.cs</code>)를 그대로 따라간 흐름이다.
+    </p>
+
+    <div class="legend">
+        <span class="badge client">● 운영툴 프로세스 (.NET / 브라우저)</span>
+        <span class="badge io">● NETWORK / I/O 스레드 (asio strand — 바이트 복사만)</span>
+        <span class="badge logic">● 워커 스레드 (WorldWorker / DbWorker / Zone BASIC)</span>
+    </div>
+
+    <div class="callout">
+        <strong>왜 포트를 따로 뒀나:</strong> 운영 권한 패킷은 클라이언트가 절대 보낼 수 없어야
+        한다. 게이트웨이 포트(9000)와 물리적으로 분리된 <code>toolPort</code>(9300)를 쓰면
+        "이 포트에 접속할 수 있는가"가 그 자체로 1차 방어선이 되고(방화벽/루프백으로 제한),
+        그 위에 <code>ToolHello</code> 공유 시크릿 확인이 얹힌다.
+        <code>ToolProcessor</code>는 <code>ToolHello</code>를 통과하지 않은 세션의 요청을
+        <code>NotAuthenticated</code>로 전부 거절한다.
+    </div>
+
+    <div class="callout">
+        <strong>스레드 규약은 기존 두 링크 핸들러와 동일하다:</strong>
+        <code>ToolProcessor::OnPacket</code>은 이 연결의 I/O 스레드에서 실행되므로 바이트만 복사해
+        <code>WorldWorker::PostTask</code>로 넘기고, <code>ClientRegistry</code>/<code>ZoneLinkRegistry</code>를
+        실제로 만지는 <code>Handle*</code> 메서드는 전부 그 <strong>단일 스레드</strong>에서 돈다.
+        그래서 <code>authenticatedSessions_</code>에도 락이 없다 --
+        <code>GatewayLinkHandler</code>/<code>ZoneLinkHandler</code>와 같은 이유다.
+    </div>
+
+    <h2>1. 접속과 인증 (운영툴 기동 직후 한 번)</h2>
+    <div class="flow">
+        <div class="step client">
+            <div class="lane">GmTool.Web — WorldLinkClient (BackgroundService)</div>
+            <div class="title">9300으로 TCP 연결 → ToolHello 전송</div>
+            <div class="detail">
+                <code>requestId(u32) + protocolVersion(u32) + String(sharedSecret) + String(operatorName)</code>.
+                <strong>읽기 루프를 먼저 띄운 뒤에</strong> Hello를 보낸다 — 반대로 하면 응답이
+                도착했을 때 읽어줄 루프가 아직 없어서 응답을 놓친다.
+                연결이 끊기면 <code>ReconnectDelaySeconds</code>마다 재시도하고, 대기 중이던 요청은
+                전부 <code>ToolNotConnected</code>로 깨워준다(안 깨우면 화면이 타임아웃까지 멈춘다).
+            </div>
+        </div>
+        <div class="connector">↓ TCP (9300)</div>
+        <div class="step io">
+            <div class="lane">World — I/O 스레드 (Session strand)</div>
+            <div class="title">ToolProcessor::OnPacket — 바이트만 복사</div>
+            <div class="detail">
+                <code>ToolLinkPacketId</code>를 헤더에서 꺼내고 페이로드를 복사해
+                <code>WorldWorker::PostTask</code>로 넘긴다. 여기서 레지스트리를 만지지 않는다.
+            </div>
+        </div>
+        <div class="connector">↓ PostTask</div>
+        <div class="step logic">
+            <div class="lane">World — WorldWorker (단일 처리 스레드)</div>
+            <div class="title">HandleToolHello — 시크릿 비교 후 세션 등록</div>
+            <div class="detail">
+                <code>SecretEquals</code>는 길이가 같으면 항상 같은 시간에 끝난다(조기 종료 없음).
+                통과하면 <code>authenticatedSessions_</code>에 넣고 <code>ToolHelloAck(accepted=1)</code>,
+                실패하면 <code>accepted=0</code>을 보낸 뒤 <strong>연결을 닫는다</strong>.
+                어느 쪽이 틀렸는지(버전/시크릿)는 서버 로그에만 남기고 툴에게는 알려주지 않는다.
+            </div>
+        </div>
+    </div>
+
+    <h2>2. 명령 분기 — 공지 / 우편 / 쿠폰</h2>
+    <p class="subtitle">
+        인증을 통과한 뒤의 모든 요청은 <code>WorldWorker</code> 스레드에서 <code>PacketDispatcher</code>로
+        분기된다. 요청마다 <code>requestId</code>가 앞에 붙어 있어, 소켓 하나에 여러 요청이
+        섞여 흘러도 <code>ToolCommandAck</code>이 어느 요청의 답인지 짝지을 수 있다.
+    </p>
+
+    <div class="branch">
+        <div class="branch-col">
+            <div class="branch-label">NoticeRequest — 존을 거치지 않는다</div>
+            <div class="flow">
+                <div class="step logic">
+                    <div class="lane">WorldWorker</div>
+                    <div class="title">HandleNoticeRequest</div>
+                    <div class="detail">
+                        <code>ClientRegistry</code>를 직접 순회해 접속 중인 전체 클라이언트의
+                        Gateway 세션으로 <code>Zone::PacketId::Notice</code>를 감싼
+                        <code>ToClient</code> 봉투를 보낸다. World가 전체 클라이언트 목록을
+                        들고 있어서 가능한 경로다.
+                        <br><br>
+                        <strong>여기서 다시 PostTask하지 않는 이유:</strong> 이미 WorldWorker
+                        스레드 안이고, 비동기로 넘기면 "몇 명에게 나갔는지"를 응답
+                        (<code>affectedCount</code>)에 실을 수 없다.
+                    </div>
+                </div>
+                <div class="connector">↓ ToClient</div>
+                <div class="step io">
+                    <div class="lane">Gateway — I/O 스레드</div>
+                    <div class="title">봉투를 풀어 클라이언트로 릴레이</div>
+                    <div class="detail">게임 로직 없이 그대로 전달.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="branch-col">
+            <div class="branch-label">MailSendRequest / MailDeleteRequest — 기존 존 경로에 주입</div>
+            <div class="flow">
+                <div class="step logic">
+                    <div class="lane">WorldWorker</div>
+                    <div class="title">InjectClientPacket</div>
+                    <div class="detail">
+                        존이 기대하는 <strong>원본 클라이언트 패킷 본문</strong>을 그대로 만든다:
+                        <code>MailAdd</code>는 <code>String(title)+String(body)+durationSec(i64)</code>,
+                        <code>MailDel</code>은 <code>mailId(u32)</code>.
+                        그 앞에 <code>ClientEnvelopeHeader{clientSessionId, innerPacketId}</code>를
+                        붙여 <code>ForwardToZone</code>으로 보낸다 —
+                        <code>GatewayLinkHandler::HandleFromClient</code>가 릴레이하는 것과
+                        <strong>바이트 단위로 같은 모양</strong>이다.
+                        <br><br>
+                        대상이 전체면 먼저 세션 목록 스냅샷을 뜬 뒤 하나씩 주입하고, 성공한
+                        수만 <code>affectedCount</code>로 돌려준다.
+                    </div>
+                </div>
+                <div class="connector">↓ ForwardToZone</div>
+                <div class="step logic">
+                    <div class="lane">Zone — LB → BASIC (zoneId sticky)</div>
+                    <div class="title">ZoneWorld::HandleMailAdd / HandleMailDel</div>
+                    <div class="detail">
+                        존은 이 우편이 운영툴에서 왔는지 클라이언트에서 왔는지 <strong>구분할 수
+                        없고, 구분할 필요도 없다</strong>. <code>MailModel</code>이 mailId를 배정하고
+                        <code>MailAddAck</code>/<code>MailDelAck</code>을 그 클라이언트에게 되돌리며,
+                        변경분은 <code>Task::UnitOfWork</code>에 모여 World의 <code>DbWorker</code>로
+                        간다 — 평소와 완전히 동일한 경로.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>우편 삭제의 결과는 운영툴이 알 수 없다:</strong> 그 <code>mailId</code>가 실제로
+        존재했는지는 존이 <code>MailDelAck(success)</code>로 <em>해당 클라이언트에게</em> 보낸다.
+        운영툴의 <code>ToolCommandAck</code>은 "존까지 전달됐다"까지만 보장한다.
+        결과까지 보려면 <code>MailDelAck</code>을 툴로도 되돌리는 경로가 따로 필요하다(현재 미구현).
+    </div>
+
+    <h2>3. 대량 쿠폰 발급 — 로컬 메모리 · 스풀 · 청크</h2>
+    <p class="subtitle">
+        쿠폰 번호 25자리 중 <strong>앞 5자리가 캠페인 코드(네임스페이스)</strong>다. 전역 유일성을
+        검사할 대상은 이 5자리뿐이고(캠페인은 1년에 수십~수백 건), 그 아래 수십만~수백만 장은
+        캠페인 전용 테이블 안에서만 유일하면 된다. 중복 검사 범위를 이렇게 좁히는 것이 대량 발급
+        성능의 핵심이다.
+    </p>
+
+    <div class="flow">
+        <div class="step client">
+            <div class="lane">GmTool — CouponIssueService (캠페인 등록 시)</div>
+            <div class="title">캠페인 코드 5자리 전역 유일성 검사 → 전용 테이블 CREATE</div>
+            <div class="detail">
+                유일성의 최종 판정은 항상 <code>coupon_campaign.uk_coupon_campaign_code</code>
+                인덱스가 한다 — "조회해서 없으면 INSERT"로는 두 운영자가 동시에 같은 코드를
+                등록하는 경쟁을 막을 수 없다.
+                테이블 이름은 <code>coupon_&lt;소문자 캠페인코드&gt;</code>이며, 이름이 SQL에
+                문자열로 박히므로 <strong>Crockford Base32 5자 검사를 통과한 값만</strong>
+                이름으로 쓴다(<code>CouponTableNaming</code>).
+            </div>
+        </div>
+        <div class="connector">↓ 발급 시작</div>
+        <div class="step client">
+            <div class="lane">GmTool — CouponBatchGenerator (이 프로세스 메모리)</div>
+            <div class="title">CSPRNG로 생성 + HashSet으로 중복 검사</div>
+            <div class="detail">
+                <code>RandomNumberGenerator.GetItems</code>로 Crockford Base32 18자를 뽑고,
+                앞에 캠페인 코드 5자, 뒤에 체크 문자 2자를 붙여 25자를 만든다.
+                일반 PRNG를 쓰면 시드가 추정되는 순간 이후 번호를 예측할 수 있어서 반드시 CSPRNG를 쓴다.
+                <br><br>
+                예전 방식(코드 한 건마다 DB INSERT를 시도하고 중복이면 재생성)은 10만 건이면
+                왕복 10만 번이라, 누적 쿠폰이 늘수록 급격히 느려지고 그 사이 다른 운영자는 대기해야 했다.
+                생성과 중복 검사를 이 프로세스 메모리에서 끝내면 DB는 마지막에 벌크 인서트만 받는다.
+            </div>
+        </div>
+        <div class="connector">↓ 코드 한 건마다</div>
+        <div class="step client">
+            <div class="lane">GmTool — CouponSpoolWriter</div>
+            <div class="title">스풀 파일에 먼저 append (DB보다 앞서)</div>
+            <div class="detail">
+                DB 적재 <strong>전에</strong> 로컬 파일에 순차 기록해둔다. 프로세스가 죽거나 정전이
+                나거나 DB 연결이 끊겨도 이미 생성한 수십만 장이 사라지지 않는다 —
+                DB의 WAL과 같은 발상이다.
+            </div>
+        </div>
+        <div class="connector">↓ 청크가 차면 (기본 1만 건)</div>
+
+        <div class="branch">
+            <div class="branch-col">
+                <div class="branch-label">① SqlBulkCopy 적재 (권위 저장소)</div>
+                <div class="flow">
+                    <div class="step client">
+                        <div class="lane">GmTool — CouponRepository</div>
+                        <div class="title">INSERT IGNORE 한 트랜잭션</div>
+                        <div class="detail">
+                            수십만 건을 한 트랜잭션에 몰면 언두 로그 부담이 커지고 실패 시 전부
+                            롤백된다. 1만 건 안팎이 무난한 지점이다.
+                            <code>IGNORE</code>는 재개 시 이미 들어간 청크를 다시 넣어도
+                            PK 중복으로 실패하지 않게 한다.
+                        </div>
+                    </div>
+                    <div class="connector">↓ 성공하면</div>
+                    <div class="step client">
+                        <div class="lane">GmTool — CouponSpoolWriter</div>
+                        <div class="title">fsync + 오프셋 기록 → 재개 지점 확정</div>
+                        <div class="detail">
+                            <code>FileStream.Flush(flushToDisk: true)</code>로 물리 디스크 기록을
+                            확정한다. 이 인자가 없으면 OS 캐시까지만 내려가 정전 시 사라진다.
+                            느린 연산이라 <strong>청크 경계에서만</strong> 호출한다.
+                            오프셋 파일의 숫자가 곧 "여기까지는 DB에도 들어갔다"는 뜻이다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="branch-col">
+                <div class="branch-label">② WorldServer로도 전송 (부가 경로)</div>
+                <div class="flow">
+                    <div class="step client">
+                        <div class="lane">GmTool — WorldLinkClient</div>
+                        <div class="title">CouponChunkPush — 200건씩 다시 잘라 전송</div>
+                        <div class="detail">
+                            <code>Packet::PacketHeader::MaxBodySize()</code>가 8192바이트이고 코드
+                            하나가 27바이트(길이 2 + 25자)라, 한 패킷에 250건 남짓이 상한이다.
+                            그래서 <strong>DB 청크(1만)와 전송 청크(200)를 다른 크기로</strong> 쓴다 —
+                            같은 상수로 묶으면 어느 한쪽이 반드시 비효율적이 된다.
+                        </div>
+                    </div>
+                    <div class="connector">↓ TCP (9300)</div>
+                    <div class="step logic">
+                        <div class="lane">World — WorldWorker → DbWorker 풀</div>
+                        <div class="title">캠페인 코드 owner-hash로 위임</div>
+                        <div class="detail">
+                            <code>std::hash&lt;std::string&gt;(campaignCode)</code>로 고정된
+                            <code>DbWorker</code>에 넘긴다 — 같은 캠페인의 청크는 항상 같은
+                            스레드에서 <code>chunkSeq</code> 순서대로 처리되므로 락이 필요 없다
+                            (<code>ZoneLinkHandler</code>의 UnitOfWork가 <code>clientSessionId</code>로
+                            해시하는 것과 같은 원리).
+                            <br><br>
+                            <strong>실제 DB 적재는 아직 TODO</strong>다(World의 DB 연동 자체가 TODO).
+                            쿠폰의 권위 저장소는 운영툴 쪽 SQL Server이고, 이 경로는 게임 서버도 같은
+                            목록을 순서대로 받아 적재할 수 있는 구조만 갖춰둔 것이다.
+                            그래서 이 전송이 실패해도 발급 자체는 계속 진행한다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2>4. 쿠폰 등록(사용) — 싼 검사부터 순서대로</h2>
+    <div class="flow">
+        <div class="step client">
+            <div class="lane">GmTool — CouponRedeemService</div>
+            <div class="title">① 레이트 리밋 + 지수 백오프</div>
+            <div class="detail">
+                최근 실패 횟수가 임계치를 넘으면 <code>Base × 2^n</code>초 동안 거절한다(상한 있음 —
+                상한이 없으면 정상 사용자가 오타 몇 번에 영구 차단될 수 있다).
+            </div>
+        </div>
+        <div class="connector">↓</div>
+        <div class="step client">
+            <div class="lane">CouponCodeFormat.TryNormalize</div>
+            <div class="title">② 형식 정규화 (하이픈/공백 제거, 25자 확인)</div>
+            <div class="detail">
+                하이픈과 공백은 위치에 상관없이 제거한다. 사용자가 <code>O</code>를 <code>0</code>으로,
+                <code>I</code>/<code>L</code>을 <code>1</code>로 잘못 읽어 입력한 것도 받아준다 —
+                거절하면 정상 쿠폰이 "없는 쿠폰"이 되고 CS 문의만 늘어난다.
+            </div>
+        </div>
+        <div class="connector">↓</div>
+        <div class="step client">
+            <div class="lane">CouponCheckDigit.Verify</div>
+            <div class="title">③ 체크 문자 2자리 — DB 조회 없이 99.9% 거절</div>
+            <div class="detail">
+                앞 23자리의 Base32 값 합을 1024로 나눈 나머지를 2문자로 인코딩한 값과 비교한다.
+                조합이 1024가지이므로 아무렇게나 만든 번호는 약 1023/1024가 <strong>DB에 닿기
+                전에</strong> 걸러진다. 무차별 대입이 들어와도 DB 커넥션과 인덱스 조회를 소모하지 않는다.
+                <br><br>
+                <strong>보안 장치는 아니다</strong> — 계산식이 공개되면 맞춰서 만들 수 있다.
+                위·변조 자체를 막으려면 서버만 아는 비밀로 HMAC 서명을 넣어야 한다.
+            </div>
+        </div>
+        <div class="connector">↓ 여기까지 DB 접근 0회</div>
+        <div class="step client">
+            <div class="lane">CouponCampaignRepository → CouponRepository</div>
+            <div class="title">④ 캠페인 조회 → ⑤ 조건부 UPDATE 한 방으로 사용 처리</div>
+            <div class="detail">
+                앞 5자리로 대상 테이블이 곧바로 정해지므로 라우팅에 별도 조회가 필요 없다.
+                사용 처리는 <strong>조회 후 갱신으로 나누지 않는다</strong> —
+                <code>WHERE status=1 AND (expires_at IS NULL OR expires_at &gt; now) AND use_count &lt; max</code>
+                조건부 <code>UPDATE</code> 한 번으로 처리해야 같은 코드가 동시에 두 번 들어와도
+                한쪽만 성공한다. 나누면 그 틈에 <em>같은 쿠폰이 두 번 보상을 받는</em> 경쟁 조건이 생긴다.
+            </div>
+        </div>
+        <div class="connector">↓ 성공하면 (보상이 우편이고 대상이 접속 중일 때)</div>
+        <div class="step logic">
+            <div class="lane">World ToolProcessor → Zone</div>
+            <div class="title">⑥ 보상 우편 발송 (2번 흐름 그대로 재사용)</div>
+            <div class="detail">
+                지급이 실패해도 <strong>사용 처리를 되돌리지 않는다</strong> — 롤백하면
+                "사용됐다가 안 됐다가" 하는 상태가 생겨 중복 지급의 여지가 열린다.
+                대신 실패를 로그로 남겨 수동 보상이 가능하게 한다.
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>응답 정보 최소화 — 외부 사용자에게만 적용되는 규칙:</strong>
+        <code>/api/coupon/redeem</code>은 어떤 실패든 <em>"유효하지 않은 쿠폰입니다"</em> 한 문장으로만
+        답한다. "이미 사용됨"과 "존재하지 않음"을 구분해주면 공격자가 그 차이를 단서로 유효한
+        번호의 범위를 좁힐 수 있기 때문이다. 진짜 사유는
+        <code>coupon_redeem_attempt.reason</code>과 로그에만 남는다.
+        <br><br>
+        반대로 <strong>로그인한 운영자</strong>에게는 실제 사유를 그대로 보여준다
+        (<code>/api/coupon/inspect</code>, 쿠폰 조회 화면) — 원인을 못 보면 CS 대응이 불가능하다.
+        운영자 로그인 실패 메시지만은 예외로 통일된 한 문장을 쓴다(계정 열거 방지).
+    </div>
+
+    <div class="callout">
+        <strong>실측(로컬 SQL Server 2022 컨테이너, 100만 장 · 청크 1만 × 100회):</strong>
+        <br>
+        · Release, World 전송 <strong>포함</strong> — 11.5초 (<strong>87,123장/초</strong>)<br>
+        · Release, World 전송 <strong>제외</strong> — 10.5초 (<strong>95,066장/초</strong>)<br>
+        · Debug, World 전송 포함 — 12.3초 (81,453장/초)<br>
+        <br>
+        세 번 모두 <strong>로컬 메모리 중복 재시도 0건, DB 적재 100만 건 전부 고유</strong>.
+        <br><br>
+        Debug와 Release 차이가 15%도 안 된다는 것이 이 표에서 가장 중요한 정보다 —
+        <strong>병목이 코드 생성 속도가 아니라 I/O(SqlBulkCopy 적재 + 스풀 fsync)</strong>라는 뜻이다.
+        World 전송(5,000회 왕복)이 차지하는 몫도 약 1초, 전체의 8% 남짓이다.
+        여기서 더 줄이려면 CSPRNG를 최적화할 게 아니라 청크 크기나 인서트 방식
+        (<code>LOAD DATA INFILE</code> 등)을 손봐야 한다.
+        <br><br>
+        CSV 다운로드(100만 행, 31MB)는 스트리밍으로 약 1초.
+        마지막 측정은 <strong>WorldServer를 일부러 죽인 채</strong> 돌렸는데, 발급은 정상
+        완료됐다 — 쿠폰의 권위 저장소가 운영툴 SQL Server이고 World 전송은 부가 경로라는 설계가
+        의도대로 동작한 것이다.
+    </div>
+</div>
+</body>
+</html>

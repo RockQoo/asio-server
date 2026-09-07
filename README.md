@@ -8,9 +8,9 @@ MMORPG 서버 구조를 4개 프로세스로 단순화해, **"게임 상태에 �
 | | |
 |---|---|
 | **핵심 주장** | 락을 없애는 게 목적이 아니라, **락이 필요한 지점을 세어서 줄이는 것**이 목적 — 상황별로 4가지 전략(스레드 어피니티 / 단일 스레드 / 스냅샷 전달 / 명시적 락)을 나눠 적용했고, 서버 3종에 남은 mutex **선언 지점은 전부 8곳**으로 셀 수 있습니다 |
-| **규모** | C++ 소스 113개 파일 / 프로젝트 6개(정적 라이브러리 1 + 실행 파일 5) |
-| **환경** | MSVC v143, x64 전용, `/std:c++20`, 외부 의존성은 벤더링한 standalone ASIO 하나뿐 |
-| **검증** | 자동화 스위트 없음. 프로토콜 REPL 클라이언트와 **1만 세션까지 실측한 부하 도구를 직접 만들어** 정확성·처리량·지연을 측정 |
+| **규모** | C++ 소스 115개 파일 / 프로젝트 6개(정적 라이브러리 1 + 실행 파일 5) + C# 운영툴 3개 프로젝트 |
+| **환경** | MSVC v143, x64 전용, `/std:c++20`, 외부 의존성은 벤더링한 standalone ASIO 하나뿐 (운영툴만 .NET 10 / SQL Server 별도) |
+| **검증** | 서버는 자동화 스위트 없음 — 프로토콜 REPL 클라이언트와 **1만 세션까지 실측한 부하 도구를 직접 만들어** 정확성·처리량·지연을 측정. 운영툴은 xUnit 80개 |
 
 ---
 
@@ -20,6 +20,9 @@ MMORPG 서버 구조를 4개 프로세스로 단순화해, **"게임 상태에 �
 Client ──► GatewayServer ──► WorldServer ──► ZoneServer #0, #1, ...
            (순수 릴레이)      (라우팅 두뇌)     (존 권위 상태)
            게임 로직 0        단일 스레드       내부 5-풀 분리
+                                  ▲
+                             GmTool (검증용 운영툴)
+                             전용 포트 9300
 ```
 
 ZoneServer 내부는 역할별로 스레드 풀이 나뉘고, 패킷은 항상 한 방향으로만 흐릅니다.
@@ -56,10 +59,17 @@ mutex가 아예 없습니다.
 
 | | |
 |---|---|
-| **역할** | 클라이언트↔존 매핑, 존 등록, 존 핸드오프, DB 태스크 분배 |
+| **역할** | 클라이언트↔존 매핑, 존 등록, 존 핸드오프, DB 태스크 분배, 운영툴 명령 수신 |
 | **핵심 기술** | ① **단일 처리 스레드(`WorldWorker`)로 락 제거** — 샤딩 키가 없는 전역 라우팅 테이블이라 "풀 대신 스레드 1개"를 선택, 두 레지스트리에 mutex가 0개 ② **재접속 없는 존 핸드오프** — 라우팅 테이블만 교체하므로 Gateway는 이동 자체를 모르고, 클라이언트는 재접속·재인증 없이 같은 연결을 유지 ③ **owner-hash DB 워커 풀** — `ownerId % N`으로 "같은 플레이어 = 같은 스레드 = 순서 보장" |
 | **왜 이렇게** | 라우팅 상태와 영속화는 성격이 다릅니다. 전자는 전역이라 직렬화(스레드 1개)가 맞고, 후자는 owner 단위로 독립이라 샤딩이 맞습니다. I/O 스레드는 페이로드만 복사해 `PostTask`할 뿐 상태를 만지지 않습니다 |
 | **대표 코드** | [WorldWorker.h:9](Server/WorldServer/Src/Worker/WorldWorker.h#L9) (선택 근거 주석), [ZoneLinkHandler.cpp:114](Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp#L114) (핸드오프) |
+
+운영툴 링크는 세 번째 accept 포트(9300)로 분리돼 있고, `ToolProcessor`가 위 두 링크 핸들러와
+**같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)을 그대로 따릅니다.
+운영 우편은 새 패킷을 만들지 않고 기존 클라이언트 패킷(`MailAdd`/`MailDel`)을 봉투에 싸서
+존에 주입하므로, 존·우편·`UnitOfWork`·DB 경로가 평소 클라이언트 요청과 동일하게 흐릅니다 —
+운영 전용 우회로를 만들면 "운영툴로 넣은 우편만 만료가 안 된다" 같은 사고가 나기 때문입니다.
+자세한 흐름은 [운영툴 플로우차트](docs/flowcharts/gmtool-operations.html) 참고.
 
 ### ZoneServer — 존 권위 상태, 5-풀 분리
 
@@ -144,7 +154,7 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
 
 ## 5. 성능 지표
 
-`LoadTestClient`가 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기
+`StressClient`가 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기
 멀티플렉싱하며, **정확성(mailId 왕복 일치) · 처리량 · 지연을 동시에** 측정합니다.
 
 측정 방식:
@@ -154,7 +164,7 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
   순간부터 잽니다
 - 원시 샘플을 다 들고 있지 않고 **551개 로그스케일 버킷 히스토그램**에 relaxed atomic으로
   기록합니다 — 수백만 샘플에도 상수 메모리·O(1)이라 측정이 실험 자체를 방해하지 않습니다
-  ([LatencyHistogram.h](Tool/LoadTestClient/Src/Stats/LatencyHistogram.h))
+  ([LatencyHistogram.h](Tool/StressClient/Src/Stats/LatencyHistogram.h))
 - 추적 상한은 100초입니다. 처음엔 10초까지만 뒀는데 과부하 실험에서 P95·P99가 전부 최상위
   버킷에 몰려 "10초"로만 보고돼(실제 최대는 131초) **얼마나 나쁜지를 구분할 수 없었습니다.**
   상한에 걸린 값은 `≥100초`로 구분해 표기합니다
@@ -172,6 +182,26 @@ Gateway는 envelope 릴레이만 하기 때문입니다. **클라이언트는** 
 
 지연은 `MailAdd → MailAddAck` 왕복 기준이고, 두 시나리오 모두 2회 측정해 재현을
 확인했습니다(1,000세션: 18,350 / 18,337 사이클/초).
+
+### 운영툴 대량 쿠폰 발급 (같은 머신, SQL Server 2022 컨테이너)
+
+100만 장 발급, 청크 1만 건 × 100회. 세 번 모두 **로컬 메모리 중복 재시도 0건, DB 적재
+100만 건 전부 고유**했습니다.
+
+| 조건 | 소요 | 처리량 |
+|---|---|---|
+| Release, World 전송 포함 | 11.5 초 | **87,123 장/초** |
+| Release, World 전송 제외 | 10.5 초 | **95,066 장/초** |
+| Debug, World 전송 포함 | 12.3 초 | 81,453 장/초 |
+
+**Debug와 Release 차이가 15%도 안 된다는 점이 이 표의 핵심**입니다 — 병목이 코드 생성
+속도가 아니라 I/O(SqlBulkCopy 적재 + 스풀 `fsync`)라는 뜻입니다. World 전송(200건 × 5,000회
+왕복)이 차지하는 몫도 약 1초, 전체의 8% 남짓입니다. 더 줄이려면 CSPRNG를 최적화할 게 아니라
+청크 크기나 인서트 방식(`LOAD DATA INFILE` 등)을 손봐야 합니다.
+
+마지막 측정은 **WorldServer를 일부러 죽인 채** 돌렸는데 발급이 정상 완료됐습니다 — 쿠폰의
+권위 저장소는 운영툴 SQL Server이고 World 전송은 부가 경로라는 설계가 의도대로 동작한 것입니다.
+CSV 다운로드(100만 행, 31MB)는 스트리밍으로 약 1초입니다.
 
 ### 1만 세션에서 무슨 일이 있었나
 
@@ -209,26 +239,40 @@ MSBuild.exe asio-server.slnx -p:Configuration=Release -p:Platform=x64 -m
 ```bat
 bat\start_server_all.bat          :: WorldServer → ZoneServer(0,1) → GatewayServer, 새 창 3개 (Debug)
 bat\start_server_all.bat Release  :: 5절 성능 수치를 재현하려면 이쪽 — Debug는 약 5배 느립니다
-bat\start_test_client.bat         :: TestClient 실행 (127.0.0.1:9000)
+bat\start_protocol_client.bat         :: ProtocolClient 실행 (127.0.0.1:9000)
 bat\stop_server_all.bat           :: 서버 3종 종료 (-keep 을 주면 콘솔 창은 남김)
 ```
 
 `start_server_all.bat`은 기동 후 세 프로세스의 PID를 출력합니다. Visual Studio의
 **디버그 → 프로세스에 연결**(`Ctrl+Alt+P`)에서 Ctrl로 다중 선택하면 세 서버에 한 번에
 붙을 수 있습니다. 중단점이 정확히 걸리려면 Debug 빌드를 쓰세요. 클라이언트 쪽에
-중단점을 걸어야 하면 `start_test_client.bat -attach`로 별도 창에 띄웁니다.
+중단점을 걸어야 하면 `start_protocol_client.bat -attach`로 별도 창에 띄웁니다.
 
 모든 실행 파일이 `Core.vcxproj`를 프로젝트 참조로 물고 있어 `Core` → 나머지 순서로 자동
 빌드됩니다. 산출물은 `bin/x64/{Debug,Release}/`.
+
+**운영툴(GmTool)** — C# 프로젝트라 `asio-server.slnx`와 분리된 별도 솔루션입니다
+(`Tool/GmTool/GmTool.slnx`). C++ 솔루션에 섞으면 MSBuild 전체 빌드가 NuGet 복원까지
+끌고 들어가서 서버만 빌드하려는 흐름이 느려집니다.
+
+```bat
+bat\start_gmtool_mssql.bat   :: SQL Server 2022 컨테이너 기동 (Docker Desktop 필요, 최초 1회는 이미지 받느라 오래 걸림)
+bat\start_gmtool.bat         :: http://127.0.0.1:5080  (초기 계정 admin / admin1234!)
+```
+
+스키마(`Tool/GmTool/Sql/schema.sql`)는 기동 시 자동 적용되고, 운영자 계정이 하나도 없을 때만
+초기 계정을 만듭니다. WorldServer가 안 떠 있어도 웹은 뜨며 화면 우상단에 "World 연결 끊김"으로
+표시됩니다. 공유 시크릿과 토큰 서명 키는 개발 기본값이 소스에 있으니 실제로 쓸 때는 환경
+변수(`ASIO_SERVER_TOOL_SECRET`, `WorldLink__SharedSecret`, `Auth__TokenSigningKey`)로 덮어쓰세요.
 
 ---
 
 ## 7. 테스트
 
-자동화 스위트는 없습니다. 바이너리 프로토콜이라 telnet 검증이 안 돼서 클라이언트 2개를
-직접 만들었습니다.
+**서버(C++)** 는 자동화 스위트가 없습니다. 바이너리 프로토콜이라 telnet 검증이 안 돼서
+클라이언트 2개를 직접 만들었습니다.
 
-**`TestClient`** — 프로토콜 왕복을 눈으로 확인하는 REPL:
+**`ProtocolClient`** — 프로토콜 왕복을 눈으로 확인하는 REPL:
 ```
 echo hello-asio
 move 12 4            # 존 경계를 넘으면 재접속 없이 다음 존으로 핸드오프(EnterZoneNotify 한 장을 받는다)
@@ -238,12 +282,28 @@ mail del <id>
 quit
 ```
 
-**`LoadTestClient`** — 대규모 동시 접속·Mail 멱등성·브로드캐스트 부하:
+**`StressClient`** — 대규모 동시 접속·Mail 멱등성·브로드캐스트 부하:
 ```bat
-LoadTestClient.exe <host> <port> <세션수> <세션당사이클수> [램프업/초] [스톨판정초] [최대초]
-LoadTestClient.exe 127.0.0.1 9000 1000 200
+StressClient.exe <host> <port> <세션수> <세션당사이클수> [램프업/초] [스톨판정초] [최대초]
+StressClient.exe 127.0.0.1 9000 1000 200
 ```
 종료 시 처리량·지연 백분위(P50/P95/P99/P99.9)·불일치·스톨·브로드캐스트 수신율을 요약합니다.
+
+**운영툴(GmTool)** 은 xUnit 80개가 붙어 있습니다:
+
+```bat
+cd Tool\GmTool && dotnet test
+```
+
+무엇을 고정하려고 만들었는지가 더 중요합니다:
+
+| 대상 | 왜 테스트가 필요한가 |
+|---|---|
+| 쿠폰 번호 체계 (문자셋 / 자릿수 / 체크 문자) | 발급된 쿠폰은 되돌릴 수 없습니다. 규칙이 한 번 바뀌면 이미 나간 수백만 장이 전부 검증에 실패합니다 |
+| 체크 문자의 필터율 | "DB 앞단 1차 필터"라는 존재 이유를 수치로 못 박습니다 — 무작위 5만 건 중 통과율 0.5% 미만을 강제 |
+| 난수 분포 | CSPRNG 문자 분포가 기대치의 ±15% 안에 드는지. 문자셋 크기를 바꿀 때 modulo bias가 조용히 생기는 걸 막습니다 |
+| 스풀 파일 + 오프셋 | 유실 대비 장치인데 **실패해도 조용합니다**. 평소엔 증상이 없고 정작 필요한 순간에야 없다는 걸 압니다 |
+| C++ ↔ C# 와이어 호환성 | 리틀엔디언, 문자열 길이가 바이트 수(문자 수 아님), 패킷 id 값 일치. 한쪽만 바뀌면 컴파일은 되고 런타임에 깨집니다 |
 
 ---
 
@@ -261,8 +321,13 @@ asio-server/
 │   ├─ WorldServer/    라우팅(WorldWorker) + DB 워커 풀
 │   └─ ZoneServer/     존 상태(NETWORK/LB/BASIC/TICK/BROADCAST) + Mail
 ├─ Tool/
-│   ├─ TestClient/     프로토콜 확인용 REPL
-│   └─ LoadTestClient/ 부하 테스트 도구 (1만 세션까지 실측)
+│   ├─ ProtocolClient/     프로토콜 확인용 REPL
+│   ├─ StressClient/ 부하 테스트 도구 (1만 세션까지 실측)
+│   └─ GmTool/         검증용 운영툴 (C# / .NET 10 / SQL Server) — 별도 솔루션
+│       ├─ GmTool.Core/  프로토콜 코덱 + 쿠폰 생성 엔진 (의존성 없음)
+│       ├─ GmTool.Web/   Blazor Web App + Minimal API + SqlKata 리포지토리
+│       ├─ GmTool.Tests/ xUnit 80개 (쿠폰 체계 / 대량 발급 / 와이어 호환성)
+│       └─ Sql/schema.sql
 ├─ 3rd/asio/        standalone ASIO 벤더 코드 (수정하지 않음)
 ├─ docs/flowcharts/ 기능별 HTML 다이어그램 (오프라인 열람)
 └─ bat/             서버·클라이언트 기동 스크립트
@@ -298,16 +363,24 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 | 0~3 | 프로젝트 셋업, echo 서버, 패킷 프레이밍, 존 어피니티 라우팅 | 완료 |
 | 4 | Gateway/World/Zone 계층 분리, 재접속 없는 존 핸드오프, Mail(Synchronized/UnitOfWork) | 완료 |
 | 5 | ZoneServer 5-풀 분리, WorldServer WorldWorker | 완료 |
-| 6 | 부하 도구(LoadTestClient), 대규모 세션 검증, 지연 백분위 계측 | 완료 (병목 진단됨) |
+| 6 | 부하 도구(StressClient), 대규모 세션 검증, 지연 백분위 계측 | 완료 (병목 진단됨) |
 | 7 | 부하 테스트 병목 수정 (`docs/load-test-fix-plan.md`) | 진행 중 |
-| 8 | 실제 DB 연동 (PostgreSQL) | 예정 |
-| 9 | Actor/Monster, AOI(시야 동기화) | 예정 |
-| 10 | C# MonoGame 클라이언트 | 예정 |
+| 8 | 운영툴(GmTool): 운영자 로그인, 우편 발송/삭제, 전체 공지, 대량 쿠폰 발급·등록 | 완료 |
+| 9 | 실제 DB 연동 (게임 서버 쪽) | 예정 |
+| 10 | Actor/Monster, AOI(시야 동기화) | 예정 |
+| 11 | C# MonoGame 클라이언트 | 예정 |
 
 **의도적으로 범위 밖에 둔 것** (물어보시면 설명드릴 수 있습니다):
 
 - **영속화**: `Db::DbWorker`는 owner-hash 분배 **구조만** 있고 실제 쿼리는 로그만 남깁니다.
-  프로세스 재시작 시 Mail은 소실됩니다
+  프로세스 재시작 시 Mail은 소실됩니다. 운영툴이 보내는 쿠폰 청크도 같은 워커로 들어가지만
+  아직 적재하지 않습니다 — 쿠폰의 권위 저장소는 운영툴 쪽 SQL Server입니다
+- **운영툴의 우편 삭제 결과**: `MailDelAck`이 클라이언트에게만 가므로, 운영툴은 "존까지
+  전달됨"까지만 알 수 있고 실제로 그 `mailId`가 있었는지는 모릅니다
+- **운영툴 인증**: 공유 시크릿 한 줄이 전부입니다. 실질적인 방어선은 툴 포트를
+  루프백/사내망으로 제한하는 것이고, mTLS나 IP 화이트리스트는 넣지 않았습니다
+- **운영툴의 중복 로그인 차단**: 새로 로그인하면 이전 API 토큰이 전부 회수됩니다. 웹 UI와
+  스크립트를 같은 계정으로 병행하면 서로를 로그아웃시키므로, 실제로는 용도별 계정 분리가 필요합니다
 - **인증/신원**: `playerId`를 `clientSessionId`에서 그대로 파생합니다. 인증 계층 없음
 - **핸드오프 시 우편함 초기화**: `MailModel`이 zone-local이라 존을 넘어가면 빈 우편함으로
   시작합니다. 원래는 위 DB 계층이 소유해야 할 상태를 존이 들고 있어서 생기는 한계입니다

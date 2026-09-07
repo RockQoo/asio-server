@@ -17,8 +17,8 @@
 
     <ul class="index-list">
         <li>
-            <a href="testclient-echo-move-chat.html">
-                <div class="item-title">TestClient → Gateway → World → Zone: Echo / Move / Chat 흐름</div>
+            <a href="protocolclient-echo-move-chat.html">
+                <div class="item-title">ProtocolClient → Gateway → World → Zone: Echo / Move / Chat 흐름</div>
                 <div class="item-desc">
                     클라이언트 패킷이 GatewayServer(순수 릴레이) → WorldServer(I/O 스레드는
                     PostTask만, 라우팅은 WorldWorker 단일 스레드) →
@@ -37,6 +37,20 @@
                     Mail::MakeMailUnitOfWork가 만든 Task::UnitOfWork가 변경을 모았다가 WorldServer DB 워커로 보내는
                     흐름, Threading::Synchronized가 실제로 방어하는 지점(유지보수 타이머 vs 존
                     BASIC 스레드), WorldServer가 Zone 없이 직접 하는 전체 브로드캐스트까지.
+                </div>
+            </a>
+        </li>
+        <li>
+            <a href="gmtool-operations.html">
+                <div class="item-title">운영툴(GmTool) → World ToolProcessor: 공지 · 우편 · 쿠폰 흐름</div>
+                <div class="item-desc">
+                    ASP.NET Core 운영툴이 WorldServer의 전용 포트(9300)에 붙어 ToolHello로 인증한 뒤
+                    공지/우편/쿠폰 명령을 보내고, World의 ToolProcessor(다른 두 링크 핸들러와 동일한
+                    "I/O 스레드는 복사만, 로직은 WorldWorker" 규약)가 처리하는 경로. 우편은 새 운영
+                    전용 패킷이 아니라 기존 MailAdd/MailDel을 ClientEnvelopeHeader로 감싸 존에
+                    주입하므로 존/UnitOfWork/DB 경로가 평소와 동일하게 흐른다. 대량 쿠폰 발급의
+                    캠페인 네임스페이스 · 로컬 메모리 중복 검사 · 스풀 파일 fsync · 청크 벌크
+                    인서트, 그리고 등록 시 체크 문자로 DB 앞단에서 99.9%를 거르는 흐름까지.
                 </div>
             </a>
         </li>

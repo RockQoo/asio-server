@@ -12,9 +12,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 목표 | MMORPG 구조를 단순화해 **존(Zone) 단위 스레드 어피니티**로 락 없이 게임 상태를 처리 |
 | 빌드 시스템 | 클래식 Visual Studio 프로젝트 파일(`.vcxproj` + `.slnx`). CMake 아님 — 되돌리지 말 것 |
 | 컴파일러 옵션 | MSVC, `PlatformToolset=v143`, `x64` 전용, `/std:c++20 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
-| 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`TestClient`/`LoadTestClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
+| 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
+| 운영툴 | `Tool/GmTool` — C#/.NET 10 + SQL Server. **별도 솔루션**(`Tool/GmTool/GmTool.slnx`)이며 C++ 솔루션에 넣지 않는다. WorldServer의 전용 포트(9300)로만 붙는다. **서버 기능 검증용 도구이고 기능 개발은 현재 중단** — 지금은 코드 정리/문서 정합성만 손댄다(역할 검사·비밀 관리 미비는 지금 범위 밖이지 미완성이 아니다). 영구 동결은 아니므로 사용자가 요청하면 기능 추가는 정상 진행 |
 | 기동 순서 | `bat/start_server_all.bat`(World→Zone→Gateway) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
-| 테스트 도구 | `Tool/TestClient/Src/main.cpp`(수동 확인용 REPL), `Tool/LoadTestClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측) — 둘 다 자동화 스위트 아님 |
+| 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측) — 둘 다 자동화 스위트 아님 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
 
 ---
@@ -32,13 +33,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 필수 규칙
 
 - **언어**: 응답/코드 주석 전부 한글. 주석은 "무엇을"이 아니라 "왜"(스레드 안전성/객체 수명
-  트릭 위주)를 설명한다.
+  트릭 위주)를 설명한다. **C# 운영툴(`Tool/GmTool`)도 동일** — XML 문서 주석(`///`)과 일반
+  주석 모두 한글로 "왜"를 적는다.
+- **C# 코드 규약**(`Tool/GmTool`): private 필드는 C++와 맞춰 trailing underscore
+  (`factory_`), 그 외에는 표준 .NET 컨벤션(PascalCase 메서드/프로퍼티)을 따른다.
+  `Nullable`/`ImplicitUsings` 활성 상태를 유지하고, 경고 0개로 빌드되게 한다.
+- **참고 출처를 커밋되는 파일에 적지 않는다** — 외부 자료/도서/영상을 참고했더라도
+  `README.md`/`PROGRESS.md`/소스 주석/`docs/flowcharts/`에는 출처를 남기지 않는다.
+  기록이 필요하면 `docs/local/`(gitignore 대상)에만 둔다.
 - **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
   (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
   변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
-  콘텐츠를 몰라야 해서 Core/Gateway/World/Zone/LoadTest가 각자 따로 갖는다(같은 문서 참고).
+  콘텐츠를 몰라야 해서 Core/Gateway/World/Zone/Stress가 각자 따로 갖는다(같은 문서 참고).
 - **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `PacketHeader`/`MovePacket`/
   `PlayerState`/`ZoneServerConfig` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
@@ -83,13 +91,19 @@ C:\Work\asio-server\
 │           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │           └── Mail/                 MailModel/MailRegistry/MailExpiryService/MailUnitOfWork
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아님)
-│   ├── TestClient/                   수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)
-│   └── LoadTestClient/               비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
+│   ├── ProtocolClient/                   수동 테스트용 REPL (Core 참조, ZoneServer 헤더만 include)
+│   ├── StressClient/               비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
+│   └── GmTool/                       서버 기능 검증용 운영툴 — C#/.NET 10, 별도 솔루션(기능 개발 중단)
+│       ├── GmTool.slnx               (C++ 솔루션에 섞으면 서버만 빌드할 때 NuGet 복원까지 끌려온다)
+│       ├── Sql/schema.sql            운영자/명령로그/쿠폰 캠페인·배치·등록시도 (쿠폰 테이블은 캠페인별 동적 생성)
+│       ├── GmTool.Core/Src           Protocol(C++ BinaryWriter와 바이트 호환 코덱), Coupons(생성 엔진)
+│       ├── GmTool.Web/               Blazor Web App(InteractiveServer) + Minimal API + SqlKata 리포지토리
+│       └── GmTool.Tests/             xUnit 80개 (쿠폰 체계/대량 발급/와이어 호환성)
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
 ├── docs/flowcharts/                  기능별 HTML 플로우차트 (index.html부터, 오프라인 열람용)
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
 ├── bat/                              start_server_all.bat(전체 기동 + VS attach용 PID 출력)
-│                                     stop_server_all.bat(종료)/start_test_client.bat(TestClient)
+│                                     stop_server_all.bat(종료)/start_protocol_client.bat(ProtocolClient)
 ├── bin/x64/{Debug,Release}/          산출물 (gitignored)
 ├── obj/                              중간 산출물 (gitignored)
 └── .claude/
@@ -128,7 +142,7 @@ BASIC이 소유한 컨테이너(`players_` 등)를 직접 건드리면 안 되�
 
 `Shared/Core/`는 **게임 로직을 전혀 모르는** 정적 라이브러리, 각 서버 프로젝트가 자기 콘텐츠(존/
 라우팅/릴레이)를 담당한다. Core를 `Server/` 밑이 아니라 `Shared/`에 둔 이유는 `Tool/`의
-TestClient/LoadTestClient도 이걸 참조하기 때문이다 — `Server/` 안에 두면 도구·클라이언트가
+ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` 안에 두면 도구·클라이언트가
 서버를 의존하는 역방향 구조가 된다.
 
 ### 계층별 핵심 타입
@@ -151,6 +165,7 @@ TestClient/LoadTestClient도 이걸 참조하기 때문이다 — `Server/` 안�
 | | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 풀 소유 |
 | | `Mail::MailModel` 등 | 평소 BASIC 전용, 메일 만료만 별도 유지보수 타이머가 처리 — 그 교차 지점만 `Synchronized`로 보호, 변경분은 `Task::UnitOfWork`에 모았다가 한 번에 World로 전송 |
 | `GatewayServer` | `ClientLinkHandler`/`WorldLinkHandler` | 클라이언트↔World 양방향 릴레이만, 게임 로직 없음 |
+| `WorldServer` | `Tool::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
 
 ---
 
@@ -159,13 +174,13 @@ TestClient/LoadTestClient도 이걸 참조하기 때문이다 — `Server/` 안�
 1. `asio-server.slnx`를 Visual Studio 2022 **이상**으로 연다 (`PlatformToolset=v143`, `x64`만
    지원). VS 2026에서도 v143 툴셋만 설치돼 있으면 그대로 빌드된다 — 솔루션 탐색기에
    `(Visual Studio 2022)`로 표시되는 것은 IDE가 아니라 대상 툴셋 표시라 정상이다.
-2. 실행 파일이 5개(`GatewayServer`/`WorldServer`/`ZoneServer`/`TestClient`/`LoadTestClient`)라
+2. 실행 파일이 5개(`GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient`)라
    개별 F5보다 **`bat/start_server_all.bat`**(World→Zone→Gateway 순서로 새 창 3개)로 한 번에 띄우고
-   `bat/start_test_client.bat`으로 `TestClient`를 붙이는 걸 권장.
+   `bat/start_protocol_client.bat`으로 `ProtocolClient`를 붙이는 걸 권장.
 3. `F7`(빌드만) 또는 `F5`/`Ctrl+F5`(빌드 후 실행) — 특정 프로젝트만 빌드하려면 솔루션
    탐색기에서 우클릭 → 빌드.
-4. 산출물: `bin/x64/Debug/{Core.lib, GatewayServer, WorldServer, ZoneServer, TestClient,
-   LoadTestClient}.exe` (`obj/`, `bin/`은 `.gitignore`에 포함됨).
+4. 산출물: `bin/x64/Debug/{Core.lib, GatewayServer, WorldServer, ZoneServer, ProtocolClient,
+   StressClient}.exe` (`obj/`, `bin/`은 `.gitignore`에 포함됨).
 
 모든 실행 파일 프로젝트가 `Core.vcxproj`를 프로젝트 참조로 물고 있어 `Core` → 나머지 순서로
 자동 빌드된다.
@@ -173,8 +188,8 @@ TestClient/LoadTestClient도 이걸 참조하기 때문이다 — `Server/` 안�
 **CLI 빌드**(VS GUI 없이): `.claude/skills/build/SKILL.md` — MSBuild 경로 탐색, Git Bash
 `/p:` 치환 우회법 정리.
 
-**테스트**: 자동화 스위트 없음. `TestClient.exe`가 실제 프로토콜(Echo/Move/Chat/Mail/
-EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `LoadTestClient.exe`가 1만 세션까지
+**테스트**: 자동화 스위트 없음. `ProtocolClient.exe`가 실제 프로토콜(Echo/Move/Chat/Mail/
+EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClient.exe`가 1만 세션까지
 동시 접속 부하 테스트 도구 — 바이너리 프로토콜이라 telnet 검증 불가라 둘 다 직접 만들었다.
 사용법은 `README.md` "7. 테스트" 절 참고.
 
@@ -216,7 +231,7 @@ EnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `LoadTestClient
 ## 로드맵 상태
 
 Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), ZoneServer 5-풀 분리, WorldServer
-WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(LoadTestClient)까지 완료.
+WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(StressClient)까지 완료.
 부하 테스트로 발견된 처리량 병목 수정이 진행 중(`docs/load-test-fix-plan.md`). 남은 것:
 실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI, 클라이언트. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
@@ -239,4 +254,4 @@ WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(Lo
 - 영향받는 범위 (파일/디렉토리, 어떤 vcxproj/필터를 건드리는지)
 - 검색 가능한 핵심 키워드 3~5개
 - 요구사항을 분해한 상세 목록
-- 검증 방법 (빌드 성공 여부, `TestClient`로 확인 가능하면 어떤 명령으로 확인하는지)
+- 검증 방법 (빌드 성공 여부, `ProtocolClient`로 확인 가능하면 어떤 명령으로 확인하는지)

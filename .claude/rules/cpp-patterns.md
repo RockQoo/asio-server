@@ -26,12 +26,12 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 
 ## Precompiled Header (`pch.h`)
 
-실행 파일 프로젝트(`WorldServer`/`ZoneServer`/`GatewayServer`/`LoadTestClient`)와 `Core`는
+실행 파일 프로젝트(`WorldServer`/`ZoneServer`/`GatewayServer`/`StressClient`)와 `Core`는
 각자 자체 `Src/pch.h`/`pch.cpp`를 가진다(PCH는 프로젝트 단위라 공유 안 함). 새 `.cpp`는
 **첫 줄에 자기 프로젝트 pch include 필수**(빠지면 C1010으로 빌드 즉시 실패).
 `pch.h`엔 무거운 서드파티/표준 헤더만 넣는다 — 프로젝트 자체 헤더는 자주 바뀌어 PCH를
 무효화하므로 넣지 않는다(`BasicTypes.h`/`Log/LogProxy.h`류의 안정적 크로스커팅 인프라는
-예외). **예외**: `TestClient`처럼 `.cpp` 1개뿐인 프로젝트는 PCH 자체를 안 쓴다(`/utf-8`은 유지).
+예외). **예외**: `ProtocolClient`처럼 `.cpp` 1개뿐인 프로젝트는 PCH 자체를 안 쓴다(`/utf-8`은 유지).
 
 ## 타입 캐스팅
 
@@ -92,7 +92,7 @@ template <typename E> requires std::is_enum_v<E>
 ## `byte`/`size_t`/고정폭 정수는 `std::` 생략
 
 `Shared/Core/Src/Common/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
-전역으로 `using` 해놨고 양쪽 `pch.h`가 include한다(PCH 없는 `TestClient`는 직접 include).
+전역으로 `using` 해놨고 양쪽 `pch.h`가 include한다(PCH 없는 `ProtocolClient`는 직접 include).
 **이 10개 타입 한정** — `std::string`/`std::vector` 등 다른 표준 타입은 그대로 `std::`를 붙인다.
 
 ## `enum`은 항상 `enum class` + underlying type 명시
@@ -126,7 +126,7 @@ asio의 `std::error_code`/`std::system_error`(네트워크 계층)는 이미 코
 임시객체를 반환하고 **문장이 끝나 소멸되는 시점에 한 줄을 커밋**하므로(`.KV`/`.V`는 `*this` 참조
 반환) 반환값을 discard해도 정상 동작 — 그래서 `Debug`/`Info`/`Warning`/`Error`엔 일부러
 `[[nodiscard]]`를 안 붙인다. 콘솔 색: Error=빨강, Warning=노랑(레거시 콘솔엔 주황이 없어 대체),
-Info=초록, Debug=기본색. **예외**: `TestClient` REPL 안내문/수신 로그(`PrintHelp`, `[recv]`)는
+Info=초록, Debug=기본색. **예외**: `ProtocolClient` REPL 안내문/수신 로그(`PrintHelp`, `[recv]`)는
 로그가 아니라 프로그램 UI라 `std::cout` 유지(단 인코딩 위해 `Logger::Initialize()`는 호출).
 
 ```cpp
@@ -138,7 +138,7 @@ LOG.Info(ELogCategory::Zone, "플레이어 입장").KV("Zone", zoneId_).KV("Sess
 직접 갖지 않고 템플릿으로 받는다(scoped enum + 같은 네임스페이스의 ADL `ToString()`만 있으면
 됨 = `LogCategoryType` concept). Core가 게임 콘텐츠를 몰라야 하므로: `Shared/Core/Src/Log/
 LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용, 콘텐츠 없음)와
-`ZoneServer`/`WorldServer`/`GatewayServer`/`LoadTestClient`가 각자 자기 폴더에 갖는
+`ZoneServer`/`WorldServer`/`GatewayServer`/`StressClient`가 각자 자기 폴더에 갖는
 `Zone`/`World`/`Gateway`/`Load` 네임스페이스의 `ELogCategory`(콘텐츠) — 이렇게 프로젝트 수만큼
 분리돼 있다. 전부 `using`으로 전역 노출돼 있어 어디서든 `ELogCategory::Xxx`로 쓰지만, 서로
 다른 프로젝트(PCH)에서만 보여 충돌 안 함. 새 프로젝트는 자기 폴더에 자기 `ELogCategory`+
@@ -149,7 +149,7 @@ LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용
 계속 감싸면 거의 모든 시그니처가 `Core::`로 시작해 잡음이 컸다 — `Core`는 폴더/프로젝트
 이름으로만 남고, 폴더-네임스페이스 대응 원칙(`Shared/Core/Src/Network/` ↔ `namespace Network`)은
 그대로 유지하되 `Shared/Core/`라는 상위 폴더 두 겹만 생략한다. `ZoneServer`/`WorldServer`/
-`GatewayServer`/`LoadTestClient`는 각자 원래 네임스페이스(`Zone`/`World`/`Gateway`/`Load`)
+`GatewayServer`/`StressClient`는 각자 원래 네임스페이스(`Zone`/`World`/`Gateway`/`Load`)
 하나뿐이라 이 얘기 자체가 해당 없음(폴더 한 겹 생략할 상위 폴더가 없음).
 
 ## 값을 소유할 필요 없으면 복사하지 않는다

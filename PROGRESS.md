@@ -1,6 +1,6 @@
 # 진행 상황 정리 (다음 세션 이어하기용)
 
-마지막 업데이트: 2026-09-02
+마지막 업데이트: 2026-09-07
 
 `README.md`(소개용)와 별개로, 다음 세션에서 빠르게 컨텍스트를 복구하기 위한 문서. 자세한
 아키텍처/타입 표는 `CLAUDE.md`, 코딩 규약은 `.claude/rules/`를 우선 참고 — 여기는 "지금
@@ -26,19 +26,42 @@
   BASIC 스레드와 유지보수 타이머가 만나는 유일한 지점만 락"을 보여준다. 상태 변경은
   `Core::Task::UnitOfWork`(범용 Unit-of-Work)에 기록했다가 스코프 종료 시 한 번에 World로
   전송. `MailAddAck`/`MailDelAck`으로 클라이언트가 서버가 실제 배정한 mailId를 확인 가능.
-- **부하 테스트 도구(`LoadTestClient`)**: `Core::Network::Connector`/`Session`을 그대로
+- **부하 테스트 도구(`StressClient`)**: `Core::Network::Connector`/`Session`을 그대로
   재사용해 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기 멀티플렉싱.
   Release 기준 1,000세션×200사이클은 18,337 사이클/초로 완전 통과(불일치 0, 스톨 0,
   브로드캐스트 100%, P95 40ms). 10,000세션은 데드락/데이터 불일치 0을 유지하면서도 처리량이
   471 사이클/초로 무너짐(P95 62초) — 원인·수정 계획은 `docs/load-test-fix-plan.md`.
-- **지연(RTT) 백분위 계측**: `LoadTestClient`가 처리량뿐 아니라 P50/P95/P99/P99.9를 낸다.
+- **지연(RTT) 백분위 계측**: `StressClient`가 처리량뿐 아니라 P50/P95/P99/P99.9를 낸다.
   원시 샘플 대신 551개 로그스케일 버킷(`Stats/LatencyHistogram.h`)에 relaxed atomic으로
   기록 — 수백만 샘플에도 상수 메모리·O(1)이라 계측이 실험 자체를 방해하지 않는다. 재는
   구간은 `MailAdd→Ack`, `MailDel→Ack`, 사이클 전체 3종. 추적 상한은 100초(처음 10초로
   뒀다가 과부하 실험에서 P95/P99가 전부 상한에 몰려 구분이 안 돼 넓혔다).
-- **`bat/start_server_all.bat`/`bat/start_test_client.bat`**: 전체 프로세스를 한 번에 띄우는 배치 파일.
+- **`bat/start_server_all.bat`/`bat/start_protocol_client.bat`**: 전체 프로세스를 한 번에 띄우는 배치 파일.
 - 새 기능 추가 시 `docs/flowcharts/`에 다이어그램을 같이 갱신하는 규칙이 실제로 잘 지켜지고
-  있음(`zone-handoff-and-mail.html`, `testclient-echo-move-chat.html`).
+  있음(`zone-handoff-and-mail.html`, `protocolclient-echo-move-chat.html`, `gmtool-operations.html`).
+- **운영툴(`Tool/GmTool`, C#/.NET 10/SQL Server)**: 서버 쪽은 WorldServer에 세 번째 accept
+  포트(9300)와 `Tool/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
+  **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라
+  `authenticatedSessions_`에도 락이 없다. 툴 쪽은 Blazor Web App + Minimal API +
+  SqlKata/Microsoft.Data.SqlClient 구성.
+  - **우편은 새 패킷을 만들지 않는다**: 기존 `Zone::PacketId::MailAdd`/`MailDel`을
+    `ClientEnvelopeHeader`로 감싸 `ForwardToZone`으로 주입한다. 존 입장에서는 클라이언트가
+    직접 보낸 것과 바이트 단위로 구분이 안 되므로, Mail/`UnitOfWork`/DbWorker 경로가 그대로
+    재사용된다(운영 전용 우회로를 만들면 "운영툴 우편만 만료가 안 되는" 사고가 난다).
+  - **대량 쿠폰 발급**: 캠페인 코드 5자리를 네임스페이스로 써서 중복 검사 범위를 캠페인
+    하나로 가두고(전역 유일성 검사는 그 5자리뿐), 캠페인마다 전용 테이블(`coupon_<코드>`)을
+    동적 생성한다. 생성·중복검사는 툴 프로세스 메모리에서 끝내고, 청크마다 스풀 파일
+    append → SqlBulkCopy 적재 → 스풀 `fsync` + 오프셋 기록 순으로 진행한다.
+    **실측(100만 장, 청크 1만×100): Release 11.5초(87,123장/초, World 전송 포함) /
+    10.5초(95,066장/초, World 전송 제외) / Debug 12.3초(81,453장/초). 세 번 모두 중복
+    재시도 0건, DB 100만 건 전부 고유.** Debug↔Release 차이가 15% 미만이라는 것이 핵심
+    정보다 — 병목이 코드 생성이 아니라 I/O(SqlBulkCopy 적재 + 스풀 fsync)라는 뜻이고,
+    더 줄이려면 청크 크기나 인서트 방식(`LOAD DATA INFILE` 등)을 손봐야 한다.
+    마지막 측정은 WorldServer를 일부러 죽인 채 돌렸는데 발급이 정상 완료됐다 —
+    World 전송이 부가 경로라는 설계가 의도대로 동작함을 확인.
+  - 검증: 서버 3종 + 운영툴을 실제로 띄워 공지·우편 발송/삭제·쿠폰 발급/등록을 왕복시켰고,
+    `ProtocolClient`가 `Notice`/`MailAddAck`/`MailDelAck(success=true/false)`을 실제로 수신하는 것까지
+    확인했다. 툴 자체는 xUnit 80개.
 
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 
@@ -53,10 +76,27 @@
 1. **`docs/load-test-fix-plan.md` 진행** — 10,000세션 부하 테스트에서 나온 처리량 병목
    수정(우선순위: 인구를 여러 존에 분산 배정 → WorldWorker 브로드캐스트 릴레이 큐 분리 →
    팬아웃 프레임 배칭). 수정 후 같은 시나리오로 재검증.
-2. **DB 연동**: `Db::DbWorker`가 지금은 로그만 남긴다 — 실제 DB(PostgreSQL 등) 붙이기.
+2. **DB 연동**: `Db::DbWorker`가 지금은 로그만 남긴다 — 실제 DB 붙이기. 운영툴을 SQL
+   Server로 옮겨둔 이유가 이것이다: C++에서는 ODBC(`<sql.h>` + `odbc32.lib`)가 Windows SDK
+   내장이라 `3rd/`에 바이너리 의존성이 늘지 않는다. 엔진을 맞춰두면 쿠폰
+   청크(`CouponChunkPush`)와 Mail `UnitOfWork` 태스크를 같은 워커에서 실제로 적재할 수 있다.
+   (운영툴 쪽 스키마: `Tool/GmTool/Sql/schema.sql`)
+
+   같이 정할 것: 게임 스키마와 공유 저장 프로시저는 `Shared/Sql/`에 둔다 — `Tool/` 아래
+   두면 서버가 툴을 의존하는 역방향이 된다(`Core`를 `Shared/`에 둔 것과 같은 이유). 그리고
+   접속 중인 플레이어의 권위 상태는 메모리(`ZoneWorld`/`MailModel`)에 있으므로, 운영툴이
+   게임 데이터를 **직접 UPDATE하는 경로는 두지 않는다**(오프라인 대상만 직접, 온라인 대상은
+   9300 경유).
 3. **AOI/몬스터**: 존 내부를 그리드로 나눠 "가까운 플레이어에게만" 브로드캐스트하도록
    확장, 몬스터(NPC)와 간단한 FSM 추가.
-4. **자동화 테스트**: 지금은 `TestClient`/`LoadTestClient` 수동·부하 확인뿐 — 회귀 방지용
-   자동화 스위트는 없음.
-5. **README 성능 표 채우기**: 지연 백분위 계측을 붙였으므로 1,000세션·10,000세션 시나리오를
+4. **자동화 테스트**: C++ 쪽은 여전히 `ProtocolClient`/`StressClient` 수동·부하 확인뿐 —
+   회귀 방지용 자동화 스위트가 없다. 운영툴은 xUnit 80개가 붙어 있으니(`cd Tool\GmTool &&
+   dotnet test`), 같은 방식으로 C++ 쪽에도 최소한 패킷 코덱/프레이밍 단위 테스트부터
+   붙이는 게 다음 후보다.
+5. **운영툴 기능 추가 — 지금은 보류.** `Tool/GmTool`은 서버 기능을 검증하기 위한 도구이고,
+   기능 개발은 중단한 상태다(코드 정리와 문서 정합성만 손댄다). 역할 검사, 운영자 계정 관리
+   화면, 비밀 관리, 쿠폰 발급 재개(스풀 오프셋을 읽어 이어 적재)가 후보로 남아 있지만 지금
+   범위 밖이다 — 근거는 `Tool/GmTool/README.md`의 "지금 범위 밖으로 둔 것". 나중에 필요해지면
+   그때 진행한다.
+6. **README 성능 표 채우기**: 지연 백분위 계측을 붙였으므로 1,000세션·10,000세션 시나리오를
    다시 돌려 `README.md` 5절의 P50/P95/P99 칸을 실측치로 교체한다(현재 "재측정 중" 상태).
