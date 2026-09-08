@@ -5,11 +5,15 @@
 namespace World
 {
 #pragma pack(push, 1)
+    // 존이 자기 담당 사각형을 알려온다. World는 이 사각형만으로 라우팅하므로 존 배치 규칙
+    // (격자든 CSV든)을 알 필요가 없다 -- 배치를 바꿔도 World 코드는 그대로다.
     struct ZoneRegisterPacket
     {
         uint32_t zoneId;
         float xMin;
         float xMax;
+        float yMin;
+        float yMax;
     };
 
     // EnterZoneRequest와 ZoneTransferRequest가 공유하는 페이로드 -- 둘 다 "이 플레이어가 이

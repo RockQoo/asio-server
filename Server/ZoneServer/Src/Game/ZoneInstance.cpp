@@ -20,11 +20,10 @@
 
 namespace Zone
 {
-    ZoneInstance::ZoneInstance(const uint32_t zoneId, const float xMin, const float xMax,
+    ZoneInstance::ZoneInstance(const ZoneDef& def,
                          WorldLink& worldLink, BroadcastDispatcher& broadcastDispatcher, Mail::MailRegistry& mailRegistry)
-        : zoneId_(zoneId)
-        , xMin_(xMin)
-        , xMax_(xMax)
+        : def_(def)
+        , zoneId_(def.zoneId)
         , worldLink_(worldLink)
         , broadcastDispatcher_(broadcastDispatcher)
         , mailRegistry_(mailRegistry)
@@ -96,7 +95,7 @@ namespace Zone
         MovePacket move{};
         std::memcpy(&move, payload.data(), sizeof(MovePacket));
 
-        if (move.x < xMin_ || move.x >= xMax_)
+        if (!def_.Contains(move.x, move.y))
         {
             // 존 경계를 넘었다 -- 로컬 상태를 먼저 지우고 World에 핸드오프를 요청한다. World가
             // 라우팅 테이블만 바꾸므로 Gateway는 이 사실을 아예 모르고, 클라이언트도 재접속

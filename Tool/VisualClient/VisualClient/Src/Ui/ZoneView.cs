@@ -60,10 +60,10 @@ public sealed class ZoneView
 
     private void DrawZones(Painter painter, WorldModel world)
     {
-        for (var zoneId = 0u; zoneId < ZoneLayout.ZoneCount; ++zoneId)
+        for (var zoneId = ZoneLayout.FirstZoneId; zoneId <= ZoneLayout.LastZoneId; ++zoneId)
         {
-            var topLeft = WorldToScreen(ZoneLayout.MinXOf(zoneId), ZoneLayout.WorldMaxY);
-            var bottomRight = WorldToScreen(ZoneLayout.MaxXOf(zoneId), 0.0f);
+            var topLeft = WorldToScreen(ZoneLayout.MinXOf(zoneId), ZoneLayout.MaxYOf(zoneId));
+            var bottomRight = WorldToScreen(ZoneLayout.MaxXOf(zoneId), ZoneLayout.MinYOf(zoneId));
             var rect = new Rectangle(
                 (int)topLeft.X, (int)topLeft.Y,
                 (int)(bottomRight.X - topLeft.X), (int)(bottomRight.Y - topLeft.Y));
@@ -71,25 +71,65 @@ public sealed class ZoneView
             var isMine = world.HasEnteredZone && world.MyZoneId == zoneId;
             painter.FillRect(rect, isMine ? new Color(24, 40, 34) : new Color(20, 24, 34));
 
-            var label = $"Zone {zoneId}   x:[{ZoneLayout.MinXOf(zoneId):0}, {ZoneLayout.MaxXOf(zoneId):0})";
+            var label = $"Zone {zoneId}";
             painter.Text(label, new Vector2(rect.X + 10, rect.Y + 8),
                          isMine ? new Color(150, 230, 180) : new Color(110, 122, 145));
+
+            // 담당 사각형과 어느 프로세스가 호스팅하는지를 같이 적는다 -- 세로 경계를 넘는 것이
+            // 프로세스를 넘는 핸드오프라는 걸 화면에서 바로 읽을 수 있어야 한다.
+            var (_, row) = ZoneLayout.CellOf(zoneId);
+            var hostLabel = $"x:[{ZoneLayout.MinXOf(zoneId):0}, {ZoneLayout.MaxXOf(zoneId):0})  "
+                            + $"y:[{ZoneLayout.MinYOf(zoneId):0}, {ZoneLayout.MaxYOf(zoneId):0})  ·  "
+                            + $"ZoneServer #{row + 1}";
+            painter.SmallText(hostLabel, new Vector2(rect.X + 10, rect.Y + 8 + painter.Font.LineHeight + 2),
+                              new Color(96, 106, 128));
 
             if (isMine)
             {
                 painter.SmallText("내가 배정된 존 (이 존의 BASIC 스레드가 내 상태를 소유한다)",
-                                  new Vector2(rect.X + 10, rect.Y + 8 + painter.Font.LineHeight + 2),
+                                  new Vector2(rect.X + 10, rect.Y + 8 + painter.Font.LineHeight
+                                                           + painter.SmallFont.LineHeight + 4),
                                   new Color(96, 150, 118));
             }
+        }
 
-            // 존 사이 경계선. 이 선을 넘는 이동이 곧 핸드오프 요청(Z2WZoneTransferRequest)이다.
-            if (zoneId > 0)
-            {
-                painter.Line(new Vector2(rect.X, rect.Y), new Vector2(rect.X, rect.Bottom),
-                             new Color(210, 150, 70), 2.0f);
-                painter.SmallText("핸드오프 경계", new Vector2(rect.X + 4, rect.Bottom - 18),
-                                  new Color(210, 150, 70));
-            }
+        DrawZoneBoundaries(painter);
+    }
+
+    /// <summary>
+    /// 존 사이 경계선. 이 선을 넘는 이동이 곧 핸드오프 요청(Z2WZoneTransferRequest)이다.
+    ///
+    /// <para>
+    /// 존 사각형마다 그리지 않고 따로 그리는 이유: 격자가 되면서 한 경계선이 존 두 개에
+    /// 공유되기 때문이다. 존별로 그리면 같은 선을 두 번 긋게 되고, 굵기가 있는 선이라
+    /// 겹친 부분만 진해 보인다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>세로선과 가로선의 색을 다르게 한다.</b> 가로 이동(존 1↔2)은 같은 프로세스 안의
+    /// BASIC 스레드 간 이동이고, 세로 이동(존 1↔3)은 프로세스(TCP 링크)를 넘는다 — 눈으로
+    /// 구분되지 않으면 "무엇을 확인했는지"가 흐려진다.
+    /// </para>
+    /// </summary>
+    private void DrawZoneBoundaries(Painter painter)
+    {
+        var threadColor = new Color(210, 150, 70);
+        var processColor = new Color(120, 180, 235);
+
+        for (var column = 1; column < ZoneLayout.ZonesPerRow; ++column)
+        {
+            var x = column * ZoneLayout.ZoneSize;
+            painter.Line(WorldToScreen(x, ZoneLayout.WorldMaxY), WorldToScreen(x, 0.0f), threadColor, 2.0f);
+            painter.SmallText("핸드오프 경계 (같은 프로세스, 스레드만 다름)",
+                              WorldToScreen(x, 0.0f) + new Vector2(6, -18), threadColor);
+        }
+
+        for (var row = 1; row < ZoneLayout.ZoneRows; ++row)
+        {
+            var y = row * ZoneLayout.ZoneSize;
+            painter.Line(WorldToScreen(0.0f, y), WorldToScreen(ZoneLayout.WorldMaxX, y), processColor, 2.0f);
+            painter.SmallText("핸드오프 경계 (프로세스를 넘는다)",
+                              WorldToScreen(0.0f, y) + new Vector2(6, 4), processColor);
         }
     }
 
@@ -97,10 +137,10 @@ public sealed class ZoneView
     {
         var gridColor = new Color(255, 255, 255, 14);
 
+        // 존 경계는 DrawZoneBoundaries가 굵게 그리므로 여기서는 건너뛴다.
         for (var x = 1.0f; x < ZoneLayout.WorldMaxX; x += 1.0f)
         {
-            // 존 경계는 위에서 따로 굵게 그렸으므로 격자에서는 건너뛴다.
-            if (MathF.Abs(x % ZoneLayout.ZoneWidth) < 0.001f)
+            if (MathF.Abs(x % ZoneLayout.ZoneSize) < 0.001f)
             {
                 continue;
             }
@@ -110,6 +150,11 @@ public sealed class ZoneView
 
         for (var y = 1.0f; y < ZoneLayout.WorldMaxY; y += 1.0f)
         {
+            if (MathF.Abs(y % ZoneLayout.ZoneSize) < 0.001f)
+            {
+                continue;
+            }
+
             painter.Line(WorldToScreen(0.0f, y), WorldToScreen(ZoneLayout.WorldMaxX, y), gridColor);
         }
     }

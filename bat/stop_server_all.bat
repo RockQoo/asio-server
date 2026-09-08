@@ -1,9 +1,14 @@
 @echo off
-REM start_server_all.bat 으로 띄운 서버 3종을 종료한다.
+REM start_server_all.bat 으로 띄운 서버 프로세스를 종료한다(ZoneServer 는 2개가 정상).
 REM
 REM 사용법: stop_server_all.bat [-keep]
 REM   -keep 을 주면 프로세스만 죽이고 콘솔 창은 남긴다(마지막 로그를 읽을 때).
 REM   기본값은 창까지 닫는다 -- cmd /k 로 띄워서 프로세스가 죽어도 창이 남기 때문이다.
+REM
+REM Windows Terminal 탭으로 띄운 경우(start_server_all.bat 의 기본 경로)에는 창이 하나뿐이라
+REM 탭을 골라 닫을 수 없다 -- 프로세스만 죽이고 탭은 남는다. 죽은 셸이 남은 탭에서 마지막 로그를
+REM 그대로 읽을 수 있으니 -keep 과 같은 상태이고, 창은 직접 닫으면 된다. 제목으로 닫으려 하면
+REM 탭 4개가 통째로 날아가기 때문에 일부러 하지 않는다.
 chcp 65001 >nul
 setlocal enabledelayedexpansion
 

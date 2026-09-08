@@ -4,6 +4,7 @@
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Game/PlayerState.h"
+#include "Server/ZoneServer/Src/Game/ZoneDef.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -40,7 +41,7 @@ namespace Zone
     class ZoneInstance
     {
     public:
-        ZoneInstance(const uint32_t zoneId, const float xMin, const float xMax,
+        ZoneInstance(const ZoneDef& def,
                   WorldLink& worldLink, BroadcastDispatcher& broadcastDispatcher, Mail::MailRegistry& mailRegistry);
 
         void OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
@@ -79,9 +80,10 @@ namespace Zone
         void RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
                                   const float x, const float y) const;
 
+        // 담당 구간을 필드로 흩지 않고 정의 그대로 들고 있는다 -- 경계 검사(ZoneDef::Contains)를
+        // 한 곳에만 두면 x/y 중 한쪽만 빠뜨리는 실수가 안 생긴다.
+        ZoneDef def_;
         uint32_t zoneId_;
-        float xMin_;
-        float xMax_;
         WorldLink& worldLink_;
         BroadcastDispatcher& broadcastDispatcher_;
         Mail::MailRegistry& mailRegistry_;

@@ -44,11 +44,15 @@ namespace Zone
             registerPacket.zoneId = def.zoneId;
             registerPacket.xMin = def.xMin;
             registerPacket.xMax = def.xMax;
+            registerPacket.yMin = def.yMin;
+            registerPacket.yMax = def.yMax;
             session->SendPacket(PacketId::Z2WZoneRegister,
                                  std::as_bytes(std::span(&registerPacket, 1)));
 
             LOG.Info(ELogCategory::Zone, "World 연결 성공, 존 등록")
-                .KV("ZoneId", def.zoneId).KV("XMin", def.xMin).KV("XMax", def.xMax);
+                .KV("ZoneId", def.zoneId)
+                .KV("XMin", def.xMin).KV("XMax", def.xMax)
+                .KV("YMin", def.yMin).KV("YMax", def.yMax);
         }
     }
 

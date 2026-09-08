@@ -69,26 +69,39 @@ namespace World
         }
 
         clientRegistry_.Add(clientSessionId, gatewaySession);
-        clientRegistry_.SetZone(clientSessionId, kDefaultEntryZoneId);
 
-        const auto zoneLink = zoneLinkRegistry_.Find(kDefaultEntryZoneId);
-        if (!zoneLink)
+        // 등록된 존 중 첫 존의 중앙으로 입장시킨다. 스폰 좌표를 상수로 박지 않는 이유는
+        // ZoneLinkRegistry::FindEntryPoint 주석 참고.
+        const auto entry = zoneLinkRegistry_.FindEntryPoint();
+        if (!entry)
         {
-            LOG.Warning(ELogCategory::Zone, "기본 존이 아직 연결되지 않음").KV("ClientSessionId", clientSessionId);
+            LOG.Warning(ELogCategory::Zone, "입장시킬 존이 아직 연결되지 않음")
+                .KV("ClientSessionId", clientSessionId);
             return;
         }
 
+        const auto zoneLink = zoneLinkRegistry_.Find(entry->zoneId);
+        if (!zoneLink)
+        {
+            LOG.Warning(ELogCategory::Zone, "존 링크를 찾지 못함")
+                .KV("ClientSessionId", clientSessionId).KV("ZoneId", entry->zoneId);
+            return;
+        }
+
+        clientRegistry_.SetZone(clientSessionId, entry->zoneId);
+
         PlayerZoneStatePacket enterState{};
-        enterState.zoneId = kDefaultEntryZoneId;
+        enterState.zoneId = entry->zoneId;
         enterState.clientSessionId = clientSessionId;
         enterState.playerId = static_cast<uint32_t>(clientSessionId);
-        enterState.x = 0.0f;
-        enterState.y = 0.0f;
+        enterState.x = entry->x;
+        enterState.y = entry->y;
         zoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZoneRequest,
                                            std::as_bytes(std::span(&enterState, 1)));
 
-        LOG.Info(ELogCategory::Gateway, "클라이언트 접속, 기본 존 배정")
-            .KV("ClientSessionId", clientSessionId).KV("ZoneId", kDefaultEntryZoneId);
+        LOG.Info(ELogCategory::Gateway, "클라이언트 접속, 입장 존 배정")
+            .KV("ClientSessionId", clientSessionId).KV("ZoneId", entry->zoneId)
+            .KV("X", entry->x).KV("Y", entry->y);
     }
 
     void GatewayLinkHandler::HandleClientDisconnected(const std::shared_ptr<Network::Session>& /*gatewaySession*/,

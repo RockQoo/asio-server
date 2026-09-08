@@ -36,8 +36,6 @@ namespace World
         void HandleClientDisconnected(const std::shared_ptr<Network::Session>& gatewaySession, const std::span<const byte> payload);
         void HandleFromClient(const std::shared_ptr<Network::Session>& gatewaySession, const std::span<const byte> payload);
 
-        static constexpr uint32_t kDefaultEntryZoneId = 0;
-
         ClientRegistry& clientRegistry_;
         ZoneLinkRegistry& zoneLinkRegistry_;
         WorldWorker& worldWorker_;
