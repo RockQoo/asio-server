@@ -22,6 +22,9 @@
     <Filter Include="World">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000007}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Currency">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Mail">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000008}</UniqueIdentifier>
     </Filter>
@@ -33,6 +36,9 @@
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h">
       <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Shared\Protocol\Src\CurrencyType.h">
+      <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Shared\Protocol\Src\ErrorCode.h">
       <Filter>Packet</Filter>
@@ -46,7 +52,13 @@
     <ClInclude Include="Src\Packet\ZonePackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Game\PlayerState.h">
+    <ClInclude Include="Src\Currency\CurrencyModel.h">
+      <Filter>Currency</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Currency\CurrencyTask.h">
+      <Filter>Currency</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Game\Player.h">
       <Filter>Game</Filter>
     </ClInclude>
     <ClInclude Include="Src\Game\ZoneDef.h">
@@ -91,6 +103,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\Currency\CurrencyModel.cpp">
+      <Filter>Currency</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Currency\CurrencyTask.cpp">
+      <Filter>Currency</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Game\ZoneInstance.cpp">
       <Filter>Game</Filter>
     </ClCompile>

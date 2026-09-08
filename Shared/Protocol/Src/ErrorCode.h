@@ -25,6 +25,11 @@ namespace Protocol
         MailNotFound = 100,       // 대상 mailId가 우편함에 없음
         MailAlreadyExists = 101,  // 배정하려는 mailId가 이미 우편함에 있음(id 발급 버그 신호)
         MailBoxNotFound = 102,    // 이 세션의 우편함 자체가 없음(입장 처리 누락 신호)
+
+        // ---- Currency (200 ~ 299) ----
+        NotEnoughCurrency = 200,      // 잔액 부족. 부분 차감을 하지 않으므로 아무것도 안 바뀐다
+        UnknownCurrencyType = 201,    // 알 수 없는 재화 종류(None 포함)
+        InvalidCurrencyAmount = 202,  // 증감량이 음수(증가/감소를 한 함수로 섞지 않는다)
     };
 }
 

@@ -37,6 +37,8 @@ namespace
             "  chat <문자열>   - Chat 패킷 전송, 같은 존에 브로드캐스트됨(본인도 수신)\n"
             "  mail add <제목> <본문> <초>  - MailAdd 패킷 전송(초 뒤 서버가 자동 만료 삭제)\n"
             "  mail del <id>               - MailDel 패킷 전송\n"
+            "  mail buy <제목> <본문> <초> <가격>  - 우편 지급 + 골드 차감을 한 트랜잭션으로\n"
+            "                    가격이 잔액보다 크면 우편도 생기지 않고 되돌아간다(역순 롤백 확인용)\n"
             "  help            - 이 도움말 다시 출력\n"
             "  quit / exit      - 종료\n";
     }
@@ -96,6 +98,25 @@ namespace
             if (!taskPayload)
             {
                 return;
+            }
+
+            if (Protocol::CategoryOf(kind) == Protocol::ETaskCategory::Currency)
+            {
+                Packet::BinaryReader currencyReader(*taskPayload);
+                uint8_t currencyType{};
+                int64_t newValue{};
+                int64_t oldValue{};
+                if (!currencyReader.Read(currencyType) || !currencyReader.Read(newValue)
+                    || !currencyReader.Read(oldValue))
+                {
+                    continue;
+                }
+
+                // 실제 클라이언트라면 새 값으로 자기 화면의 잔액을 덮어쓴다 -- 증감량을
+                // 누적하지 않으므로 통지 하나가 유실돼도 다음 값에서 자동으로 맞춰진다.
+                std::cout << "        - Currency type=" << static_cast<uint32_t>(currencyType)
+                          << " " << oldValue << " -> " << newValue << '\n';
+                continue;
             }
 
             if (Protocol::CategoryOf(kind) != Protocol::ETaskCategory::Mail)
@@ -298,6 +319,21 @@ int main(const int argc, char** argv)
                     writer.Write(durationSec);
                     SendPacket(socket, PacketId::C2ZMailAdd, writer.GetBuffer());
                 }
+                else if (sub == "buy")
+                {
+                    std::string title;
+                    std::string body;
+                    int64_t durationSec{};
+                    int64_t price{};
+                    iss >> title >> body >> durationSec >> price;
+
+                    Packet::BinaryWriter writer;
+                    writer.WriteString(title);
+                    writer.WriteString(body);
+                    writer.Write(durationSec);
+                    writer.Write(price);
+                    SendPacket(socket, PacketId::C2ZMailBuy, writer.GetBuffer());
+                }
                 else if (sub == "del")
                 {
                     uint32_t mailId{};
@@ -307,7 +343,8 @@ int main(const int argc, char** argv)
                 }
                 else
                 {
-                    std::cout << "사용법: mail add <제목> <본문> <초> | mail del <id>\n";
+                    std::cout << "사용법: mail add <제목> <본문> <초> | mail buy <제목> <본문> <초> <가격>"
+                                 " | mail del <id>\n";
                 }
             }
             else if (!command.empty())

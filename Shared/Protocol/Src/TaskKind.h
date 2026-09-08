@@ -21,6 +21,7 @@ namespace Protocol
     {
         None = 0,
         Mail = 1,
+        Currency = 2,
     };
 
     // 세부 동작은 카테고리마다 따로 센다(카테고리가 다르면 값이 겹쳐도 무방하다).
@@ -29,6 +30,13 @@ namespace Protocol
     {
         Added = 1,
         Removed = 2,
+    };
+
+    // 재화는 추가/삭제가 아니라 값 갱신 하나뿐이다 -- 어느 재화인지는 페이로드에
+    // ECurrencyType으로 실린다(종류가 늘어도 세부 동작은 그대로 하나다).
+    enum class ECurrencyTask : uint8_t
+    {
+        Updated = 1,
     };
 
     // 카테고리별 세부 동작 enum이 전부 다른 타입이라 템플릿으로 받는다 -- 호출부에서

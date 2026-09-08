@@ -25,6 +25,8 @@ namespace Protocol
         C2ZMove = 3,     // MovePacket. 담당 TaskWorker에서 처리
         C2ZMailAdd = 4,  // title/body/durationSec, Task::UnitOfWork 경유
         C2ZMailDel = 5,  // mailId, Task::UnitOfWork 경유
+        C2ZMailBuy = 6,  // title/body/durationSec/price. 우편 지급 + 골드 차감을 한 트랜잭션으로
+                         // 처리한다 -- 뒤(골드)에서 실패하면 앞(우편)이 역순으로 되돌아간다
 
         // ---- Z2C : Zone -> 클라이언트 (1000 ~ 1999) ----
         Z2CEchoAck = 1001,          // C2ZEcho의 응답. 본문은 받은 것 그대로

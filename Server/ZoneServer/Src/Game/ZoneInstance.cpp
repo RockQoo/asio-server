@@ -37,19 +37,19 @@ namespace Zone
         packetDispatcher_.Register(PacketId::C2ZChat, this, &ZoneInstance::HandleChat);
         packetDispatcher_.Register(PacketId::C2ZMailAdd, this, &ZoneInstance::HandleMailAdd);
         packetDispatcher_.Register(PacketId::C2ZMailDel, this, &ZoneInstance::HandleMailDel);
+        packetDispatcher_.Register(PacketId::C2ZMailBuy, this, &ZoneInstance::HandleMailBuy);
     }
 
     void ZoneInstance::OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
                                   const float x, const float y)
     {
-        PlayerState state{};
-        state.sessionId = clientSessionId;
-        state.playerId = playerId;
-        state.x = x;
-        state.y = y;
-        players_[clientSessionId] = state;
-
+        // 우편함을 먼저 만들어야 그 핸들을 Player에 넣을 수 있다. 우편함이 레지스트리에도
+        // 남는 이유는, 만료 스윕이 BASIC이 아닌 별도 스레드에서 돌아서 players_(락 없는 BASIC
+        // 전용 컨테이너)를 순회할 수 없기 때문이다 -- 레지스트리가 그 스윕용 색인 역할을 한다.
         mailRegistry_.Add(clientSessionId);
+
+        players_.try_emplace(clientSessionId, clientSessionId, playerId, x, y,
+                             mailRegistry_.Find(clientSessionId));
 
         LOG.Info(ELogCategory::Zone, "플레이어 입장")
             .KV("Zone", zoneId_).KV("ClientSessionId", clientSessionId).KV("Population", players_.size());
@@ -86,7 +86,7 @@ namespace Zone
         packetDispatcher_.Dispatch(packetId, &it->second, payload);
     }
 
-    void ZoneInstance::HandleMove(PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleMove(Player& player, const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(MovePacket))
         {
@@ -101,26 +101,25 @@ namespace Zone
             // 라우팅 테이블만 바꾸므로 Gateway는 이 사실을 아예 모르고, 클라이언트도 재접속
             // 없이 대상 존의 EnterZoneNotify만 새로 받는다. player는
             // players_의 값이므로 erase 이전에 필요한 값을 전부 복사해둔다(erase 이후엔 댕글링).
-            const auto clientSessionId = player.sessionId;
-            const auto playerId = player.playerId;
+            const auto clientSessionId = player.GetSessionId();
+            const auto playerId = player.GetPlayerId();
             players_.erase(clientSessionId);
             mailRegistry_.Remove(clientSessionId);
             RequestZoneTransfer(clientSessionId, playerId, move.x, move.y);
             return;
         }
 
-        player.x = move.x;
-        player.y = move.y;
+        player.SetPosition(move.x, move.y);
 
         // 요청(C2ZMove)과 브로드캐스트(Z2CMoveNotify)는 id도 본문도 다르다 -- 받는 쪽은
         // "누가" 움직였는지 알아야 하므로 sessionId를 앞에 붙인다(Z2CChatNotify와 같은 형태).
         Packet::BinaryWriter writer;
-        writer.Write(static_cast<uint32_t>(player.sessionId));
+        writer.Write(static_cast<uint32_t>(player.GetSessionId()));
         writer.Write(move);
         BroadcastToZone(PacketId::Z2CMoveNotify, writer.GetBuffer());
     }
 
-    void ZoneInstance::HandleChat(const PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleChat(const Player& player, const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
         std::string message;
@@ -130,13 +129,13 @@ namespace Zone
         }
 
         Packet::BinaryWriter writer;
-        writer.Write(static_cast<uint32_t>(player.sessionId));
+        writer.Write(static_cast<uint32_t>(player.GetSessionId()));
         writer.WriteString(message);
 
         BroadcastToZone(PacketId::Z2CChatNotify, writer.GetBuffer());
     }
 
-    void ZoneInstance::HandleMailAdd(const PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleMailAdd(const Player& player, const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
         std::string title;
@@ -146,7 +145,8 @@ namespace Zone
         // UnitOfWork를 먼저 열어두는 이유: 파싱 실패도 "이 요청의 결말"이라 클라이언트에는
         // 같은 경로(Z2CTaskResult)로 에러가 돌아가야 한다. 스코프를 벗어나는 순간 소멸자가
         // 성공이면 전송, 실패면 역순 롤백까지 끝낸다 -- 별도의 커밋 호출이 없다.
-        ZoneUnitOfWork unitOfWork(worldLink_, player.sessionId, player.playerId, PacketId::C2ZMailAdd);
+        ZoneUnitOfWork unitOfWork(worldLink_, player.GetSessionId(), player.GetPlayerId(),
+                                  PacketId::C2ZMailAdd);
 
         if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
         {
@@ -154,7 +154,7 @@ namespace Zone
             return;
         }
 
-        const auto mailBox = mailRegistry_.Find(player.sessionId);
+        const auto& mailBox = player.GetMailBox();
         if (!mailBox)
         {
             unitOfWork.SetError(EErrorCode::MailBoxNotFound);
@@ -178,9 +178,10 @@ namespace Zone
         }
     }
 
-    void ZoneInstance::HandleMailDel(const PlayerState& player, const std::span<const byte> payload)
+    void ZoneInstance::HandleMailDel(const Player& player, const std::span<const byte> payload)
     {
-        ZoneUnitOfWork unitOfWork(worldLink_, player.sessionId, player.playerId, PacketId::C2ZMailDel);
+        ZoneUnitOfWork unitOfWork(worldLink_, player.GetSessionId(), player.GetPlayerId(),
+                                  PacketId::C2ZMailDel);
 
         uint32_t mailId{};
         if (payload.size() < sizeof(mailId))
@@ -190,7 +191,7 @@ namespace Zone
         }
         std::memcpy(&mailId, payload.data(), sizeof(mailId));
 
-        const auto mailBox = mailRegistry_.Find(player.sessionId);
+        const auto& mailBox = player.GetMailBox();
         if (!mailBox)
         {
             unitOfWork.SetError(EErrorCode::MailBoxNotFound);
@@ -198,6 +199,58 @@ namespace Zone
         }
 
         if (const auto errorCode = mailBox->Write()->DelMail(mailId, unitOfWork, false);
+            errorCode != EErrorCode::Success)
+        {
+            unitOfWork.SetError(errorCode);
+            return;
+        }
+    }
+
+    void ZoneInstance::HandleMailBuy(Player& player, const std::span<const byte> payload)
+    {
+        Packet::BinaryReader reader(payload);
+        std::string title;
+        std::string body;
+        int64_t durationSec{};
+        int64_t price{};
+
+        ZoneUnitOfWork unitOfWork(worldLink_, player.GetSessionId(), player.GetPlayerId(),
+                                  PacketId::C2ZMailBuy);
+
+        if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec)
+            || !reader.Read(price))
+        {
+            unitOfWork.SetError(EErrorCode::InvalidPayload);
+            return;
+        }
+
+        const auto& mailBox = player.GetMailBox();
+        if (!mailBox)
+        {
+            unitOfWork.SetError(EErrorCode::MailBoxNotFound);
+            return;
+        }
+
+        const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        Mail::MailInfo info{};
+        info.title = std::move(title);
+        info.body = std::move(body);
+        info.sendUt = nowUt;
+        info.endUt = nowUt + durationSec;
+
+        // 우편을 **먼저** 넣고 골드를 나중에 깎는 순서가 중요하다 -- 잔액이 부족하면 이미
+        // 들어간 우편을 되돌려야 하고, 그게 이 프로젝트에서 역순 롤백이 실제로 밟히는
+        // 유일한 경로다(단일 모델 요청은 실패 시점에 되돌릴 것이 없다).
+        if (const auto errorCode = mailBox->Write()->AddMail(std::move(info), unitOfWork);
+            errorCode != EErrorCode::Success)
+        {
+            unitOfWork.SetError(errorCode);
+            return;
+        }
+
+        if (const auto errorCode = player.GetWallet().DecCurrency(ECurrencyType::Gold, price, unitOfWork);
             errorCode != EErrorCode::Success)
         {
             unitOfWork.SetError(errorCode);

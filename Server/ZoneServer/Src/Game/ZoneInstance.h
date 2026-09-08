@@ -3,7 +3,7 @@
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
 #include "Shared/Protocol/Src/PacketId.h"
-#include "Server/ZoneServer/Src/Game/PlayerState.h"
+#include "Server/ZoneServer/Src/Game/Player.h"
 #include "Server/ZoneServer/Src/Game/ZoneDef.h"
 
 #include <cstddef>
@@ -68,10 +68,14 @@ namespace Zone
 
         // 등록된 핸들러 각각. HandleClientPacket이 이미 Player를 찾아 넘겨주므로, 여기서는
         // "이 Player가 실제로 존재하는가"를 다시 확인할 필요가 없다.
-        void HandleMove(PlayerState& player, const std::span<const byte> payload);
-        void HandleChat(const PlayerState& player, const std::span<const byte> payload);
-        void HandleMailAdd(const PlayerState& player, const std::span<const byte> payload);
-        void HandleMailDel(const PlayerState& player, const std::span<const byte> payload);
+        void HandleMove(Player& player, const std::span<const byte> payload);
+        void HandleChat(const Player& player, const std::span<const byte> payload);
+        void HandleMailAdd(const Player& player, const std::span<const byte> payload);
+        void HandleMailDel(const Player& player, const std::span<const byte> payload);
+
+        // 우편 지급 + 골드 차감을 한 트랜잭션으로 처리한다 -- 모델 두 개에 걸친 변경이라
+        // 뒤(골드)에서 실패하면 앞(우편)이 역순으로 되돌아가는 걸 실제로 밟는 경로다.
+        void HandleMailBuy(Player& player, const std::span<const byte> payload);
 
         void SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                            const std::span<const byte> payload) const;
@@ -87,13 +91,13 @@ namespace Zone
         WorldLink& worldLink_;
         BroadcastDispatcher& broadcastDispatcher_;
         Mail::MailRegistry& mailRegistry_;
-        std::unordered_map<Network::SessionId, PlayerState> players_;
+        std::unordered_map<Network::SessionId, Player> players_;
 
         // 패킷 타입 -> 등록된 핸들러. 콘텐츠가 늘어날수록(예: 존 이동/전투 등) 여기에
         // Register 한 줄만 추가하면 된다 -- HandleClientPacket의 분기 로직은 그대로다.
-        // 컨텍스트로 PlayerState*를 쓰는 이유: 등록되는 핸들러가 전부 이 클래스의 private
+        // 컨텍스트로 Player*를 쓰는 이유: 등록되는 핸들러가 전부 이 클래스의 private
         // 멤버 함수라 this로 zone 상태(worldLink_/mailRegistry_ 등)에 이미 접근 가능하고,
         // 여기엔 "이미 찾아낸 그 Player"만 넘기면 충분하기 때문이다.
-        Packet::PacketDispatcher<PacketId, PlayerState*> packetDispatcher_;
+        Packet::PacketDispatcher<PacketId, Player*> packetDispatcher_;
     };
 }

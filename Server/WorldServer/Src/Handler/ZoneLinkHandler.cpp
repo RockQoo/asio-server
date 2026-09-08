@@ -5,6 +5,7 @@
 #include "Server/WorldServer/Src/Worker/WorldWorker.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Protocol/Src/CurrencyType.h"
 #include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
@@ -48,6 +49,27 @@ namespace World
                 .KV("OwnerId", ownerId).KV("PlayerId", playerId)
                 .KV("SubTask", subTask == Protocol::EMailTask::Added ? "Added" : "Removed")
                 .KV("MailId", mailId).KV("Title", title);
+        }
+
+        void ApplyCurrencyTask(const uint64_t ownerId, const uint32_t playerId,
+                               const std::span<const byte> taskPayload)
+        {
+            Packet::BinaryReader reader(taskPayload);
+            uint8_t currencyType{};
+            int64_t newValue{};
+            int64_t oldValue{};
+            if (!reader.Read(currencyType) || !reader.Read(newValue) || !reader.Read(oldValue))
+            {
+                return;
+            }
+
+            // 새 값과 이전 값이 둘 다 실려 오는 이유(ZoneServer의 Currency::CurrencyTask 주석):
+            // DB는 새 값으로 UPDATE하면 되고, 이전 값은 감사/추적용이다 -- "누가 언제 얼마에서
+            // 얼마로 바뀌었는지"가 한 행에 남으면 재화 사고를 추적할 수 있다.
+            LOG.Debug(ELogCategory::Db, "Currency 태스크 처리 (DB 반영은 TODO)")
+                .KV("OwnerId", ownerId).KV("PlayerId", playerId)
+                .KV("CurrencyType", static_cast<uint32_t>(currencyType))
+                .KV("OldValue", oldValue).KV("NewValue", newValue);
         }
     }
 
@@ -276,6 +298,9 @@ namespace World
                     case Protocol::ETaskCategory::Mail:
                         ApplyMailTask(static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind)),
                                       ownerId, playerId, *taskPayload);
+                        break;
+                    case Protocol::ETaskCategory::Currency:
+                        ApplyCurrencyTask(ownerId, playerId, *taskPayload);
                         break;
                     default:
                         // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면

@@ -98,11 +98,14 @@
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
+    <ClInclude Include="..\..\Shared\Protocol\Src\CurrencyType.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\ErrorCode.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ZonePackets.h" />
-    <ClInclude Include="Src\Game\PlayerState.h" />
+    <ClInclude Include="Src\Currency\CurrencyModel.h" />
+    <ClInclude Include="Src\Currency\CurrencyTask.h" />
+    <ClInclude Include="Src\Game\Player.h" />
     <ClInclude Include="Src\Game\ZoneDef.h" />
     <ClInclude Include="Src\Game\ZoneInstance.h" />
     <ClInclude Include="Src\World\WorldLink.h" />
@@ -122,6 +125,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Src\Currency\CurrencyModel.cpp" />
+    <ClCompile Include="Src\Currency\CurrencyTask.cpp" />
     <ClCompile Include="Src\Game\ZoneInstance.cpp" />
     <ClCompile Include="Src\Mail\MailModel.cpp" />
     <ClCompile Include="Src\Mail\MailRegistry.cpp" />
