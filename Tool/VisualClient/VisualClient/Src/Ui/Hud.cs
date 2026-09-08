@@ -18,7 +18,13 @@ public sealed class Hud
     /// <summary>공지 토스트가 화면에 남아 있는 시간(초).</summary>
     private const double NoticeDurationSeconds = 8.0;
 
-    public void DrawStatusBar(Painter painter, GameLink link, WorldModel world, Rectangle bounds)
+    /// <param name="autoTour">
+    /// 자동 순회가 켜져 있으면 지금까지의 존 전환 횟수, 꺼져 있으면 <c>null</c>.
+    /// 횟수를 보여주는 이유: 화면을 잠깐만 봐도 핸드오프가 계속 돌고 있는지 판단할 수 있다.
+    /// </param>
+    /// <param name="autoTourReverse">자동 순회가 반대 방향인가. 창 여러 개를 구분하는 데 쓴다.</param>
+    public void DrawStatusBar(Painter painter, GameLink link, WorldModel world, Rectangle bounds,
+                              int? autoTour = null, bool autoTourReverse = false)
     {
         painter.FillRect(bounds, new Color(16, 20, 30, 245));
         painter.FillRect(new Rectangle(bounds.X, bounds.Bottom - 1, bounds.Width, 1), new Color(60, 76, 100));
@@ -58,6 +64,14 @@ public sealed class Hud
 
         var rttText = world.RttMs is { } rtt ? $"{rtt:0.0} ms" : "측정 중";
         x = DrawField(painter, "Echo RTT", rttText, new Color(180, 200, 235), x, y);
+
+        // 자동 순회는 켜져 있을 때만 자리를 쓴다 -- 평소엔 상태줄을 좁히지 않는다.
+        if (autoTour is { } tour)
+        {
+            var direction = autoTourReverse ? "반시계" : "시계";
+            x = DrawField(painter, "자동 순회", $"{direction}  존 전환 {tour}회",
+                          new Color(150, 230, 180), x, y);
+        }
 
         // 접속 실패/끊김 사유는 잘려도 좋으니 남은 자리에 그대로 붙인다.
         if (link.LastError.Length > 0)
@@ -120,7 +134,7 @@ public sealed class Hud
         painter.FillRect(new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), new Color(50, 62, 84));
 
         const string Help =
-            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 Echo 핑  ·  Esc 입력/패널 닫기";
+            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 Echo 핑  ·  F2 자동 순회  ·  Esc 입력/패널 닫기";
         painter.SmallText(Help, new Vector2(bounds.X + 12, bounds.Y + 5), new Color(130, 144, 168));
 
         var fontText = $"글꼴: {fontName}";

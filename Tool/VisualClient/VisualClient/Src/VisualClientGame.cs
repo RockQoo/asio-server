@@ -13,7 +13,12 @@ namespace VisualClient;
 /// 이 클라이언트의 실행 옵션. 명령줄 인자로만 받는다 — 설정 파일을 두면 "지금 어디에 붙어
 /// 있는지"가 화면과 파일 두 군데로 갈린다.
 /// </summary>
-public sealed record ClientOptions(string GatewayHost, int GatewayPort, string GmToolBaseUrl)
+public sealed record ClientOptions(
+    string GatewayHost,
+    int GatewayPort,
+    string GmToolBaseUrl,
+    bool AutoTour = false,
+    bool AutoTourReverse = false)
 {
     /// <summary>
     /// 기본값. Gateway 9000은 <c>ProtocolClient</c>의 기본 포트와 같고, 5080은
@@ -82,6 +87,33 @@ public sealed class VisualClientGame : Game
     /// </summary>
     private const double PlayerForgetAfterSeconds = 6.0;
 
+    /// <summary>
+    /// 자동 순회(<see cref="ClientOptions.AutoTour"/>) 한 바퀴에 걸리는 시간(초).
+    ///
+    /// <para>
+    /// <b>왜 원인가</b>: 존이 2×2 격자라(존 1,2 / 존 3,4) 한 바퀴 돌면 네 존을 순서대로 지나며
+    /// <b>가로 경계와 세로 경계를 각각 두 번씩</b> 넘는다. 가로 경계는 같은 프로세스 안의 스레드
+    /// 간 이동이고 세로 경계는 프로세스를 넘는 핸드오프라, 원 하나로 두 경로를 다 밟는다.
+    /// 직선 왕복으로는 한 종류만 넘게 되어 반쪽만 확인된다.
+    /// </para>
+    ///
+    /// <para>
+    /// 한 바퀴를 이 정도로 잡은 이유: 너무 빠르면 경계에서 핸드오프가 초당 여러 번 일어나
+    /// 로그를 읽을 수 없고(경계에 히스테리시스가 없다), 너무 느리면 지켜보는 시간이 길어진다.
+    /// </para>
+    /// </summary>
+    private const double AutoTourLapSeconds = 22.0;
+
+    /// <summary>
+    /// 자동 순회 반지름의 여유(월드 단위). 벽에 붙지 않게 안쪽으로 넣는다.
+    ///
+    /// <para>
+    /// 이 값이 존 한 변의 절반(5)보다 <b>작아야</b> 원이 네 존을 다 지난다 — 여유가 너무 크면
+    /// 원이 월드 중앙(네 존이 만나는 점) 근처로 쪼그라들어 경계를 아슬아슬하게만 넘는다.
+    /// </para>
+    /// </summary>
+    private const float AutoTourMargin = 1.5f;
+
     private readonly GraphicsDeviceManager graphics_;
     private readonly ClientOptions options_;
     private readonly InputState input_ = new();
@@ -114,9 +146,43 @@ public sealed class VisualClientGame : Game
     private bool announcedZone_;
     private uint announcedZoneId_;
 
+    /// <summary>자동 순회 중인가. 옵션으로 켜고 F2로 끄거나 다시 켤 수 있다.</summary>
+    private bool autoTour_;
+
+    /// <summary>
+    /// 자동 순회 타원의 시작 위상(라디안).
+    ///
+    /// <para>
+    /// 창마다 다르게 잡는 이유: 여러 창을 자동 순회로 띄우면 위상이 같을 때 전부 같은 좌표로
+    /// 겹쳐 움직여서 "다른 플레이어가 보이는지"(브로드캐스트)를 확인할 수 없다. 위상을 흩어
+    /// 놓으면 서로 다른 존에 있다가 만나는 장면까지 그대로 보인다.
+    /// </para>
+    /// </summary>
+    private readonly double autoTourPhase_ = Random.Shared.NextDouble() * Math.Tau;
+
+    /// <summary>
+    /// 자동 순회 방향. <c>-1</c>이면 반대로 돈다(<c>--auto-rev</c>).
+    ///
+    /// <para>
+    /// 창 두 개를 서로 반대로 돌리면 <b>같은 존에서 만나고 다시 갈라지는 장면</b>이 한 바퀴에
+    /// 두 번 생긴다 — 브로드캐스트(다른 플레이어가 보이는지)와 존 이탈(안 보이게 되는지)을
+    /// 둘 다 규칙적으로 확인할 수 있다. 같은 방향으로만 돌면 위상 차이가 그대로 유지돼서
+    /// 서로 마주치지 않을 수도 있다.
+    /// </para>
+    /// </summary>
+    private readonly double autoTourDirection_;
+
+    /// <summary>자동 순회가 마지막으로 통과한 zoneId. 순회가 존을 실제로 다 도는지 세는 데 쓴다.</summary>
+    private uint autoTourLastZoneId_;
+
+    /// <summary>자동 순회 중 zoneId가 바뀐 횟수. HUD에 띄워 핸드오프가 도는지 한눈에 보게 한다.</summary>
+    private int autoTourZoneChanges_;
+
     public VisualClientGame(ClientOptions options)
     {
         options_ = options;
+        autoTour_ = options.AutoTour;
+        autoTourDirection_ = options.AutoTourReverse ? -1.0 : 1.0;
         link_ = new GameLink(options.GatewayHost, options.GatewayPort);
         coupons_ = new CouponClient(options.GmToolBaseUrl);
         couponPanel_ = new CouponPanel(coupons_);
@@ -233,6 +299,50 @@ public sealed class VisualClientGame : Game
         {
             SendEcho();
         }
+
+        // F2로 자동 순회를 켜고 끈다. 자동으로 도는 동안 직접 몰아보고 싶은 순간이 있어서
+        // 실행 인자로만 정하지 않고 실행 중에도 바꿀 수 있게 뒀다.
+        if (input_.IsKeyPressed(Keys.F2) && !IsTyping)
+        {
+            autoTour_ = !autoTour_;
+            world_.AddSystemLine(autoTour_
+                ? "자동 순회를 켰습니다. 타원으로 돌면서 존 경계를 계속 넘습니다. (F2로 끄기)"
+                : "자동 순회를 껐습니다. WASD로 직접 이동합니다. (F2로 켜기)");
+        }
+    }
+
+    /// <summary>
+    /// 자동 순회: 월드 가운데를 중심으로 타원을 돈다.
+    ///
+    /// <para>
+    /// 목적은 <b>사람이 지켜보지 않아도 존 1~4를 계속 왕복하게 만드는 것</b>이다. 존 경계에
+    /// 히스테리시스가 없어서 경계 위에서 미세하게 흔들면 초당 여러 번 핸드오프가 일어나는데,
+    /// 타원 운동은 경계를 <em>한 방향으로 통과</em>하므로 그 문제 없이 핸드오프만 깔끔하게
+    /// 반복된다.
+    /// </para>
+    /// </summary>
+    private void UpdateAutoTour()
+    {
+        var angle = autoTourPhase_ + (autoTourDirection_ * nowSeconds_ / AutoTourLapSeconds * Math.Tau);
+
+        var centerX = ZoneLayout.WorldMaxX * 0.5f;
+        var centerY = ZoneLayout.WorldMaxY * 0.5f;
+        var radiusX = centerX - AutoTourMargin;
+        var radiusY = centerY - AutoTourMargin;
+
+        SetLocalPosition(
+            centerX + (radiusX * (float)Math.Cos(angle)),
+            centerY + (radiusY * (float)Math.Sin(angle)));
+
+        // 존이 바뀐 횟수를 세어 둔다. 화면을 잠깐 봐도 "돌고 있는지"가 숫자로 드러난다.
+        if (world_.HasEnteredZone && world_.MyZoneId != autoTourLastZoneId_)
+        {
+            if (autoTourLastZoneId_ != 0)
+            {
+                ++autoTourZoneChanges_;
+            }
+            autoTourLastZoneId_ = world_.MyZoneId;
+        }
     }
 
     /// <summary>입력칸 중 하나라도 포커스를 갖고 있는가. 그러면 WASD는 타이핑이다.</summary>
@@ -241,7 +351,13 @@ public sealed class VisualClientGame : Game
 
     private void HandleMovement(GameTime gameTime)
     {
-        if (!IsTyping)
+        // 자동 순회가 켜져 있으면 좌표를 계산해서 넣는다 -- 키 입력과 섞으면 서로 좌표를
+        // 덮어써서 어느 쪽이 움직인 건지 알 수 없다.
+        if (autoTour_)
+        {
+            UpdateAutoTour();
+        }
+        else if (!IsTyping)
         {
             var direction = Vector2.Zero;
             if (input_.IsKeyDown(Keys.A) || input_.IsKeyDown(Keys.Left))
@@ -326,7 +442,9 @@ public sealed class VisualClientGame : Game
         spriteBatch.Begin();
 
         zoneView_.Draw(painter, world_, totalSeconds);
-        hud_.DrawStatusBar(painter, link_, world_, new Rectangle(0, 0, screen.Width, 38));
+        hud_.DrawStatusBar(painter, link_, world_, new Rectangle(0, 0, screen.Width, 38),
+                           autoTour_ ? autoTourZoneChanges_ : null,
+                           options_.AutoTourReverse);
         hud_.DrawNoticeToast(painter, world_, screen, totalSeconds);
         hud_.DrawHelpBar(painter,
                          new Rectangle(0, screen.Height - 24, screen.Width, 24),
