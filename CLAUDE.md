@@ -81,7 +81,7 @@ C:\Work\asio-server\
 │   │       │                         connect, Listener와 대칭), Session, SessionManager
 │   │       ├── Thread/               WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
 │   │       ├── Timer/                RepeatingTimer
-│   │       ├── Threading/Synchronized.h  shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
+│   │       ├── Thread/Mutexed.h      shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
 │   │       └── Task/UnitOfWork.h     범용 Unit-of-Work 기반 클래스(taskKind+직렬화 바이트만
 │   │                                 다룸). 명시적 Commit()에서 성공이면 대상(DB/클라)별 전송,
 │   │                                 실패면 역순 롤백 — 전송/역연산은 파생이 구현
@@ -180,7 +180,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Session` | 소켓 1개, `strand_`로 보호 — `SendPacket()`은 어느 스레드에서든 호출 가능 |
 | | `PacketDispatcher<TId,TContext>` | 패킷 타입 → 핸들러 템플릿 라우터 (게임 무관) |
 | | `WorkerThread` / `AffinityWorkerPool<TWorker>` | 작업 큐 1개 소비 스레드 / `key % N` 고정 라우팅 풀 |
-| | `Threading::Synchronized<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
+| | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::UnitOfWork` | 범용 Unit-of-Work 기반 클래스 — taskKind+직렬화 바이트만 다룸, 콘텐츠 의미는 모름. `Commit()`에서 전송/롤백이 갈린다 |
 | `WorldServer` | `WorldWorker` | 단일 처리 스레드. I/O는 여기 `PostTask`로만 넘김 |
 | | `ClientRegistry` / `ZoneLinkRegistry` | WorldWorker 전용 접근 전제라 락 없음 |
@@ -189,7 +189,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `TaskWorker` | 특정 존을 소유하지 않는 범용 실행기(BASIC/TICK/BROADCAST 풀이 이걸 사용) |
 | | `ZoneWorkerManager` | BASIC/TICK/BROADCAST 3개 풀 + 존별 tick 타이머 소유 |
 | | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 풀 소유 |
-| | `Mail::MailModel` 등 | 평소 BASIC 전용, 메일 만료만 별도 유지보수 타이머가 처리 — 그 교차 지점만 `Synchronized`로 보호, 변경분은 `Task::UnitOfWork`에 모았다가 `Commit()`에서 World(DB)와 클라이언트로 한 번에 전송 |
+| | `Mail::MailModel` 등 | 평소 BASIC 전용, 메일 만료만 별도 유지보수 타이머가 처리 — 그 교차 지점만 `Mutexed`로 보호, 변경분은 `Task::UnitOfWork`에 모았다가 `Commit()`에서 World(DB)와 클라이언트로 한 번에 전송 |
 | | `Zone::ZoneUnitOfWork` | `Task::UnitOfWork` 파생. 실패 시 taskKind로 역연산을 골라 메모리를 되돌리고, 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
 | `GatewayServer` | `ClientLinkHandler`/`WorldLinkHandler` | 클라이언트↔World 양방향 릴레이만, 게임 로직 없음 |
 | `WorldServer` | `Tool::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
@@ -260,7 +260,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 ## 로드맵 상태
 
 Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), ZoneServer 5-풀 분리, WorldServer
-WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(StressClient),
+WorldWorker, Mail(Mutexed/UnitOfWork) 시스템, 부하 테스트 도구(StressClient),
 시각 클라이언트(VisualClient)까지 완료.
 부하 테스트로 발견된 처리량 병목 수정이 진행 중(`docs/load-test-fix-plan.md`). 남은 것:
 실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI. 자세한 표는

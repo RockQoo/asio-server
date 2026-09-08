@@ -33,7 +33,7 @@ namespace Zone
     // 주의: TICK 풀은 BASIC과 "다른" 풀이라 같은 zoneId라도 실제로는 다른 OS 스레드다.
     // 지금은 Tick()이 비어있어(placeholder) players_를 안 건드리므로 안전하지만, 나중에
     // Tick에서 실제로 players_ 같은 공유 상태를 직접 만지게 되면 그 순간부터는 BASIC과
-    // 동시 접근이 가능해지므로 락(또는 Threading::Synchronized)이 필요해진다.
+    // 동시 접근이 가능해지므로 락(또는 Thread::Mutexed)이 필요해진다.
     //
     // 이 프로세스는 클라이언트와 직접 연결되지 않는다(GatewayServer/WorldServer 경유).
     // World와의 연결 하나(WorldLink) 위에서 clientSessionId로 구분된 여러 플레이어의 패킷을

@@ -23,7 +23,7 @@ namespace Task
 
         // 여기까지 왔다는 건 기록된 변경이 DB로도 클라이언트로도 나가지 못했다는 뜻이다.
         // 조용히 넘기면 "메모리만 바뀌고 DB에는 없는" 상태가 되어 나중에 원인을 찾기가
-        // 극도로 어려워지므로 바로 드러낸다(Threading::Synchronized의 승급 금지와 같은 판단).
+        // 극도로 어려워지므로 바로 드러낸다(Thread::Mutexed의 승급 금지와 같은 판단).
         LOG.Error(ELogCategory::General, "Commit 없이 소멸한 UnitOfWork -- 기록된 변경이 유실된다")
             .KV("OwnerId", ownerId_).KV("TaskCount", tasks_.size());
 

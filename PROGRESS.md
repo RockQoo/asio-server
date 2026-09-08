@@ -29,7 +29,7 @@
   `ZoneLinkRegistry`)를 락 없이 소유. I/O 스레드는 `PostTask`로만 넘긴다. DB 워커 풀
   (`Db::DbWorker`, owner-hash)은 실제 쿼리 없이 로그만 남기는 스텁 상태.
 - **Mail 시스템**: `MailModel`/`MailRegistry`/`MailExpiryService`(만료 자동삭제, 별도
-  유지보수 타이머). `Threading::Synchronized`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
+  유지보수 타이머). `Thread::Mutexed`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
   BASIC 스레드와 유지보수 타이머가 만나는 유일한 지점만 락"을 보여준다. 상태 변경은
   `Task::UnitOfWork`(범용 Unit-of-Work)에 기록했다가 `Commit()` 시점에 한 번에 내보낸다 —
   성공하면 같은 태스크 목록이 World(DB)와 클라이언트(`Z2CTaskResult`) 양쪽으로 가고,
@@ -159,7 +159,7 @@
   public 필드는 예외), 주석은 전부 한글로 "왜"를 설명, C++20 적극 사용, 빌드는 CMake 아닌
   `.vcxproj`/`.slnx`.
 - 타입 이름은 **그 타입이 하는 일을 설명하는 이름**으로 짓는다. 일반에 통용되는 패턴 이름
-  (`UnitOfWork`, `Synchronized` 등)이 있으면 그걸 쓰고, 기능과 무관한 별칭은 만들지 않는다.
+  (`UnitOfWork`, `Mutexed` 등)이 있으면 그걸 쓰고, 기능과 무관한 별칭은 만들지 않는다.
 
 ## 3. 다음에 하면 좋을 일
 

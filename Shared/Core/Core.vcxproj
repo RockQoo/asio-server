@@ -122,7 +122,7 @@
     <ClInclude Include="Src\Thread\WorkerThread.h" />
     <ClInclude Include="Src\Thread\AffinityWorkerPool.h" />
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
-    <ClInclude Include="Src\Threading\Synchronized.h" />
+    <ClInclude Include="Src\Thread\Mutexed.h" />
     <ClInclude Include="Src\Task\UnitOfWork.h" />
   </ItemGroup>
   <ItemGroup>

@@ -5,11 +5,11 @@
 #include <shared_mutex>
 #include <utility>
 
-namespace Threading
+namespace Thread
 {
     inline constexpr int32_t kMaxLockDepth = 32;
 
-    // 스레드 하나가 "지금 재진입 중인" Synchronized 잠금 목록. thread_local이라 스레드마다 독립
+    // 스레드 하나가 "지금 재진입 중인" Mutexed 잠금 목록. thread_local이라 스레드마다 독립
     // 이며, 스코프 진입/이탈(RAII)과 함께 스택처럼 push/pop된다. 이 스택 덕분에:
     //   - 같은 스레드가 이미 잠근 mutex를 다시 요청하면(재귀 호출 등) 실제로 다시 잠그지
     //     않고 스킵한다(그러지 않으면 shared_mutex는 재귀 lock_shared/lock에서 자기 자신과
@@ -58,7 +58,7 @@ namespace Threading
                 // 이 헤더는 여러 프로젝트(Core/ZoneServer/...)에서 include되고, 프로젝트마다
                 // 자기 ELogCategory를 따로 정의한다(cpp-patterns.md 참고) -- 전부가 공통으로
                 // 갖는 General 카테고리로 남겨야 어디서 include되든 컴파일된다.
-                LOG.Error(ELogCategory::General, "Synchronized 재진입 중 shared -> unique 승급 시도(금지됨)");
+                LOG.Error(ELogCategory::General, "Mutexed 재진입 중 shared -> unique 승급 시도(금지됨)");
                 std::abort();
             }
 
@@ -105,8 +105,8 @@ namespace Threading
     // 안 건드리므로 이 클래스가 필요 없다 -- 이건 그 불변식이 깨지는 자리(예: zone 워커가
     // 아닌 별도 유지보수 타이머 스레드가 zone 상태를 직접 만지는 경우)에서만 쓴다.
     //
-    // 콘텐츠 클래스는 보통 `using Sync = Threading::Synchronized<MyClass>;`를 자기 안에 선언해
-    // 두고 `MyClass::Sync`로 짧게 쓴다(MailModel 참고).
+    // 콘텐츠 클래스는 보통 `using Mutexed = Thread::Mutexed<MyClass>;`를 자기 안에 선언해
+    // 두고 `MyClass::Mutexed`로 짧게 쓴다(MailModel 참고).
     //
     // 접근 방법 두 가지:
     //   - `ref->Foo()` : 최상위 operator->()는 항상 읽기(shared_lock) 접근. 가장 흔한 경우가
@@ -118,31 +118,31 @@ namespace Threading
     // 프록시를 named 변수로 받는다(`auto writer = ref.Write();`) -- 프록시가 그 변수의 수명
     // 동안 살아 있으므로 잠금도 그만큼 유지된다. `Read()`도 같은 이유로 쌍을 이룬다.
     template <typename T>
-    class Synchronized
+    class Mutexed
     {
     public:
         template <typename... Args>
-        explicit Synchronized(Args&&... args)
+        explicit Mutexed(Args&&... args)
             : mutex_()
             , value_(std::forward<Args>(args)...)
         {
         }
 
-        class ReadProxy
+        class ReadLock
         {
         public:
-            ReadProxy(const T& value, std::shared_mutex& mutex)
+            ReadLock(const T& value, std::shared_mutex& mutex)
                 : value_(value)
                 , lockedMutex_(t_recursionGuard.LockShared(mutex))
             {
             }
 
-            ReadProxy(const ReadProxy&) = delete;
-            ReadProxy& operator=(const ReadProxy&) = delete;
-            ReadProxy(ReadProxy&&) = delete;
-            ReadProxy& operator=(ReadProxy&&) = delete;
+            ReadLock(const ReadLock&) = delete;
+            ReadLock& operator=(const ReadLock&) = delete;
+            ReadLock(ReadLock&&) = delete;
+            ReadLock& operator=(ReadLock&&) = delete;
 
-            ~ReadProxy() { t_recursionGuard.UnlockShared(lockedMutex_); }
+            ~ReadLock() { t_recursionGuard.UnlockShared(lockedMutex_); }
 
             [[nodiscard]] const T* operator->() const noexcept { return &value_; }
             [[nodiscard]] const T& operator*() const noexcept { return value_; }
@@ -152,21 +152,21 @@ namespace Threading
             std::shared_mutex* lockedMutex_;
         };
 
-        class WriteProxy
+        class WriteLock
         {
         public:
-            WriteProxy(T& value, std::shared_mutex& mutex)
+            WriteLock(T& value, std::shared_mutex& mutex)
                 : value_(value)
                 , lockedMutex_(t_recursionGuard.LockUnique(mutex))
             {
             }
 
-            WriteProxy(const WriteProxy&) = delete;
-            WriteProxy& operator=(const WriteProxy&) = delete;
-            WriteProxy(WriteProxy&&) = delete;
-            WriteProxy& operator=(WriteProxy&&) = delete;
+            WriteLock(const WriteLock&) = delete;
+            WriteLock& operator=(const WriteLock&) = delete;
+            WriteLock(WriteLock&&) = delete;
+            WriteLock& operator=(WriteLock&&) = delete;
 
-            ~WriteProxy() { t_recursionGuard.UnlockUnique(lockedMutex_); }
+            ~WriteLock() { t_recursionGuard.UnlockUnique(lockedMutex_); }
 
             [[nodiscard]] T* operator->() const noexcept { return &value_; }
             [[nodiscard]] T& operator*() const noexcept { return value_; }
@@ -176,12 +176,12 @@ namespace Threading
             std::shared_mutex* lockedMutex_;
         };
 
-        [[nodiscard]] ReadProxy operator->() const { return ReadProxy(value_, mutex_); }
+        [[nodiscard]] ReadLock operator->() const { return ReadLock(value_, mutex_); }
 
         // 프록시는 복사도 이동도 막아뒀지만, C++17의 보장된 복사 생략 덕분에 값으로 반환해도
         // 호출부에서 `auto writer = ref.Write();`처럼 named 변수로 받을 수 있다.
-        [[nodiscard]] ReadProxy Read() const { return ReadProxy(value_, mutex_); }
-        [[nodiscard]] WriteProxy Write() { return WriteProxy(value_, mutex_); }
+        [[nodiscard]] ReadLock Read() const { return ReadLock(value_, mutex_); }
+        [[nodiscard]] WriteLock Write() { return WriteLock(value_, mutex_); }
 
     private:
         mutable std::shared_mutex mutex_;

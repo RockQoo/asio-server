@@ -19,9 +19,6 @@
     <Filter Include="Log">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000006}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Threading">
-      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000007}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Task">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000008}</UniqueIdentifier>
     </Filter>
@@ -105,8 +102,8 @@
     <ClInclude Include="Src\Timer\RepeatingTimer.h">
       <Filter>Timer</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Threading\Synchronized.h">
-      <Filter>Threading</Filter>
+    <ClInclude Include="Src\Thread\Mutexed.h">
+      <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="Src\Task\UnitOfWork.h">
       <Filter>Task</Filter>

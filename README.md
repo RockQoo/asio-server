@@ -76,7 +76,7 @@ mutex가 아예 없습니다.
 | | |
 |---|---|
 | **역할** | 존 하나(또는 여럿)의 게임 상태를 소유하고 Mail 시스템을 운영 |
-| **핵심 기술** | ① **zoneId sticky 라우팅으로 락 없는 게임 상태** — `players_`가 순수 `unordered_map` ② **스냅샷 핸드오프** — BASIC이 대상 목록을 복사해 BROADCAST로 넘기고, BROADCAST는 공유 컨테이너를 절대 읽지 않음 ③ **`Synchronized` + Unit-of-Work** — 만료 스윕과 BASIC이 겹치는 유일한 지점만 `shared_mutex`로 보호 |
+| **핵심 기술** | ① **zoneId sticky 라우팅으로 락 없는 게임 상태** — `players_`가 순수 `unordered_map` ② **스냅샷 핸드오프** — BASIC이 대상 목록을 복사해 BROADCAST로 넘기고, BROADCAST는 공유 컨테이너를 절대 읽지 않음 ③ **`Mutexed` + Unit-of-Work** — 만료 스윕과 BASIC이 겹치는 유일한 지점만 `shared_mutex`로 보호 |
 | **왜 이렇게** | 스레드를 나누면 상태 공유 지점이 생깁니다. 그래서 각 풀이 "무엇을 소유하고 무엇을 넘겨받는지"를 코드 주석으로 못박았습니다. [ZoneInstance.h:32](Server/ZoneServer/Src/Game/ZoneInstance.h#L32)는 **TICK 풀이 실제 상태를 만지는 순간 이 설계가 깨진다**는 미래의 파손 조건까지 명시합니다 |
 | **대표 코드** | [ZoneWorkerManager.h:67](Server/ZoneServer/Src/Worker/ZoneWorkerManager.h#L67) (sticky 라우팅), [ZoneInstance.cpp:234](Server/ZoneServer/Src/Game/ZoneInstance.cpp#L234) (스냅샷 브로드캐스트) |
 
@@ -90,7 +90,7 @@ mutex가 아예 없습니다.
 | `Packet::PacketBuffer` | 경계 없는 TCP 스트림 → 프레임 재조립. 크기 초과 시 예외로 악성 스트림 차단 |
 | `Packet::PacketDispatcher<TId,TContext>` | switch 증식 방지. Zone은 `TContext`를 `PlayerState*`로 써서 "플레이어 조회 후 콜백"까지 흡수 |
 | `Thread::AffinityWorkerPool<T>` | `key % N` 고정 매핑 → **키별 상태의 스레드 전용성 보장** = 락 제거의 근거 |
-| `Threading::Synchronized<T>` | `ref->`(읽기) / `ref.Write()->`(쓰기) 프록시. thread_local 재진입 가드로 shared_mutex 재귀 데드락 차단, **shared→unique 승급은 `abort()`로 즉시 노출** |
+| `Thread::Mutexed<T>` | `ref->`(읽기) / `ref.Write()->`(쓰기) 프록시. thread_local 재진입 가드로 shared_mutex 재귀 데드락 차단, **shared→unique 승급은 `abort()`로 즉시 노출** |
 | `Task::UnitOfWork` | 변경 N건 → 패킷 1개 배칭. `kind + payloadLen + payload` 포맷이라 **모르는 kind를 만나도 길이만큼 건너뛸 수 있음**(kind별 분기는 아직 Mail 하나뿐) |
 | `Timer::RepeatingTimer` | 드리프트 보정. 5주기 이상 밀리면 catch-up 폭주 대신 리베이스 |
 
@@ -98,7 +98,7 @@ mutex가 아예 없습니다.
 
 ## 3. 락 전략 — 이 프로젝트가 실제로 증명하려는 것
 
-상태마다 다른 전략을 씁니다. **"락이 없다"가 아니라 "락 선언이 여기 8곳뿐"**이라는 게 요점입니다(런타임 인스턴스 수는 다르다 — `Synchronized`는 플레이어 1인당 1개, `WorkerThread`는 워커당 1개).
+상태마다 다른 전략을 씁니다. **"락이 없다"가 아니라 "락 선언이 여기 8곳뿐"**이라는 게 요점입니다(런타임 인스턴스 수는 다르다 — `Mutexed`는 플레이어 1인당 1개, `WorkerThread`는 워커당 1개).
 
 | 전략 | 적용 대상 | 락 |
 |---|---|---|
@@ -110,7 +110,7 @@ mutex가 아예 없습니다.
 
 8곳의 내역: 로거(`Logger`), 워커 큐(`WorkerThread`), Gateway 세션 레지스트리
 (`SessionManager`), Gateway·Zone의 World 링크 홀더 2곳, Zone LB 풀의 로컬 존 맵
-(`WorldLinkHandler`), 메일 레지스트리(`MailRegistry`), `Synchronized`가 감싸는
+(`WorldLinkHandler`), 메일 레지스트리(`MailRegistry`), `Mutexed`가 감싸는
 `MailModel` 1개.
 
 > **"lock-free"가 아닙니다.** 이 프로젝트에 lock-free 자료구조는 하나도 없습니다 — 워커
@@ -125,7 +125,7 @@ mutex가 아예 없습니다.
 `MailModel`(플레이어 우편함)은 평소 그 존의 BASIC 스레드에서만 바뀝니다. 그런데 **메일 만료만
 별도 유지보수 타이머(io 스레드를 빌려 도는)가 처리**하므로, 우편함 **내용**은 여기 한 곳에서만 불변식이 깨집니다. 그래서:
 
-- 그 교차 지점만 `Threading::Synchronized`로 보호 (`ref->`=읽기 / `ref.Write()->`=쓰기)
+- 그 교차 지점만 `Thread::Mutexed`로 보호 (`ref->`=읽기 / `ref.Write()->`=쓰기)
 - 상태 변경은 즉시 전송하지 않고 `Task::UnitOfWork`에 기록했다가 **Commit() 시점에 한 번에**
   내보냅니다. 실패하면 기록해둔 태스크를 역순으로 되짚어 **메모리를 롤백**하고 DB로는 아무것도
   나가지 않습니다
@@ -385,7 +385,7 @@ asio-server/
 ├─ Shared/          서버와 도구가 함께 쓰는 모듈
 │   └─ Core/        정적 라이브러리 — 게임 로직을 전혀 모름
 │       └─ Src/     Network(Session/Listener/Connector/IoContextPool), Packet(직렬화/디스패처),
-│                   Thread(WorkerThread/AffinityWorkerPool), Timer, Threading(Synchronized),
+│                   Thread(WorkerThread/AffinityWorkerPool/Mutexed), Timer,
 │                   Task(UnitOfWork), Log
 ├─ Server/
 │   ├─ GatewayServer/  클라이언트 accept + World 릴레이
@@ -435,7 +435,7 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 0~3 | 프로젝트 셋업, echo 서버, 패킷 프레이밍, 존 어피니티 라우팅 | 완료 |
-| 4 | Gateway/World/Zone 계층 분리, 재접속 없는 존 핸드오프, Mail(Synchronized/UnitOfWork) | 완료 |
+| 4 | Gateway/World/Zone 계층 분리, 재접속 없는 존 핸드오프, Mail(Mutexed/UnitOfWork) | 완료 |
 | 5 | ZoneServer 5-풀 분리, WorldServer WorldWorker | 완료 |
 | 6 | 부하 도구(StressClient), 대규모 세션 검증, 지연 백분위 계측 | 완료 (병목 진단됨) |
 | 7 | 부하 테스트 병목 수정 (`docs/load-test-fix-plan.md`) | 진행 중 |

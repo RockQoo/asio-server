@@ -44,7 +44,7 @@ namespace Zone
     // 전체를 조립하는 곳: World로 나가는 연결(Connector) 하나, 그 연결의 LB 풀(WorldLinkHandler
     // 내부), 이 프로세스가 호스팅하는 존들의 BASIC/TICK/BROADCAST 풀(ZoneWorkerManager),
     // 그리고 그 풀들과 무관하게 도는 메일 만료 유지보수 타이머(Mail::MailExpiryService)를
-    // 한데 묶는다 -- 후자가 Synchronized가 실제로 필요한 유일한 지점이다(ZoneInstance.h 상단 주석
+    // 한데 묶는다 -- 후자가 Mutexed가 실제로 필요한 유일한 지점이다(ZoneInstance.h 상단 주석
     // 참고).
     class ZoneServerApp
     {

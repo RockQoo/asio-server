@@ -19,7 +19,7 @@
         행은 <code>ZoneServer.exe 3,4</code>가 담당하므로, <strong>세로로 넘는 이동(1↔3, 2↔4)이
         프로세스를 넘는 핸드오프</strong>다),
         (2) <code>Task::UnitOfWork</code> Unit-of-Work(성공하면 DB와 클라이언트 양쪽으로 같은 태스크
-        목록, 실패하면 역순 롤백)와 <code>Z2CTaskResult</code> 왕복 확인, (3) <code>Threading::Synchronized</code>가 실제로 방어 역할을 하는 지점,
+        목록, 실패하면 역순 롤백)와 <code>Z2CTaskResult</code> 왕복 확인, (3) <code>Thread::Mutexed</code>가 실제로 방어 역할을 하는 지점,
         (4) <code>WorldServer</code>가 Zone을 거치지 않고 직접 하는 전체 브로드캐스트. 기본
         패킷 왕복 경로와 ZoneServer의 5-풀(NETWORK/LB/BASIC/TICK/BROADCAST) 구조는
         <a href="protocolclient-echo-move-chat.html">Echo/Move/Chat 다이어그램</a> 참고.
@@ -114,7 +114,7 @@
                 <code>Zone::ZoneUnitOfWork</code>(Core의 범용 <code>Task::UnitOfWork</code>를 상속해
                 "전송/역연산"만 콘텐츠가 채운 것)를 <strong>스택</strong>에 만든 뒤
                 <code>mailModel-&gt;Write()-&gt;AddMail(info, unitOfWork)</code> 호출
-                (<code>Write()</code>는 <code>Threading::Synchronized</code>의 unique_lock 진입점).
+                (<code>Write()</code>는 <code>Thread::Mutexed</code>의 unique_lock 진입점).
                 <code>MailModel::AddMail</code>은 <code>mails_</code>를 갱신하며
                 <code>unitOfWork.RecordTask(kind, payload)</code>로 "무엇이 바뀌었는지"만 기록하고,
                 실패하면 <code>unitOfWork.SetError(...)</code>만 남긴다 -- 성공/실패 어느 쪽이든
@@ -210,7 +210,7 @@
         </div>
     </div>
 
-    <h2>3. 메일 만료 삭제 — Synchronized가 실제로 방어하는 유일한 지점</h2>
+    <h2>3. 메일 만료 삭제 — Mutexed가 실제로 방어하는 유일한 지점</h2>
     <div class="flow">
         <div class="step logic">
             <div class="lane">별도 유지보수 스레드 (ZoneServerApp의 <code>RepeatingTimer</code>,
@@ -218,7 +218,7 @@
             <div class="title"><code>Mail::MailExpiryService::SweepOnce</code></div>
             <div class="detail">
                 <code>MailRegistry::ForEach</code>로 이 존의 모든 플레이어
-                <code>Synchronized&lt;MailModel&gt;</code>를 순회하며
+                <code>Mutexed&lt;MailModel&gt;</code>를 순회하며
                 <code>mailModel-&gt;Write()</code>(<code>shared_mutex</code>의
                 <code>unique_lock</code>)로 잠금을 잡은 뒤, <code>TakeExpiredMailIds</code> 조회와
                 <code>DelMail(mailId, unitOfWork, isTimeout=true)</code> 삭제를
@@ -233,7 +233,7 @@
                 <code>Write()</code></div>
             <div class="detail">
                 두 스레드가 <strong>같은 플레이어의 같은 <code>MailModel</code> 인스턴스</strong>를
-                동시에 건드릴 수 있는 이 프로젝트의 유일한 지점이다. <code>Synchronized</code>의
+                동시에 건드릴 수 있는 이 프로젝트의 유일한 지점이다. <code>Mutexed</code>의
                 <code>shared_mutex</code>가 둘을 직렬화해주지 않으면 <code>mails_</code> 맵이
                 동시 수정으로 깨질 수 있다 -- 나머지 게임 상태(<code>players_</code>의
                 <code>PlayerState</code> 등)는 항상 그 존의 BASIC 스레드 전용이라 락이 전혀 없는
@@ -278,7 +278,7 @@
         BASIC 스레드를 거의 건드리지 않고, 둘 다 <strong>WorldWorker 한 스레드</strong>에서
         일어나므로 World 쪽에도 락이 없다. 반대로 Mail 상태 변경은 항상 그 존의 BASIC 스레드
         (평소) 또는 별도 유지보수 스레드(만료 삭제)에서만 일어나고, 두 스레드가 만나는 유일한
-        지점만 <code>Threading::Synchronized</code>로 보호한다. 자세한 내용은
+        지점만 <code>Thread::Mutexed</code>로 보호한다. 자세한 내용은
         <a href="../../CLAUDE.md">CLAUDE.md</a> 참고.
     </div>
 </div>

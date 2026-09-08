@@ -14,7 +14,7 @@ namespace Mail
     void MailExpiryService::SweepOnce(const int64_t nowUt)
     {
         mailRegistry_.ForEach([this, nowUt](const Network::SessionId clientSessionId,
-                                             const std::shared_ptr<MailModel::Sync>& mailModel)
+                                             const std::shared_ptr<MailModel::Mutexed>& mailModel)
         {
             // 이 타이머는 존 워커 스레드가 아니라 별도 유지보수 스레드에서 돈다 -- 그 사이
             // 존 워커가 같은 플레이어의 AddMail/DelMail을 호출할 수 있으므로, Write()의
@@ -45,7 +45,7 @@ namespace Mail
 
             // 이 스코프는 아직 writeProxy(unique_lock)를 쥐고 있다 -- 롤백이 필요해져
             // ZoneUnitOfWork가 같은 MailModel을 다시 Write()로 잠가도 RecursionGuard가 같은
-            // 스레드의 재진입을 건너뛰므로 데드락은 나지 않는다(Synchronized.h 주석 참고).
+            // 스레드의 재진입을 건너뛰므로 데드락은 나지 않는다(Mutexed.h 주석 참고).
             unitOfWork.Commit();
         });
     }

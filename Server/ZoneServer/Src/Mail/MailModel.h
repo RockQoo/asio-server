@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Threading/Synchronized.h"
+#include "Shared/Core/Src/Thread/Mutexed.h"
 
 #include <cstdint>
 #include <string>
@@ -31,11 +31,11 @@ namespace Mail
     // 기록만 한다(Unit-of-Work) -- 실제 World 전송은 UnitOfWork가 스코프를 벗어날 때 한 번에
     // 처리한다. 평소(존 로직 스레드에서 클라이언트 요청 처리)와 만료 삭제(별도 유지보수
     // 타이머 스레드)가 같은 인스턴스를 건드릴 수 있어 MailRegistry가 이 클래스를 Sync(=
-    // Threading::Synchronized<MailModel>)로 감싸서 보관한다 -- MailModel 자신은 락을 전혀 모른다.
+    // Thread::Mutexed<MailModel>)로 감싸서 보관한다 -- MailModel 자신은 락을 전혀 모른다.
     class MailModel
     {
     public:
-        using Sync = Threading::Synchronized<MailModel>;
+        using Mutexed = Thread::Mutexed<MailModel>;
 
         // 성공/실패는 반환값이 아니라 unitOfWork에 실린다 -- 한 요청이 여러 모델을 건드릴 때
         // (메일 추가 + 재화 차감 등) 어느 단계에서 실패했든 호출부는 Commit() 한 번으로
