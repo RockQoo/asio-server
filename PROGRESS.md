@@ -1,6 +1,6 @@
 # 진행 상황 정리 (다음 세션 이어하기용)
 
-마지막 업데이트: 2026-09-07
+마지막 업데이트: 2026-09-08
 
 `README.md`(소개용)와 별개로, 다음 세션에서 빠르게 컨텍스트를 복구하기 위한 문서. 자세한
 아키텍처/타입 표는 `CLAUDE.md`, 코딩 규약은 `.claude/rules/`를 우선 참고 — 여기는 "지금
@@ -37,9 +37,13 @@
   기록 — 수백만 샘플에도 상수 메모리·O(1)이라 계측이 실험 자체를 방해하지 않는다. 재는
   구간은 `MailAdd→Ack`, `MailDel→Ack`, 사이클 전체 3종. 추적 상한은 100초(처음 10초로
   뒀다가 과부하 실험에서 P95/P99가 전부 상한에 몰려 구분이 안 돼 넓혔다).
-- **`bat/start_server_all.bat`/`bat/start_protocol_client.bat`**: 전체 프로세스를 한 번에 띄우는 배치 파일.
+- **`bat/start_server_all.bat`/`bat/start_protocol_client.bat`/`bat/start_visual_client.bat`**:
+  전체 프로세스를 한 번에 띄우는 배치 파일. VisualClient는 별도 .NET 솔루션이라 bin/x64가 아닌
+  자기 경로로 빌드되므로 `dotnet run`으로 띄운다(창 개수를 인자로 받는다 -- 브로드캐스트
+  확인에는 최소 2개가 필요하다).
 - 새 기능 추가 시 `docs/flowcharts/`에 다이어그램을 같이 갱신하는 규칙이 실제로 잘 지켜지고
-  있음(`zone-handoff-and-mail.html`, `protocolclient-echo-move-chat.html`, `gmtool-operations.html`).
+  있음(`zone-handoff-and-mail.html`, `protocolclient-echo-move-chat.html`, `gmtool-operations.html`,
+  `visualclient-screen-and-coupon.html`).
 - **운영툴(`Tool/GmTool`, C#/.NET 10/SQL Server)**: 서버 쪽은 WorldServer에 세 번째 accept
   포트(9300)와 `Tool/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
   **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라
@@ -96,6 +100,51 @@
   - 검증: Debug 빌드 에러·경고 0, 서버 3종을 띄워 `ProtocolClient`로 mail add/del 왕복과
     없는 mailId 삭제 시 `error=100(MailNotFound)` 응답까지 확인, `StressClient` 20세션×5사이클
     100/100 완료(불일치 0).
+- **시각 클라이언트(`Tool/VisualClient`, C#/MonoGame)**(2026-09-08): 존 이동·채팅·우편·쿠폰을
+  한 창에서 눈으로 확인하는 클라이언트. **서버 C++ 코드는 한 줄도 고치지 않았다** — 기존
+  프로토콜과 이미 있는 쿠폰 API만 쓴다. GmTool과 같은 이유로 별도 솔루션
+  (`Tool/VisualClient/VisualClient.slnx`).
+  - **코덱은 GmTool.Core의 `BinaryPacketWriter`/`Reader`를 복사**해 왔다(`Int32`/`Single`
+    메서드만 추가). 프로젝트 참조로 엮지 않은 이유: 두 도구가 쓰는 링크가 겹치지 않고
+    (운영툴 T2W/W2T vs 이쪽 C2Z/Z2C/W2C) 솔루션도 따로라, 참조로 묶어 GmTool 빌드에 이
+    클라이언트를 끌고 들어오는 값이 복사 비용보다 크지 않다. 공유 표면은 이 2개뿐이다.
+  - **쿠폰만 소켓이 아니라 HTTP**다. 쿠폰 등록은 클라이언트 패킷 대역에 아예 없고, 대신
+    GmTool.Web의 `POST /api/coupon/redeem`(운영자 토큰 없이 열려 있는 유일한 엔드포인트 —
+    게임 사용자용으로 설계된 자리)이 이미 사용 처리와 **보상 우편 발송**까지 한다. 보상은
+    HTTP 응답이 아니라 `T2WMailSendRequest` → 존 → `Z2CTaskResult` 경로로 소켓으로 온다.
+    C++ 서버에 다시 만들지 않은 이유: World에 DB 연동부터 새로 해야 한다(3절 2번 항목).
+  - **한글 글리프는 런타임에 GDI+로 굽는다**(`Src/Text/GlyphAtlas.cs`). SpriteFont로 한글을
+    넣으려면 U+AC00~U+D7A3(11172자)을 통째로 선언해야 해서 텍스처가 감당이 안 된다. 실제로
+    쓰인 글자만 아틀라스에 채우는 방식이라 `.mgcb` 콘텐츠 파이프라인 자체를 프로젝트에서
+    뺐다. 그래서 `TargetFramework`가 `net10.0-windows`다.
+  - **한계 두 개는 화면에 드러내 뒀다**: ① MonoGame이 IME 조합 문자를 받아오지 못해 한글
+    입력이 안 된다 — 입력칸은 ASCII만 받고 한글 왕복은 채팅 패널의 프리셋 버튼으로 확인한다
+    (수신 표시는 정상). ② 존을 넘어가면 서버가 우편함을 버리므로 클라이언트도 목록을 비우고
+    그 이유를 배너로 띄운다(존 간 우편 이관 미구현).
+  - **만들면서 드러난 프로토콜 공백 2개를 클라이언트가 메우고 있다** — 서버를 고치지 않기로
+    했으니 클라이언트 쪽 우회이고, 제대로 고칠 자리는 서버다:
+    - **입장 시 플레이어 스냅샷이 없다.** `BroadcastToZone`은 그 순간 `players_`에 있는
+      사람에게만 보내는데 "입장 시 존 안의 플레이어 목록"을 주는 패킷이 없다. 그래서 나중에
+      들어온 창은 이미 있던 플레이어가 **움직일 때까지** 그 존재를 알 수 없다(창 2개를 띄우고
+      한쪽을 가만히 두면 다른 쪽에서 아예 안 보인다 — 실제로 이 증상으로 발견했다). 클라이언트가
+      이동이 없어도 1초마다 좌표를 다시 보내 메운다(`PositionHeartbeatInterval`).
+      **제대로 하려면 `Z2CEnterZoneNotify`(또는 별도 패킷)에 존 안의 플레이어 스냅샷이 실려야 한다.**
+    - **퇴장 통지가 없다.** 서버는 `W2ZLeaveZoneNotify`로 자기 상태에서만 지우고 같은 존의
+      남은 사람들에게 알리지 않는다. 위 하트비트가 끊긴 것으로 퇴장을 추정해 6초 뒤 목록에서
+      지운다(`WorldModel.ForgetStalePlayers`). 안 지우면 끊은 창이 화면에 영원히 남는다.
+  - 존 경계 좌표는 서버가 안 알려준다(`Z2CEnterZoneNotify`는 playerId+zoneId뿐). 서버
+    `main.cpp`의 `ParseZoneList` 규칙("각 존은 10칸 폭")을 `Src/Protocol/ZoneLayout.cs`가
+    복제한다 — **한쪽만 고치면 화면의 경계와 실제 핸드오프 지점이 어긋난다.**
+  - 쿠폰의 `clientSessionId`로는 `playerId`(uint32)를 그대로 넘긴다. 서버의 `playerId`가
+    `static_cast<uint32_t>(clientSessionId)`이고 `Listener`의 세션 id가 1부터 증가하는
+    카운터라 상위 32비트가 0이기 때문이다 — **세션 id 발급 방식을 바꾸면 깨지는 전제**다.
+  - 검증: 빌드 경고 0. 서버 3종 + GmTool.Web + SQL Server를 실제로 띄우고, VisualClient의
+    `Protocol`/`Net`/`Model` 소스를 그대로 링크한 헤드리스 하네스로 왕복을 확인했다 —
+    존 입장(playerId/zoneId), Echo RTT 30.6ms, 한글 채팅 왕복, Move 후 서버 확정 좌표,
+    MailAdd의 `Z2CTaskResult` 스트림 파싱(한글 제목/본문 정상), 없는 mailId 삭제 시
+    `MailNotFound`, 실제 삭제 시 Removed 태스크 적용, x=12로 이동해 zoneId 0→1 핸드오프.
+    쿠폰은 캠페인 생성 → 5장 발급 → 등록 성공 → **보상 우편이 소켓으로 도착** → 같은 쿠폰
+    재등록 실패(maxUseCount=1)까지 확인. 창 실행은 15초간 크래시 없이 렌더 루프가 돌았다.
 
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 
@@ -123,6 +172,13 @@
    9300 경유).
 3. **AOI/몬스터**: 존 내부를 그리드로 나눠 "가까운 플레이어에게만" 브로드캐스트하도록
    확장, 몬스터(NPC)와 간단한 FSM 추가.
+
+   **이때 같이 정리할 것 — 존 입장 스냅샷과 퇴장 통지.** `VisualClient`를 만들면서 드러났다:
+   브로드캐스트는 그 순간 존에 있는 사람에게만 가고, 입장할 때 기존 플레이어 목록을 주는
+   패킷도 누가 나갔는지 알리는 패킷도 없다. 지금은 클라이언트가 좌표 하트비트(1초)와
+   타임아웃(6초)으로 메우고 있지만, 서버가 `Z2CEnterZoneNotify`에 존 안의 플레이어 스냅샷을
+   싣고 퇴장을 브로드캐스트하는 쪽이 맞다. AOI를 넣으면 "누가 내 시야에 들어왔나/나갔나"를
+   어차피 서버가 판단해야 하므로 그 작업과 한 세트다.
 4. **자동화 테스트**: C++ 쪽은 여전히 `ProtocolClient`/`StressClient` 수동·부하 확인뿐 —
    회귀 방지용 자동화 스위트가 없다. 운영툴은 xUnit 77개가 붙어 있으니(`cd Tool\GmTool &&
    dotnet test`), 같은 방식으로 C++ 쪽에도 최소한 패킷 코덱/프레이밍 단위 테스트부터

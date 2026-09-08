@@ -15,7 +15,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
 | 운영툴 | `Tool/GmTool` — C#/.NET 10 + SQL Server. **별도 솔루션**(`Tool/GmTool/GmTool.slnx`)이며 C++ 솔루션에 넣지 않는다. WorldServer의 전용 포트(9300)로만 붙는다. **서버 기능 검증용 도구이고 기능 개발은 현재 중단** — 지금은 코드 정리/문서 정합성만 손댄다(역할 검사·비밀 관리 미비는 지금 범위 밖이지 미완성이 아니다). 영구 동결은 아니므로 사용자가 요청하면 기능 추가는 정상 진행 |
 | 기동 순서 | `bat/start_server_all.bat`(World→Zone→Gateway) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
-| 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측) — 둘 다 자동화 스위트 아님 |
+| 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Tool/VisualClient`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
+| 시각 클라이언트 | `Tool/VisualClient` — C#/MonoGame, 별도 솔루션(`Tool/VisualClient/VisualClient.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
 
 ---
@@ -99,9 +100,19 @@ C:\Work\asio-server\
 │           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │           ├── Mail/                 MailModel/MailRegistry/MailExpiryService
 │           └── Task/ZoneUnitOfWork   UnitOfWork 파생 — World(DB)/클라이언트 전송 + 역연산 롤백
-├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아님)
+├── Tool/                             서버를 두드리는 도구들
 │   ├── ProtocolClient/                   수동 테스트용 REPL (Core + Shared/Protocol 참조)
 │   ├── StressClient/               비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
+│   ├── VisualClient/                 시각 클라이언트 — C#/MonoGame, 별도 솔루션
+│   │   ├── VisualClient.slnx         (GmTool과 같은 이유로 C++ 솔루션에 넣지 않는다)
+│   │   └── VisualClient/Src/
+│   │       ├── Protocol/             코덱(GmTool.Core에서 복사) + PacketId(C2Z/Z2C/W2C 대역만)
+│   │       │                         + ZoneLayout(서버 ParseZoneList 규칙의 복제 — 짝을 맞춰야 함)
+│   │       ├── Net/                  GameLink(TCP+프레이밍, 수신은 큐에만 넣는다),
+│   │       │                         CouponClient(GmTool.Web HTTP)
+│   │       ├── Model/WorldModel      게임 스레드 전용 상태라 락이 없다(ZoneInstance와 같은 이유)
+│   │       ├── Text/GlyphAtlas       한글 글리프를 런타임에 GDI+로 굽는다(.mgcb 미사용)
+│   │       └── Ui/                   Painter/Widgets/ZoneView/ChatPanel/MailPanel/CouponPanel/Hud
 │   └── GmTool/                       서버 기능 검증용 운영툴 — C#/.NET 10, 별도 솔루션(기능 개발 중단)
 │       ├── GmTool.slnx               (C++ 솔루션에 섞으면 서버만 빌드할 때 NuGet 복원까지 끌려온다)
 │       ├── Sql/schema.sql            운영자/명령로그/쿠폰 캠페인·배치·등록시도 (쿠폰 테이블은 캠페인별 동적 생성)
@@ -113,6 +124,8 @@ C:\Work\asio-server\
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
 ├── bat/                              start_server_all.bat(전체 기동 + VS attach용 PID 출력)
 │                                     stop_server_all.bat(종료)/start_protocol_client.bat(ProtocolClient)
+│                                     start_visual_client.bat(VisualClient, 창 개수를 인자로)
+│                                     start_gmtool_mssql.bat/start_gmtool.bat(운영툴, 쿠폰에 필요)
 ├── bin/x64/{Debug,Release}/          산출물 (gitignored)
 ├── obj/                              중간 산출물 (gitignored)
 └── .claude/
@@ -242,9 +255,10 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 ## 로드맵 상태
 
 Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), ZoneServer 5-풀 분리, WorldServer
-WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(StressClient)까지 완료.
+WorldWorker, Mail(Synchronized/UnitOfWork) 시스템, 부하 테스트 도구(StressClient),
+시각 클라이언트(VisualClient)까지 완료.
 부하 테스트로 발견된 처리량 병목 수정이 진행 중(`docs/load-test-fix-plan.md`). 남은 것:
-실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI, 클라이언트. 자세한 표는
+실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
 
 ---
