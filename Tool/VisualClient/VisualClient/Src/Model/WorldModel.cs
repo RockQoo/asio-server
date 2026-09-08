@@ -289,7 +289,8 @@ public sealed class WorldModel
     }
 
     /// <summary>
-    /// <c>Z2CTaskResult</c>: errorCode(int32) + requestPacketId(uint16) + [태스크 스트림].
+    /// <c>Z2CTaskResult</c>: errorCode(int32) + requestPacketId(uint16) + requestId(int64)
+    /// + [태스크 스트림].
     /// 스트림 포맷은 <c>ownerId(8) + taskCount(2) + taskCount개의 {kind(2) + len(4) + payload}</c>.
     ///
     /// <para>
@@ -300,7 +301,12 @@ public sealed class WorldModel
     private void ApplyTaskResult(byte[] payload)
     {
         var reader = new BinaryPacketReader(payload);
-        if (!reader.TryReadInt32(out var errorCode) || !reader.TryReadUInt16(out var requestPacketId))
+
+        // requestId는 성공/실패 어느 쪽이든 실린다 -- 값 자체는 쓰지 않지만 건너뛰지 않으면
+        // 그 뒤 태스크 스트림을 8바이트 밀려서 읽는다.
+        if (!reader.TryReadInt32(out var errorCode)
+            || !reader.TryReadUInt16(out var requestPacketId)
+            || !reader.TryReadInt64(out _))
         {
             return;
         }

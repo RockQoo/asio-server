@@ -190,8 +190,9 @@
   - 회귀: `StressClient` 20세션×5사이클 100/100 완료(불일치 0, 스톨 0). 처음 돌렸을 때 전
     세션이 스톨했는데, `Z2CTaskResult`에 `requestId`(8바이트)가 추가된 걸 부하 도구가 읽지
     않아 스트림 오프셋이 밀린 것이었다 -- **와이어 포맷을 바꾸면 세 클라이언트(ProtocolClient/
-    StressClient/VisualClient)를 모두 확인해야 한다**는 신호다(VisualClient는 이번에 손대지
-    않았으므로 `Z2CTaskResult` 파싱을 같이 고쳐야 한다).
+    StressClient/VisualClient)를 모두 확인해야 한다**는 신호다. VisualClient(C#)도 같은
+    파싱을 고쳤고 경고 0으로 빌드된다 -- 재화 태스크는 아직 모르는 kind로 건너뛰지만, 길이
+    프리픽스 덕에 나머지 태스크는 정상 적용된다.
 
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 
