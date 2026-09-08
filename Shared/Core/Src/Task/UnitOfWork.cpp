@@ -8,8 +8,9 @@
 
 namespace Task
 {
-    UnitOfWork::UnitOfWork(const uint64_t ownerId)
+    UnitOfWork::UnitOfWork(const uint64_t ownerId, const Common::RequestId requestId)
         : ownerId_(ownerId)
+        , requestId_(requestId)
     {
     }
 

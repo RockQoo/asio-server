@@ -1,6 +1,7 @@
 #include "Server/WorldServer/Src/pch.h"
 #include "Server/WorldServer/Src/App/WorldServerApp.h"
 
+#include "Shared/Core/Src/Common/RequestId.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
@@ -57,6 +58,11 @@ int main()
     // 항목이 있어(HandleUnitOfWorkStream 참고), 평소 실행에서는 Info부터만 남긴다. 상세히
     // 봐야 할 때만 ELogLevel::Debug로 바꿔서 실행할 것.
     Log::Logger::Instance().Initialize("logs/worldserver.log", Log::ELogLevel::Info);
+
+    // World는 RequestId를 스스로 발급하지 않고 Zone이 실어 보낸 값을 그대로 쓰지만, 나중에
+    // World가 만드는 변경(운영툴 명령 등)이 생길 자리를 미리 잡아둔다. 0번은 zoneId가
+    // 1부터 시작하므로 어느 Zone 프로세스와도 겹치지 않는다.
+    Common::RequestIdGenerator::Instance().Initialize(0);
 
     try
     {

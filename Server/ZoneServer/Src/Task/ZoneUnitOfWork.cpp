@@ -3,6 +3,7 @@
 #include "Server/ZoneServer/Src/World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 
+#include "Shared/Core/Src/Common/RequestId.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
@@ -13,7 +14,7 @@ namespace Zone
 {
     ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
                                    const uint32_t playerId, const PacketId requestPacketId)
-        : Task::UnitOfWork(clientSessionId)
+        : Task::UnitOfWork(clientSessionId, Common::RequestIdGenerator::Instance().Next())
         , worldLink_(worldLink)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
@@ -23,7 +24,7 @@ namespace Zone
 
     ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
                                    const uint32_t playerId)
-        : Task::UnitOfWork(clientSessionId)
+        : Task::UnitOfWork(clientSessionId, Common::RequestIdGenerator::Instance().Next())
         , worldLink_(worldLink)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
@@ -82,6 +83,7 @@ namespace Zone
 
         Packet::BinaryWriter writer;
         writer.Write(playerId_);
+        writer.Write(GetRequestId());
         writer.WriteBytes(stream);
         worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
     }
@@ -97,6 +99,10 @@ namespace Zone
         Packet::BinaryWriter inner;
         inner.Write(errorCode);
         inner.Write(requestPacketId_);
+
+        // requestId를 태스크 스트림 밖에 두는 이유: 실패하면 스트림이 비어서 안에 넣으면
+        // 클라이언트가 실패한 요청을 짝지을 수 없다. 성공/실패 어느 쪽이든 여기 실린다.
+        inner.Write(GetRequestId());
         inner.WriteBytes(stream);
 
         // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다

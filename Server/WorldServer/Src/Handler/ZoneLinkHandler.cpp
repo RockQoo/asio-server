@@ -8,6 +8,7 @@
 #include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
+#include "Shared/Core/Src/Common/RequestId.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 
@@ -218,7 +219,8 @@ namespace World
     {
         Packet::BinaryReader reader(payload);
         uint32_t playerId{};
-        if (!reader.Read(playerId))
+        Common::RequestId requestId{};
+        if (!reader.Read(playerId) || !reader.Read(requestId))
         {
             return;
         }
@@ -240,7 +242,7 @@ namespace World
         // UnitOfWork 태스크는 항상 같은 스레드에서 순서대로 처리되므로 락이 필요 없다
         // (TaskWorker와 동일한 owner-hash 원리).
         dbWorkers_.GetWorker(static_cast<size_t>(ownerId)).PostTask(
-            [playerId, taskBytes = std::move(taskBytes)]
+            [playerId, requestId, taskBytes = std::move(taskBytes)]
             {
                 Packet::BinaryReader taskReader(taskBytes);
                 uint64_t ownerId{};
@@ -279,7 +281,7 @@ namespace World
                         // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면
                         // 나머지 태스크는 정상 처리된다.
                         LOG.Warning(ELogCategory::Db, "알 수 없는 UnitOfWork 태스크 카테고리")
-                            .KV("OwnerId", ownerId).KV("TaskKind", kind);
+                            .KV("OwnerId", ownerId).KV("RequestId", requestId).KV("TaskKind", kind);
                         break;
                     }
                 }

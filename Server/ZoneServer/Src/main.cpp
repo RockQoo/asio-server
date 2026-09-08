@@ -1,6 +1,8 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/App/ZoneServerApp.h"
 
+#include "Shared/Core/Src/Common/RequestId.h"
+
 #include <chrono>
 #include <cstdlib>
 #include <exception>
@@ -120,6 +122,20 @@ int main(const int argc, char* argv[])
         LOG.Warning(ELogCategory::Zone,
                     "격자에 없는 zoneId라 무시했다(0은 '존 없음' 예약값, 상한은 kZonesPerRow*kZoneRows)")
             .KV("Token", token);
+    }
+
+    // RequestId의 노드 번호. 프로세스마다 달라야 하는데(같으면 id가 겹친다) 이 프로젝트는
+    // 담당 존 목록이 프로세스마다 다르므로, 그 중 가장 작은 zoneId를 그대로 쓴다 -- 별도
+    // 설정 없이 "1,2" / "3,4" 두 프로세스가 자동으로 1번, 3번 노드가 된다.
+    // (zoneId는 1부터고 격자 상한이 8비트보다 훨씬 작아서 노드 칸을 넘칠 일이 없다.)
+    if (!zones.empty())
+    {
+        auto nodeId = zones.front().zoneId;
+        for (const auto& def : zones)
+        {
+            nodeId = def.zoneId < nodeId ? def.zoneId : nodeId;
+        }
+        Common::RequestIdGenerator::Instance().Initialize(nodeId);
     }
 
     if (zones.empty())

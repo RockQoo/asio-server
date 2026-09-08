@@ -98,6 +98,7 @@
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Common\BasicTypes.h" />
+    <ClInclude Include="Src\Common\RequestId.h" />
     <ClInclude Include="Src\Common\Types.h" />
     <ClInclude Include="Src\Common\CoreErrorCode.h" />
     <ClInclude Include="Src\Common\EnumFlags.h" />
@@ -140,6 +141,7 @@
     <ClCompile Include="Src\Network\IoContextPool.cpp" />
     <ClCompile Include="Src\Thread\WorkerThread.cpp" />
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp" />
+    <ClCompile Include="Src\Common\RequestId.cpp" />
     <ClCompile Include="Src\Task\UnitOfWork.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -56,14 +56,18 @@ namespace
         Packet::BinaryReader reader(payload);
         int32_t errorCode{};
         uint16_t requestPacketId{};
-        if (!reader.Read(errorCode) || !reader.Read(requestPacketId))
+        int64_t requestId{};
+        if (!reader.Read(errorCode) || !reader.Read(requestPacketId) || !reader.Read(requestId))
         {
             return;
         }
 
         if (errorCode != 0)
         {
+            // requestId는 요청 하나를 가리키는 값이다 -- 같은 패킷을 연달아 보내도 값이
+            // 달라서, 어느 응답이 어느 요청의 결과인지 짝지을 수 있다(실패해도 실린다).
             std::cout << "[recv] TaskResult 실패 request=" << requestPacketId
+                      << " requestId=" << requestId
                       << " error=" << errorCode << '\n';
             return;
         }
@@ -76,7 +80,8 @@ namespace
         }
 
         // requestPacketId=0은 요청 없이 서버가 만든 변경(메일 만료 삭제 등)이다.
-        std::cout << "[recv] TaskResult request=" << requestPacketId << " tasks=" << taskCount << '\n';
+        std::cout << "[recv] TaskResult request=" << requestPacketId
+                  << " requestId=" << requestId << " tasks=" << taskCount << '\n';
 
         for (uint16_t i = 0; i < taskCount; ++i)
         {
