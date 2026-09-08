@@ -126,6 +126,69 @@ template <typename E> requires std::is_enum_v<E>
 맨 뒤에 추가**(기존 값 정수가 바뀌면 과거 로그와 어긋남).
 asio의 `std::error_code`/`std::system_error`(네트워크 계층)는 이미 코드 기반이라 대상 아님.
 
+## 콘텐츠 로직 실패는 에러 코드로 반환하고, 호출부가 `SetError`로 옮긴다
+
+`UnitOfWork&`를 받는 모델 함수는 **성공/실패를 `[[nodiscard]] Protocol::EErrorCode`로
+반환한다.** 모델은 UoW의 에러 상태를 모르고, 태스크를 기록하는 용도로만 UoW를 쓴다.
+
+```cpp
+// 모델 -- 실패면 아무 상태도 바꾸지 않고, 태스크도 기록하지 않는다
+[[nodiscard]] Protocol::EErrorCode MailModel::AddMail(MailInfo info, Task::UnitOfWork& unitOfWork)
+{
+    if (mails_.contains(info.mailId))
+    {
+        return Protocol::EErrorCode::MailAlreadyExists;   // 이 시점에 바뀐 게 없다
+    }
+
+    mails_.emplace(info.mailId, info);
+    unitOfWork.AddTask(AddMailTask{info});                // 상태가 바뀐 뒤에만 기록
+
+    return Protocol::EErrorCode::None;
+}
+
+// 호출부(핸들러) -- 실패를 UoW로 옮기고 즉시 중단한다
+if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
+    errorCode != Protocol::EErrorCode::None)
+{
+    unitOfWork.SetError(errorCode);
+    return;
+}
+```
+
+**왜 `[[nodiscard]]`인가**: 커밋 지점(`ZoneUnitOfWork` 소멸자)이 `HasError()` 하나만 보고
+"역순 롤백 + 클라에 에러 통지" / "World·클라로 전송"을 가른다. 호출부가 반환값을 무시하면
+그 앞까지 바뀐 메모리가 **성공으로 커밋되고 DB에도 나간다** -- 실패한 요청이 부분 반영된 채로
+남는 게 가장 되돌리기 어려운 상태다. `[[nodiscard]]`를 붙이면 그 실수를 사람이 아니라
+컴파일러가 잡는다(경고 0 빌드 규칙과 짝).
+
+**왜 모델이 직접 `SetError`를 부르지 않나**: 모델은 자기 데이터만 아는 클래스로 유지한다.
+실패를 어떻게 전달할지(어느 UoW에, 어느 요청의 결말로)는 요청 흐름을 아는 호출부의 일이다.
+모델이 UoW의 에러 상태까지 만지면, 같은 모델 함수를 다른 흐름(GM 명령, 주기 처리)에서 재사용할
+때 그 흐름의 에러 규약과 충돌한다.
+
+같이 지킬 것:
+
+- **부분 적용 금지**: 클램프/부분 차감을 하지 않는다. 전부 적용되거나 하나도 적용되지 않는다.
+  골드 50인데 100을 요청하면 0으로 깎지 말고 에러로 끊는다 -- 클라는 "100 썼다"로 알고 서버는
+  "50 썼다"가 되면 그 순간부터 양쪽 상태가 갈린다.
+- **실패하면 태스크를 기록하지 않는다**: 상태를 바꾼 뒤에만 `AddTask`를 부른다. 그래야 태스크
+  목록이 곧 "실제로 적용된 변경"이 되고, 역순 롤백이 정확해진다.
+- **첫 에러를 유지한다**: `SetError`는 이미 값이 있으면 덮어쓰지 않는다. 처음 난 실패가 진짜
+  원인이고 그 뒤는 연쇄 실패일 가능성이 높다.
+- **파싱 실패도 같은 경로**: 페이로드 파싱 실패(`InvalidPayload`)도 "이 요청의 결말"이라
+  UoW를 먼저 열어두고 같은 경로로 내려보낸다. 클라가 성공/실패를 한 경로로만 받게 하려는 것.
+- **롤백은 전송 기능이 없는 임시 UoW를 넘겨 정상 함수를 재사용한다**: 롤백 전용 함수를 모델마다
+  따로 만들지 않는다(`AddMail`을 되돌릴 때 `DelMail`을 그대로 쓴다). 그때 넘기는
+  `Task::RollbackUnitOfWork`는 소멸자가 아무것도 전송하지 않아서, 롤백 중 쌓인 태스크가 조용히
+  버려진다 -- 원래 UoW를 넘기면 "지급 안 했는데 삭제했다"는 태스크가 DB로 나가고, 순회 중인
+  목록에 추가돼 반복자도 깨진다.
+- **롤백은 실패할 수 없다는 게 전제다**: 롤백은 조금 전에 성공한 변경을 되돌리는 것뿐이라
+  검증에 걸릴 이유가 없다(그래서 "롤백 실패 처리" 경로를 만들지 않는다). 반환값이 `None`이
+  아니면 그건 에러 처리 대상이 아니라 **불변식이 깨졌다는 신호**이므로 `LOG.Error`로 남긴다 --
+  실패해도 할 수 있는 일이 없으니 복구를 시도하지 말고 드러내기만 한다. 이 전제를 지키려면
+  롤백 경로가 새 검증을 추가하지 않아야 한다(예: 되돌려 넣을 자리가 없어질 수 있는 상한을
+  롤백에서 다시 검사하지 않는다).
+
 ## 로그는 `std::cout`/`std::cerr` 대신 `LOG`
 
 최상위 `Log` 네임스페이스(`Core::Log` 아님 — 아래 참고)의 전역 `LOG`(`Log::LogProxy`)를 쓴다.
