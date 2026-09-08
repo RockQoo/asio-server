@@ -104,7 +104,7 @@
         롤백해야 하지만, 여기서는 흐름을 단순하게 보여주려고 일부러 남겨둔 지점이다.
     </div>
 
-    <h2>2. Mail Add/Del — Task::UnitOfWork(범용 Unit-of-Work)가 변경을 모았다가 Commit()에서
+    <h2>2. Mail Add/Del — Task::UnitOfWork가 변경을 모았다가 <em>스코프를 벗어날 때</em>
         한 번에 전송, 실패하면 역순 롤백</h2>
     <div class="flow">
         <div class="step logic">
@@ -115,29 +115,41 @@
                 "전송/역연산"만 콘텐츠가 채운 것)를 <strong>스택</strong>에 만든 뒤
                 <code>mailModel-&gt;Write()-&gt;AddMail(info, unitOfWork)</code> 호출
                 (<code>Write()</code>는 <code>Thread::Mutexed</code>의 unique_lock 진입점).
-                <code>MailModel::AddMail</code>은 <code>mails_</code>를 갱신하며
-                <code>unitOfWork.RecordTask(kind, payload)</code>로 "무엇이 바뀌었는지"만 기록하고,
-                실패하면 <code>unitOfWork.SetError(...)</code>만 남긴다 -- 성공/실패 어느 쪽이든
-                아직 아무것도 네트워크로 전송하지 않는다.
+                <code>MailModel::AddMail</code>은 <code>mails_</code>를 갱신한 뒤
+                <code>unitOfWork.AddTask(AddMailTask)</code>로 "무엇이 바뀌었는지"를 기록하고,
+                실패하면 <strong>아무 상태도 바꾸지 않고 에러 코드를 반환</strong>한다(모델은
+                UoW의 에러 상태를 모르고, <code>SetError</code>는 호출부가 부른다). 성공/실패
+                어느 쪽이든 아직 아무것도 네트워크로 전송하지 않는다.<br><br>
+                태스크를 직렬화된 바이트가 아니라 <strong>타입 있는 객체</strong>로 들고 있는
+                이유: 실패로 끝나는 요청이 직렬화 비용을 내지 않고, 롤백이 그 바이트를 다시
+                파싱하지 않아도 된다.
             </div>
         </div>
-        <div class="connector">↓ 핸들러 마지막 줄 <code>unitOfWork.Commit()</code></div>
+        <div class="connector">↓ 핸들러가 <code>return</code>해 <code>unitOfWork</code>가 스코프를 벗어남</div>
         <div class="step logic">
             <div class="lane">같은 BASIC 스레드</div>
-            <div class="title"><code>Task::UnitOfWork::Commit</code> → <code>ZoneUnitOfWork::OnFlush</code></div>
+            <div class="title"><code>ZoneUnitOfWork::~ZoneUnitOfWork</code> (파생 클래스 소멸자가 결말을 낸다)</div>
             <div class="detail">
-                에러가 없으면 대상별로 <code>ownerId + taskCount + {kind, payloadLen,
-                payload}...</code>로 직렬화해서 <code>Db</code> 대상은 playerId를 앞에 붙여 Z2W
-                <code>Z2WUnitOfWorkStream</code>으로, <code>Client</code> 대상은 같은 목록을
-                <code>Z2CTaskResult</code>로 그 클라이언트에게 보낸다(전송 자체는
-                <code>Session</code>의 strand가 직렬화해주므로 어느 스레드에서 호출해도 안전하다).
+                에러가 없으면 <code>ownerId + taskCount + {kind, payloadLen, payload}...</code>로
+                <strong>한 번만</strong> 직렬화하고, 그 같은 바이트가 두 곳으로 나간다 --
+                World로는 playerId와 requestId를 앞에 붙여 <code>Z2WUnitOfWorkStream</code>,
+                그 클라이언트에게는 <code>Z2CTaskResult</code>(전송 자체는 <code>Session</code>의
+                strand가 직렬화해주므로 어느 스레드에서 호출해도 안전하다). <b>대상을 구분하는
+                플래그가 없는 이유</b>: DB에 저장하는 변경을 클라이언트에 알리지 않으면 그게 곧
+                서버-클라 불일치라, 구분할 경우가 없다.
                 <br><br>
-                에러가 있으면 기록해둔 태스크를 <strong>역순으로</strong> 되짚어
-                <code>OnRollback</code>이 역연산(Added↔Removed)을 부르고, 클라이언트에는 에러
-                코드만 간다 -- DB로는 아무것도 나가지 않는다. <b>내보내기를 소멸자가 아니라
-                <code>Commit()</code>에서 하는 이유</b>: 기반 클래스 소멸자가 도는 시점에는 파생
-                부분이 이미 파괴돼서 가상 함수가 파생 구현으로 불리지 않는다(소멸자는 "Commit
-                없이 소멸"을 잡는 안전망만 맡는다).
+                에러가 있으면 기록해둔 태스크를 <strong>역순으로</strong> 되짚어 각 태스크의
+                <code>Rollback()</code>이 자기 역연산을 부르고(종류별 분기 <code>switch</code>가
+                없다 -- 새 태스크가 롤백을 빼먹으면 순수 가상 때문에 컴파일이 안 된다),
+                클라이언트에는 에러 코드만 간다. DB로는 아무것도 나가지 않는다.
+                <br><br>
+                <b>왜 커밋이 <em>파생</em> 클래스 소멸자인가</b>: 기반 소멸자가 도는 시점에는
+                파생 부분이 이미 파괴돼서(소멸은 파생→기반 순서) 가상 함수가 파생 구현으로
+                불리지 않는다. 그래서 기반 소멸자는 아무것도 하지 않고(<code>= default</code>),
+                커밋/롤백을 파생 소멸자에 두고 파생을 <code>final</code>로 닫아 그 상황 자체를
+                없앴다. 기반 소멸자를 <code>protected</code>로 둬서 기반 포인터로
+                <code>delete</code>하는 경로(파생 소멸자를 건너뛰는 유일한 길)도 컴파일 단계에서
+                막힌다.
             </div>
         </div>
         <div class="connector">↓ Z2W <code>Z2WUnitOfWorkStream</code> (World의 I/O 스레드는 복사 후 PostTask만)</div>
@@ -178,24 +190,27 @@
         <div class="connector">↓ C2Z <code>C2ZMailAdd</code> → ... → BASIC 스레드에서 처리</div>
         <div class="step logic">
             <div class="lane">BASIC 스레드</div>
-            <div class="title"><code>ZoneInstance::HandleMailAdd</code> → <code>ZoneUnitOfWork::Commit()</code></div>
+            <div class="title"><code>ZoneInstance::HandleMailAdd</code> → 스코프 종료 시 커밋</div>
             <div class="detail">
-                핸들러는 <code>ZoneUnitOfWork</code>를 열고 모델을 부른 뒤 <code>Commit()</code>만
-                호출한다. 성공하면 같은 태스크 목록이 두 갈래로 나간다 —
-                <code>Db</code> 대상은 World로(<code>Z2WUnitOfWorkStream</code>),
-                <code>Client</code> 대상은 그 클라이언트에게(<code>Z2CTaskResult</code>).
+                핸들러는 <code>ZoneUnitOfWork</code>를 열고 모델을 부르고 반환값만 확인한다 --
+                커밋 호출이 없다(스코프를 벗어나는 게 곧 커밋이라 "깜빡한다"는 실수가 성립하지
+                않는다). 성공하면 같은 태스크 목록이 두 갈래로 나간다 —
+                World로(<code>Z2WUnitOfWorkStream</code>), 그 클라이언트에게(<code>Z2CTaskResult</code>).
                 실패하면 기록해둔 태스크를 <b>역순으로 되짚어 메모리를 롤백</b>하고 클라이언트에는
                 에러 코드만 간다(DB로는 아무것도 나가지 않는다).
             </div>
         </div>
-        <div class="connector">↓ S2C <code>Z2CTaskResult{errorCode, requestPacketId, 태스크 목록}</code></div>
+        <div class="connector">↓ S2C <code>Z2CTaskResult{errorCode, requestPacketId, requestId, 태스크 목록}</code></div>
         <div class="step client">
             <div class="lane">ProtocolClient / StressClient</div>
-            <div class="title"><code>[recv] TaskResult request=4 tasks=1 / - Mail Added mailId=N</code></div>
+            <div class="title"><code>[recv] TaskResult request=4 requestId=908... tasks=1 / - Mail Added mailId=N</code></div>
             <div class="detail">
                 클라이언트는 콘텐츠별 Ack 구조체를 파싱하는 대신, 받은 태스크 목록을 자기
                 메모리(우편함)에 그대로 적용한다 — 서버가 DB에 남기는 변경과 같은 목록이라
-                한쪽만 빠뜨릴 여지가 없다. 그 mailId로 <code>C2ZMailDel</code>을 보낸다.
+                한쪽만 빠뜨릴 여지가 없다. 그 mailId로 <code>C2ZMailDel</code>을 보낸다.<br><br>
+                <code>requestId</code>가 같이 실려 오는 이유: 같은 패킷을 연달아 보내면
+                패킷 번호만으로는 어느 응답이 어느 요청의 결과인지 가릴 수 없다. 실패해도
+                실리므로(태스크 스트림은 비어 있다) 실패한 요청도 짝지을 수 있다.
             </div>
         </div>
         <div class="connector">↓ C2Z <code>C2ZMailDel{mailId}</code> → ... → BASIC 스레드</div>

@@ -90,6 +90,7 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 | 3 | `C2ZMove` | `Zone::PacketId::Move` |
 | 4 | `C2ZMailAdd` | `Zone::PacketId::MailAdd` |
 | 5 | `C2ZMailDel` | `Zone::PacketId::MailDel` |
+| 6 | `C2ZMailBuy` | 신규 — 우편 지급 + 골드 차감(모델 두 개에 걸친 트랜잭션) |
 | 1001 | `Z2CEchoAck` | `Echo` 재사용이었음 |
 | 1002 | `Z2CChatNotify` | `Chat` 재사용이었음 |
 | 1003 | `Z2CMoveNotify` | `Move` 재사용이었음, **본문에 sessionId 추가** |
@@ -135,7 +136,8 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 ### 콘텐츠마다 Ack를 새로 만들지 않는다
 
 상태를 바꾸는 요청(우편/인벤/친구 등)의 응답은 콘텐츠별 Ack 패킷이 아니라 **`Z2CTaskResult`
-하나**로 돌아간다. 본문은 `errorCode(4) + requestPacketId(2) + UnitOfWork 태스크 스트림`이고,
+하나**로 돌아간다. 본문은 `errorCode(4) + requestPacketId(2) + requestId(8) + UnitOfWork 태스크
+스트림`이고,
 클라이언트는 그 태스크 목록을 자기 메모리에 그대로 적용해서 서버와 동기화한다 -- 서버가 DB에
 남기는 변경과 클라이언트가 적용하는 변경이 같은 목록이라 한쪽만 빠뜨릴 여지가 없다.
 

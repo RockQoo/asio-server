@@ -29,12 +29,23 @@
             </a>
         </li>
         <li>
+            <a href="mailbuy-transaction-rollback.html">
+                <div class="item-title">모델 두 개에 걸친 트랜잭션 · 역순 롤백</div>
+                <div class="item-desc">
+                    C2ZMailBuy(우편 지급 + 골드 차감)가 한 요청에서 모델 두 개를 바꾸고, 잔액이
+                    부족하면 이미 들어간 우편이 역순으로 되돌아가는 흐름. 커밋이 파생 클래스
+                    소멸자인 이유, 롤백이 자기 자신을 다시 기록하지 않게 막는 RollbackUnitOfWork,
+                    태스크에 새 값과 이전 값을 둘 다 싣는 이유까지.
+                </div>
+            </a>
+        </li>
+        <li>
             <a href="zone-handoff-and-mail.html">
                 <div class="item-title">존 경계 핸드오프 · Mail/UnitOfWork · 전체 브로드캐스트</div>
                 <div class="item-desc">
                     인접한 존 2개 사이의 재접속 없는 핸드오프(World 라우팅 테이블 교체만 —
                     Gateway는 아예 모르고, 클라이언트는 Z2CEnterZoneNotify 한 장을 받는다),
-                    Zone::ZoneUnitOfWork(Task::UnitOfWork 파생)가 변경을 모았다가 Commit()에서
+                    Zone::ZoneUnitOfWork(Task::UnitOfWork 파생)가 변경을 모았다가 스코프를 벗어날 때
                     WorldServer DB 워커와 클라이언트 양쪽으로 보내고 실패 시 역순 롤백하는 흐름, Thread::Mutexed가 실제로 방어하는 지점(유지보수 타이머 vs 존
                     BASIC 스레드), WorldServer가 Zone 없이 직접 하는 전체 브로드캐스트까지.
                 </div>

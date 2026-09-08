@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>모델 두 개에 걸친 트랜잭션 · 역순 롤백</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+    <a class="back-link" href="index.html">&larr; 전체 목록</a>
+
+    <h1>우편 지급 + 골드 차감을 한 트랜잭션으로 — 뒤에서 실패하면 앞이 되돌아간다</h1>
+    <p class="subtitle">
+        <code>C2ZMailBuy</code>는 이 프로젝트에서 <strong>모델 두 개(우편함·지갑)를 한 요청에서
+        바꾸는 유일한 경로</strong>이고, 그래서 <strong>역순 롤백이 실제로 실행되는 유일한
+        경로</strong>다. 단일 모델 요청(<code>C2ZMailAdd</code> 등)은 실패 시점에 아직 바꾼 것이
+        없어서 롤백 코드가 한 번도 밟히지 않는다. 이 페이지는 (1) 성공 경로, (2) 잔액 부족으로
+        <em>뒤</em>에서 실패했을 때 <em>앞</em>의 변경이 되돌아가는 경로, (3) 롤백이 자기 자신을
+        다시 기록하지 않게 만드는 장치를 다룬다. 기본 패킷 왕복과 5-풀 구조는
+        <a href="protocolclient-echo-move-chat.html">Echo/Move/Chat 다이어그램</a>,
+        UnitOfWork 전송 경로는 <a href="zone-handoff-and-mail.html">Mail/UnitOfWork 다이어그램</a> 참고.
+    </p>
+
+    <div class="legend">
+        <span class="badge client">● ProtocolClient (서버 워커 밖의 입력 주체)</span>
+        <span class="badge io">● NETWORK / I/O 스레드 (바이트 복사·릴레이만)</span>
+        <span class="badge logic">● BASIC 워커 스레드 (그 존 전용, 락 없이 게임 상태 접근)</span>
+    </div>
+
+    <h2>1. 성공 경로 — 태스크 2건이 한 응답으로 돌아온다</h2>
+    <div class="flow">
+        <div class="step client">
+            <div class="lane">ProtocolClient</div>
+            <div class="title"><code>mail buy 선물 축하합니다 3600 100</code></div>
+            <div class="detail">제목/본문/유효기간(초)/가격을 보낸다. 클라이언트는 자기 잔액이
+                얼마인지 몰라도 되고, 실패하면 에러 코드로 알게 된다.</div>
+        </div>
+        <div class="connector">↓ C2Z <code>C2ZMailBuy</code> → Gateway 릴레이 → World 라우팅 → Zone의 LB → <code>PostToBasic(zoneId)</code></div>
+        <div class="step logic">
+            <div class="lane">BASIC 스레드 (<code>ZoneInstance::HandleMailBuy</code>)</div>
+            <div class="title"><code>ZoneUnitOfWork</code>를 <strong>먼저</strong> 스택에 만든다</div>
+            <div class="detail">
+                파싱 실패도 "이 요청의 결말"이라 클라이언트에는 같은 경로(<code>Z2CTaskResult</code>)로
+                에러가 돌아가야 한다 — 그래서 파싱보다 UnitOfWork를 먼저 연다. 이 시점에
+                <code>Common::RequestIdGenerator</code>가 요청 id(밀리초 41 + 노드 8 + 시퀀스
+                14비트)를 하나 발급한다.
+            </div>
+        </div>
+        <div class="connector">↓ ① 우편을 <strong>먼저</strong> 넣는다</div>
+        <div class="step logic">
+            <div class="lane">같은 BASIC 스레드</div>
+            <div class="title"><code>player.GetMailBox()-&gt;Write()-&gt;AddMail(info, uow)</code></div>
+            <div class="detail">
+                <code>Write()</code>는 <code>Thread::Mutexed</code>의 unique_lock 진입점이다(우편함은
+                만료 스윕이 다른 스레드에서 돌기 때문에 감싸져 있다). 성공하면
+                <code>mails_</code>에 넣고 <code>AddMailTask</code>를 UnitOfWork에 기록한다 —
+                <strong>상태를 바꾼 뒤에만</strong> 기록하므로 태스크 목록이 곧 "실제로 적용된
+                변경"이 된다.
+            </div>
+        </div>
+        <div class="connector">↓ ② 골드를 나중에 깎는다</div>
+        <div class="step logic">
+            <div class="lane">같은 BASIC 스레드</div>
+            <div class="title"><code>player.GetWallet().DecCurrency(Gold, 100, uow)</code></div>
+            <div class="detail">
+                지갑은 <code>Mutexed</code>로 감싸지 않는다 — 이 모델을 건드리는 건 그 존의 BASIC
+                스레드뿐이라 락이 필요 없다("전부 락"도 "전부 무락"도 아니고 모델마다 실제 접근
+                스레드 수에 맞춘다). 값을 바꾸는 통로는 <code>SetTracked</code> 하나뿐이라
+                <strong>검증 → 이전 값 포착 → 태스크 기록 → 대입</strong>이 한 자리에서 일어난다.
+                기록되는 <code>CurrencyTask</code>는 <strong>새 값과 이전 값을 둘 다</strong> 싣는다.
+            </div>
+        </div>
+        <div class="connector">↓ 핸들러가 <code>return</code>해 <code>uow</code>가 스코프를 벗어남</div>
+        <div class="step logic">
+            <div class="lane">같은 BASIC 스레드</div>
+            <div class="title"><code>ZoneUnitOfWork::~ZoneUnitOfWork</code> — 에러 없음 → 전송</div>
+            <div class="detail">
+                태스크 2건을 <strong>한 번만</strong> 직렬화하고 같은 바이트를 두 곳으로 보낸다:
+                World로 <code>Z2WUnitOfWorkStream</code>(playerId + requestId + 스트림),
+                그 클라이언트에게 <code>Z2CTaskResult</code>(errorCode + requestPacketId +
+                requestId + 스트림).
+            </div>
+        </div>
+        <div class="connector">↓ S2C <code>Z2CTaskResult</code></div>
+        <div class="step client">
+            <div class="lane">ProtocolClient</div>
+            <div class="title"><code>[recv] TaskResult request=6 requestId=9086... tasks=2</code></div>
+            <div class="detail">
+                <code>- Mail Added mailId=1 title=선물</code><br>
+                <code>- Currency type=1 1000 -&gt; 900</code><br><br>
+                두 모델의 변경이 <strong>응답 하나</strong>로 돌아온다. 실제 클라이언트라면 우편함
+                목록에 한 건 추가하고 잔액 표시를 새 값으로 덮어쓴다 — 증감량을 누적하지 않으므로
+                통지가 하나 유실돼도 다음 값에서 자동으로 맞춰진다.
+            </div>
+        </div>
+    </div>
+
+    <h2>2. 실패 경로 — 잔액이 부족하면 <em>이미 들어간 우편</em>이 되돌아간다</h2>
+    <div class="flow">
+        <div class="step client">
+            <div class="lane">ProtocolClient</div>
+            <div class="title"><code>mail buy 너무비싼거 롤백되어야함 3600 999999</code></div>
+        </div>
+        <div class="connector">↓ ① 우편은 <strong>성공한다</strong> (mails_에 들어가고 AddMailTask가 기록됨)</div>
+        <div class="step logic">
+            <div class="lane">BASIC 스레드</div>
+            <div class="title">② <code>DecCurrency</code>가 <code>NotEnoughCurrency</code>를 반환</div>
+            <div class="detail">
+                <code>SetTracked</code>가 새 값이 음수임을 보고 <strong>아무 상태도 바꾸지 않고</strong>
+                에러 코드를 반환한다. <b>0으로 깎지 않는다</b>(부분 적용 금지) — 클라이언트는
+                "999999 썼다"로 알고 서버는 "1000 썼다"가 되면 그 순간부터 양쪽 상태가 갈린다.
+                호출부가 그 반환값을 <code>uow.SetError(...)</code>로 옮기고 즉시 <code>return</code>한다
+                (모델 함수는 <code>[[nodiscard]]</code>라 반환값을 무시하면 컴파일 경고가 난다).
+            </div>
+        </div>
+        <div class="connector">↓ 스코프 종료 → 소멸자가 <code>HasError()</code>를 보고 롤백 분기</div>
+        <div class="step logic">
+            <div class="lane">같은 BASIC 스레드</div>
+            <div class="title"><code>UnitOfWork::RollbackAll</code> — 기록의 <strong>역순</strong>으로</div>
+            <div class="detail">
+                나중에 일어난 변경부터 되돌려야 중간 상태를 거치지 않는다. 여기서는 골드가
+                기록되지 않았으므로 <code>AddMailTask</code> 하나만 남아 있고, 그 태스크의
+                <code>Rollback()</code>이 <code>DelMail</code>을 부른다 — <strong>롤백 전용 함수를
+                모델마다 따로 만들지 않고 정상 함수를 그대로 재사용</strong>한다.
+                <br><br>
+                종류별 분기 <code>switch</code>가 없다. 각 태스크가 자기 역연산을 알고 있고
+                <code>Rollback()</code>이 순수 가상이라, 새 태스크를 추가하면서 롤백을 빼먹으면
+                <strong>컴파일이 안 된다</strong>(전에는 런타임에 로그만 남기고 조용히 안 되돌렸다).
+            </div>
+        </div>
+        <div class="connector">↓ 롤백 끝 → 에러 코드만 전송 (World로는 <strong>아무것도</strong> 나가지 않음)</div>
+        <div class="step client">
+            <div class="lane">ProtocolClient</div>
+            <div class="title"><code>[recv] TaskResult 실패 request=6 requestId=9086... error=200</code></div>
+            <div class="detail">
+                태스크가 0건이다 — 되돌렸으므로 클라이언트가 적용할 변경이 없다. 그 뒤
+                <code>mail add</code>를 보내면 <strong>mailId가 하나 건너뛴 값</strong>으로
+                돌아오는데(3이 아니라 4), 롤백된 우편이 태운 번호다. <code>nextMailId_</code>를
+                되돌리지 않는 이유: id는 단조 증가만 하면 되고, 되돌렸다가는 이미 World로 나간
+                다른 태스크의 id와 겹칠 수 있다.
+            </div>
+        </div>
+    </div>
+
+    <h2>3. 롤백이 자기 자신을 다시 기록하지 않게 하는 장치</h2>
+    <div class="flow">
+        <div class="branch">
+            <div class="step logic">
+                <div class="lane">잘못된 방식</div>
+                <div class="title">원래 UnitOfWork를 그대로 넘긴다</div>
+                <div class="detail">
+                    <code>DelMail(mailId, uow)</code>는 정상 함수라 <code>DelMailTask</code>를
+                    <strong>또 기록</strong>한다. 그러면 (1) "지급하지 않았는데 삭제했다"는 태스크가
+                    DB로 나가고 (2) 지금 순회 중인 목록에 원소가 추가돼 반복자가 깨진다.
+                </div>
+            </div>
+            <div class="step logic">
+                <div class="lane">실제 방식</div>
+                <div class="title"><code>Task::RollbackUnitOfWork</code>를 넘긴다</div>
+                <div class="detail">
+                    전송 기능이 없는 UnitOfWork다 — 소멸자가 아무것도 하지 않으므로 롤백 중 쌓인
+                    태스크가 조용히 버려진다. 덕분에 <strong>모델 함수를 한 벌만 유지</strong>하면
+                    된다(롤백 전용 <code>Undo*</code> 함수를 필드마다 만들지 않는다).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>핵심 불변식 / 주의</strong><br>
+        ① <strong>순서가 의미를 만든다</strong> — 우편을 먼저 넣고 골드를 나중에 깎는 순서라서
+        롤백이 실제로 필요해진다. 반대 순서면 골드 검증이 먼저 실패해 되돌릴 것이 없다.<br>
+        ② <strong>롤백은 실패할 수 없다는 전제</strong> — 조금 전에 성공한 변경을 되돌리는 것뿐이라
+        검증에 걸릴 이유가 없다. 그래서 "롤백 실패 처리" 경로를 만들지 않고, 반환값이
+        <code>Success</code>가 아니면 <em>불변식이 깨졌다는 신호</em>로 보고
+        <code>LOG.Error</code>만 남긴다(복구를 시도하지 않는다). 이 전제를 지키려면 롤백 경로가
+        새 검증을 추가하지 않아야 한다.<br>
+        ③ <strong>DB는 Fire-and-Forget</strong> — 메모리에서 성공하면 DB도 성공으로 간주하고
+        응답을 기다리지 않는다. 그 대가로 DB 저장이 실패하면 그 변경이 조용히 유실되므로,
+        <em>DB 실패를 즉시 알아채는 로그·알럿이 이 정책의 짝</em>이다.<br>
+        ④ <strong>태스크에 새 값과 이전 값을 둘 다 싣는 이유</strong> — 클라이언트는 새 값으로
+        덮어쓰고(유실에 강함), 롤백은 이전 값을 쓴다. "차감의 반대인 증가"를 부르는 역연산
+        방식은 요청한 양과 실제 바뀐 양이 다를 때(상한·하한에 걸린 경우) 틀린다.
+    </div>
+</div>
+</body>
+</html>

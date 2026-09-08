@@ -88,10 +88,11 @@ mutex가 아예 없습니다.
 | `Network::IoContextPool` | io_context 1개의 완료 핸들러 직렬화 병목 회피. io_context N개 + 전용 스레드 N개 |
 | `Network::Connector` | outbound connect + 재시도 → **기동 순서 의존 제거**(Zone이 World보다 먼저 떠도 됨) |
 | `Packet::PacketBuffer` | 경계 없는 TCP 스트림 → 프레임 재조립. 크기 초과 시 예외로 악성 스트림 차단 |
-| `Packet::PacketDispatcher<TId,TContext>` | switch 증식 방지. Zone은 `TContext`를 `PlayerState*`로 써서 "플레이어 조회 후 콜백"까지 흡수 |
+| `Packet::PacketDispatcher<TId,TContext>` | switch 증식 방지. Zone은 `TContext`를 `Player*`로 써서 "플레이어 조회 후 콜백"까지 흡수 |
 | `Thread::AffinityWorkerPool<T>` | `key % N` 고정 매핑 → **키별 상태의 스레드 전용성 보장** = 락 제거의 근거 |
 | `Thread::Mutexed<T>` | `ref->`(읽기) / `ref.Write()->`(쓰기) 프록시. thread_local 재진입 가드로 shared_mutex 재귀 데드락 차단, **shared→unique 승급은 `abort()`로 즉시 노출** |
-| `Task::UnitOfWork` | 변경 N건 → 패킷 1개 배칭. `kind + payloadLen + payload` 포맷이라 **모르는 kind를 만나도 길이만큼 건너뛸 수 있음**(kind별 분기는 아직 Mail 하나뿐) |
+| `Task::ITask` / `Task::UnitOfWork` | 변경 N건 → 패킷 1개 배칭. `kind + payloadLen + payload` 포맷이라 **모르는 kind를 만나도 길이만큼 건너뛸 수 있음**. 커밋은 파생 클래스 소멸자에서 하고, 각 태스크가 자기 역연산을 안다(롤백 분기 switch가 없다) |
+| `Common::RequestIdGenerator` | 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 시각이 앞에 오니 append-only 삽입이라 클러스터드 인덱스 페이지 분할이 없다 |
 | `Timer::RepeatingTimer` | 드리프트 보정. 5주기 이상 밀리면 catch-up 폭주 대신 리베이스 |
 
 ---
@@ -126,7 +127,7 @@ mutex가 아예 없습니다.
 별도 유지보수 타이머(io 스레드를 빌려 도는)가 처리**하므로, 우편함 **내용**은 여기 한 곳에서만 불변식이 깨집니다. 그래서:
 
 - 그 교차 지점만 `Thread::Mutexed`로 보호 (`ref->`=읽기 / `ref.Write()->`=쓰기)
-- 상태 변경은 즉시 전송하지 않고 `Task::UnitOfWork`에 기록했다가 **Commit() 시점에 한 번에**
+- 상태 변경은 즉시 전송하지 않고 `Task::UnitOfWork`에 기록했다가 **스코프를 벗어날 때 한 번에**
   내보냅니다. 실패하면 기록해둔 태스크를 역순으로 되짚어 **메모리를 롤백**하고 DB로는 아무것도
   나가지 않습니다
 - 성공한 변경은 같은 태스크 목록이 World(DB)와 클라이언트 양쪽으로 갑니다 -- 클라이언트는
@@ -386,7 +387,7 @@ asio-server/
 │   └─ Core/        정적 라이브러리 — 게임 로직을 전혀 모름
 │       └─ Src/     Network(Session/Listener/Connector/IoContextPool), Packet(직렬화/디스패처),
 │                   Thread(WorkerThread/AffinityWorkerPool/Mutexed), Timer,
-│                   Task(UnitOfWork), Log
+│                   Task(ITask/UnitOfWork), Log
 ├─ Server/
 │   ├─ GatewayServer/  클라이언트 accept + World 릴레이
 │   ├─ WorldServer/    라우팅(WorldWorker) + DB 워커 풀
@@ -436,6 +437,7 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 |---|---|---|
 | 0~3 | 프로젝트 셋업, echo 서버, 패킷 프레이밍, 존 어피니티 라우팅 | 완료 |
 | 4 | Gateway/World/Zone 계층 분리, 재접속 없는 존 핸드오프, Mail(Mutexed/UnitOfWork) | 완료 |
+| 4-1 | 재화(Currency) + 모델 두 개에 걸친 트랜잭션·역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RequestId`) | 완료 |
 | 5 | ZoneServer 5-풀 분리, WorldServer WorldWorker | 완료 |
 | 6 | 부하 도구(StressClient), 대규모 세션 검증, 지연 백분위 계측 | 완료 (병목 진단됨) |
 | 7 | 부하 테스트 병목 수정 (`docs/load-test-fix-plan.md`) | 진행 중 |
