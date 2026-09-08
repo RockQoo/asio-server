@@ -1,6 +1,7 @@
 #include "Tool/StressClient/Src/pch.h"
 #include "Tool/StressClient/Src/Session/StressSession.h"
 
+#include "Shared/Core/Src/Common/RequestId.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/PacketId.h"
@@ -148,7 +149,12 @@ namespace Stress
         Packet::BinaryReader reader(payload);
         int32_t errorCode{};
         uint16_t requestPacketId{};
-        if (!reader.Read(errorCode) || !reader.Read(requestPacketId))
+
+        // requestId는 성공/실패 어느 쪽이든 실린다 -- 태스크 스트림 앞에 있으므로 여기서
+        // 읽어서 넘겨야 그 뒤 스트림 오프셋이 맞는다. 부하 도구는 값 자체를 쓰지 않지만,
+        // 건너뛰지 않으면 스트림을 8바이트 밀려서 파싱해 mailId를 못 찾는다.
+        Common::RequestId requestId{};
+        if (!reader.Read(errorCode) || !reader.Read(requestPacketId) || !reader.Read(requestId))
         {
             return;
         }

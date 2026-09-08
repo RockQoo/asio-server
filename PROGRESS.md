@@ -187,6 +187,11 @@
     그 뒤 `mail add`가 mailId=4를 받는다(3은 롤백된 우편이 태운 번호). Zone 로그에
     `UnitOfWork 실패로 롤백 . RequestPacketId : 6, ErrorCode : 200` 확인, 롤백 실패 로그는
     없음. 같은 명령을 연달아 보내면 `requestId`가 매번 다르게 돌아온다.
+  - 회귀: `StressClient` 20세션×5사이클 100/100 완료(불일치 0, 스톨 0). 처음 돌렸을 때 전
+    세션이 스톨했는데, `Z2CTaskResult`에 `requestId`(8바이트)가 추가된 걸 부하 도구가 읽지
+    않아 스트림 오프셋이 밀린 것이었다 -- **와이어 포맷을 바꾸면 세 클라이언트(ProtocolClient/
+    StressClient/VisualClient)를 모두 확인해야 한다**는 신호다(VisualClient는 이번에 손대지
+    않았으므로 `Z2CTaskResult` 파싱을 같이 고쳐야 한다).
 
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 
