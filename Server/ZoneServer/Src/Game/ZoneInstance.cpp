@@ -144,22 +144,20 @@ namespace Zone
         int64_t durationSec{};
 
         // UnitOfWork를 먼저 열어두는 이유: 파싱 실패도 "이 요청의 결말"이라 클라이언트에는
-        // 같은 경로(Z2CTaskResult)로 에러가 돌아가야 한다.
-        ZoneUnitOfWork unitOfWork(worldLink_, mailRegistry_, player.sessionId, player.playerId,
-                                  PacketId::C2ZMailAdd);
+        // 같은 경로(Z2CTaskResult)로 에러가 돌아가야 한다. 스코프를 벗어나는 순간 소멸자가
+        // 성공이면 전송, 실패면 역순 롤백까지 끝낸다 -- 별도의 커밋 호출이 없다.
+        ZoneUnitOfWork unitOfWork(worldLink_, player.sessionId, player.playerId, PacketId::C2ZMailAdd);
 
         if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
         {
             unitOfWork.SetError(EErrorCode::InvalidPayload);
-            unitOfWork.Commit();
             return;
         }
 
-        const auto mailModel = mailRegistry_.Find(player.sessionId);
-        if (!mailModel)
+        const auto mailBox = mailRegistry_.Find(player.sessionId);
+        if (!mailBox)
         {
             unitOfWork.SetError(EErrorCode::MailBoxNotFound);
-            unitOfWork.Commit();
             return;
         }
 
@@ -172,37 +170,39 @@ namespace Zone
         info.sendUt = nowUt;
         info.endUt = nowUt + durationSec;
 
-        mailModel->Write()->AddMail(std::move(info), unitOfWork);
-
-        // 성공하면 Added 태스크가 DB(World)와 클라이언트 양쪽으로, 실패하면 메모리를 되돌린 뒤
-        // 에러 코드만 클라이언트로 나간다 -- 어느 쪽이든 결말은 이 한 줄이 낸다.
-        unitOfWork.Commit();
+        if (const auto errorCode = mailBox->Write()->AddMail(std::move(info), unitOfWork);
+            errorCode != EErrorCode::Success)
+        {
+            unitOfWork.SetError(errorCode);
+            return;
+        }
     }
 
     void ZoneInstance::HandleMailDel(const PlayerState& player, const std::span<const byte> payload)
     {
-        ZoneUnitOfWork unitOfWork(worldLink_, mailRegistry_, player.sessionId, player.playerId,
-                                  PacketId::C2ZMailDel);
+        ZoneUnitOfWork unitOfWork(worldLink_, player.sessionId, player.playerId, PacketId::C2ZMailDel);
 
         uint32_t mailId{};
         if (payload.size() < sizeof(mailId))
         {
             unitOfWork.SetError(EErrorCode::InvalidPayload);
-            unitOfWork.Commit();
             return;
         }
         std::memcpy(&mailId, payload.data(), sizeof(mailId));
 
-        const auto mailModel = mailRegistry_.Find(player.sessionId);
-        if (!mailModel)
+        const auto mailBox = mailRegistry_.Find(player.sessionId);
+        if (!mailBox)
         {
             unitOfWork.SetError(EErrorCode::MailBoxNotFound);
-            unitOfWork.Commit();
             return;
         }
 
-        mailModel->Write()->DelMail(mailId, unitOfWork, false);
-        unitOfWork.Commit();
+        if (const auto errorCode = mailBox->Write()->DelMail(mailId, unitOfWork, false);
+            errorCode != EErrorCode::Success)
+        {
+            unitOfWork.SetError(errorCode);
+            return;
+        }
     }
 
     void ZoneInstance::Tick(const float /*deltaSeconds*/)

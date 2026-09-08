@@ -1,121 +1,89 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/Task/ZoneUnitOfWork.h"
-#include "Server/ZoneServer/Src/Mail/MailModel.h"
-#include "Server/ZoneServer/Src/Mail/MailRegistry.h"
 #include "Server/ZoneServer/Src/World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 
 #include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
 
-#include <string>
-#include <utility>
+#include <exception>
 
 namespace Zone
 {
-    ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, Mail::MailRegistry& mailRegistry,
-                                   const Network::SessionId clientSessionId, const uint32_t playerId,
-                                   const PacketId requestPacketId)
+    ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
+                                   const uint32_t playerId, const PacketId requestPacketId)
         : Task::UnitOfWork(clientSessionId)
         , worldLink_(worldLink)
-        , mailRegistry_(mailRegistry)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
         , requestPacketId_(static_cast<uint16_t>(requestPacketId))
     {
     }
 
-    ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, Mail::MailRegistry& mailRegistry,
-                                   const Network::SessionId clientSessionId, const uint32_t playerId)
+    ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
+                                   const uint32_t playerId)
         : Task::UnitOfWork(clientSessionId)
         , worldLink_(worldLink)
-        , mailRegistry_(mailRegistry)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
         , requestPacketId_(0)
     {
     }
 
-    void ZoneUnitOfWork::OnFlush(const Task::ETaskTarget target, const std::span<const byte> stream)
+    ZoneUnitOfWork::~ZoneUnitOfWork() noexcept
     {
-        if (target == Task::ETaskTarget::Db)
+        try
         {
-            const auto worldSession = worldLink_.Get();
-            if (!worldSession)
+            if (HasError())
             {
+                RollbackAll();
+
+                // 되돌렸으므로 클라이언트가 적용할 태스크는 없다 -- 에러 코드만 알려준다.
+                SendTaskResult(GetError(), {});
+
+                LOG.Debug(ELogCategory::Zone, "UnitOfWork 실패로 롤백")
+                    .KV("ClientSessionId", clientSessionId_).KV("RequestPacketId", requestPacketId_)
+                    .KV("ErrorCode", GetError());
                 return;
             }
 
-            Packet::BinaryWriter writer;
-            writer.Write(playerId_);
-            writer.WriteBytes(stream);
-            worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
-            return;
+            if (IsEmpty())
+            {
+                // 상태를 하나도 바꾸지 않은 요청(조회만, 또는 만료 대상이 없는 스윕) -- 보낼
+                // 것이 없다. 에러가 아니므로 클라이언트에도 알릴 것이 없다.
+                return;
+            }
+
+            // 성공 경로에서 딱 한 번만 직렬화하고, 그 바이트를 World와 클라이언트가 공유한다.
+            const auto stream = Serialize();
+            SendToWorld(stream);
+            SendTaskResult(static_cast<int32_t>(EErrorCode::Success), stream);
         }
-
-        SendTaskResult(static_cast<int32_t>(EErrorCode::Success), stream);
-    }
-
-    void ZoneUnitOfWork::OnRollback(const uint16_t taskKind, const std::span<const byte> payload)
-    {
-        switch (Protocol::CategoryOf(taskKind))
+        catch (const std::exception& ex)
         {
-        case Protocol::ETaskCategory::Mail:
-            RollbackMailTask(static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(taskKind)), payload);
-            break;
-        default:
-            // 역연산을 모르는 태스크를 만나면 메모리와 DB가 어긋난 채로 남는다 -- 새 콘텐츠
-            // 태스크를 추가하면서 이 switch를 빼먹었다는 신호라 반드시 눈에 띄어야 한다.
-            LOG.Error(ELogCategory::Zone, "역연산이 등록되지 않은 UnitOfWork 태스크")
-                .KV("ClientSessionId", clientSessionId_).KV("TaskKind", taskKind);
-            break;
+            LOG.Error(ELogCategory::Zone, "UnitOfWork 커밋 중 예외")
+                .KV("ClientSessionId", clientSessionId_).KV("What", ex.what());
+        }
+        catch (...)
+        {
+            LOG.Error(ELogCategory::Zone, "UnitOfWork 커밋 중 알 수 없는 예외")
+                .KV("ClientSessionId", clientSessionId_);
         }
     }
 
-    void ZoneUnitOfWork::OnFailed(const int32_t errorCode)
+    void ZoneUnitOfWork::SendToWorld(const std::span<const byte> stream) const
     {
-        // 되돌렸으므로 클라이언트가 적용할 태스크는 없다 -- 에러 코드만 알려준다.
-        SendTaskResult(errorCode, {});
-
-        LOG.Debug(ELogCategory::Zone, "UnitOfWork 실패로 롤백")
-            .KV("ClientSessionId", clientSessionId_).KV("RequestPacketId", requestPacketId_)
-            .KV("ErrorCode", errorCode);
-    }
-
-    void ZoneUnitOfWork::RollbackMailTask(const Protocol::EMailTask subTask,
-                                           const std::span<const byte> payload) const
-    {
-        const auto mailModel = mailRegistry_.Find(clientSessionId_);
-        if (!mailModel)
+        const auto worldSession = worldLink_.Get();
+        if (!worldSession)
         {
             return;
         }
 
-        // 태스크 페이로드가 곧 역연산에 필요한 정보다(추가는 mailId만, 삭제는 지워진 원본
-        // 전체) -- MailModel이 삭제 태스크에 원본을 통째로 싣는 이유가 이것이다.
-        Packet::BinaryReader reader(payload);
-        Mail::MailInfo info{};
-        if (!reader.Read(info.mailId) || !reader.ReadString(info.title) || !reader.ReadString(info.body)
-            || !reader.Read(info.sendUt) || !reader.Read(info.endUt))
-        {
-            return;
-        }
-
-        switch (subTask)
-        {
-        case Protocol::EMailTask::Added:
-            mailModel->Write()->UndoAdd(info.mailId);
-            break;
-        case Protocol::EMailTask::Removed:
-            mailModel->Write()->UndoRemove(std::move(info));
-            break;
-        default:
-            LOG.Error(ELogCategory::Zone, "역연산이 등록되지 않은 Mail 태스크")
-                .KV("ClientSessionId", clientSessionId_).KV("SubTask", static_cast<uint16_t>(subTask));
-            break;
-        }
+        Packet::BinaryWriter writer;
+        writer.Write(playerId_);
+        writer.WriteBytes(stream);
+        worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
     }
 
     void ZoneUnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<const byte> stream) const

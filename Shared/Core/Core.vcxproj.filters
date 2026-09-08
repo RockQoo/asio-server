@@ -105,6 +105,9 @@
     <ClInclude Include="Src\Thread\Mutexed.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Task\ITask.h">
+      <Filter>Task</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Task\UnitOfWork.h">
       <Filter>Task</Filter>
     </ClInclude>

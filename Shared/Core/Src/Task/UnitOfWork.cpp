@@ -1,11 +1,10 @@
 #include "Shared/Core/Src/pch.h"
 #include "Shared/Core/Src/Task/UnitOfWork.h"
 
-#include "Shared/Core/Src/Common/EnumFlags.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 
-#include <cstdlib>
 #include <exception>
+#include <utility>
 
 namespace Task
 {
@@ -14,101 +13,71 @@ namespace Task
     {
     }
 
-    UnitOfWork::~UnitOfWork()
+    void UnitOfWork::AddTask(std::unique_ptr<ITask> task)
     {
-        if (committed_ || tasks_.empty())
+        if (!task)
         {
             return;
         }
 
-        // 여기까지 왔다는 건 기록된 변경이 DB로도 클라이언트로도 나가지 못했다는 뜻이다.
-        // 조용히 넘기면 "메모리만 바뀌고 DB에는 없는" 상태가 되어 나중에 원인을 찾기가
-        // 극도로 어려워지므로 바로 드러낸다(Thread::Mutexed의 승급 금지와 같은 판단).
-        LOG.Error(ELogCategory::General, "Commit 없이 소멸한 UnitOfWork -- 기록된 변경이 유실된다")
-            .KV("OwnerId", ownerId_).KV("TaskCount", tasks_.size());
-
-        // 단, 예외가 전파되는 중이라면 죽이지 않는다 -- 여기서 abort하면 진짜 원인인 그 예외가
-        // 묻힌다. 이 경로에서는 파생 구현을 부를 수 없어(소멸 중) 메모리 롤백도 못 하므로,
-        // 예외를 던질 수 있는 구간은 UnitOfWork 스코프 밖에 두는 것이 원칙이다.
-        if (std::uncaught_exceptions() > 0)
-        {
-            return;
-        }
-
-        std::abort();
+        tasks_.push_back(std::move(task));
     }
 
-    void UnitOfWork::RecordTask(const uint16_t taskKind, const std::span<const byte> payload,
-                                const ETaskTarget target)
+    std::vector<byte> UnitOfWork::Serialize() const
     {
-        tasks_.push_back(TaskRecord{taskKind, target, std::vector<byte>(payload.begin(), payload.end())});
-    }
-
-    void UnitOfWork::Commit()
-    {
-        // 실패로 끝나는 것도 "처리가 끝났다"는 뜻이라 소멸자 안전망은 통과시킨다.
-        committed_ = true;
-
-        if (HasError())
-        {
-            for (auto it = tasks_.rbegin(); it != tasks_.rend(); ++it)
-            {
-                OnRollback(it->kind, it->payload);
-            }
-            tasks_.clear();
-
-            OnFailed(errorCode_);
-            return;
-        }
-
-        FlushTo(ETaskTarget::Db);
-        FlushTo(ETaskTarget::Client);
-    }
-
-    void UnitOfWork::FlushTo(const ETaskTarget target)
-    {
-        const auto serialized = Serialize(target);
-        if (serialized.empty())
-        {
-            return;
-        }
-
-        OnFlush(target, serialized);
-    }
-
-    std::vector<byte> UnitOfWork::Serialize(const ETaskTarget target) const
-    {
-        uint16_t taskCount = 0;
-        for (const auto& task : tasks_)
-        {
-            if (Common::HasFlag(task.target, target))
-            {
-                ++taskCount;
-            }
-        }
-
-        if (taskCount == 0)
+        if (tasks_.empty())
         {
             return {};
         }
 
         Packet::BinaryWriter writer;
         writer.Write(ownerId_);
-        writer.Write(taskCount);
+        writer.Write(static_cast<uint16_t>(tasks_.size()));
 
         for (const auto& task : tasks_)
         {
-            if (!Common::HasFlag(task.target, target))
-            {
-                continue;
-            }
+            // 태스크마다 따로 직렬화한 뒤 그 길이를 앞에 붙인다 -- 길이를 미리 알 수 없어서
+            // 한 버퍼에 이어 쓸 수 없다(BinaryWriter는 되돌아가 덮어쓰지 않는다).
+            Packet::BinaryWriter taskWriter;
+            task->Serialize(taskWriter);
+            const auto& payload = taskWriter.GetBuffer();
 
-            writer.Write(task.kind);
-            writer.Write(static_cast<uint32_t>(task.payload.size()));
-            writer.WriteBytes(task.payload);
+            writer.Write(task->Kind());
+            writer.Write(static_cast<uint32_t>(payload.size()));
+            writer.WriteBytes(payload);
         }
 
-        const auto buffer = writer.GetBuffer();
+        const auto& buffer = writer.GetBuffer();
         return std::vector<byte>(buffer.begin(), buffer.end());
+    }
+
+    void UnitOfWork::RollbackAll() noexcept
+    {
+        try
+        {
+            // 되돌리는 과정에서 쌓이는 태스크를 받아 버리는 통. 이게 없으면 정상 함수를
+            // 재사용할 수 없다(ITask::Rollback 주석 참고).
+            RollbackUnitOfWork sink;
+
+            for (auto it = tasks_.rbegin(); it != tasks_.rend(); ++it)
+            {
+                (*it)->Rollback(sink);
+            }
+        }
+        catch (const std::exception& ex)
+        {
+            // 롤백은 조금 전에 성공한 변경을 되돌리는 것뿐이라 실패할 수 없다는 전제다. 여기
+            // 걸렸다면 그 전제가 깨진 것이고(모델이 롤백 경로에 새 검증을 넣었다는 뜻),
+            // 복구를 시도해도 더 나빠지기만 하므로 드러내기만 한다.
+            LOG.Error(ELogCategory::General, "UnitOfWork 롤백 중 예외 -- 메모리와 DB가 어긋난다")
+                .KV("OwnerId", ownerId_).KV("TaskCount", tasks_.size()).KV("What", ex.what());
+        }
+        catch (...)
+        {
+            LOG.Error(ELogCategory::General, "UnitOfWork 롤백 중 알 수 없는 예외")
+                .KV("OwnerId", ownerId_).KV("TaskCount", tasks_.size());
+        }
+
+        tasks_.clear();
     }
 }

@@ -1,65 +1,82 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/Mail/MailModel.h"
+#include "Server/ZoneServer/Src/Mail/MailTask.h"
 
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Core/Src/Task/UnitOfWork.h"
-#include "Shared/Protocol/Src/ErrorCode.h"
-#include "Shared/Protocol/Src/TaskKind.h"
 
+#include <memory>
 #include <utility>
 
 namespace Mail
 {
-    namespace
+    void MailModel::BindSelf(const std::shared_ptr<Mutexed>& self)
     {
-        // 추가/삭제 태스크가 같은 포맷(원본 전체)을 쓴다 -- 삭제 태스크에 지워진 내용이 통째로
-        // 들어 있어야 롤백(= 되살리기)이 가능하기 때문이다(UnitOfWork.h 주석 참고).
-        [[nodiscard]] std::vector<byte> SerializeMail(const MailInfo& info)
-        {
-            Packet::BinaryWriter writer;
-            writer.Write(info.mailId);
-            writer.WriteString(info.title);
-            writer.WriteString(info.body);
-            writer.Write(info.sendUt);
-            writer.Write(info.endUt);
-
-            const auto buffer = writer.GetBuffer();
-            return std::vector<byte>(buffer.begin(), buffer.end());
-        }
+        self_ = self;
     }
 
-    void MailModel::AddMail(MailInfo info, Task::UnitOfWork& unitOfWork)
+    EErrorCode MailModel::AddMail(MailInfo info, Task::UnitOfWork& unitOfWork)
     {
         // id를 먼저 소비하지 않고 후보만 본다 -- 실패로 끝나는 요청이 id를 하나씩 태우면
         // 롤백해도 그 구멍은 되돌아오지 않는다.
         const auto mailId = nextMailId_;
         if (mails_.contains(mailId))
         {
-            unitOfWork.SetError(EErrorCode::MailAlreadyExists);
-            return;
+            return EErrorCode::MailAlreadyExists;
         }
 
         info.mailId = mailId;
-        unitOfWork.RecordTask(Protocol::MakeTaskKind(Protocol::ETaskCategory::Mail, Protocol::EMailTask::Added),
-                              SerializeMail(info));
+
+        auto task = std::make_unique<AddMailTask>(LockSelf(), info);
 
         ++nextMailId_;
         mails_[mailId] = std::move(info);
+
+        // 상태를 바꾼 뒤에만 기록한다 -- 태스크 목록이 곧 "실제로 적용된 변경"이어야 역순
+        // 롤백이 정확해진다.
+        unitOfWork.AddTask(std::move(task));
+
+        return EErrorCode::Success;
     }
 
-    void MailModel::DelMail(const uint32_t mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
+    EErrorCode MailModel::InsertMail(MailInfo info, Task::UnitOfWork& unitOfWork)
+    {
+        const auto mailId = info.mailId;
+        if (mails_.contains(mailId))
+        {
+            return EErrorCode::MailAlreadyExists;
+        }
+
+        auto task = std::make_unique<AddMailTask>(LockSelf(), info);
+
+        // nextMailId_를 되살린 id 뒤로 밀어둔다 -- 롤백으로 되살아난 우편의 id를 나중에 AddMail이
+        // 다시 배정해버리면 같은 id가 두 번 존재하게 된다.
+        if (mailId >= nextMailId_)
+        {
+            nextMailId_ = mailId + 1;
+        }
+
+        mails_[mailId] = std::move(info);
+        unitOfWork.AddTask(std::move(task));
+
+        return EErrorCode::Success;
+    }
+
+    EErrorCode MailModel::DelMail(const uint32_t mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
     {
         const auto it = mails_.find(mailId);
         if (it == mails_.end())
         {
-            unitOfWork.SetError(EErrorCode::MailNotFound);
-            return;
+            return EErrorCode::MailNotFound;
         }
 
-        unitOfWork.RecordTask(Protocol::MakeTaskKind(Protocol::ETaskCategory::Mail, Protocol::EMailTask::Removed),
-                              SerializeMail(it->second));
+        // 지워진 원본을 통째로 실어둔다 -- 이게 없으면 삭제를 되돌릴 수 없다(제목/본문/기간이
+        // 사라진 우편이 부활한다).
+        auto task = std::make_unique<DelMailTask>(LockSelf(), it->second);
 
         mails_.erase(it);
+        unitOfWork.AddTask(std::move(task));
+
+        return EErrorCode::Success;
     }
 
     std::vector<uint32_t> MailModel::TakeExpiredMailIds(const int64_t nowUt) const
@@ -75,16 +92,10 @@ namespace Mail
         return expired;
     }
 
-    void MailModel::UndoAdd(const uint32_t mailId)
+    std::shared_ptr<MailModel::Mutexed> MailModel::LockSelf() const
     {
-        mails_.erase(mailId);
-        // nextMailId_는 되돌리지 않는다 -- id는 단조 증가하기만 하면 되고, 되돌렸다가는
-        // 이미 World로 나간 다른 태스크의 id와 겹칠 수 있다.
-    }
-
-    void MailModel::UndoRemove(MailInfo info)
-    {
-        const auto mailId = info.mailId;
-        mails_[mailId] = std::move(info);
+        // BindSelf를 빼먹었으면 여기서 빈 핸들이 나가고, 그 태스크는 롤백 때 아무것도 못 한다.
+        // 우편함을 만드는 곳이 한 군데(MailRegistry::Add)뿐이라 그 자리만 지키면 된다.
+        return self_.lock();
     }
 }

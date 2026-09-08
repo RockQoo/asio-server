@@ -108,6 +108,7 @@
     <ClInclude Include="Src\World\WorldLink.h" />
     <ClInclude Include="Src\Mail\MailModel.h" />
     <ClInclude Include="Src\Mail\MailRegistry.h" />
+    <ClInclude Include="Src\Mail\MailTask.h" />
     <ClInclude Include="Src\Task\ZoneUnitOfWork.h" />
     <ClInclude Include="Src\Mail\MailExpiryService.h" />
     <ClInclude Include="Src\Worker\TaskWorker.h" />
@@ -124,6 +125,7 @@
     <ClCompile Include="Src\Game\ZoneInstance.cpp" />
     <ClCompile Include="Src\Mail\MailModel.cpp" />
     <ClCompile Include="Src\Mail\MailRegistry.cpp" />
+    <ClCompile Include="Src\Mail\MailTask.cpp" />
     <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp" />
     <ClCompile Include="Src\Mail\MailExpiryService.cpp" />
     <ClCompile Include="Src\Worker\TaskWorker.cpp" />

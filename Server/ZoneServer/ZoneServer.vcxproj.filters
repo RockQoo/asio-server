@@ -58,6 +58,9 @@
     <ClInclude Include="Src\World\WorldLink.h">
       <Filter>World</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Mail\MailTask.h">
+      <Filter>Mail</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Mail\MailModel.h">
       <Filter>Mail</Filter>
     </ClInclude>
@@ -90,6 +93,9 @@
     <ClCompile Include="Src\pch.cpp" />
     <ClCompile Include="Src\Game\ZoneInstance.cpp">
       <Filter>Game</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Mail\MailTask.cpp">
+      <Filter>Mail</Filter>
     </ClCompile>
     <ClCompile Include="Src\Mail\MailModel.cpp">
       <Filter>Mail</Filter>
