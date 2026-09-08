@@ -239,17 +239,33 @@ MSBuild.exe asio-server.slnx -p:Configuration=Release -p:Platform=x64 -m
 
 **전체 기동**(실행 파일이 5개라 개별 F5보다 권장):
 ```bat
-bat\start_server_all.bat          :: WorldServer → ZoneServer(0,1) → GatewayServer, 새 창 3개 (Debug)
+bat\start_server_all.bat          :: World → Zone(1,2) → Zone(3,4) → Gateway, 탭 4개 (Debug)
 bat\start_server_all.bat Release  :: 5절 성능 수치를 재현하려면 이쪽 — Debug는 약 5배 느립니다
 bat\start_protocol_client.bat         :: ProtocolClient 실행 (127.0.0.1:9000)
 bat\start_visual_client.bat 2      :: VisualClient 창 2개 (MonoGame, 별도 .NET 솔루션)
-bat\stop_server_all.bat           :: 서버 3종 종료 (-keep 을 주면 콘솔 창은 남김)
+bat\stop_server_all.bat           :: 서버 프로세스 종료 (-keep 을 주면 콘솔 창은 남김)
 ```
 
-`start_server_all.bat`은 기동 후 세 프로세스의 PID를 출력합니다. Visual Studio의
-**디버그 → 프로세스에 연결**(`Ctrl+Alt+P`)에서 Ctrl로 다중 선택하면 세 서버에 한 번에
-붙을 수 있습니다. 중단점이 정확히 걸리려면 Debug 빌드를 쓰세요. 클라이언트 쪽에
-중단점을 걸어야 하면 `start_protocol_client.bat -attach`로 별도 창에 띄웁니다.
+**프로세스가 4개**입니다 — `ZoneServer`를 두 개 띄워 존을 **2×2 격자**로 나눕니다:
+
+```
+ y:[10,20)   존 1   존 2      ← ZoneServer.exe 1,2   (프로세스 #1)
+ y:[0,10)    존 3   존 4      ← ZoneServer.exe 3,4   (프로세스 #2)
+             x:[0,10)  x:[10,20)
+```
+
+그래서 **가로 이동(1↔2, 3↔4)은 같은 프로세스 안의 BASIC 스레드 간 이동**이고, **세로
+이동(1↔3, 2↔4)이 프로세스(TCP 링크)를 넘는 핸드오프**입니다. 두 경로는 화면에서 구분되지
+않지만 World가 다른 링크로 라우팅하므로 실제 경로가 다릅니다. **zoneId는 1부터 시작합니다**
+(0은 "존 없음/미배정" 예약값 — `ParseZoneList`가 0을 거부합니다). 배치 규칙은
+`ParseZoneList`의 `kZoneSize`/`kZonesPerRow`/`kZoneRows` 세 상수뿐이라, 나중에 CSV에서 읽도록
+바꿀 자리도 이 함수 하나입니다.
+
+`start_server_all.bat`은 Windows Terminal이 있으면 **창 하나에 탭 4개**로 띄우고, 없으면
+콘솔 창을 따로 띄웁니다(`cmd.exe` 자체에는 탭이 없습니다). 기동 후 네 프로세스의 PID를
+출력하므로 Visual Studio의 **디버그 → 프로세스에 연결**(`Ctrl+Alt+P`)에서 Ctrl로 다중
+선택하면 한 번에 붙을 수 있습니다. 중단점이 정확히 걸리려면 Debug 빌드를 쓰세요. 클라이언트
+쪽에 중단점을 걸어야 하면 `start_protocol_client.bat -attach`로 별도 창에 띄웁니다.
 
 모든 실행 파일이 `Core.vcxproj`를 프로젝트 참조로 물고 있어 `Core` → 나머지 순서로 자동
 빌드됩니다. 산출물은 `bin/x64/{Debug,Release}/`.
@@ -300,6 +316,21 @@ StressClient.exe 127.0.0.1 9000 1000 200
 bat\start_visual_client.bat 2     :: 창 2개. 브로드캐스트 확인에는 최소 2개가 필요합니다
 ```
 
+**자동 순회(`--auto` / `--auto-rev`, 실행 중에는 `F2`)** — 월드 가운데를 중심으로 원을 돌며
+네 존을 순서대로 지납니다. 한 바퀴(22초)에 **가로 경계와 세로 경계를 각각 두 번씩** 넘으므로
+"스레드만 넘는 핸드오프"와 "프로세스를 넘는 핸드오프"를 한 번에 확인할 수 있고, 지켜보지
+않아도 계속 반복됩니다. 상태줄에 `자동 순회 시계/반시계  존 전환 N회`로 방향과 누적 횟수가
+표시됩니다.
+
+`--auto-rev`는 반대 방향으로 돕니다. 창 두 개를 서로 반대로 돌리면 한 바퀴에 두 번 만나고
+갈라져서, **같은 존에 있을 때 보이고 다른 존으로 나가면 사라지는 것**을 규칙적으로 볼 수
+있습니다(같은 방향으로만 돌리면 위상 차이가 유지돼 계속 안 마주칠 수도 있습니다).
+
+```bat
+bat\start_visual_client.bat 2 Debug auto   :: 창 2개, 방향을 서로 반대로
+dotnet run --project Tool\VisualClient\VisualClient -- --auto-rev
+```
+
 REPL로는 잘 안 보이는 것들을 화면이 대신 보여주는 게 목적입니다:
 
 | 화면에 보이는 것 | 그게 왜 유용한가 |
@@ -311,8 +342,8 @@ REPL로는 잘 안 보이는 것들을 화면이 대신 보여주는 게 목적�
 | 쿠폰 등록 문구와 보상 우편의 시차 | 등록은 HTTP 응답, 보상은 소켓으로 옵니다 — 두 사건이 따로 보이는 게 정상입니다 |
 
 방향(dir)은 서버에 없는 값이라 좌표 변화량으로 클라이언트가 만들어 그립니다. 존 경계 좌표도
-서버가 알려주지 않아 `ParseZoneList` 규칙("각 존은 10칸 폭")을 클라이언트가 복제한 값입니다
-(`Src/Protocol/ZoneLayout.cs` — 한쪽만 고치면 어긋납니다). 자세한 경로는
+서버가 알려주지 않아 `ParseZoneList` 규칙("각 존은 10칸 폭, zoneId는 1부터")을 클라이언트가
+복제한 값입니다(`Src/Protocol/ZoneLayout.cs` — 한쪽만 고치면 어긋납니다). 자세한 경로는
 [VisualClient 다이어그램](docs/flowcharts/visualclient-screen-and-coupon.html) 참고.
 
 **클라이언트가 메우고 있는 프로토콜 공백 두 가지** — 만들면서 드러난 부분이라 적어둡니다:

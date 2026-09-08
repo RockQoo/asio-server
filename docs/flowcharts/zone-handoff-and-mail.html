@@ -12,10 +12,12 @@
     <h1>존 경계를 넘을 때, 메일을 보낼 때, 전체 공지를 보낼 때</h1>
     <p class="subtitle">
         분산 게임 서버 구조를 단순화해 이식한 네 가지 흐름을 한 페이지에
-        모았다: (1) 존 2개(x:[0,10)/x:[10,20)) 사이의 <strong>재접속 없는 핸드오프</strong>
-        (기본 실행 <code>ZoneServer.exe 0,1</code>에서는 <strong>한 프로세스가 두 존을 같이
+        모았다: (1) 존 1(x:[0,10))과 존 2(x:[10,20)) 사이의 <strong>재접속 없는 핸드오프</strong>
+        (<code>ZoneServer.exe 1,2</code>에서는 <strong>한 프로세스가 두 존을 같이
         호스팅</strong>하고, 존을 가르는 건 프로세스가 아니라 <code>zoneId % basicThreadCount</code>
-        sticky 라우팅이다),
+        sticky 라우팅이다 — 존 배치는 2×2 격자(<code>1 2</code> / <code>3 4</code>)이고 아래쪽
+        행은 <code>ZoneServer.exe 3,4</code>가 담당하므로, <strong>세로로 넘는 이동(1↔3, 2↔4)이
+        프로세스를 넘는 핸드오프</strong>다),
         (2) <code>Task::UnitOfWork</code> Unit-of-Work(성공하면 DB와 클라이언트 양쪽으로 같은 태스크
         목록, 실패하면 역순 롤백)와 <code>Z2CTaskResult</code> 왕복 확인, (3) <code>Threading::Synchronized</code>가 실제로 방어 역할을 하는 지점,
         (4) <code>WorldServer</code>가 Zone을 거치지 않고 직접 하는 전체 브로드캐스트. 기본
@@ -33,7 +35,7 @@
     <div class="flow">
         <div class="step client">
             <div class="lane">ProtocolClient</div>
-            <div class="title"><code>move 12 4</code> (Zone 0의 구간 x:[0,10)을 벗어남)</div>
+            <div class="title"><code>move 12 4</code> (Zone 1의 구간 x:[0,10)을 벗어남)</div>
             <div class="detail">클라이언트는 여느 Move 패킷과 똑같이 보낼 뿐, 자신이 존 경계에
                 있다는 것도 알 필요가 없다.</div>
         </div>

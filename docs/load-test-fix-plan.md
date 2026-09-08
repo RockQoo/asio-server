@@ -40,7 +40,7 @@
   단순 라운드로빈 배정 시 입장 좌표(x,y)도 그 존의 구간 안에 있도록 같이 맞춰야 한다(현재
   `ZoneInstance::OnPlayerEnter`가 좌표를 그대로 받아들이므로, 배정 존과 안 맞는 좌표를 주면
   다음 Move에서 바로 핸드오프가 발생해버림).
-- 검증: `ZoneServer.exe 0,1,2,3`처럼 존 여러 개를 띄운 뒤 `StressClient.exe`로 10,000세션
+- 검증: `ZoneServer.exe 1,2,3,4`처럼 존 여러 개를 띄운 뒤 `StressClient.exe`로 10,000세션
   재실행 → 인구가 각 존에 고르게 나뉘는지(`zoneserver-*.log`의 "플레이어 입장" 로그로 확인),
   처리량이 존 개수에 비례해 회복되는지 확인.
 

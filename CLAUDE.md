@@ -14,7 +14,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 컴파일러 옵션 | MSVC, `PlatformToolset=v143`, `x64` 전용, `/std:c++20 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
 | 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
 | 운영툴 | `Tool/GmTool` — C#/.NET 10 + SQL Server. **별도 솔루션**(`Tool/GmTool/GmTool.slnx`)이며 C++ 솔루션에 넣지 않는다. WorldServer의 전용 포트(9300)로만 붙는다. **서버 기능 검증용 도구이고 기능 개발은 현재 중단** — 지금은 코드 정리/문서 정합성만 손댄다(역할 검사·비밀 관리 미비는 지금 범위 밖이지 미완성이 아니다). 영구 동결은 아니므로 사용자가 요청하면 기능 추가는 정상 진행 |
-| 기동 순서 | `bat/start_server_all.bat`(World→Zone→Gateway) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
+| 기동 순서 | `bat/start_server_all.bat`(World→Zone(1,2)→Zone(3,4)→Gateway, Windows Terminal 탭 4개) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
+| 존 배치 | **2×2 격자**(`1 2` / `3 4`, 각 존 10×10, 월드 x:[0,20) y:[0,20)). 규칙은 `ParseZoneList`의 `kZoneSize`/`kZonesPerRow`/`kZoneRows`뿐이고 클라이언트 `ZoneLayout.cs`가 같은 값을 복제한다 — **한쪽만 고치면 화면 경계와 실제 핸드오프 지점이 어긋난다** |
+| 존 번호 | **zoneId는 1부터.** 0은 "존 없음/미배정" 예약값이고 `ParseZoneList`가 거부한다 |
+| 핸드오프 경로 | 가로(1↔2, 3↔4)는 같은 프로세스의 BASIC 스레드 간, **세로(1↔3, 2↔4)는 프로세스(TCP 링크)를 넘는다** |
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Tool/VisualClient`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Tool/VisualClient` — C#/MonoGame, 별도 솔루션(`Tool/VisualClient/VisualClient.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
@@ -122,7 +125,8 @@ C:\Work\asio-server\
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
 ├── docs/flowcharts/                  기능별 HTML 플로우차트 (index.html부터, 오프라인 열람용)
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
-├── bat/                              start_server_all.bat(전체 기동 + VS attach용 PID 출력)
+├── bat/                              start_server_all.bat(전체 기동 + VS attach용 PID 출력. wt.exe가 있으면
+│                                     창 하나에 탭 4개, 없으면 창을 따로 — cmd.exe엔 탭이 없다)
 │                                     stop_server_all.bat(종료)/start_protocol_client.bat(ProtocolClient)
 │                                     start_visual_client.bat(VisualClient, 창 개수를 인자로)
 │                                     start_gmtool_mssql.bat/start_gmtool.bat(운영툴, 쿠폰에 필요)
@@ -198,8 +202,9 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
    지원). VS 2026에서도 v143 툴셋만 설치돼 있으면 그대로 빌드된다 — 솔루션 탐색기에
    `(Visual Studio 2022)`로 표시되는 것은 IDE가 아니라 대상 툴셋 표시라 정상이다.
 2. 실행 파일이 5개(`GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient`)라
-   개별 F5보다 **`bat/start_server_all.bat`**(World→Zone→Gateway 순서로 새 창 3개)로 한 번에 띄우고
-   `bat/start_protocol_client.bat`으로 `ProtocolClient`를 붙이는 걸 권장.
+   개별 F5보다 **`bat/start_server_all.bat`**(World→Zone(1,2)→Zone(3,4)→Gateway, 탭 4개)로 한 번에
+   띄우고 `bat/start_protocol_client.bat`으로 `ProtocolClient`를 붙이는 걸 권장. **`ZoneServer`
+   프로세스가 2개인 게 정상** — 격자의 위쪽 행(존 1,2)과 아래쪽 행(존 3,4)을 나눠 담당한다.
 3. `F7`(빌드만) 또는 `F5`/`Ctrl+F5`(빌드 후 실행) — 특정 프로젝트만 빌드하려면 솔루션
    탐색기에서 우클릭 → 빌드.
 4. 산출물: `bin/x64/Debug/{Core.lib, GatewayServer, WorldServer, ZoneServer, ProtocolClient,
