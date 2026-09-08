@@ -8,7 +8,7 @@
 
 int main(const int argc, char** argv)
 {
-    Log::Logger::Instance().Initialize("logs/loadprotocolclient.log", Log::ELogLevel::Info);
+    Log::Logger::Instance().Initialize("logs/stressclient.log", Log::ELogLevel::Info);
 
     try
     {
