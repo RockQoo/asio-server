@@ -151,12 +151,16 @@ int main(const int argc, char* argv[])
     {
         Zone::ZoneServerConfig config{};
         config.zones = zones;
-        // 아래 스레드 풀 크기는 전부 존 개수와 무관하게 설정 가능하다 -- 실서비스라면 훨씬
-        // 크게 잡겠지만 여기선 학습용으로 작게 잡는다.
-        config.lbThreadCount = 2;
-        config.poolSizes.basicThreadCount = 2;
-        config.poolSizes.tickThreadCount = 2;
-        config.poolSizes.broadcastThreadCount = 2;
+        // 레인마다 크기를 정하는 기준이 다르다:
+        //   LB / Player -- owner가 clientSessionId라 실질 병렬도가 접속자 수만큼이다.
+        //                  스레드를 늘린 만큼 실제로 갈린다.
+        //   Zone        -- **담당 존 수만큼.** 존 하나는 스레드 하나가 상한이라, 더 줘도
+        //                  그 존이 빨라지지 않는다(버거우면 존을 쪼갠다).
+        //   Broadcast   -- World 링크가 하나라 어차피 그 소켓에서 직렬화된다.
+        config.lbThreadCount = 4;
+        config.poolSizes.playerThreadCount = 8;
+        config.poolSizes.zoneThreadCount = zones.size();
+        config.poolSizes.broadcastThreadCount = 1;
         config.worldHost = "127.0.0.1";
         config.worldPort = 9200;
         config.ioThreadCount = 2;

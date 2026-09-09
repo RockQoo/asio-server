@@ -85,8 +85,20 @@
     <ClInclude Include="Src\Mail\MailExpiryService.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Worker\TaskWorker.h">
+    <ClInclude Include="Src\Worker\ProcessorId.h">
       <Filter>Worker</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Game\MoveModel.h">
+      <Filter>Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Game\PlayerRegistry.h">
+      <Filter>Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\PlayerProcessor.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h">
+      <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="Src\Worker\BroadcastDispatcher.h">
       <Filter>Worker</Filter>
@@ -127,8 +139,11 @@
     <ClCompile Include="Src\Mail\MailExpiryService.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Worker\TaskWorker.cpp">
-      <Filter>Worker</Filter>
+    <ClCompile Include="Src\Game\PlayerRegistry.cpp">
+      <Filter>Game</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Handler\PlayerProcessor.cpp">
+      <Filter>Handler</Filter>
     </ClCompile>
     <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp">
       <Filter>Worker</Filter>

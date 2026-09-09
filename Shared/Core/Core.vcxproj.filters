@@ -22,6 +22,9 @@
     <Filter Include="Task">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000008}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Processor">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000009}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
@@ -95,6 +98,12 @@
     </ClInclude>
     <ClInclude Include="Src\Network\IoContextPool.h">
       <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\ProcessorStats.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\ProcessorGroup.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Thread\WorkerThread.h">
       <Filter>Thread</Filter>

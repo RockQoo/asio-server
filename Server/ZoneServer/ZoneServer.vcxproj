@@ -105,7 +105,9 @@
     <ClInclude Include="Src\Packet\ZonePackets.h" />
     <ClInclude Include="Src\Currency\CurrencyModel.h" />
     <ClInclude Include="Src\Currency\CurrencyTask.h" />
+    <ClInclude Include="Src\Game\MoveModel.h" />
     <ClInclude Include="Src\Game\Player.h" />
+    <ClInclude Include="Src\Game\PlayerRegistry.h" />
     <ClInclude Include="Src\Game\ZoneDef.h" />
     <ClInclude Include="Src\Game\ZoneInstance.h" />
     <ClInclude Include="Src\World\WorldLink.h" />
@@ -114,7 +116,9 @@
     <ClInclude Include="Src\Mail\MailTask.h" />
     <ClInclude Include="Src\Task\ZoneUnitOfWork.h" />
     <ClInclude Include="Src\Mail\MailExpiryService.h" />
-    <ClInclude Include="Src\Worker\TaskWorker.h" />
+    <ClInclude Include="Src\Worker\ProcessorId.h" />
+    <ClInclude Include="Src\Handler\PlayerProcessor.h" />
+    <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Worker\BroadcastDispatcher.h" />
     <ClInclude Include="Src\Worker\ZoneWorkerManager.h" />
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />
@@ -133,7 +137,8 @@
     <ClCompile Include="Src\Mail\MailTask.cpp" />
     <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp" />
     <ClCompile Include="Src\Mail\MailExpiryService.cpp" />
-    <ClCompile Include="Src\Worker\TaskWorker.cpp" />
+    <ClCompile Include="Src\Game\PlayerRegistry.cpp" />
+    <ClCompile Include="Src\Handler\PlayerProcessor.cpp" />
     <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp" />
     <ClCompile Include="Src\Worker\ZoneWorkerManager.cpp" />
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp" />

@@ -9,8 +9,9 @@
 
 namespace Zone
 {
-    BroadcastDispatcher::BroadcastDispatcher(Thread::AffinityWorkerPool<TaskWorker>& broadcastPool, WorldLink& worldLink)
-        : broadcastPool_(broadcastPool)
+    BroadcastDispatcher::BroadcastDispatcher(Processor::ProcessorGroup<EProcessorId>& broadcastGroup,
+                                             WorldLink& worldLink)
+        : broadcastGroup_(broadcastGroup)
         , worldLink_(worldLink)
     {
     }
@@ -18,7 +19,7 @@ namespace Zone
     void BroadcastDispatcher::Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
                                         const PacketId innerPacketId, std::vector<byte> payload)
     {
-        broadcastPool_.GetWorker(zoneId).PostTask(
+        broadcastGroup_.Post(EProcessorId::Broadcast, zoneId,
             [&worldLink = worldLink_, targets = std::move(targets), innerPacketId, payload = std::move(payload)]
             {
                 const auto worldSession = worldLink.Get();

@@ -1,103 +1,83 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Shared/Core/Src/Packet/PacketDispatcher.h"
-#include "Shared/Protocol/Src/PacketId.h"
 #include "Server/ZoneServer/Src/Game/Player.h"
 #include "Server/ZoneServer/Src/Game/ZoneDef.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <span>
-#include <string_view>
+#include <memory>
 #include <unordered_map>
+#include <vector>
 
 namespace Zone
 {
     class WorldLink;
-    class BroadcastDispatcher;
-}
-
-namespace Mail
-{
-    class MailRegistry;
 }
 
 namespace Zone
 {
-    // 존(zone) 하나의 권위 있는 상태. 여기 있는 모든 메서드는 그 존을 담당하는 BASIC 풀
-    // 스레드에서만 실행된다고 가정한다 -- players_는 그래서
-    // 락이 필요 없다. zoneId % BASIC풀크기로 sticky 라우팅되므로 같은 존은 항상 같은
-    // BASIC 스레드로만 온다(ZoneWorkerManager 주석 참고).
+    // 존 하나의 **공간** 상태. 여기 있는 메서드는 그 존을 담당하는 존 레인 스레드
+    // (owner = zoneId)에서만 실행된다고 가정한다 -- 그래서 members_에 락이 없다.
     //
-    // 주의: TICK 풀은 BASIC과 "다른" 풀이라 같은 zoneId라도 실제로는 다른 OS 스레드다.
-    // 지금은 Tick()이 비어있어(placeholder) players_를 안 건드리므로 안전하지만, 나중에
-    // Tick에서 실제로 players_ 같은 공유 상태를 직접 만지게 되면 그 순간부터는 BASIC과
-    // 동시 접근이 가능해지므로 락(또는 Thread::Mutexed)이 필요해진다.
+    // **예전 구조와 무엇이 달라졌는가**: 원래 이 클래스가 우편/재화까지 다 처리했고, 그래서
+    // 존 하나의 모든 콘텐츠가 스레드 하나로 직렬화됐다(1만 세션 부하 테스트가 무너진 원인).
+    // 지금은 주인이 다른 두 종류를 갈라 놓았다:
     //
-    // 이 프로세스는 클라이언트와 직접 연결되지 않는다(GatewayServer/WorldServer 경유).
-    // World와의 연결 하나(WorldLink) 위에서 clientSessionId로 구분된 여러 플레이어의 패킷을
-    // 처리한다.
+    //   여기(존 레인, owner = zoneId)          PlayerProcessor(플레이어 레인, owner = sessionId)
+    //     로스터 members_                        우편 · 재화 · UnitOfWork
+    //     틱마다 위치 적분 · 경계 판정            이동 패킷 검증 + 즉시 브로드캐스트
+    //
+    // **이동은 이 레인이 틱에서만 만진다.** 이동 패킷 자체는 플레이어 레인이 받아 검증하고
+    // MoveModel에 요청만 기록하므로, 패킷이 폭주해도 이 레인의 틱 주기가 흔들리지 않는다.
     class ZoneInstance
     {
     public:
-        ZoneInstance(const ZoneDef& def,
-                  WorldLink& worldLink, BroadcastDispatcher& broadcastDispatcher, Mail::MailRegistry& mailRegistry);
+        ZoneInstance(const ZoneDef& def, WorldLink& worldLink);
 
-        void OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
-                            const float x, const float y);
+        // --- 존 레인에서만 호출 ---
+        void OnPlayerEnter(const std::shared_ptr<Player>& player);
         void OnPlayerLeave(const Network::SessionId clientSessionId);
-
-        // 존 생명주기 이벤트(입장/퇴장)가 아니라 "콘텐츠 패킷"은 전부 이 진입점 하나로 들어온다.
-        // 1) clientSessionId로 Player를 먼저 찾고(입장 안 한 세션이면 여기서 버림),
-        // 2) 그 패킷 타입으로 RegisterPacketHandlers()에 등록해둔 핸들러를 찾아 콜백한다.
-        // WorldLinkHandler(LB 스레드)는 이제 어느 zone인지만 판단하면 되고, 패킷 내용이 뭔지는
-        // 몰라도 된다 -- Move/Chat/MailAdd/MailDel 각각의 와이어 포맷 파싱은 전부 여기,
-        // BASIC 스레드에서 일어난다.
-        void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId,
-                                 const std::span<const byte> payload);
-
-        // tick 훅 자리(placeholder). 실제로는 AI/물리/회복 등이 여기 들어갈 것이다.
         void Tick(const float deltaSeconds);
 
-        [[nodiscard]] uint32_t GetZoneId() const noexcept { return zoneId_; }
-        [[nodiscard]] size_t GetPlayerCount() const noexcept { return players_.size(); }
+        // --- 어느 레인에서나 호출 가능 ---
+        //
+        // 브로드캐스트 대상 목록의 스냅샷. 플레이어 레인이 이동/채팅을 **즉시** 뿌려야 하는데
+        // (틱을 기다리면 체감 지연이 그만큼 늘어난다) 로스터는 존 레인 소유라 직접 순회할 수
+        // 없다. 그래서 로스터가 바뀔 때(입장/퇴장)마다 불변 벡터를 새로 만들어 통째로
+        // 갈아끼우고, 읽는 쪽은 그 시점 스냅샷을 shared_ptr로 집어간다.
+        //
+        // 위치가 바뀔 때는 발행하지 않는다 -- 대상 목록은 "누가 이 존에 있는가"만 바뀌면 되고,
+        // 그건 입장/퇴장뿐이기 때문이다(AOI를 넣으면 시야가 바뀔 때도 발행하게 된다).
+        // 읽는 쪽이 보는 목록은 최대 "직전 입퇴장 시점"만큼 낡을 수 있는데, 브로드캐스트
+        // 대상으로는 허용 가능한 오차다(막 나간 사람에게 한 장 더 가거나, 막 들어온 사람이
+        // 한 장 놓치는 정도).
+        [[nodiscard]] std::shared_ptr<const std::vector<Network::SessionId>> BroadcastTargets() const
+        {
+            return broadcastTargets_.load(std::memory_order_acquire);
+        }
+
+        [[nodiscard]] uint32_t GetZoneId() const noexcept { return def_.zoneId; }
+        [[nodiscard]] const ZoneDef& Def() const noexcept { return def_; }
+        [[nodiscard]] size_t GetPlayerCount() const noexcept { return members_.size(); }
 
     private:
-        void RegisterPacketHandlers();
+        // members_가 바뀐 직후에 부른다(존 레인).
+        void PublishBroadcastTargets();
 
-        // 등록된 핸들러 각각. HandleClientPacket이 이미 Player를 찾아 넘겨주므로, 여기서는
-        // "이 Player가 실제로 존재하는가"를 다시 확인할 필요가 없다.
-        void HandleMove(Player& player, const std::span<const byte> payload);
-        void HandleChat(const Player& player, const std::span<const byte> payload);
-        void HandleMailAdd(const Player& player, const std::span<const byte> payload);
-        void HandleMailDel(const Player& player, const std::span<const byte> payload);
-
-        // 우편 지급 + 골드 차감을 한 트랜잭션으로 처리한다 -- 모델 두 개에 걸친 변경이라
-        // 뒤(골드)에서 실패하면 앞(우편)이 역순으로 되돌아가는 걸 실제로 밟는 경로다.
-        void HandleMailBuy(Player& player, const std::span<const byte> payload);
-
-        void SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
-                           const std::span<const byte> payload) const;
-        void BroadcastToZone(const PacketId innerPacketId, const std::span<const byte> payload,
-                             const Network::SessionId excludeClientSessionId = 0) const;
+        void SendEnterZoneNotify(const Network::SessionId clientSessionId, const uint32_t playerId) const;
         void RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
                                   const float x, const float y) const;
 
         // 담당 구간을 필드로 흩지 않고 정의 그대로 들고 있는다 -- 경계 검사(ZoneDef::Contains)를
         // 한 곳에만 두면 x/y 중 한쪽만 빠뜨리는 실수가 안 생긴다.
         ZoneDef def_;
-        uint32_t zoneId_;
         WorldLink& worldLink_;
-        BroadcastDispatcher& broadcastDispatcher_;
-        Mail::MailRegistry& mailRegistry_;
-        std::unordered_map<Network::SessionId, Player> players_;
 
-        // 패킷 타입 -> 등록된 핸들러. 콘텐츠가 늘어날수록(예: 존 이동/전투 등) 여기에
-        // Register 한 줄만 추가하면 된다 -- HandleClientPacket의 분기 로직은 그대로다.
-        // 컨텍스트로 Player*를 쓰는 이유: 등록되는 핸들러가 전부 이 클래스의 private
-        // 멤버 함수라 this로 zone 상태(worldLink_/mailRegistry_ 등)에 이미 접근 가능하고,
-        // 여기엔 "이미 찾아낸 그 Player"만 넘기면 충분하기 때문이다.
-        Packet::PacketDispatcher<PacketId, Player*> packetDispatcher_;
+        // 존 레인 전용이라 락이 없다.
+        std::unordered_map<Network::SessionId, std::shared_ptr<Player>> members_;
+
+        std::atomic<std::shared_ptr<const std::vector<Network::SessionId>>> broadcastTargets_;
     };
 }

@@ -10,9 +10,6 @@
     <Filter Include="World">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000003}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Db">
-      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000004}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Handler">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000005}</UniqueIdentifier>
     </Filter>
@@ -64,10 +61,10 @@
     <ClInclude Include="Src\World\ZoneLinkRegistry.h">
       <Filter>World</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Db\DbWorker.h">
-      <Filter>Db</Filter>
+    <ClInclude Include="Src\Packet\OwnerIdPeek.h">
+      <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Worker\WorldWorker.h">
+    <ClInclude Include="Src\Worker\ProcessorId.h">
       <Filter>Worker</Filter>
     </ClInclude>
     <ClInclude Include="Src\Handler\GatewayLinkHandler.h">
@@ -87,12 +84,6 @@
     </ClCompile>
     <ClCompile Include="Src\World\ZoneLinkRegistry.cpp">
       <Filter>World</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Db\DbWorker.cpp">
-      <Filter>Db</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Worker\WorldWorker.cpp">
-      <Filter>Worker</Filter>
     </ClCompile>
     <ClCompile Include="Src\Handler\GatewayLinkHandler.cpp">
       <Filter>Handler</Filter>

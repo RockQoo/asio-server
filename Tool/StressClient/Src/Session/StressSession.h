@@ -80,6 +80,10 @@ namespace Stress
         uint32_t cycleIndex_{0};
         uint32_t lastAddedMailId_{0};
 
+        // Z2CEnterZoneNotify로 통지받은 현재 존. 이동 좌표를 이 존 안으로 제한하는 데 쓴다
+        // (StressSession.cpp의 HandleEnterZoneNotify 주석 참고). 0은 "아직 모름".
+        uint32_t zoneId_{0};
+
         // 지연 측정용 송신 시각. 위 멤버들과 같은 이유로(자기 io 스레드에서만 읽고 쓴다)
         // atomic이 아니다 -- 집계는 이 스레드에서 값을 만들어 StressStats의 atomic에만 넘긴다.
         std::chrono::steady_clock::time_point mailAddSentAt_{};

@@ -2,7 +2,6 @@
 #include "Server/WorldServer/Src/Tool/ToolProcessor.h"
 #include "Server/WorldServer/Src/World/ClientRegistry.h"
 #include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
-#include "Server/WorldServer/Src/Worker/WorldWorker.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/Packet/ToolLinkPackets.h"
@@ -45,16 +44,49 @@ namespace World
         }
     }
 
-    ToolProcessor::ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry& zoneLinkRegistry,
-                                 Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers, WorldWorker& worldWorker,
+    ToolProcessor::ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+                                 Processor::ProcessorGroup<EProcessorId>& basicGroup,
+                                 Processor::ProcessorGroup<EProcessorId>& dbGroup,
                                  std::string sharedSecret)
         : clientRegistry_(clientRegistry)
         , zoneLinkRegistry_(zoneLinkRegistry)
-        , dbWorkers_(dbWorkers)
-        , worldWorker_(worldWorker)
+        , basicGroup_(basicGroup)
+        , dbGroup_(dbGroup)
         , sharedSecret_(std::move(sharedSecret))
     {
         RegisterHandlers();
+    }
+
+    void ToolProcessor::ScatterToShards(std::function<uint32_t(const size_t shardIndex)> perShard,
+                                         std::function<void(const uint32_t total)> onComplete)
+    {
+        const auto shardCount = clientRegistry_.ShardCount();
+
+        // 카운터를 shared_ptr로 두는 이유: 이 함수는 곧 반환되지만 샤드 메시지들은 그 뒤에
+        // 실행되므로, 마지막 하나가 끝날 때까지 살아 있어야 한다.
+        auto remaining = std::make_shared<std::atomic<size_t>>(shardCount);
+        auto total = std::make_shared<std::atomic<uint32_t>>(0);
+        auto sharedPerShard = std::make_shared<std::function<uint32_t(const size_t)>>(std::move(perShard));
+        auto sharedOnComplete = std::make_shared<std::function<void(const uint32_t)>>(std::move(onComplete));
+
+        for (size_t shardIndex = 0; shardIndex < shardCount; ++shardIndex)
+        {
+            // 샤드 인덱스를 그대로 ownerId로 쓴다 -- shardIndex < shardCount이고 그룹의 스레드
+            // 선택도 `% shardCount`라, 정확히 그 샤드를 소유한 스레드로 간다(그래서 샤드 개수와
+            // BASIC 스레드 개수가 반드시 같아야 한다 -- WorldServerApp 생성자 참고).
+            basicGroup_.Post(EProcessorId::Tool, shardIndex,
+                [shardIndex, remaining, total, sharedPerShard, sharedOnComplete]
+                {
+                    total->fetch_add((*sharedPerShard)(shardIndex), std::memory_order_relaxed);
+
+                    // 마지막으로 끝난 스레드가 결말을 낸다. acq_rel이라 그 스레드에서는 다른
+                    // 샤드들이 더한 값이 모두 보인다.
+                    if (remaining->fetch_sub(1, std::memory_order_acq_rel) == 1)
+                    {
+                        (*sharedOnComplete)(total->load(std::memory_order_relaxed));
+                    }
+                });
+        }
     }
 
     void ToolProcessor::RegisterHandlers()
@@ -77,12 +109,19 @@ namespace World
                                  const Packet::PacketHeader& header,
                                  const std::span<const byte> payload)
     {
-        // 여기는 이 연결의 I/O 스레드다. GatewayLinkHandler/ZoneLinkHandler와 동일하게 바이트만
-        // 복사해서 WorldWorker로 넘기고, 실제 레지스트리 접근은 그 스레드에서 한다.
+        // 여기는 이 연결의 I/O 스레드다. 다른 두 링크 핸들러와 동일하게 바이트만 복사해서
+        // BASIC 그룹으로 넘긴다.
+        //
+        // **ownerId를 운영툴 세션 id로 잡는 이유**: 운영툴 명령의 "주인"은 대상이 아니라 명령을
+        // 보낸 그 연결이다 -- 대상이 전역(공지)이거나 캠페인 코드(쿠폰)라 하나로 못 정하기
+        // 때문이다. 이렇게 두면 한 운영툴 연결이 보낸 명령들끼리는 보낸 순서대로 처리된다.
+        // 대상별 상태를 만져야 하는 명령은 여기서 다시 그 대상의 ownerId로 던진다
+        // (ScatterToShards / InjectClientPacket 경로).
         const auto packetId = static_cast<PacketId>(header.id);
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
-        worldWorker_.PostTask([this, session, packetId, payloadCopy = std::move(payloadCopy)]
+        basicGroup_.Post(EProcessorId::Tool, session->Id(),
+            [this, session, packetId, payloadCopy = std::move(payloadCopy)]
         {
             // ToolHello 이전에는 어떤 요청도 받지 않는다. requestId는 모든 요청 페이로드의 맨
             // 앞 4바이트로 고정이라, 본문 파싱 없이도 여기서 꺼내 거절 응답에 실을 수 있다.
@@ -105,16 +144,16 @@ namespace World
     void ToolProcessor::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
     {
         const auto sessionId = session->Id();
-        worldWorker_.PostTask([this, sessionId]
+        basicGroup_.Post(EProcessorId::Tool, sessionId, [this, sessionId]
         {
-            authenticatedSessions_.erase(sessionId);
+            authenticatedSessions_.Write()->erase(sessionId);
             LOG.Info(ELogCategory::Tool, "운영툴 연결 종료").KV("SessionId", sessionId);
         });
     }
 
     bool ToolProcessor::IsAuthenticated(const Network::SessionId toolSessionId) const
     {
-        return authenticatedSessions_.contains(toolSessionId);
+        return authenticatedSessions_->contains(toolSessionId);
     }
 
     void ToolProcessor::SendCommandAck(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
@@ -137,7 +176,7 @@ namespace World
             return false;
         }
 
-        const auto zoneLink = zoneLinkRegistry_.Find(client->zoneId);
+        const auto zoneLink = zoneLinkRegistry_->Find(client->zoneId);
         if (!zoneLink || !zoneLink->zoneSession)
         {
             return false;
@@ -179,7 +218,7 @@ namespace World
 
         if (accepted)
         {
-            authenticatedSessions_.insert(toolSession->Id());
+            authenticatedSessions_.Write()->insert(toolSession->Id());
             LOG.Info(ELogCategory::Tool, "운영툴 인증 성공")
                 .KV("SessionId", toolSession->Id()).KV("Operator", operatorName)
                 .KV("ProtocolVersion", protocolVersion);
@@ -218,36 +257,43 @@ namespace World
             return;
         }
 
-        // WorldServerApp::BroadcastToAll과 하는 일은 같지만, 이미 WorldWorker 스레드 안이라
-        // 다시 PostTask하지 않고 여기서 직접 순회한다 -- 그래야 몇 명에게 나갔는지를
-        // affectedCount로 그대로 응답에 실을 수 있다(비동기로 넘기면 알 수 없다).
         Packet::BinaryWriter noticeWriter;
         noticeWriter.WriteString(message);
         const auto noticePayload = noticeWriter.GetBuffer();
 
-        uint32_t sentCount = 0;
-        clientRegistry_.ForEach([&](const Network::SessionId clientSessionId, const ClientInfo& info)
-        {
-            if (!info.gatewaySession)
+        // 대상이 전 클라이언트라 샤드마다 하나씩 던진다. 각 스레드가 자기 샤드 몫만 보내고,
+        // 마지막으로 끝난 스레드가 합계를 운영툴에 응답한다(ScatterToShards 주석 참고).
+        ScatterToShards(
+            [this, noticePayload](const size_t shardIndex)
             {
-                return;
-            }
+                uint32_t sentCount = 0;
+                clientRegistry_.ForEachInShard(shardIndex,
+                    [&](const Network::SessionId clientSessionId, const ClientInfo& info)
+                    {
+                        if (!info.gatewaySession)
+                        {
+                            return;
+                        }
 
-            ClientEnvelopeHeader envelopeHeader{};
-            envelopeHeader.clientSessionId = clientSessionId;
-            envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
+                        ClientEnvelopeHeader envelopeHeader{};
+                        envelopeHeader.clientSessionId = clientSessionId;
+                        envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
 
-            Packet::BinaryWriter envelopeWriter;
-            envelopeWriter.Write(envelopeHeader);
-            envelopeWriter.WriteBytes(noticePayload);
-            info.gatewaySession->SendPacket(PacketId::W2GRelay,
-                                            envelopeWriter.GetBuffer());
-            ++sentCount;
-        });
-
-        LOG.Info(ELogCategory::Tool, "운영툴 공지 브로드캐스트")
-            .KV("RequestId", requestId).KV("SentTo", sentCount).KV("Message", message);
-        SendCommandAck(toolSession, requestId, EToolResultCode::Ok, sentCount);
+                        Packet::BinaryWriter envelopeWriter;
+                        envelopeWriter.Write(envelopeHeader);
+                        envelopeWriter.WriteBytes(noticePayload);
+                        info.gatewaySession->SendPacket(PacketId::W2GRelay,
+                                                        envelopeWriter.GetBuffer());
+                        ++sentCount;
+                    });
+                return sentCount;
+            },
+            [this, toolSession, requestId, message](const uint32_t total)
+            {
+                LOG.Info(ELogCategory::Tool, "운영툴 공지 브로드캐스트")
+                    .KV("RequestId", requestId).KV("SentTo", total).KV("Message", message);
+                SendCommandAck(toolSession, requestId, EToolResultCode::Ok, total);
+            });
     }
 
     void ToolProcessor::HandleMailSendRequest(const std::shared_ptr<Network::Session>& toolSession,
@@ -283,29 +329,40 @@ namespace World
 
         if (targetKind == kMailTargetAllOnline)
         {
-            // 대상 목록을 먼저 스냅샷으로 뜬 뒤에 주입한다 -- InjectClientPacket이 다시
-            // clientRegistry_를 조회하므로, ForEach 순회 중에 같은 컨테이너를 재진입 조회하는
-            // 모양을 만들지 않기 위함이다(같은 스레드라 UB는 아니지만 읽기 좋지 않다).
-            std::vector<Network::SessionId> targets;
-            targets.reserve(clientRegistry_.Count());
-            clientRegistry_.ForEach([&targets](const Network::SessionId clientSessionId, const ClientInfo&)
-            {
-                targets.push_back(clientSessionId);
-            });
-
-            uint32_t sentCount = 0;
-            for (const auto target : targets)
-            {
-                if (InjectClientPacket(target, PacketId::C2ZMailAdd, mailPayload))
+            // 공지와 같은 이유로 샤드마다 던진다. 한 샤드 안의 대상들은 전부 그 샤드를 소유한
+            // 스레드에 속하므로, 그 스레드에서 InjectClientPacket(내부에서 clientRegistry_를
+            // 다시 조회한다)을 불러도 남의 샤드를 건드리지 않는다.
+            ScatterToShards(
+                [this, mailPayload](const size_t shardIndex)
                 {
-                    ++sentCount;
-                }
-            }
+                    // 대상 목록을 먼저 스냅샷으로 뜬 뒤에 주입한다 -- InjectClientPacket이 다시
+                    // 같은 샤드를 조회하므로, 순회 중에 같은 컨테이너를 재진입 조회하는 모양을
+                    // 만들지 않기 위함이다(같은 스레드라 UB는 아니지만 읽기 좋지 않다).
+                    std::vector<Network::SessionId> targets;
+                    targets.reserve(clientRegistry_.CountInShard(shardIndex));
+                    clientRegistry_.ForEachInShard(shardIndex,
+                        [&targets](const Network::SessionId clientSessionId, const ClientInfo&)
+                        {
+                            targets.push_back(clientSessionId);
+                        });
 
-            LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(접속 중 전체)")
-                .KV("RequestId", requestId).KV("Targets", targets.size()).KV("SentTo", sentCount)
-                .KV("Title", title).KV("DurationSec", durationSec);
-            SendCommandAck(toolSession, requestId, EToolResultCode::Ok, sentCount);
+                    uint32_t sentCount = 0;
+                    for (const auto target : targets)
+                    {
+                        if (InjectClientPacket(target, PacketId::C2ZMailAdd, mailPayload))
+                        {
+                            ++sentCount;
+                        }
+                    }
+                    return sentCount;
+                },
+                [this, toolSession, requestId, title, durationSec](const uint32_t total)
+                {
+                    LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(접속 중 전체)")
+                        .KV("RequestId", requestId).KV("SentTo", total)
+                        .KV("Title", title).KV("DurationSec", durationSec);
+                    SendCommandAck(toolSession, requestId, EToolResultCode::Ok, total);
+                });
             return;
         }
 
@@ -405,7 +462,7 @@ namespace World
         // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(ZoneLinkHandler의
         // UnitOfWork 태스크가 clientSessionId로 해시하는 것과 같은 owner-hash 원리).
         const auto ownerHash = std::hash<std::string>{}(campaignCode);
-        dbWorkers_.GetWorker(ownerHash).PostTask(
+        dbGroup_.Post(EProcessorId::Db, ownerHash,
             [campaignCode, chunkSeq, couponCodes = std::move(couponCodes)]
             {
                 // TODO: 실제로는 여기서 쿠폰 테이블에 벌크 INSERT를 실행한다(WorldServer의 DB
@@ -433,35 +490,53 @@ namespace World
         ToolClientListRequestPacket request{};
         std::memcpy(&request, payload.data(), sizeof(ToolClientListRequestPacket));
 
-        std::vector<ToolClientEntry> entries;
-        entries.reserve(std::min(clientRegistry_.Count(), kMaxClientListEntries));
-        clientRegistry_.ForEach([&entries](const Network::SessionId clientSessionId, const ClientInfo& info)
-        {
-            // MaxBodySize를 넘기면 받는 쪽 PacketBuffer가 예외를 던지므로 상한에서 자른다.
-            // 이 목록은 우편 대상을 고르기 위한 것이라 전수 조회가 필수는 아니다.
-            if (entries.size() >= kMaxClientListEntries)
+        // 목록도 샤드에 흩어져 있으므로 모아야 한다. 각 스레드가 자기 샤드 몫을 공유 버퍼에
+        // 넣고, 마지막으로 끝난 스레드가 한 장으로 만들어 보낸다. 여기서만 Mutexed를 쓰는
+        // 이유는 취합 버퍼가 유일하게 여러 샤드 스레드가 함께 쓰는 자리이기 때문이다.
+        auto collected = std::make_shared<Thread::Mutexed<std::vector<ToolClientEntry>>>();
+        const auto requestIdCopy = request.requestId;
+
+        ScatterToShards(
+            [this, collected](const size_t shardIndex)
             {
-                return;
-            }
+                uint32_t addedCount = 0;
+                clientRegistry_.ForEachInShard(shardIndex,
+                    [&](const Network::SessionId clientSessionId, const ClientInfo& info)
+                    {
+                        // MaxBodySize를 넘기면 받는 쪽 PacketBuffer가 예외를 던지므로 상한에서
+                        // 자른다. 이 목록은 우편 대상을 고르기 위한 것이라 전수 조회가 필수는
+                        // 아니다.
+                        auto writer = collected->Write();
+                        if (writer->size() >= kMaxClientListEntries)
+                        {
+                            return;
+                        }
 
-            ToolClientEntry entry{};
-            entry.clientSessionId = clientSessionId;
-            entry.zoneId = info.zoneId;
-            entries.push_back(entry);
-        });
+                        ToolClientEntry entry{};
+                        entry.clientSessionId = clientSessionId;
+                        entry.zoneId = info.zoneId;
+                        writer->push_back(entry);
+                        ++addedCount;
+                    });
+                return addedCount;
+            },
+            [this, toolSession, requestIdCopy, collected](const uint32_t total)
+            {
+                const auto reader = collected->Read();
 
-        Packet::BinaryWriter writer;
-        writer.Write(request.requestId);
-        writer.Write(static_cast<uint32_t>(entries.size()));
-        for (const auto& entry : entries)
-        {
-            writer.Write(entry);
-        }
+                Packet::BinaryWriter writer;
+                writer.Write(requestIdCopy);
+                writer.Write(static_cast<uint32_t>(reader->size()));
+                for (const auto& entry : *reader)
+                {
+                    writer.Write(entry);
+                }
 
-        toolSession->SendPacket(PacketId::W2TClientListReply, writer.GetBuffer());
+                toolSession->SendPacket(PacketId::W2TClientListReply, writer.GetBuffer());
 
-        LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
-            .KV("RequestId", request.requestId).KV("Total", clientRegistry_.Count())
-            .KV("Returned", entries.size());
+                LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
+                    .KV("RequestId", requestIdCopy).KV("Total", total)
+                    .KV("Returned", reader->size());
+            });
     }
 }

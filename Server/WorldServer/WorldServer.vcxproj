@@ -109,8 +109,8 @@
     <ClInclude Include="Src\Tool\ToolProcessor.h" />
     <ClInclude Include="Src\World\ClientRegistry.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
-    <ClInclude Include="Src\Db\DbWorker.h" />
-    <ClInclude Include="Src\Worker\WorldWorker.h" />
+    <ClInclude Include="Src\Packet\OwnerIdPeek.h" />
+    <ClInclude Include="Src\Worker\ProcessorId.h" />
     <ClInclude Include="Src\Handler\GatewayLinkHandler.h" />
     <ClInclude Include="Src\Handler\ZoneLinkHandler.h" />
     <ClInclude Include="Src\App\WorldServerApp.h" />
@@ -122,8 +122,6 @@
     </ClCompile>
     <ClCompile Include="Src\World\ClientRegistry.cpp" />
     <ClCompile Include="Src\World\ZoneLinkRegistry.cpp" />
-    <ClCompile Include="Src\Db\DbWorker.cpp" />
-    <ClCompile Include="Src\Worker\WorldWorker.cpp" />
     <ClCompile Include="Src\Handler\GatewayLinkHandler.cpp" />
     <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp" />
     <ClCompile Include="Src\Tool\ToolProcessor.cpp" />

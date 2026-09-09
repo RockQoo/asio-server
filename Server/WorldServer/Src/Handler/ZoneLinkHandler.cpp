@@ -2,7 +2,7 @@
 #include "Server/WorldServer/Src/Handler/ZoneLinkHandler.h"
 #include "Server/WorldServer/Src/World/ClientRegistry.h"
 #include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
-#include "Server/WorldServer/Src/Worker/WorldWorker.h"
+#include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Shared/Protocol/Src/CurrencyType.h"
@@ -73,22 +73,46 @@ namespace World
         }
     }
 
-    ZoneLinkHandler::ZoneLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry& zoneLinkRegistry,
-                                      Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers, WorldWorker& worldWorker)
+    ZoneLinkHandler::ZoneLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+                                      Processor::ProcessorGroup<EProcessorId>& basicGroup,
+                                      Processor::ProcessorGroup<EProcessorId>& dbGroup)
         : clientRegistry_(clientRegistry)
         , zoneLinkRegistry_(zoneLinkRegistry)
-        , dbWorkers_(dbWorkers)
-        , worldWorker_(worldWorker)
+        , basicGroup_(basicGroup)
+        , dbGroup_(dbGroup)
     {
         RegisterHandlers();
     }
 
     void ZoneLinkHandler::RegisterHandlers()
     {
+        // UnitOfWorkStream은 여기 등록하지 않는다 -- BASIC을 거치지 않고 OnPacket에서 곧바로
+        // DB 그룹으로 가기 때문이다(헤더 주석 참고).
         dispatcher_.Register(PacketId::Z2WZoneRegister, this, &ZoneLinkHandler::HandleZoneRegister);
         dispatcher_.Register(PacketId::Z2WRelay, this, &ZoneLinkHandler::HandleForwardToWorld);
         dispatcher_.Register(PacketId::Z2WZoneTransferRequest, this, &ZoneLinkHandler::HandleZoneTransferRequest);
-        dispatcher_.Register(PacketId::Z2WUnitOfWorkStream, this, &ZoneLinkHandler::HandleUnitOfWorkStream);
+    }
+
+    std::optional<uint64_t> ZoneLinkHandler::OwnerIdOf(const PacketId packetId, const std::span<const byte> payload)
+    {
+        switch (packetId)
+        {
+        case PacketId::Z2WZoneRegister:
+            // ZoneRegisterPacket.zoneId (offset 0)
+            return PeekOwnerId<uint32_t>(payload);
+
+        case PacketId::Z2WRelay:
+            // ClientEnvelopeHeader.clientSessionId (offset 0)
+            return PeekOwnerId<Network::SessionId>(payload);
+
+        case PacketId::Z2WZoneTransferRequest:
+            // PlayerZoneStatePacket.clientSessionId -- zoneId(uint32) 뒤라 offset 4다.
+            // 구조체가 #pragma pack(1)이라 패딩이 없다는 것에 기대고 있다.
+            return PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
+
+        default:
+            return std::nullopt;
+        }
     }
 
     void ZoneLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
@@ -101,28 +125,44 @@ namespace World
                                    const Packet::PacketHeader& header,
                                    const std::span<const byte> payload)
     {
-        // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 바이트만 복사해서 WorldWorker로
-        // 넘기고, 실제 ClientRegistry/ZoneLinkRegistry 접근(RegisterHandlers로 등록해둔
-        // Handle* 메서드들)은 그 스레드에서 일어난다.
+        // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 라우팅에 필요한 정수 하나만 읽고
+        // 바이트를 복사해 넘긴다.
         const auto packetId = static_cast<PacketId>(header.id);
+
+        if (packetId == PacketId::Z2WUnitOfWorkStream)
+        {
+            PostUnitOfWorkStream(payload);
+            return;
+        }
+
+        const auto ownerId = OwnerIdOf(packetId, payload);
+        if (!ownerId)
+        {
+            LOG.Warning(ELogCategory::Zone, "ownerId를 읽을 수 없는 패킷, 버림")
+                .KV("PacketId", header.id).KV("PayloadSize", payload.size());
+            return;
+        }
+
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
-        worldWorker_.PostTask([this, session, packetId, payloadCopy = std::move(payloadCopy)]
-        {
-            dispatcher_.Dispatch(packetId, session, payloadCopy);
-        });
+        basicGroup_.Post(EProcessorId::Main, *ownerId,
+            [this, session, packetId, payloadCopy = std::move(payloadCopy)]
+            {
+                dispatcher_.Dispatch(packetId, session, payloadCopy);
+            });
     }
 
     void ZoneLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
     {
-        // 세션 종료 통지도 I/O 스레드에서 오므로, zoneLinkRegistry_를 직접 건드리지 않고
-        // WorldWorker로 넘긴다.
+        // 세션 종료 통지도 I/O 스레드에서 오므로, 여기서 레지스트리를 직접 건드리지 않고
+        // BASIC 그룹으로 넘긴다. 주인은 끊긴 세션 자신이다 -- 등록/해제가 같은 스레드에서
+        // 순서대로 처리되게 하려는 것이고, 레지스트리 자체는 Mutexed가 따로 지킨다.
         const auto sessionId = session->Id();
-        worldWorker_.PostTask([this, sessionId]
+        basicGroup_.Post(EProcessorId::Main, sessionId, [this, sessionId]
         {
             // 이 연결이 등록해둔 zoneId가 여러 개일 수 있다(한 Zone 서버 프로세스가 존 여러
             // 개를 호스팅) -- 전부 지워야 끊긴 세션으로 계속 라우팅되는 걸 막을 수 있다.
-            zoneLinkRegistry_.RemoveBySession(sessionId);
+            zoneLinkRegistry_.Write()->RemoveBySession(sessionId);
             LOG.Info(ELogCategory::Zone, "Zone 연결 종료").KV("SessionId", sessionId);
         });
     }
@@ -138,9 +178,9 @@ namespace World
         ZoneRegisterPacket registerPacket{};
         std::memcpy(&registerPacket, payload.data(), sizeof(ZoneRegisterPacket));
 
-        zoneLinkRegistry_.Add(registerPacket.zoneId, zoneSession,
-                              registerPacket.xMin, registerPacket.xMax,
-                              registerPacket.yMin, registerPacket.yMax);
+        zoneLinkRegistry_.Write()->Add(registerPacket.zoneId, zoneSession,
+                                       registerPacket.xMin, registerPacket.xMax,
+                                       registerPacket.yMin, registerPacket.yMax);
 
         LOG.Info(ELogCategory::Zone, "Zone 등록")
             .KV("ZoneId", registerPacket.zoneId)
@@ -180,7 +220,7 @@ namespace World
         PlayerZoneStatePacket state{};
         std::memcpy(&state, payload.data(), sizeof(PlayerZoneStatePacket));
 
-        const auto targetZoneId = zoneLinkRegistry_.FindZoneContaining(state.x, state.y);
+        const auto targetZoneId = zoneLinkRegistry_->FindZoneContaining(state.x, state.y);
         if (!targetZoneId)
         {
             // 어느 존도 담당하지 않는 좌표다(존 격자에 구멍이 있거나, 그 행을 담당하는 Zone
@@ -191,7 +231,7 @@ namespace World
             return;
         }
 
-        const auto targetZoneLink = zoneLinkRegistry_.Find(*targetZoneId);
+        const auto targetZoneLink = zoneLinkRegistry_->Find(*targetZoneId);
         if (!targetZoneLink)
         {
             return;
@@ -210,7 +250,7 @@ namespace World
     void ZoneLinkHandler::ReturnToSourceZone(PlayerZoneStatePacket state) const
     {
         // state.zoneId는 핸드오프를 요청한(= 보낸) 존이다.
-        const auto sourceZoneLink = zoneLinkRegistry_.Find(state.zoneId);
+        const auto sourceZoneLink = zoneLinkRegistry_->Find(state.zoneId);
         if (!sourceZoneLink)
         {
             // 보낸 존까지 끊긴 상황이라 되돌릴 곳이 없다. 클라이언트는 연결은 유지되지만 어느
@@ -236,9 +276,9 @@ namespace World
             .KV("X", state.x).KV("Y", state.y);
     }
 
-    void ZoneLinkHandler::HandleUnitOfWorkStream(const std::shared_ptr<Network::Session>& /*zoneSession*/,
-                                                  const std::span<const byte> payload)
+    void ZoneLinkHandler::PostUnitOfWorkStream(const std::span<const byte> payload)
     {
+        // 여기는 아직 I/O 스레드다 -- 라우팅에 필요한 만큼만 읽는다.
         Packet::BinaryReader reader(payload);
         uint32_t playerId{};
         Common::RequestId requestId{};
@@ -247,12 +287,14 @@ namespace World
             return;
         }
 
-        // 남은 바이트(Core::Task::UnitOfWork가 직렬화한 제너릭 태스크 목록)는 DB 워커
+        // 남은 바이트(Core::Task::UnitOfWork가 직렬화한 제너릭 태스크 목록)는 DB 그룹
         // 스레드에서 처리할 것이므로, payload(I/O 스레드가 곧 재사용할 버퍼)에서 복사해
         // 소유권을 옮긴다. 와이어 포맷 상세는 ZoneLinkPackets.h 주석 참고.
         const auto remaining = reader.RemainingBytes();
         std::vector<byte> taskBytes(remaining.begin(), remaining.end());
 
+        // 스트림 맨 앞의 ownerId(=clientSessionId)가 곧 이 메시지의 주인이다 -- UnitOfWork가
+        // 직렬화할 때 이미 넣어둔 값이라 따로 실어 보낼 필요가 없다.
         Packet::BinaryReader ownerPeek(taskBytes);
         uint64_t ownerId{};
         if (!ownerPeek.Read(ownerId))
@@ -260,10 +302,9 @@ namespace World
             return;
         }
 
-        // ownerId(=clientSessionId)로 해시해 고정된 DbWorker에 위임한다 -- 같은 플레이어의
-        // UnitOfWork 태스크는 항상 같은 스레드에서 순서대로 처리되므로 락이 필요 없다
-        // (TaskWorker와 동일한 owner-hash 원리).
-        dbWorkers_.GetWorker(static_cast<size_t>(ownerId)).PostTask(
+        // BASIC을 거치지 않고 DB 그룹으로 직행한다. 같은 플레이어의 UnitOfWork 태스크는 항상
+        // 같은 DB 스레드에서 도착 순서대로 처리되므로 락이 필요 없다.
+        dbGroup_.Post(EProcessorId::Db, ownerId,
             [playerId, requestId, taskBytes = std::move(taskBytes)]
             {
                 Packet::BinaryReader taskReader(taskBytes);

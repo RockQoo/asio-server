@@ -71,7 +71,11 @@ int main()
         config.zonePort = 9200;
         config.toolPort = 9300;
         config.ioThreadCount = 2;
-        config.dbWorkerCount = 2;
+        // BASIC은 Main/Tool 프로세서가 공유하는 큐 그룹이고, 실제 병렬도는 스레드 수가 아니라
+        // **서로 다른 ownerId의 개수**로 정해진다(대부분 clientSessionId라 충분히 많다).
+        config.basicThreadCount = 8;
+        // DB는 커넥션 풀 크기와 1:1이 원칙이다. 실제 DB 연동 전이라 개발 머신 기준 임시값.
+        config.dbThreadCount = 4;
 
         // 운영툴 공유 시크릿은 소스에 박힌 개발 기본값(WorldServerConfig)을 쓰되, 환경 변수가
         // 있으면 그걸 우선한다 -- 공개 저장소에 실제 시크릿을 커밋하지 않기 위한 최소 장치다.

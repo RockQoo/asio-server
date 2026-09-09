@@ -3,13 +3,16 @@
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/PacketDispatcher.h"
-#include "Shared/Core/Src/Thread/AffinityWorkerPool.h"
+#include "Shared/Core/Src/Processor/ProcessorGroup.h"
+#include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/PacketId.h"
-#include "Server/WorldServer/Src/Db/DbWorker.h"
 #include "Server/WorldServer/Src/Packet/ToolResultCode.h"
+#include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
+#include "Server/WorldServer/Src/Worker/ProcessorId.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <string>
 #include <unordered_set>
@@ -37,8 +40,9 @@ namespace World
     class ToolProcessor final : public Network::IPacketHandler
     {
     public:
-        ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry& zoneLinkRegistry,
-                      Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers, WorldWorker& worldWorker,
+        ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+                      Processor::ProcessorGroup<EProcessorId>& basicGroup,
+                      Processor::ProcessorGroup<EProcessorId>& dbGroup,
                       std::string sharedSecret);
 
         void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
@@ -62,6 +66,19 @@ namespace World
         // 방화벽/루프백으로 제한하는 것이 실질적인 1차 방어선이고 이건 그 위의 최소 확인이다.
         [[nodiscard]] bool IsAuthenticated(const Network::SessionId toolSessionId) const;
 
+        // 전체 클라이언트를 훑어야 하는 명령(공지, 접속 중 전체 우편, 목록 조회)의 팬아웃.
+        //
+        // **왜 이런 모양이 되는가**: ClientRegistry가 clientSessionId로 샤딩돼 있어서 전체를
+        // 순회할 수 있는 스레드가 없다. 그래서 샤드마다 메시지를 하나씩(ownerId=샤드 인덱스)
+        // 던져 각 스레드가 자기 몫만 처리하게 하고, 마지막으로 끝난 스레드가 합계를 모아
+        // onComplete를 한 번 부른다. 어피니티로 락을 없앤 대가가 전역 작업의 이 팬아웃이다.
+        //
+        // perShard는 그 샤드를 소유한 스레드에서 실행되며 처리 건수를 반환한다.
+        // onComplete는 마지막 샤드를 처리한 스레드에서 딱 한 번 실행된다(어느 스레드인지는
+        // 정해지지 않으므로, 거기서 만지는 것은 전송뿐이어야 한다).
+        void ScatterToShards(std::function<uint32_t(const size_t shardIndex)> perShard,
+                             std::function<void(const uint32_t total)> onComplete);
+
         void SendCommandAck(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
                             const EToolResultCode resultCode, const uint32_t affectedCount) const;
 
@@ -75,13 +92,16 @@ namespace World
         static constexpr size_t kMaxClientListEntries = 500;
 
         ClientRegistry& clientRegistry_;
-        ZoneLinkRegistry& zoneLinkRegistry_;
-        Thread::AffinityWorkerPool<Db::DbWorker>& dbWorkers_;
-        WorldWorker& worldWorker_;
+        ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
+        Processor::ProcessorGroup<EProcessorId>& basicGroup_;
+        Processor::ProcessorGroup<EProcessorId>& dbGroup_;
         std::string sharedSecret_;
 
-        // WorldWorker 스레드 전용 -- 그래서 락이 없다(클래스 주석 참고).
-        std::unordered_set<Network::SessionId> authenticatedSessions_;
+        // **왜 여기만 락인가**: 운영툴 명령은 대상이 전역이라 ownerId를 하나로 고정할 수 없고
+        // (공지는 전 클라이언트, 쿠폰은 캠페인 코드), 그래서 이 집합은 BASIC의 여러 스레드에서
+        // 보이게 된다. ownerId 어피니티로 못 막는 자리라 모델 단위 락으로 내려온 것이다.
+        // 운영자가 손으로 누르는 명령이라 초당 수 건 수준이고, 샤딩까지 할 이유가 없다.
+        Thread::Mutexed<std::unordered_set<Network::SessionId>> authenticatedSessions_;
 
         Packet::PacketDispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };

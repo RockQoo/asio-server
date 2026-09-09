@@ -1,9 +1,10 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/Handler/WorldLinkHandler.h"
-#include "Shared/Protocol/Src/PacketId.h"
-#include "Server/ZoneServer/Src/Worker/ZoneWorkerManager.h"
+#include "Server/ZoneServer/Src/Handler/PlayerProcessor.h"
 #include "Server/ZoneServer/Src/World/WorldLink.h"
+#include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
+#include "Shared/Protocol/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
@@ -13,23 +14,16 @@
 
 namespace Zone
 {
-    WorldLinkHandler::WorldLinkHandler(ZoneWorkerManager& zoneWorkers, WorldLink& worldLink, std::vector<ZoneDef> zoneDefs,
-                                       const size_t lbThreadCount)
-        : zoneWorkers_(zoneWorkers)
+    WorldLinkHandler::WorldLinkHandler(PlayerProcessor& playerProcessor,
+                                       Processor::ProcessorGroup<EProcessorId>& lbGroup,
+                                       Processor::ProcessorGroup<EProcessorId>& playerGroup,
+                                       WorldLink& worldLink, std::vector<ZoneDef> zoneDefs)
+        : playerProcessor_(playerProcessor)
+        , lbGroup_(lbGroup)
+        , playerGroup_(playerGroup)
         , worldLink_(worldLink)
         , zoneDefs_(std::move(zoneDefs))
-        , lbPool_(lbThreadCount)
     {
-    }
-
-    void WorldLinkHandler::Start()
-    {
-        lbPool_.Start();
-    }
-
-    void WorldLinkHandler::Stop()
-    {
-        lbPool_.Stop();
     }
 
     void WorldLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
@@ -47,7 +41,7 @@ namespace Zone
             registerPacket.yMin = def.yMin;
             registerPacket.yMax = def.yMax;
             session->SendPacket(PacketId::Z2WZoneRegister,
-                                 std::as_bytes(std::span(&registerPacket, 1)));
+                                std::as_bytes(std::span(&registerPacket, 1)));
 
             LOG.Info(ELogCategory::Zone, "World 연결 성공, 존 등록")
                 .KV("ZoneId", def.zoneId)
@@ -56,20 +50,49 @@ namespace Zone
         }
     }
 
+    std::optional<uint64_t> WorldLinkHandler::OwnerIdOf(const PacketId packetId, const std::span<const byte> payload)
+    {
+        switch (packetId)
+        {
+        case PacketId::W2ZEnterZoneRequest:
+            // PlayerZoneStatePacket.clientSessionId -- zoneId(uint32) 뒤라 offset 4.
+            return World::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
+
+        case PacketId::W2ZLeaveZoneNotify:
+            // LeaveZoneNotifyPacket.clientSessionId (offset 0)
+            return World::PeekOwnerId<Network::SessionId>(payload);
+
+        case PacketId::W2ZRelay:
+            // ClientEnvelopeHeader.clientSessionId (offset 0)
+            return World::PeekOwnerId<Network::SessionId>(payload);
+
+        default:
+            return std::nullopt;
+        }
+    }
+
     void WorldLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& /*session*/,
                                     const Packet::PacketHeader& header,
                                     const std::span<const byte> payload)
     {
-        // 여기는 NETWORK 스레드(Session의 strand)다. 파싱/분기는 하지 않고 바이트만 복사해서
-        // LB 풀로 넘긴다 -- payload는 이 함수가 끝나면 I/O 스레드가 재사용할 버퍼를 가리키므로
-        // 복사가 필요하다.
-        const auto packetId = header.id;
+        // 여기는 I/O 스레드(Session의 strand)다. ownerId만 훔쳐보고 바이트를 복사해 LB 레인에
+        // 넘긴다 -- payload는 이 함수가 끝나면 I/O 스레드가 재사용할 버퍼를 가리킨다.
+        const auto packetId = static_cast<PacketId>(header.id);
+
+        const auto ownerId = OwnerIdOf(packetId, payload);
+        if (!ownerId)
+        {
+            LOG.Warning(ELogCategory::Zone, "ownerId를 읽을 수 없는 패킷, 버림")
+                .KV("PacketId", header.id).KV("PayloadSize", payload.size());
+            return;
+        }
+
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
-        lbPool_.GetWorker(lbRoundRobin_.fetch_add(1, std::memory_order_relaxed))
-            .PostTask([this, packetId, payloadCopy = std::move(payloadCopy)]
+        lbGroup_.Post(EProcessorId::Lb, *ownerId,
+            [this, packetId, ownerId = *ownerId, payloadCopy = std::move(payloadCopy)]
             {
-                DecodeAndDispatch(packetId, payloadCopy);
+                DecodeAndDispatch(packetId, ownerId, payloadCopy);
             });
     }
 
@@ -79,10 +102,11 @@ namespace Zone
         LOG.Warning(ELogCategory::Zone, "World 연결 끊김").KV("Message", reason.message());
     }
 
-    void WorldLinkHandler::DecodeAndDispatch(const uint16_t packetId, const std::span<const byte> payload)
+    void WorldLinkHandler::DecodeAndDispatch(const PacketId packetId, const Network::SessionId ownerId,
+                                             const std::vector<byte>& payload)
     {
-        // 여기부터는 LB 스레드. "recv 처리"(패킷 타입 파싱 + 1차 분기)가 여기서 일어난다.
-        switch (static_cast<PacketId>(packetId))
+        // 여기부터는 LB 레인. 패킷 id 파싱과 1차 분기만 하고, 콘텐츠 해석은 플레이어 레인 몫이다.
+        switch (packetId)
         {
         case PacketId::W2ZEnterZoneRequest:
             HandleEnterZoneRequest(payload);
@@ -91,7 +115,7 @@ namespace Zone
             HandleLeaveZoneNotify(payload);
             break;
         case PacketId::W2ZRelay:
-            HandleForwardToZone(payload);
+            HandleForwardToZone(ownerId, payload);
             break;
         default:
             break;
@@ -108,18 +132,10 @@ namespace Zone
         World::PlayerZoneStatePacket state{};
         std::memcpy(&state, payload.data(), sizeof(World::PlayerZoneStatePacket));
 
-        if (!zoneWorkers_.HasZone(state.zoneId))
+        playerGroup_.Post(EProcessorId::Player, state.clientSessionId, [this, state]
         {
-            LOG.Warning(ELogCategory::Zone, "이 프로세스가 담당하지 않는 zoneId로 EnterZoneRequest 수신")
-                .KV("ZoneId", state.zoneId).KV("ClientSessionId", state.clientSessionId);
-            return;
-        }
-
-        SetLocalZone(state.clientSessionId, state.zoneId);
-
-        zoneWorkers_.PostToBasic(state.zoneId, [&zone = zoneWorkers_.GetZoneInstance(state.zoneId), state]
-        {
-            zone.OnPlayerEnter(state.clientSessionId, state.playerId, state.x, state.y);
+            playerProcessor_.OnPlayerEnter(state.clientSessionId, state.playerId, state.zoneId,
+                                            state.x, state.y);
         });
     }
 
@@ -133,22 +149,14 @@ namespace Zone
         World::LeaveZoneNotifyPacket leave{};
         std::memcpy(&leave, payload.data(), sizeof(World::LeaveZoneNotifyPacket));
 
-        const auto zoneIdOpt = FindLocalZone(leave.clientSessionId);
-        if (!zoneIdOpt)
-        {
-            return;
-        }
-
-        const auto zoneId = *zoneIdOpt;
-        RemoveLocalZone(leave.clientSessionId);
-
-        zoneWorkers_.PostToBasic(zoneId, [&zone = zoneWorkers_.GetZoneInstance(zoneId), clientSessionId = leave.clientSessionId]
-        {
-            zone.OnPlayerLeave(clientSessionId);
-        });
+        playerGroup_.Post(EProcessorId::Player, leave.clientSessionId,
+            [this, clientSessionId = leave.clientSessionId]
+            {
+                playerProcessor_.OnPlayerLeave(clientSessionId);
+            });
     }
 
-    void WorldLinkHandler::HandleForwardToZone(const std::span<const byte> payload)
+    void WorldLinkHandler::HandleForwardToZone(const Network::SessionId ownerId, const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(World::ClientEnvelopeHeader))
         {
@@ -159,64 +167,40 @@ namespace Zone
         std::memcpy(&header, payload.data(), sizeof(World::ClientEnvelopeHeader));
         const auto innerPayload = payload.subspan(sizeof(World::ClientEnvelopeHeader));
 
-        const auto zoneIdOpt = FindLocalZone(header.clientSessionId);
-        if (!zoneIdOpt)
-        {
-            return;
-        }
-
         const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
         if (innerPacketId == PacketId::C2ZEcho)
         {
-            // 공유 게임 상태가 필요 없으니 BASIC까지 안 가고 이 LB 스레드에서 바로 되돌려
-            // 보낸다 -- ZoneInstance::HandleClientPacket으로 넘기지 않는 유일한 예외.
-            if (const auto worldSession = worldLink_.Get())
-            {
-                // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과
-                // 응답이 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
-                World::ClientEnvelopeHeader replyHeader = header;
-                replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
-
-                Packet::BinaryWriter writer;
-                writer.Write(replyHeader);
-                writer.WriteBytes(innerPayload);
-                worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
-            }
+            ReplyEcho(header, innerPayload);
             return;
         }
 
-        // Echo를 제외한 나머지는 패킷 내용을 전혀 들여다보지 않고 그대로 BASIC(ZoneInstance)에
-        // 넘긴다 -- 와이어 포맷 파싱은 ZoneInstance::HandleClientPacket 쪽 몫이다.
-        const auto zoneId = *zoneIdOpt;
-        const auto clientSessionId = header.clientSessionId;
+        // Echo를 제외한 나머지는 내용을 들여다보지 않고 그대로 플레이어 레인에 넘긴다 --
+        // 와이어 포맷 파싱은 PlayerProcessor 쪽 몫이다.
         std::vector<byte> innerPayloadCopy(innerPayload.begin(), innerPayload.end());
-        zoneWorkers_.PostToBasic(zoneId, [&zone = zoneWorkers_.GetZoneInstance(zoneId), clientSessionId,
-                                          innerPacketId, innerPayloadCopy = std::move(innerPayloadCopy)]
-        {
-            zone.HandleClientPacket(clientSessionId, innerPacketId, innerPayloadCopy);
-        });
+        playerGroup_.Post(EProcessorId::Player, ownerId,
+            [this, ownerId, innerPacketId, innerPayloadCopy = std::move(innerPayloadCopy)]
+            {
+                playerProcessor_.HandleClientPacket(ownerId, innerPacketId, innerPayloadCopy);
+            });
     }
 
-    std::optional<uint32_t> WorldLinkHandler::FindLocalZone(const Network::SessionId clientSessionId) const
+    void WorldLinkHandler::ReplyEcho(const World::ClientEnvelopeHeader& header,
+                                     const std::span<const byte> innerPayload) const
     {
-        std::shared_lock lock(clientLocalZoneMutex_);
-        const auto it = clientLocalZone_.find(clientSessionId);
-        if (it == clientLocalZone_.end())
+        const auto worldSession = worldLink_.Get();
+        if (!worldSession)
         {
-            return std::nullopt;
+            return;
         }
-        return it->second;
-    }
 
-    void WorldLinkHandler::SetLocalZone(const Network::SessionId clientSessionId, const uint32_t zoneId)
-    {
-        std::unique_lock lock(clientLocalZoneMutex_);
-        clientLocalZone_[clientSessionId] = zoneId;
-    }
+        // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
+        // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
+        World::ClientEnvelopeHeader replyHeader = header;
+        replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
 
-    void WorldLinkHandler::RemoveLocalZone(const Network::SessionId clientSessionId)
-    {
-        std::unique_lock lock(clientLocalZoneMutex_);
-        clientLocalZone_.erase(clientSessionId);
+        Packet::BinaryWriter writer;
+        writer.Write(replyHeader);
+        writer.WriteBytes(innerPayload);
+        worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
     }
 }

@@ -2,7 +2,7 @@
 #include "Server/WorldServer/Src/Handler/GatewayLinkHandler.h"
 #include "Server/WorldServer/Src/World/ClientRegistry.h"
 #include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
-#include "Server/WorldServer/Src/Worker/WorldWorker.h"
+#include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
@@ -15,11 +15,11 @@
 
 namespace World
 {
-    GatewayLinkHandler::GatewayLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry& zoneLinkRegistry,
-                                            WorldWorker& worldWorker)
+    GatewayLinkHandler::GatewayLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+                                            Processor::ProcessorGroup<EProcessorId>& basicGroup)
         : clientRegistry_(clientRegistry)
         , zoneLinkRegistry_(zoneLinkRegistry)
-        , worldWorker_(worldWorker)
+        , basicGroup_(basicGroup)
     {
         RegisterHandlers();
     }
@@ -41,16 +41,27 @@ namespace World
                                       const Packet::PacketHeader& header,
                                       const std::span<const byte> payload)
     {
-        // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 바이트만 복사해서 WorldWorker로
-        // 넘기고, 실제 ClientRegistry/ZoneLinkRegistry 접근(RegisterHandlers로 등록해둔
-        // Handle* 메서드들)은 그 스레드에서 일어난다.
+        // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 세 패킷 모두 페이로드 맨 앞이
+        // clientSessionId라, 그 8바이트만 훔쳐보고 그걸 ownerId로 삼아 BASIC 큐 그룹에 넣는다.
+        // 와이어 포맷 해석(RegisterHandlers로 등록해둔 Handle* 메서드들)은 전부 배정된
+        // 스레드에서 일어난다.
         const auto packetId = static_cast<PacketId>(header.id);
+
+        const auto ownerId = PeekOwnerId<Network::SessionId>(payload);
+        if (!ownerId)
+        {
+            LOG.Warning(ELogCategory::Gateway, "ownerId를 읽을 수 없는 패킷, 버림")
+                .KV("PacketId", header.id).KV("PayloadSize", payload.size());
+            return;
+        }
+
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
-        worldWorker_.PostTask([this, session, packetId, payloadCopy = std::move(payloadCopy)]
-        {
-            dispatcher_.Dispatch(packetId, session, payloadCopy);
-        });
+        basicGroup_.Post(EProcessorId::Main, *ownerId,
+            [this, session, packetId, payloadCopy = std::move(payloadCopy)]
+            {
+                dispatcher_.Dispatch(packetId, session, payloadCopy);
+            });
     }
 
     void GatewayLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
@@ -72,7 +83,7 @@ namespace World
 
         // 등록된 존 중 첫 존의 중앙으로 입장시킨다. 스폰 좌표를 상수로 박지 않는 이유는
         // ZoneLinkRegistry::FindEntryPoint 주석 참고.
-        const auto entry = zoneLinkRegistry_.FindEntryPoint();
+        const auto entry = zoneLinkRegistry_->FindEntryPoint();
         if (!entry)
         {
             LOG.Warning(ELogCategory::Zone, "입장시킬 존이 아직 연결되지 않음")
@@ -80,7 +91,7 @@ namespace World
             return;
         }
 
-        const auto zoneLink = zoneLinkRegistry_.Find(entry->zoneId);
+        const auto zoneLink = zoneLinkRegistry_->Find(entry->zoneId);
         if (!zoneLink)
         {
             LOG.Warning(ELogCategory::Zone, "존 링크를 찾지 못함")
@@ -121,7 +132,7 @@ namespace World
             return;
         }
 
-        const auto zoneLink = zoneLinkRegistry_.Find(client->zoneId);
+        const auto zoneLink = zoneLinkRegistry_->Find(client->zoneId);
         if (!zoneLink)
         {
             return;
@@ -154,7 +165,7 @@ namespace World
             return;
         }
 
-        const auto zoneLink = zoneLinkRegistry_.Find(client->zoneId);
+        const auto zoneLink = zoneLinkRegistry_->Find(client->zoneId);
         if (!zoneLink)
         {
             return;

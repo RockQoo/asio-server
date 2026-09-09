@@ -134,9 +134,22 @@ namespace Stress
         stats_.RecordSessionEnded();
     }
 
-    void StressSession::HandleEnterZoneNotify(const std::span<const byte> /*payload*/)
+    void StressSession::HandleEnterZoneNotify(const std::span<const byte> payload)
     {
         MarkProgress();
+
+        // **zoneId를 반드시 읽어야 한다.** 이걸 버리고 좌표를 상수로 움직였더니, 존 배치가
+        // 1차원 한 줄에서 2×2 격자로 바뀐 뒤 브로드캐스터들이 존 경계를 넘어버렸다(입장 존인
+        // 1번의 y 구간은 [10,20)인데 y=0으로 움직여 3번 존으로 핸드오프됐다). 핸드오프는
+        // 프로세스를 넘고 우편함이 존 로컬이라, 그 순간 mailId가 1부터 다시 시작해
+        // "불일치"로 잡힌다 -- 서버 버그가 아니라 이 도구가 자기 존을 몰라서 생긴 오탐이었다.
+        Zone::EnterZoneNotifyPacket notify{};
+        if (payload.size() >= sizeof(notify))
+        {
+            std::memcpy(&notify, payload.data(), sizeof(notify));
+            zoneId_ = notify.zoneId;
+        }
+
         if (isBroadcaster_)
         {
             StartBroadcastTimer();
@@ -306,11 +319,27 @@ namespace Stress
                 return;
             }
 
-            // zone 0의 담당 구간 [0,10) 안에서만 움직여서 핸드오프가 안 생기게 한다(핸드오프
-            // 자체는 이번 부하 테스트 범위 밖).
+            // **자기 존 안에서만 움직인다** -- 핸드오프는 이번 부하 테스트 범위 밖이고,
+            // 넘어가면 우편함이 초기화돼 불일치로 오탐된다(HandleEnterZoneNotify 주석 참고).
+            //
+            // 존 배치 규칙은 서버 ParseZoneList의 복제다(VisualClient의 ZoneLayout이 같은 값을
+            // 복제하는 것과 같은 사정 -- 한쪽만 고치면 여기서 다시 경계를 넘는다).
+            // **y가 뒤집혀 있다는 점에 주의**: 격자는 `1 2` / `3 4`인데 1행이 위쪽이라
+            // yMax = (kZoneRows - row) * kZoneSize다. 여기를 row * kZoneSize로 잘못 쓰면
+            // 1번 존 사람이 3번 존 좌표로 움직여 곧바로 핸드오프된다(실제로 그랬다).
+            constexpr float kZoneSize = 10.0f;
+            constexpr uint32_t kZonesPerRow = 2;
+            constexpr uint32_t kZoneRows = 2;
+            const auto zoneIndex = zoneId_ > 0 ? zoneId_ - 1 : 0;
+            const auto column = zoneIndex % kZonesPerRow;
+            const auto row = zoneIndex / kZonesPerRow;
+            const auto xMin = static_cast<float>(column) * kZoneSize;
+            const auto yMin = static_cast<float>(kZoneRows - row) * kZoneSize - kZoneSize;
+
+            // 경계에 붙지 않도록 1~9 사이에서만 흔든다(xMax/yMax는 배타적 경계다).
             Zone::MovePacket move{};
-            move.x = 1.0f + static_cast<float>(index_ % 8);
-            move.y = 0.0f;
+            move.x = xMin + 1.0f + static_cast<float>(index_ % 8);
+            move.y = yMin + 1.0f + static_cast<float>((index_ / 8) % 8);
             session_->SendPacket(PacketId::C2ZMove, std::as_bytes(std::span(&move, 1)));
 
             stats_.RecordBroadcastSent(stats_.ActiveSessionCount());
