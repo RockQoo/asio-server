@@ -76,7 +76,7 @@ if errorlevel 1 goto :fail
 echo.
 echo [setup_game_db] 준비 완료.
 echo [setup_game_db] 접속 정보: 127.0.0.1,1433 / DB %DBNAME% / 계정 %DBUSER% / 비밀번호 %SA_PASSWORD%
-echo [setup_game_db] 시드 계정: tester1~4, stress_00001~stress_20000  (비밀번호 stress1234)
+echo [setup_game_db] 시드 계정: tester1~4, stress_00001~stress_20000  (비밀번호 0000)
 echo [setup_game_db] 서버는 환경 변수 ASIO_SERVER_DB_CONN 이 있으면 그것을 우선합니다.
 endlocal
 exit /b 0

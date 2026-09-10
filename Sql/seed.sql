@@ -16,7 +16,7 @@
 -- 계정 2만 개를 만드는데 솔트가 제각각이면 이 스크립트로는 만들 수 없기 때문이다.
 --
 -- 값의 형식은 schema.sql의 players.password_hash 주석 참고: "반복횟수.솔트(base64).해시(base64)"
---   비밀번호  : stress1234
+--   비밀번호  : 0000
 --   반복 횟수 : 1000
 --
 -- **반복 횟수 1000은 실서비스 값이 아니다.** 로그인 1만 건이 동시에 몰리는 부하 테스트에서
@@ -29,7 +29,7 @@ SET NOCOUNT ON;
 GO
 
 DECLARE @hash NVARCHAR(255) =
-    N'1000.Bw4VHCMqMTg/Rk1UW2JpcA==.YpIHjNvpC+yz3EksQSDvBT0eqsjwS2GvqIWMjPJD6Lk=';
+    N'1000.Bw4VHCMqMTg/Rk1UW2JpcA==.blkrC5KZy5okhw2ctnjQq3O1De5yzdJWA06yzeMPvFI=';
 
 -- -----------------------------------------------------------------------------
 -- 수동 확인용 계정 (ProtocolClient / Client)
@@ -51,7 +51,7 @@ GO
 -- 숫자 테이블을 만들지 않고 재귀 CTE로 행을 만든다. MAXRECURSION 0은 재귀 깊이 제한(기본
 -- 100)을 푸는 것이라 2만 행에 반드시 필요하다.
 DECLARE @seedHash NVARCHAR(255) =
-    N'1000.Bw4VHCMqMTg/Rk1UW2JpcA==.YpIHjNvpC+yz3EksQSDvBT0eqsjwS2GvqIWMjPJD6Lk=';
+    N'1000.Bw4VHCMqMTg/Rk1UW2JpcA==.blkrC5KZy5okhw2ctnjQq3O1De5yzdJWA06yzeMPvFI=';
 
 WITH numbers AS
 (

@@ -21,7 +21,7 @@ if not exist "%WEBDIR%\GmTool.Web.csproj" (
 )
 
 echo [start_gmtool] http://127.0.0.1:%PORT% 로 운영툴을 기동합니다.
-echo [start_gmtool] 초기 계정: admin / admin1234!  (첫 로그인 후 변경 권장)
+echo [start_gmtool] 초기 계정: admin / 0000  (첫 로그인 후 변경 권장)
 echo.
 
 REM ASPNETCORE_ENVIRONMENT=Development: HTTPS 리다이렉트와 예외 페이지 숨김을 끈다.

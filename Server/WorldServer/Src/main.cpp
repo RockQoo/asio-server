@@ -102,7 +102,7 @@ namespace
 
             // 시드의 해시는 PowerShell(.NET Rfc2898DeriveBytes)로 만들었다. 여기서 통과한다는 건
             // CNG 구현이 .NET과 같은 값을 낸다는 뜻이라, 두 구현의 교차 검증이기도 하다.
-            const bool correct = World::VerifyPassword("stress1234", *storedHash);
+            const bool correct = World::VerifyPassword("0000", *storedHash);
             const bool wrong = World::VerifyPassword("wrong-password", *storedHash);
 
             std::cout << "[dbcheck] 비밀번호 정답 검증: " << (correct ? "PASS" : "FAIL") << "\n";

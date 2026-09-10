@@ -59,7 +59,7 @@ public sealed class AuthOptions
 
     public string SeedDisplayName { get; set; } = "관리자";
 
-    public string SeedPassword { get; set; } = "admin1234!";
+    public string SeedPassword { get; set; } = "0000";
 }
 
 /// <summary>쿠폰 발급/등록 설정.</summary>

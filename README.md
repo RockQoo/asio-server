@@ -277,7 +277,7 @@ bat\stop_server_all.bat           :: 서버 프로세스 종료 (-keep 을 주�
 
 ```bat
 bat\start_mssql.bat   :: SQL Server 2022 컨테이너 기동 (Docker Desktop 필요, 최초 1회는 이미지 받느라 오래 걸림)
-bat\start_gmtool.bat         :: http://127.0.0.1:5080  (초기 계정 admin / admin1234!)
+bat\start_gmtool.bat         :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 ```
 
 스키마(`Tool/GmTool/Sql/schema.sql`)는 기동 시 자동 적용되고, 운영자 계정이 하나도 없을 때만

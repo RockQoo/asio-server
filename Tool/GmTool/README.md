@@ -28,7 +28,7 @@ bat\start_server_all.bat      World → Zone → Gateway (우편/공지를 쓸 �
 bat\start_gmtool.bat          http://127.0.0.1:5080
 ```
 
-초기 계정 **`admin` / `admin1234!`**. 운영자 계정이 하나도 없을 때만 만들어지므로, 로그인 후
+초기 계정 **`admin` / `0000`**. 운영자 계정이 하나도 없을 때만 만들어지므로, 로그인 후
 바꾸면 재시작 때 되돌아가지 않는다.
 
 기동 시 `Sql/schema.sql`이 자동 적용된다(`Database:ApplySchemaOnStartup`으로 끌 수 있다).
