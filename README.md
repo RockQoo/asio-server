@@ -243,7 +243,7 @@ MSBuild.exe asio-server.slnx -p:Configuration=Release -p:Platform=x64 -m
 bat\start_server_all.bat          :: World → Zone(1,2) → Zone(3,4) → Gateway, 탭 4개 (Debug)
 bat\start_server_all.bat Release  :: 5절 성능 수치를 재현하려면 이쪽 — Debug는 약 5배 느립니다
 bat\start_protocol_client.bat         :: ProtocolClient 실행 (127.0.0.1:9000)
-bat\start_visual_client.bat 2      :: VisualClient 창 2개 (MonoGame, 별도 .NET 솔루션)
+bat\start_client.bat 2      :: Client 창 2개 (MonoGame, 별도 .NET 솔루션)
 bat\stop_server_all.bat           :: 서버 프로세스 종료 (-keep 을 주면 콘솔 창은 남김)
 ```
 
@@ -276,7 +276,7 @@ bat\stop_server_all.bat           :: 서버 프로세스 종료 (-keep 을 주�
 끌고 들어가서 서버만 빌드하려는 흐름이 느려집니다.
 
 ```bat
-bat\start_gmtool_mssql.bat   :: SQL Server 2022 컨테이너 기동 (Docker Desktop 필요, 최초 1회는 이미지 받느라 오래 걸림)
+bat\start_mssql.bat   :: SQL Server 2022 컨테이너 기동 (Docker Desktop 필요, 최초 1회는 이미지 받느라 오래 걸림)
 bat\start_gmtool.bat         :: http://127.0.0.1:5080  (초기 계정 admin / admin1234!)
 ```
 
@@ -310,11 +310,11 @@ StressClient.exe 127.0.0.1 9000 1000 200
 ```
 종료 시 처리량·지연 백분위(P50/P95/P99/P99.9)·불일치·스톨·브로드캐스트 수신율을 요약합니다.
 
-**`VisualClient`** — 존 이동·채팅·우편·쿠폰을 한 화면에서 눈으로 확인하는 MonoGame 클라이언트
-(C# / .NET 10, `Tool/VisualClient/VisualClient.slnx` — GmTool과 같은 이유로 별도 솔루션):
+**`Client`** — 존 이동·채팅·우편·쿠폰을 한 화면에서 눈으로 확인하는 MonoGame 클라이언트
+(C# / .NET 10, `Client/Client.slnx` — GmTool과 같은 이유로 별도 솔루션):
 
 ```bat
-bat\start_visual_client.bat 2     :: 창 2개. 브로드캐스트 확인에는 최소 2개가 필요합니다
+bat\start_client.bat 2     :: 창 2개. 브로드캐스트 확인에는 최소 2개가 필요합니다
 ```
 
 **자동 순회(`--auto` / `--auto-rev`, 실행 중에는 `F2`)** — 월드 가운데를 중심으로 원을 돌며
@@ -328,8 +328,8 @@ bat\start_visual_client.bat 2     :: 창 2개. 브로드캐스트 확인에는 �
 있습니다(같은 방향으로만 돌리면 위상 차이가 유지돼 계속 안 마주칠 수도 있습니다).
 
 ```bat
-bat\start_visual_client.bat 2 Debug auto   :: 창 2개, 방향을 서로 반대로
-dotnet run --project Tool\VisualClient\VisualClient -- --auto-rev
+bat\start_client.bat 2 Debug auto   :: 창 2개, 방향을 서로 반대로
+dotnet run --project Tool\Client\Client -- --auto-rev
 ```
 
 REPL로는 잘 안 보이는 것들을 화면이 대신 보여주는 게 목적입니다:
@@ -345,7 +345,7 @@ REPL로는 잘 안 보이는 것들을 화면이 대신 보여주는 게 목적�
 방향(dir)은 서버에 없는 값이라 좌표 변화량으로 클라이언트가 만들어 그립니다. 존 경계 좌표도
 서버가 알려주지 않아 `ParseZoneList` 규칙("각 존은 10칸 폭, zoneId는 1부터")을 클라이언트가
 복제한 값입니다(`Src/Protocol/ZoneLayout.cs` — 한쪽만 고치면 어긋납니다). 자세한 경로는
-[VisualClient 다이어그램](docs/flowcharts/visualclient-screen-and-coupon.html) 참고.
+[Client 다이어그램](docs/flowcharts/client-screen-and-coupon.html) 참고.
 
 **클라이언트가 메우고 있는 프로토콜 공백 두 가지** — 만들면서 드러난 부분이라 적어둡니다:
 
@@ -392,12 +392,12 @@ asio-server/
 │   ├─ GatewayServer/  클라이언트 accept + World 릴레이
 │   ├─ WorldServer/    라우팅(WorldWorker) + DB 워커 풀
 │   └─ ZoneServer/     존 상태(NETWORK/LB/BASIC/TICK/BROADCAST) + Mail
-├─ Tool/
+├─ Client/          게임 클라이언트 (C# / MonoGame) — 별도 솔루션
+│   └─ Client/Src/  Protocol(코덱·PacketId), Net(GameLink·CouponClient),
+│                   Model(WorldModel), Text(GlyphAtlas), Ui(패널·위젯)
+├─ Tool/            서버를 두드리는 도구들 (게임 클라이언트가 아니다)
 │   ├─ ProtocolClient/     프로토콜 확인용 REPL
 │   ├─ StressClient/ 부하 테스트 도구 (1만 세션까지 실측)
-│   ├─ VisualClient/   존/채팅/우편/쿠폰을 눈으로 보는 창 클라이언트 (C# / MonoGame) — 별도 솔루션
-│   │   └─ VisualClient/Src/  Protocol(코덱·PacketId), Net(GameLink·CouponClient),
-│   │                         Model(WorldModel), Text(GlyphAtlas), Ui(패널·위젯)
 │   └─ GmTool/         검증용 운영툴 (C# / .NET 10 / SQL Server) — 별도 솔루션
 │       ├─ GmTool.Core/  프로토콜 코덱 + 쿠폰 생성 엔진 (의존성 없음)
 │       ├─ GmTool.Web/   Blazor Web App + Minimal API + SqlKata 리포지토리
@@ -444,7 +444,7 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 | 8 | 운영툴(GmTool): 운영자 로그인, 우편 발송/삭제, 전체 공지, 대량 쿠폰 발급·등록 | 완료 |
 | 9 | 실제 DB 연동 (게임 서버 쪽) | 예정 |
 | 10 | Actor/Monster, AOI(시야 동기화) | 예정 |
-| 11 | C# MonoGame 클라이언트(VisualClient): 존 격자/핸드오프, 채팅, 우편, 쿠폰 | 완료 |
+| 11 | C# MonoGame 클라이언트(Client): 존 격자/핸드오프, 채팅, 우편, 쿠폰 | 완료 |
 
 **의도적으로 범위 밖에 둔 것** (물어보시면 설명드릴 수 있습니다):
 
@@ -462,7 +462,7 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
   시작합니다. 원래는 위 DB 계층이 소유해야 할 상태를 존이 들고 있어서 생기는 한계입니다
 - **존 입장 스냅샷 / 퇴장 통지 없음**: 브로드캐스트는 그 순간 존에 있는 사람에게만 가고,
   입장할 때 기존 플레이어 목록을 주는 패킷도 누가 나갔는지 알리는 패킷도 없습니다.
-  `VisualClient`는 좌표 하트비트와 타임아웃으로 이걸 메우고 있는데, 원래는 입장 응답에
+  `Client`는 좌표 하트비트와 타임아웃으로 이걸 메우고 있는데, 원래는 입장 응답에
   스냅샷을 싣고 퇴장을 브로드캐스트해야 할 부분입니다 — AOI를 넣을 때 같이 정리할 자리입니다
 - **수평 확장**: `Listener`의 세션 id가 프로세스별 1부터 시작하므로 Gateway를 2대 띄우면
   World의 라우팅 키가 충돌합니다. Gateway↔World 연결도 끊기면 재연결하지 않습니다

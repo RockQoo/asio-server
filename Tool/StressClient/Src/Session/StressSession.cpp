@@ -322,7 +322,7 @@ namespace Stress
             // **자기 존 안에서만 움직인다** -- 핸드오프는 이번 부하 테스트 범위 밖이고,
             // 넘어가면 우편함이 초기화돼 불일치로 오탐된다(HandleEnterZoneNotify 주석 참고).
             //
-            // 존 배치 규칙은 서버 ParseZoneList의 복제다(VisualClient의 ZoneLayout이 같은 값을
+            // 존 배치 규칙은 서버 ParseZoneList의 복제다(Client의 ZoneLayout이 같은 값을
             // 복제하는 것과 같은 사정 -- 한쪽만 고치면 여기서 다시 경계를 넘는다).
             // **y가 뒤집혀 있다는 점에 주의**: 격자는 `1 2` / `3 4`인데 1행이 위쪽이라
             // yMax = (kZoneRows - row) * kZoneSize다. 여기를 row * kZoneSize로 잘못 쓰면

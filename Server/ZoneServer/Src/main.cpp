@@ -23,7 +23,7 @@ namespace
     //                 x:[0,10)  x:[10,20)
     //
     // 이 값을 바꾸면 배치가 바뀐다(1이면 세로 한 줄, 4면 가로 한 줄). 클라이언트도 같은 값을
-    // 갖고 있어야 화면의 격자와 실제 핸드오프 지점이 맞는다 -- VisualClient의 ZoneLayout.cs.
+    // 갖고 있어야 화면의 격자와 실제 핸드오프 지점이 맞는다 -- Client의 ZoneLayout.cs.
     constexpr uint32_t kZonesPerRow = 2;
 
     // 격자의 행 개수. 행 0을 화면 위쪽(y가 큰 쪽)에 놓으려면 전체 높이를 알아야 해서 필요하다

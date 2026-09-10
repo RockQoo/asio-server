@@ -23,7 +23,7 @@ NuGet 복원까지 끌려온다.
 ## 실행
 
 ```
-bat\start_gmtool_mssql.bat    SQL Server 컨테이너 + gmtool DB/로그인 준비
+bat\start_mssql.bat    SQL Server 컨테이너 + gmtool DB/로그인 준비
 bat\start_server_all.bat      World → Zone → Gateway (우편/공지를 쓸 때만 필요)
 bat\start_gmtool.bat          http://127.0.0.1:5080
 ```

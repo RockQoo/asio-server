@@ -47,13 +47,13 @@
   기록 — 수백만 샘플에도 상수 메모리·O(1)이라 계측이 실험 자체를 방해하지 않는다. 재는
   구간은 `MailAdd→Ack`, `MailDel→Ack`, 사이클 전체 3종. 추적 상한은 100초(처음 10초로
   뒀다가 과부하 실험에서 P95/P99가 전부 상한에 몰려 구분이 안 돼 넓혔다).
-- **`bat/start_server_all.bat`/`bat/start_protocol_client.bat`/`bat/start_visual_client.bat`**:
-  전체 프로세스를 한 번에 띄우는 배치 파일. VisualClient는 별도 .NET 솔루션이라 bin/x64가 아닌
+- **`bat/start_server_all.bat`/`bat/start_protocol_client.bat`/`bat/start_client.bat`**:
+  전체 프로세스를 한 번에 띄우는 배치 파일. Client는 별도 .NET 솔루션이라 bin/x64가 아닌
   자기 경로로 빌드되므로 `dotnet run`으로 띄운다(창 개수를 인자로 받는다 -- 브로드캐스트
   확인에는 최소 2개가 필요하다).
 - 새 기능 추가 시 `docs/flowcharts/`에 다이어그램을 같이 갱신하는 규칙이 실제로 잘 지켜지고
   있음(`zone-handoff-and-mail.html`, `protocolclient-echo-move-chat.html`, `gmtool-operations.html`,
-  `visualclient-screen-and-coupon.html`).
+  `client-screen-and-coupon.html`).
 - **운영툴(`Tool/GmTool`, C#/.NET 10/SQL Server)**: 서버 쪽은 WorldServer에 세 번째 accept
   포트(9300)와 `Tool/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
   **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라
@@ -110,10 +110,10 @@
   - 검증: Debug 빌드 에러·경고 0, 서버 3종을 띄워 `ProtocolClient`로 mail add/del 왕복과
     없는 mailId 삭제 시 `error=100(MailNotFound)` 응답까지 확인, `StressClient` 20세션×5사이클
     100/100 완료(불일치 0).
-- **시각 클라이언트(`Tool/VisualClient`, C#/MonoGame)**(2026-09-08): 존 이동·채팅·우편·쿠폰을
+- **시각 클라이언트(`Client`, C#/MonoGame)**(2026-09-08): 존 이동·채팅·우편·쿠폰을
   한 창에서 눈으로 확인하는 클라이언트. **서버 C++ 코드는 한 줄도 고치지 않았다** — 기존
   프로토콜과 이미 있는 쿠폰 API만 쓴다. GmTool과 같은 이유로 별도 솔루션
-  (`Tool/VisualClient/VisualClient.slnx`).
+  (`Client/Client.slnx`).
   - **코덱은 GmTool.Core의 `BinaryPacketWriter`/`Reader`를 복사**해 왔다(`Int32`/`Single`
     메서드만 추가). 프로젝트 참조로 엮지 않은 이유: 두 도구가 쓰는 링크가 겹치지 않고
     (운영툴 T2W/W2T vs 이쪽 C2Z/Z2C/W2C) 솔루션도 따로라, 참조로 묶어 GmTool 빌드에 이
@@ -148,7 +148,7 @@
   - 쿠폰의 `clientSessionId`로는 `playerId`(uint32)를 그대로 넘긴다. 서버의 `playerId`가
     `static_cast<uint32_t>(clientSessionId)`이고 `Listener`의 세션 id가 1부터 증가하는
     카운터라 상위 32비트가 0이기 때문이다 — **세션 id 발급 방식을 바꾸면 깨지는 전제**다.
-  - 검증: 빌드 경고 0. 서버 3종 + GmTool.Web + SQL Server를 실제로 띄우고, VisualClient의
+  - 검증: 빌드 경고 0. 서버 3종 + GmTool.Web + SQL Server를 실제로 띄우고, Client의
     `Protocol`/`Net`/`Model` 소스를 그대로 링크한 헤드리스 하네스로 왕복을 확인했다 —
     존 입장(playerId/zoneId), Echo RTT 30.6ms, 한글 채팅 왕복, Move 후 서버 확정 좌표,
     MailAdd의 `Z2CTaskResult` 스트림 파싱(한글 제목/본문 정상), 없는 mailId 삭제 시
@@ -190,7 +190,7 @@
   - 회귀: `StressClient` 20세션×5사이클 100/100 완료(불일치 0, 스톨 0). 처음 돌렸을 때 전
     세션이 스톨했는데, `Z2CTaskResult`에 `requestId`(8바이트)가 추가된 걸 부하 도구가 읽지
     않아 스트림 오프셋이 밀린 것이었다 -- **와이어 포맷을 바꾸면 세 클라이언트(ProtocolClient/
-    StressClient/VisualClient)를 모두 확인해야 한다**는 신호다. VisualClient(C#)도 같은
+    StressClient/Client)를 모두 확인해야 한다**는 신호다. Client(C#)도 같은
     파싱을 고쳤고 경고 0으로 빌드된다 -- 재화 태스크는 아직 모르는 kind로 건너뛰지만, 길이
     프리픽스 덕에 나머지 태스크는 정상 적용된다.
 
@@ -221,7 +221,7 @@
 3. **AOI/몬스터**: 존 내부를 그리드로 나눠 "가까운 플레이어에게만" 브로드캐스트하도록
    확장, 몬스터(NPC)와 간단한 FSM 추가.
 
-   **이때 같이 정리할 것 — 존 입장 스냅샷과 퇴장 통지.** `VisualClient`를 만들면서 드러났다:
+   **이때 같이 정리할 것 — 존 입장 스냅샷과 퇴장 통지.** `Client`를 만들면서 드러났다:
    브로드캐스트는 그 순간 존에 있는 사람에게만 가고, 입장할 때 기존 플레이어 목록을 주는
    패킷도 누가 나갔는지 알리는 패킷도 없다. 지금은 클라이언트가 좌표 하트비트(1초)와
    타임아웃(6초)으로 메우고 있지만, 서버가 `Z2CEnterZoneNotify`에 존 안의 플레이어 스냅샷을
