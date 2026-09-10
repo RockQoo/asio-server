@@ -51,6 +51,16 @@ namespace World
         // 운영툴 링크의 공유 시크릿. 개발 기본값이며 실제 운영에서는 환경 변수
         // ASIO_SERVER_TOOL_SECRET로 덮어쓴다(main.cpp 참고).
         std::string toolSharedSecret{"dev-only-gmtool-secret"};
+
+        // 게임 DB(asio_game) ODBC 연결 문자열. 위 시크릿과 같은 이유로 개발 기본값만 소스에 두고
+        // 환경 변수 ASIO_SERVER_DB_CONN이 있으면 그걸 우선한다.
+        //
+        // **드라이버 버전을 박아둔 이유**: ODBC는 설치된 드라이버 이름을 문자열로 지정해야 하고,
+        // 개발 머신에 깔린 것이 "ODBC Driver 17 for SQL Server"다. 18을 쓰는 환경이라면 이 값을
+        // 환경 변수로 덮으면 된다(18은 기본이 암호화 연결이라 TrustServerCertificate가 필수다).
+        std::string dbConnectionString{
+            "Driver={ODBC Driver 17 for SQL Server};Server=127.0.0.1,1433;Database=asio_game;"
+            "UID=asio_game;PWD=GmTool1234!;TrustServerCertificate=yes;"};
     };
 
     // 전체를 조립하는 곳: Gateway용/Zone용 accept 포트 두 개, 클라이언트/Zone 라우팅 테이블,
