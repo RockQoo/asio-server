@@ -9,12 +9,11 @@
 
 namespace World
 {
-    // DB 실패를 알리는 예외.
+    // ODBC 수준의 실패를 알리는 예외(연결 끊김, 문법 오류, 제약 위반 등).
     //
-    // **왜 예외인가**: SP는 성공/실패를 예외로만 알리고 별도 RETURN 코드 규약을 두지 않는다.
-    // 업무적 검증(이 우편이 이미 있는가 등)은 World 캐시 대조에서 이미 끝나므로, SP까지
-    // 내려오는 실패는 전부 "장애"다. 장애는 호출부가 분기로 처리할 게 아니라 로그로 남기고
-    // 넘어가는 것이 이 프로젝트의 정책(Fire-and-Forget)이다.
+    // SP 자신이 코드로 알리는 실패는 아래 DbProcedureException 쪽이다. 둘을 나눈 이유는
+    // **복구 방법이 다르기 때문**이다 -- ODBC 실패는 재연결로 살아날 수 있지만, SP가
+    // 돌려준 에러 코드는 다시 시도해도 같은 결과다.
     //
     // 에러 종류는 문자열이 아니라 **SQLSTATE**(ODBC 표준 5자 코드)로 식별한다 -- 메시지 문자열은
     // 드라이버/로캘에 따라 달라져서 파싱 대상이 못 된다(cpp-patterns.md "에러는 문자열이 아니라
@@ -32,6 +31,32 @@ namespace World
 
     private:
         std::string sqlState_;
+    };
+
+    // SP가 RETURN으로 돌려준 0이 아닌 코드.
+    //
+    // 코드 대역은 .claude/rules/sql-patterns.md 에 있다 -- 상위 바이트가 분류(진입 가드 /
+    // 예외 / 콘텐츠별 업무 거절)를 가른다. 여기서 코드 의미를 해석하지 않는 이유는 Core가
+    // 콘텐츠를 모르는 것과 같다: 해석은 그 코드를 정한 콘텐츠 쪽 일이다.
+    //
+    // **예외로 만든 이유**: 던져야 Execute의 트랜잭션 경로가 롤백을 태운다. 반환값으로
+    // 돌려주면 호출부가 검사를 빠뜨렸을 때 실패한 작업이 그대로 커밋된다.
+    class DbProcedureException : public std::runtime_error
+    {
+    public:
+        DbProcedureException(std::string procedure, const int32_t returnValue)
+            : std::runtime_error("SP가 에러 코드를 반환했다(" + procedure + ")")
+            , procedure_(std::move(procedure))
+            , returnValue_(returnValue)
+        {
+        }
+
+        [[nodiscard]] const std::string& Procedure() const noexcept { return procedure_; }
+        [[nodiscard]] int32_t ReturnValue() const noexcept { return returnValue_; }
+
+    private:
+        std::string procedure_;
+        int32_t returnValue_;
     };
 
     // ODBC 커넥션 하나. **DB 레인 스레드 하나가 이걸 하나씩 독점한다**(DbConnectionPool 참고).
@@ -80,7 +105,10 @@ namespace World
         void Disconnect() noexcept;
 
         // 커맨드 하나를 실행하고, 결과 집합이 있으면 읽어 반환한다.
-        void ExecuteOne(const DbCommand& command, DbResult* outResult);
+        //
+        // isTransOutside는 SP의 @is_trans_outside로 그대로 넘어간다 -- 이 커넥션이 이미
+        // 트랜잭션 안이면(useTransaction 경로) SP가 자기 트랜잭션을 열지 않아야 한다.
+        void ExecuteOne(const DbCommand& command, const bool isTransOutside, DbResult* outResult);
 
         void SetAutoCommit(const bool enabled);
 

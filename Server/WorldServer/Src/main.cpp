@@ -86,7 +86,7 @@ namespace
             World::DbConnection connection(connectionString);
 
             World::DbResult result;
-            connection.Execute({World::DbCommand{"dbo.players_select", {std::string("tester1")}}},
+            connection.Execute({World::DbCommand{"dbo.up_players_select", {std::string("tester1")}}},
                                false, &result);
 
             if (result.empty())
@@ -99,7 +99,7 @@ namespace
             const auto storedHash = World::GetString(result[0], 2);
             if (!playerId || !storedHash)
             {
-                std::cout << "[dbcheck] FAIL: players_select의 결과 컬럼 형태가 예상과 다릅니다.\n";
+                std::cout << "[dbcheck] FAIL: up_players_select의 결과 컬럼 형태가 예상과 다릅니다.\n";
                 return EXIT_FAILURE;
             }
 
@@ -154,6 +154,28 @@ namespace
 
         uint64_t generateUs = 0;
         uint64_t insertUs = 0;
+
+        // 이 노드가 남긴 행 수. 여러 프로세스가 같은 테이블에 동시에 넣으므로 전체 COUNT(*)로는
+        // 어느 프로세스 몫인지 가릴 수 없어, id의 노드 비트로 걸러서 센다.
+        const auto countRowsForNode = [&connectionString, nodeId]() -> std::optional<int64_t>
+        {
+            try
+            {
+                World::DbConnection connection(connectionString);
+                World::DbResult result;
+                connection.Execute({World::DbCommand{"dbo.up_unique_keys_count_by_node",
+                                                     {static_cast<int64_t>(nodeId)}}},
+                                   false, &result);
+                return result.empty() ? std::nullopt : World::GetInt64(result.front(), 0);
+            }
+            catch (const World::DbException& ex)
+            {
+                std::cout << "[idtest] 행 수 조회 실패: " << ex.what() << "\n";
+                return std::nullopt;
+            }
+        };
+
+        const auto beforeCount = randomMode ? std::nullopt : countRowsForNode();
 
         try
         {
@@ -219,7 +241,7 @@ namespace
                 }
                 std::sort(round.begin(), round.end());
 
-                connection.ExecuteMany(randomMode ? "dbo.id_test_random_insert" : "dbo.id_test_insert",
+                connection.ExecuteMany(randomMode ? "dbo.up_unique_keys_random_insert" : "dbo.up_unique_keys_insert",
                                        round);
                 all.insert(all.end(), round.begin(), round.end());
 
@@ -229,10 +251,33 @@ namespace
         }
         catch (const World::DbException& ex)
         {
-            // 중복 키면 여기로 온다 -- 그게 이 테스트가 잡으려는 실패다.
+            // 연결이 끊겼거나 SP 자체를 못 부른 경우다.
+            //
+            // **중복 키는 더 이상 여기로 오지 않는다.** SP가 규약대로 CATCH를 갖게 되면서
+            // 오류가 RETURN 코드로 바뀌는데, 배치 경로(ExecuteMany)는 그 값을 읽지 못한다.
+            // 그래서 중복 검증은 아래의 "행 수 대조"가 맡는다.
             std::cout << "[idtest] DB 삽입 실패: " << ex.what()
                       << " (SQLSTATE=" << ex.SqlState() << ")\n";
             return EXIT_FAILURE;
+        }
+
+        const auto afterCount = randomMode ? std::nullopt : countRowsForNode();
+
+        // 넣은 개수와 실제로 늘어난 행 수를 대조한다 -- 중복이 조용히 건너뛰어졌다면 여기서 갈린다.
+        //
+        // **절대값이 아니라 증가분을 본다.** 테이블을 비우지 않고 다시 돌리면 이전 실행이 남긴
+        // 행이 그대로 있어서, 절대값으로 비교하면 멀쩡한 실행이 실패로 뒤집힌다.
+        //
+        // 난수 대조군은 id에 노드 비트가 없어 어느 프로세스 몫인지 가릴 수 없으므로 건너뛴다
+        // (대조군의 목적은 단편화 비교이고, 63비트 난수 500만 개의 충돌 확률은 무시할 수준이다).
+        bool rowCountMatched = true;
+        if (!randomMode)
+        {
+            const auto inserted = (afterCount && beforeCount) ? *afterCount - *beforeCount : -1;
+            rowCountMatched = (inserted == static_cast<int64_t>(total));
+
+            std::cout << "[idtest] 행 수 대조 " << inserted << " / " << total
+                      << (rowCountMatched ? "  PASS" : "  FAIL(중복이 건너뛰어졌다)") << "\n";
         }
 
         // 프로세스 안에서도 중복을 본다. DB PK가 이미 막지만, 여기서 걸리면 "어느 프로세스가
@@ -252,7 +297,7 @@ namespace
         std::cout << "[idtest] DB 삽입 " << insertUs / 1000 << "ms ("
                   << perSecond(total, insertUs) << "/초)\n";
 
-        return hasDuplicate ? EXIT_FAILURE : EXIT_SUCCESS;
+        return (hasDuplicate || !rowCountMatched) ? EXIT_FAILURE : EXIT_SUCCESS;
     }
 }
 

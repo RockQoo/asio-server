@@ -93,12 +93,15 @@ namespace World
 
         // "{CALL dbo.mail_insert(?,?,?)}" 를 만든다. ODBC 표준 escape 문법이라 드라이버가
         // 자기 방언(T-SQL의 EXEC)으로 바꿔준다.
+        // `{? = CALL p(?,?)}` 형태로 만든다. 맨 앞 물음표가 SP의 RETURN 값을 받는 자리이고,
+        // 그다음 물음표가 @is_trans_outside다 -- 모든 SP가 이 둘을 갖는다는 것이 규약이라
+        // 여기서 일괄로 붙인다(.claude/rules/sql-patterns.md).
         [[nodiscard]] std::wstring MakeCallStatement(const DbCommand& command)
         {
-            std::string statement = "{CALL " + command.procedure + "(";
+            std::string statement = "{? = CALL " + command.procedure + "(?";
             for (size_t index = 0; index < command.params.size(); ++index)
             {
-                statement += (index == 0) ? "?" : ",?";
+                statement += ",?";
             }
             statement += ")}";
             return Utf8ToWide(statement);
@@ -192,7 +195,7 @@ namespace World
         {
             for (const auto& command : commands)
             {
-                ExecuteOne(command, outResult);
+                ExecuteOne(command, useTransaction, outResult);
             }
             return;
         }
@@ -202,7 +205,7 @@ namespace World
         {
             for (const auto& command : commands)
             {
-                ExecuteOne(command, outResult);
+                ExecuteOne(command, useTransaction, outResult);
             }
 
             ThrowIfFailed(SQLEndTran(SQL_HANDLE_DBC, connection_, SQL_COMMIT),
@@ -220,7 +223,8 @@ namespace World
         SetAutoCommit(true);
     }
 
-    void DbConnection::ExecuteOne(const DbCommand& command, DbResult* outResult)
+    void DbConnection::ExecuteOne(const DbCommand& command, const bool isTransOutside,
+                                  DbResult* outResult)
     {
         SQLHSTMT statement = nullptr;
         ThrowIfFailed(SQLAllocHandle(SQL_HANDLE_STMT, connection_, &statement),
@@ -244,9 +248,28 @@ namespace World
         tinyBuffers.reserve(paramCount);
         textBuffers.reserve(paramCount);
 
+        // 1번은 SP의 RETURN 값(출력). 0이 성공이고, 그 외는 SP가 정한 에러 코드다.
+        // **결과 집합을 전부 소비하기 전에는 이 버퍼가 채워지지 않는다**(ODBC 규약) --
+        // 그래서 아래에서 SQLMoreResults로 끝까지 훑은 뒤에 값을 읽는다.
+        SQLINTEGER returnValue = 0;
+        SQLLEN returnIndicator = 0;
+        ThrowIfFailed(SQLBindParameter(statement, 1, SQL_PARAM_OUTPUT, SQL_C_SLONG, SQL_INTEGER,
+                                       0, 0, &returnValue, 0, &returnIndicator),
+                      SQL_HANDLE_STMT, statement, "RETURN 값 바인딩 실패");
+
+        // 2번은 @is_trans_outside. 이 커넥션이 이미 트랜잭션 안이면 1을 넘겨 SP가 자기
+        // 트랜잭션을 열지 않게 한다 -- 안 그러면 중첩 트랜잭션이 되고, 안쪽 COMMIT이
+        // 실제로 커밋하지 않는데도 커밋한 것처럼 보인다.
+        SQLCHAR transOutside = isTransOutside ? 1 : 0;
+        SQLLEN transIndicator = 0;
+        ThrowIfFailed(SQLBindParameter(statement, 2, SQL_PARAM_INPUT, SQL_C_UTINYINT, SQL_TINYINT,
+                                       0, 0, &transOutside, 0, &transIndicator),
+                      SQL_HANDLE_STMT, statement, "@is_trans_outside 바인딩 실패");
+
         for (size_t index = 0; index < paramCount; ++index)
         {
-            const auto position = static_cast<SQLUSMALLINT>(index + 1);
+            // 1번(RETURN)과 2번(@is_trans_outside)을 건너뛴 자리부터가 커맨드 파라미터다.
+            const auto position = static_cast<SQLUSMALLINT>(index + 3);
             const auto& param = command.params[index];
 
             if (const auto* intValue = std::get_if<int64_t>(&param))
@@ -294,8 +317,30 @@ namespace World
                           "SP 실행 실패(" + command.procedure + ")");
         }
 
+        // 어느 경로로 빠져나가든 반드시 지나야 하는 마무리. 결과 집합을 끝까지 넘겨야 출력
+        // 파라미터(RETURN 값)가 채워지고, 그 값이 0이 아니면 SP가 실패를 알린 것이다.
+        const auto finish = [&]()
+        {
+            for (;;)
+            {
+                const SQLRETURN more = SQLMoreResults(statement);
+                if (more == SQL_NO_DATA || !SQL_SUCCEEDED(more))
+                {
+                    break;
+                }
+            }
+
+            // 여기서 던져야 Execute의 트랜잭션 경로가 롤백을 태운다 -- 삼키면 실패한 작업이
+            // 그대로 커밋된다. 업무 거절(잔액 부족 등)과 SP 내부 예외를 코드로 구분한다.
+            if (returnValue != 0)
+            {
+                throw DbProcedureException(command.procedure, static_cast<int32_t>(returnValue));
+            }
+        };
+
         if (outResult == nullptr)
         {
+            finish();
             return;
         }
 
@@ -304,6 +349,7 @@ namespace World
                       SQL_HANDLE_STMT, statement, "결과 컬럼 수 조회 실패");
         if (columnCount <= 0)
         {
+            finish();
             return;
         }
 
@@ -356,6 +402,7 @@ namespace World
         }
 
         *outResult = std::move(rows);
+        finish();
     }
 
     void DbConnection::ExecuteMany(const std::string& procedure, const std::span<const int64_t> values)
@@ -386,8 +433,10 @@ namespace World
                                      reinterpret_cast<SQLPOINTER>(SQL_PARAM_BIND_BY_COLUMN), 0),
                       SQL_HANDLE_STMT, statement, "파라미터 바인딩 방식 설정 실패");
 
-        const DbCommand shape{procedure, {int64_t{0}}};
-        auto callStatement = MakeCallStatement(shape);
+        // **이 경로만 RETURN 값을 받지 않는다.** 파라미터 배열은 한 번의 실행에 수천 건을
+        // 밀어넣는데, 출력 파라미터는 그중 어느 건의 결과인지 말해주지 못한다. 배치 하나가
+        // 통째로 성공하거나 통째로 실패하는 것이 여기서는 맞는 단위라 ODBC 오류만 본다.
+        auto callStatement = Utf8ToWide("{CALL " + procedure + "(?,?)}");
         ThrowIfFailed(SQLPrepareW(statement, reinterpret_cast<SQLWCHAR*>(callStatement.data()), SQL_NTS),
                       SQL_HANDLE_STMT, statement, "SP 준비 실패(" + procedure + ")");
 
@@ -401,6 +450,16 @@ namespace World
         SetAutoCommit(false);
 
         std::vector<SQLLEN> indicators(kBatchSize, 0);
+
+        // @is_trans_outside 도 배열이어야 한다 -- PARAMSET_SIZE 가 N이면 드라이버는 모든
+        // 파라미터에서 N개를 읽는다. 배치 전체를 아래에서 트랜잭션으로 묶으므로 값은 전부 1이다.
+        std::vector<SQLCHAR> transOutsides(kBatchSize, 1);
+        std::vector<SQLLEN> transIndicators(kBatchSize, 0);
+        ThrowIfFailed(SQLBindParameter(statement, 1, SQL_PARAM_INPUT,
+                                       SQL_C_UTINYINT, SQL_TINYINT, 0, 0,
+                                       transOutsides.data(), 0, transIndicators.data()),
+                      SQL_HANDLE_STMT, statement, "배치 @is_trans_outside 바인딩 실패");
+
         for (size_t offset = 0; offset < values.size(); offset += kBatchSize)
         {
             const size_t count = (values.size() - offset < kBatchSize) ? values.size() - offset : kBatchSize;
@@ -412,7 +471,7 @@ namespace World
             // const를 벗기는 건 ODBC가 입력 파라미터에도 non-const 포인터를 요구하기 때문이다.
             // 이 경로는 SQL_PARAM_INPUT이라 드라이버가 버퍼를 쓰지 않는다.
             auto* buffer = const_cast<int64_t*>(values.data() + offset);
-            ThrowIfFailed(SQLBindParameter(statement, 1, SQL_PARAM_INPUT,
+            ThrowIfFailed(SQLBindParameter(statement, 2, SQL_PARAM_INPUT,
                                            SQL_C_SBIGINT, SQL_BIGINT, 0, 0,
                                            buffer, 0, indicators.data()),
                           SQL_HANDLE_STMT, statement, "배치 파라미터 바인딩 실패");

@@ -18,7 +18,7 @@ namespace World
     // 변환하긴 하지만, 컬럼 타입과 바인딩 타입을 맞춰두는 편이 실수를 줄인다.
     using DbValue = std::variant<int64_t, uint8_t, std::string>;
 
-    // SP 호출 하나. `dbo.mail_insert` 처럼 스키마까지 적는다.
+    // SP 호출 하나. `dbo.up_mails_upsert` 처럼 스키마까지 적는다.
     //
     // 서버는 테이블에 직접 쿼리하지 않고 전부 SP를 거친다(.claude/rules/sql-patterns.md).
     // 그래서 이 구조체에 임의 SQL 문자열을 넣는 통로를 두지 않는다.
