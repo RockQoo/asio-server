@@ -61,8 +61,13 @@ REM 스키마/시드는 앱 계정(%DBUSER%)으로 적용한다 -- 그 계정 �
 set "APPSQL=sqlcmd -S %SERVER% -U %DBUSER% -P %DBPASSWORD% -C -b -d %DBNAME% -f 65001"
 
 echo [setup_game_db] 스키마를 적용합니다.
-%APPSQL% -i "%ROOT%\Sql\schema.sql"
-if errorlevel 1 goto :fail
+REM 적용 순서가 중요하다 -- mails/currencies 가 players.player_id 를 FK 로 참조한다.
+REM unique_keys 는 검증 도구용이라 FK 가 없지만, 같이 깔아둬야 --idtest 를 바로 돌릴 수 있다.
+for %%F in (players mails currencies unique_keys) do (
+    echo [setup_game_db]   %%F.sql
+    %APPSQL% -i "%ROOT%\Sql\%%F.sql"
+    if errorlevel 1 goto :fail
+)
 
 if defined SKIP_SEED (
     echo [setup_game_db] 시드는 건너뜁니다 ^(schema 인자^).

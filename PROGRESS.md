@@ -13,7 +13,7 @@
 ### 2026-09-11에 추가된 것 — 게임 DB 연동 기반
 
 - **게임 DB(`asio_game`)**: 운영툴(`gmtool`)과 같은 SQL Server 인스턴스를 쓰되 DB는 따로 둔다.
-  `players` / `mails` / `currencies` / `currency_logs` + SP 7개. 컨테이너 이름도
+  `players` / `mails` / `currencies` + SP 8개(감사 로그 테이블은 보류). 컨테이너 이름도
   `asio-server-mssql`로 바꿨다(운영툴 전용이 아니게 됐으므로).
   스키마 규약은 `.claude/rules/sql-patterns.md` — 테이블 복수형, 클러스터 인덱스 필수,
   SP는 `[콘텐츠명]_[행위]`, INSERT/UPDATE는 upsert 하나로, DELETE는 `delete_ut` 소프트 삭제.

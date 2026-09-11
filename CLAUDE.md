@@ -137,6 +137,11 @@ C:\Work\asio-server\
 │                                     start_client.bat(Client, 창 개수를 인자로)
 │                                     setup_gmtool_db.bat/start_gmtool.bat(운영툴, 쿠폰에 필요)
 │                                     setup_game_db.bat(게임 DB 생성 + 스키마/시드 적용)
+├── Sql/                              게임 DB(asio_game) 스키마 — **테이블/콘텐츠 단위 파일**
+│                                     players.sql / mails.sql / currencies.sql
+│                                     unique_keys.sql(UniqueId 검증용, 게임 스키마 아님)
+│                                     seed.sql / verify_unique_keys.sql
+│                                     적용 순서는 FK 때문에 players가 먼저 — 자세한 건 Sql/README.md
 ├── bin/x64/{Debug,Release}/          산출물 (gitignored)
 ├── obj/                              중간 산출물 (gitignored)
 └── .claude/

@@ -2,8 +2,7 @@
 -- UniqueId 검증 결과 확인 쿼리
 --
 -- 앞서 WorldServer.exe --idtest 로 채운 dbo.id_tests / dbo.id_test_randoms 를 읽는다.
--- 실행: docker cp 후
---   sqlcmd -d asio_game -i id-test-verify.sql
+-- 실행: sqlcmd -S 127.0.0.1,1433 -U sa -P 0000 -C -d asio_game -i Sqlverify_unique_keys.sql
 --
 -- 노드 번호와 시퀀스는 **컬럼이 아니라 id 비트에서 역산**한다. 별도 컬럼으로 받아 두면
 -- "그 컬럼에 넣은 값"을 검증하는 셈이 되어, 정작 id 안에 제대로 들어갔는지를 확인하지 못한다.
