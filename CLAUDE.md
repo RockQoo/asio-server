@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 작업 전 필수 확인
 
-1. **세부 C++ 규칙**(include 순서/캐스팅/pch/asio 예외 안전 등): `.claude/rules/cpp-patterns.md`
+1. **세부 C++ 규칙**(include 순서/캐스팅/pch/상수 네이밍/asio 예외 안전 등): `.claude/rules/cpp-patterns.md`
 2. **`.claude/` 아래 새 md 파일명**(kebab-case, `SKILL.md`류 고정명은 예외): `.claude/rules/md-patterns.md`
 3. **패킷 id 네이밍/번호 대역**(`C2ZMove` 형식, 방향별 1000 단위 대역): `.claude/rules/packet-naming.md`
 4. **SQL 네이밍/SP 작성**(테이블은 복수형 snake_case, `NOLOCK` 금지 등): `.claude/rules/sql-patterns.md`
@@ -235,7 +235,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 
 | 항목 | 위치 |
 |------|------|
-| C++ 세부 패턴(include 순서/캐스팅/pch/const/emplace_back/asio 예외 안전) | `.claude/rules/cpp-patterns.md` |
+| C++ 세부 패턴(include 순서/캐스팅/pch/상수 `k` 접두사/const/emplace_back/asio 예외 안전) | `.claude/rules/cpp-patterns.md` |
 | MD 파일명 규약 | `.claude/rules/md-patterns.md` |
 | 패킷 id 네이밍 규칙 / 방향별 번호 대역 | `.claude/rules/packet-naming.md` |
 | SQL 네이밍(테이블 복수형 snake_case) / SP 작성 규약 | `.claude/rules/sql-patterns.md` |

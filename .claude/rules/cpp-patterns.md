@@ -65,6 +65,23 @@ move로 넘겼어도) const 가능.
 `const`로 선언할 수 없다(컴파일 에러). 새 getter는 "호출자가 반환값으로 상태를 바꿔야
 하는가?"로 판단.
 
+## 컴파일 타임 상수는 `k` 접두사 (`kEpochMs`)
+
+`constexpr`/`const` **값**은 `k` + PascalCase(`kTimestampBits`, `kZoneSize`, `kNodeIdSeed`).
+`k`는 konstant의 약자로, C 시절부터 `c`가 count/char에 배정돼 있어 상수 자리를 `k`가 가져간
+관례다. 이름만 보고 "런타임에 안 바뀌는 값"임을 알 수 있어 지역 변수(`camelCase`)·멤버
+변수(`socket_`)·POD public 필드(밑줄 없음)와 한눈에 갈린다.
+
+**`constexpr` 함수는 붙이지 않는다** — 값이 아니라 함수라 PascalCase 그대로다
+(`PacketHeader::MaxBodySize()`, `Common::HasFlag()`, `Protocol::MakeTaskKind()`).
+
+**`ALL_CAPS`(`TIME_STAMP_BITS`)는 쓰지 않는다.** C++에서 그 자리는 매크로 관례라, 매크로는
+네임스페이스·스코프를 무시하고 전처리에서 무조건 치환되므로 헤더가 같은 이름을 먼저
+`#define` 해두면 선언이 통째로 깨진다. 이 프로젝트는 `pch.h`의 `asio.hpp`가 모든 TU에
+`windows.h`를 끌고 오고(`ERROR`/`DELETE`/`MAX_PATH`/`IN`/`OUT` …), `Server/WorldServer/Src/Db/`는
+ODBC `sql.h`의 `SQL_*`/`MAX_*` 수백 개를 더 본다. 충돌하면 치환된 뒤의 코드로 에러가 나서
+메시지가 원인을 안 가리킨다.
+
 ## 수치 한계값
 
 C 매크로(`UINT32_MAX` 등) 대신 `std::numeric_limits<T>::max()`.
