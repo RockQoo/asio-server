@@ -2,11 +2,11 @@
 
 ## Project Structure & Module Organization
 
-This is a C++20, x64-only Visual Studio solution. `Shared/Core/Src/` contains reusable networking, packet, threading, timer, logging, and task infrastructure and builds as a static library. `Server/GatewayServer/`, `Server/WorldServer/`, and `Server/ZoneServer/` contain the distributed server processes; keep game-state logic in the owning server rather than `Core`. `Tool/ProtocolClient/` is the interactive protocol client, while `Tool/StressClient/` drives concurrent-session tests. `Client/` is reserved for a future game client and is empty for now. Documentation lives in `docs/`, launch scripts in `bat/`, and vendored standalone Asio in `3rd/asio/`. Build outputs under `bin/`, `obj/`, and logs are generated and must not be committed.
+This is a C++23, x64-only Visual Studio solution. `Shared/Core/Src/` contains reusable networking, packet, threading, timer, logging, and task infrastructure and builds as a static library. `Server/GatewayServer/`, `Server/WorldServer/`, and `Server/ZoneServer/` contain the distributed server processes; keep game-state logic in the owning server rather than `Core`. `Tool/ProtocolClient/` is the interactive protocol client, while `Tool/StressClient/` drives concurrent-session tests. `Client/` is reserved for a future game client and is empty for now. Documentation lives in `docs/`, launch scripts in `bat/`, and vendored standalone Asio in `3rd/asio/`. Build outputs under `bin/`, `obj/`, and logs are generated and must not be committed.
 
 ## Build, Test, and Development Commands
 
-Run commands from a Visual Studio Developer PowerShell (2022 or newer) with the v143 toolset installed. The solution deliberately stays on `PlatformToolset=v143` so that VS 2022 users can build it; decline the IDE's "upgrade to v145" prompt. To check a build against a newer compiler without editing the project files, override it on the command line: `-p:PlatformToolset=v145`.
+Run commands from a Visual Studio Developer PowerShell (2026 or newer) with the v145 toolset installed. The solution targets `PlatformToolset=v145` and `/std:c++23`, so VS 2026 is the minimum. To check a build against an older toolset without editing the project files, override it on the command line: `-p:PlatformToolset=v143 -p:LanguageStandard=stdcpp20`.
 
 ```powershell
 MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -m

@@ -134,7 +134,7 @@ Debug↔Release 차이가 5% 미만이라는 게 요점이다 — 병목이 코�
 원래 MySQL로 만들었다가 옮겼다. 결정적인 건 C++ 서버 쪽 사정이다 — 나중에 `WorldServer`의
 `Db::DbWorker`가 실제 DB를 붙일 때 SQL Server는 **ODBC(`<sql.h>` + `odbc32.lib`)가 Windows SDK
 내장**이라 `3rd/`에 바이너리 의존성이 하나도 늘지 않는다. MySQL은 `libmysql`이나 MariaDB
-Connector/C를 벤더링해야 한다. `3rd/`에는 asio 하나만 있고 "clone하면 VS 2022로 바로 빌드"가
+Connector/C를 벤더링해야 한다. `3rd/`에는 asio 하나만 있고 "clone하면 VS 2026으로 바로 빌드"가
 이 저장소의 방침이라 이 차이가 컸다.
 
 부수 이득으로 대량 적재에 `SqlBulkCopy`를 쓸 수 있고, 나중에 게임 데이터를 이 툴에서도

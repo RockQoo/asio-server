@@ -35,7 +35,7 @@ cd /c/Work/asio-server
 "$MSBUILD" asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -m -nologo -v:minimal
 ```
 
-- `Platform`은 항상 `x64`만 지원한다 (`PlatformToolset=v143`, x64 전용).
+- `Platform`은 항상 `x64`만 지원한다 (`PlatformToolset=v145`, x64 전용).
 - `Configuration`은 `Debug` 또는 `Release`.
 - 클린 재빌드가 필요하면 `-t:Rebuild` 추가. 특정 프로젝트만 빌드하려면 `-t:ZoneServer`처럼
   프로젝트명 추가(`-t:Rebuild`와 같이 못 씀 — 하나만 선택).

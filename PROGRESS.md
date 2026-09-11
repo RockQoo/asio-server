@@ -221,7 +221,7 @@
 ## 2. 코딩 컨벤션 (요약, 자세한 근거는 `.claude/rules/cpp-patterns.md`)
 
 - 네임스페이스 PascalCase, `Core::` 접두사 없음, 멤버 변수 trailing underscore(POD 구조체
-  public 필드는 예외), 주석은 전부 한글로 "왜"를 설명, C++20 적극 사용, 빌드는 CMake 아닌
+  public 필드는 예외), 주석은 전부 한글로 "왜"를 설명, C++23 적극 사용, 빌드는 CMake 아닌
   `.vcxproj`/`.slnx`.
 - 타입 이름은 **그 타입이 하는 일을 설명하는 이름**으로 짓는다. 일반에 통용되는 패턴 이름
   (`UnitOfWork`, `Mutexed` 등)이 있으면 그걸 쓰고, 기능과 무관한 별칭은 만들지 않는다.

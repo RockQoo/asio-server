@@ -8,10 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 항목 | 내용 |
 |------|------|
-| 종류 | C++20 / standalone ASIO(Boost 비의존) 기반 분산 게임 서버 포트폴리오 |
+| 종류 | C++23 / standalone ASIO(Boost 비의존) 기반 분산 게임 서버 포트폴리오 |
 | 목표 | MMORPG 구조를 단순화해 **존(Zone) 단위 스레드 어피니티**로 락 없이 게임 상태를 처리 |
 | 빌드 시스템 | 클래식 Visual Studio 프로젝트 파일(`.vcxproj` + `.slnx`). CMake 아님 — 되돌리지 말 것 |
-| 컴파일러 옵션 | MSVC, `PlatformToolset=v143`, `x64` 전용, `/std:c++20 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
+| 컴파일러 옵션 | MSVC, `PlatformToolset=v145`, `x64` 전용, `/std:c++23 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
 | 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
 | 운영툴 | `Tool/GmTool` — C#/.NET 10 + SQL Server. **별도 솔루션**(`Tool/GmTool/GmTool.slnx`)이며 C++ 솔루션에 넣지 않는다. WorldServer의 전용 포트(9300)로만 붙는다. **서버 기능 검증용 도구이고 기능 개발은 현재 중단** — 지금은 코드 정리/문서 정합성만 손댄다(역할 검사·비밀 관리 미비는 지금 범위 밖이지 미완성이 아니다). 영구 동결은 아니므로 사용자가 요청하면 기능 추가는 정상 진행 |
 | 기동 순서 | `bat/start_server_all.bat`(World→Zone(1,2)→Zone(3,4)→Gateway, Windows Terminal 탭 4개) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
@@ -58,7 +58,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
 - **include 경로는 솔루션 루트 기준**: `#include "Shared/Core/Src/Network/Session.h"`.
-- **모던 C++20 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
+- **모던 C++23 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
   `std::move`. 세부 규칙(const/sink/emplace/Get const 등)은 `cpp-patterns.md`.
 - **`3rd/asio` 수정 금지** — `.claude/settings.json` PreToolUse 훅으로도 자동 차단.
 - **새 기능/패킷 흐름 추가 시 `docs/flowcharts/`에 HTML 다이어그램도 추가**(규칙:
@@ -212,9 +212,8 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 
 ## 빌드 / 실행
 
-1. `asio-server.slnx`를 Visual Studio 2022 **이상**으로 연다 (`PlatformToolset=v143`, `x64`만
-   지원). VS 2026에서도 v143 툴셋만 설치돼 있으면 그대로 빌드된다 — 솔루션 탐색기에
-   `(Visual Studio 2022)`로 표시되는 것은 IDE가 아니라 대상 툴셋 표시라 정상이다.
+1. `asio-server.slnx`를 Visual Studio 2026 **이상**으로 연다 (`PlatformToolset=v145`,
+   `/std:c++23`, `x64`만 지원).
 2. 실행 파일이 5개(`GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient`)라
    개별 F5보다 **`bat/start_server_all.bat`**(World→Zone(1,2)→Zone(3,4)→Gateway, 탭 4개)로 한 번에
    띄우고 `bat/start_protocol_client.bat`으로 `ProtocolClient`를 붙이는 걸 권장. **`ZoneServer`
@@ -258,15 +257,13 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 - `ZoneWorkerManager::Start()`는 `ZoneInstance&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
   `Stop()`은 반드시 **타이머를 먼저 취소한 뒤** 워커를 정지시키는 순서를 지켜야 안전하다
   (순서를 바꾸면 안 됨).
-- `PlatformToolset`은 `v143`(VS 2022 툴셋)으로 **의도적으로** 고정돼 있다. 개발 환경은 Visual
-  Studio 2026 Community이고 v143·v145 툴셋이 모두 설치돼 있지만, 저장소는 v143을 유지한다 —
-  공개 포트폴리오라 VS 2022만 가진 사람도 clone해서 바로 빌드할 수 있어야 하기 때문이다.
-  v145로 올리면 VS 2026 설치자만 빌드 가능해진다. VS가 "v145로 업그레이드" 대화상자를 띄우면
-  `모두 무시`를 누를 것.
-  최신 컴파일러로 확인만 하고 싶을 때는 vcxproj를 고치지 말고 빌드 인자로 덮어쓴다:
-  `MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -p:PlatformToolset=v145 -m`
-  (v145로도 에러·경고 0으로 빌드되는 것을 확인했다.)
-  다른 머신에서 `MSB8020` 툴셋 오류가 나면 v143 빌드 도구를 설치하는 쪽이 우선이다.
+- `PlatformToolset`은 `v145`(VS 2026 툴셋) + `/std:c++23`이다. 개발 환경이 VS 2026 Community라
+  툴셋을 맞춰둔 것이고, 그 덕에 IDE가 "v145로 업그레이드" 대화상자를 띄우지 않는다.
+  **대신 VS 2026이 없으면 `MSB8020`으로 빌드가 막힌다** — 예전에는 VS 2022 사용자도 clone 후
+  바로 빌드할 수 있게 v143을 유지했지만, 이 저장소는 코드와 구조를 읽히는 것이 목적이라
+  개발 편의를 택했다.
+  옛 툴셋으로 확인만 하고 싶을 때는 vcxproj를 고치지 말고 빌드 인자로 덮어쓴다:
+  `MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -p:PlatformToolset=v143 -p:LanguageStandard=stdcpp20 -m`
 - `3rd/asio` 수정 금지는 `.claude/settings.json`의 PreToolUse 훅으로도 강제된다(Edit/Write가
   해당 경로를 건드리면 자동 차단).
 
