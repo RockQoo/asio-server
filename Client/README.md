@@ -18,7 +18,7 @@ bat\start_client.bat 2 Debug auto   :: 창 2개, 자동 순회 (방향을 서로
 ```
 
 쿠폰 기능을 쓰려면 운영툴도 함께 띄워야 한다(SQL Server 필요) —
-`bat\start_mssql.bat` 그리고 `bat\start_gmtool.bat`.
+`bat\setup_gmtool_db.bat` 그리고 `bat\start_gmtool.bat`.
 
 ## 구조
 

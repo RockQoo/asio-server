@@ -4,7 +4,7 @@ REM (안 떠 있어도 웹은 뜨고, 화면 우상단에 "World 연결 끊김"�
 REM
 REM 사용법: start_gmtool.bat [포트]   (기본값: 5080)
 REM
-REM 선행 조건: SQL Server가 필요하다. Docker로 띄우려면 bat\start_mssql.bat 를 먼저 실행할 것.
+REM 선행 조건: SQL Server 가 떠 있어야 한다. DB와 로그인은 bat\setup_gmtool_db.bat 이 준비한다.
 REM (DB가 없어도 웹은 뜨지만 계정 조회를 못 해서 로그인이 안 된다.)
 chcp 65001 >nul
 setlocal

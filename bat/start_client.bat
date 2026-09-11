@@ -69,7 +69,7 @@ endlocal
 echo  조작: WASD/방향키 이동, 존 뷰 클릭으로 순간 이동, Enter 채팅, F1 Echo 핑, F2 자동 순회, Esc 패널 닫기
 echo.
 echo  쿠폰 기능을 쓰려면 운영툴도 함께 띄워야 합니다(SQL Server 필요):
-echo    bat\start_mssql.bat  그리고  bat\start_gmtool.bat
+echo    bat\setup_gmtool_db.bat  그리고  bat\start_gmtool.bat
 echo  운영툴에서 캠페인을 만들고(보상 종류 = 우편) 쿠폰을 발급한 뒤, 코드 하나를 쿠폰 패널에 넣으세요.
 echo  캠페인 코드에는 I/L/O/U 를 쓸 수 없습니다(Crockford Base32 에서 제외된 문자입니다).
 echo.

@@ -38,7 +38,7 @@ namespace World
                 return;
             }
 
-            // TODO: 실제로는 여기서 DB에 INSERT/DELETE 쿼리(SP)를 실행한다(Docker DB 연동 후
+            // TODO: 실제로는 여기서 DB에 INSERT/DELETE 쿼리(SP)를 실행한다(DB 연동 후
             // 구현 예정). 지금은 DB 워커 스레드가 owner-hash로 순서대로 태스크를 처리한다는
             // 구조만 보여준다.
             // Debug 레벨 -- 부하 테스트처럼 세션/사이클 수가 많으면 태스크 1건마다 Info로 찍을

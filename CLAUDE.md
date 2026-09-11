@@ -29,7 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **세부 C++ 규칙**(include 순서/캐스팅/pch/상수 네이밍/asio 예외 안전 등): `.claude/rules/cpp-patterns.md`
 2. **`.claude/` 아래 새 md 파일명**(kebab-case, `SKILL.md`류 고정명은 예외): `.claude/rules/md-patterns.md`
 3. **패킷 id 네이밍/번호 대역**(`C2ZMove` 형식, 방향별 1000 단위 대역): `.claude/rules/packet-naming.md`
-4. **SQL 네이밍/SP 작성**(테이블은 복수형 snake_case, `NOLOCK` 금지 등): `.claude/rules/sql-patterns.md`
+4. **SQL 네이밍/SP 작성**(테이블은 복수형 snake_case, 조회는 기본 `WITH(NOLOCK)` 등): `.claude/rules/sql-patterns.md`
 5. **CLI 빌드/MSBuild 에러 진단**: `.claude/skills/build/SKILL.md`
 6. **기존 코드 답습**: `Shared/Core/Src/`가 인프라, `Server/WorldServer/Src/`·`Server/ZoneServer/Src/`·
    `Server/GatewayServer/Src/`가 각 서버 로직 — 새 코드는 같은 프로젝트의 유사 패턴부터 확인.
@@ -135,7 +135,8 @@ C:\Work\asio-server\
 │                                     창 하나에 탭 4개, 없으면 창을 따로 — cmd.exe엔 탭이 없다)
 │                                     stop_server_all.bat(종료)/start_protocol_client.bat(ProtocolClient)
 │                                     start_client.bat(Client, 창 개수를 인자로)
-│                                     start_mssql.bat/start_gmtool.bat(운영툴, 쿠폰에 필요)
+│                                     setup_gmtool_db.bat/start_gmtool.bat(운영툴, 쿠폰에 필요)
+│                                     setup_game_db.bat(게임 DB 생성 + 스키마/시드 적용)
 ├── bin/x64/{Debug,Release}/          산출물 (gitignored)
 ├── obj/                              중간 산출물 (gitignored)
 └── .claude/

@@ -276,7 +276,7 @@ bat\stop_server_all.bat           :: 서버 프로세스 종료 (-keep 을 주�
 끌고 들어가서 서버만 빌드하려는 흐름이 느려집니다.
 
 ```bat
-bat\start_mssql.bat   :: SQL Server 2022 컨테이너 기동 (Docker Desktop 필요, 최초 1회는 이미지 받느라 오래 걸림)
+bat\setup_gmtool_db.bat   :: gmtool DB/로그인 준비 (SQL Server 가 이미 떠 있어야 함)
 bat\start_gmtool.bat         :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 ```
 

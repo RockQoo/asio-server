@@ -60,7 +60,7 @@ namespace World
         // 환경 변수로 덮으면 된다(18은 기본이 암호화 연결이라 TrustServerCertificate가 필수다).
         std::string dbConnectionString{
             "Driver={ODBC Driver 17 for SQL Server};Server=127.0.0.1,1433;Database=asio_game;"
-            "UID=asio_game;PWD=GmTool1234!;TrustServerCertificate=yes;"};
+            "UID=asio_game;PWD=0000;TrustServerCertificate=yes;"};
     };
 
     // 전체를 조립하는 곳: Gateway용/Zone용 accept 포트 두 개, 클라이언트/Zone 라우팅 테이블,
