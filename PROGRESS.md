@@ -1,6 +1,6 @@
 # 진행 상황 정리 (다음 세션 이어하기용)
 
-마지막 업데이트: 2026-09-08
+마지막 업데이트: 2026-09-11
 
 `README.md`(소개용)와 별개로, 다음 세션에서 빠르게 컨텍스트를 복구하기 위한 문서. 자세한
 아키텍처/타입 표는 `CLAUDE.md`, 코딩 규약은 `.claude/rules/`를 우선 참고 — 여기는 "지금
@@ -9,6 +9,30 @@
 ---
 
 ## 1. 지금까지 된 것
+
+### 2026-09-11에 추가된 것 — 게임 DB 연동 기반
+
+- **게임 DB(`asio_game`)**: 운영툴(`gmtool`)과 같은 SQL Server 인스턴스를 쓰되 DB는 따로 둔다.
+  `players` / `mails` / `currencies` / `currency_logs` + SP 7개. 컨테이너 이름도
+  `asio-server-mssql`로 바꿨다(운영툴 전용이 아니게 됐으므로).
+  스키마 규약은 `.claude/rules/sql-patterns.md` — 테이블 복수형, 클러스터 인덱스 필수,
+  SP는 `[콘텐츠명]_[행위]`, INSERT/UPDATE는 upsert 하나로, DELETE는 `delete_ut` 소프트 삭제.
+- **ODBC 기반 DB 계층**(`Server/WorldServer/Src/Db/`): 실무 서버의 `AutoDbCommand`와 같은
+  모양 — `(ownerId, isTran, callback)`을 받아 SP 커맨드를 쌓았다가 **소멸 시 DB 큐 그룹으로**
+  한 번에 보낸다. **UnitOfWork 하나 = 트랜잭션 하나**이고 여러 UoW를 모으지 않는다.
+  커넥션은 레인 스레드마다 `thread_local` 1개라 "커넥션 수 = 소비자 수 1:1"이 그대로 성립하고
+  이 계층에 락이 없다. 비밀번호는 CNG PBKDF2-HMAC-SHA256.
+- **`RequestId` → `UniqueId`**: 이 생성기가 요청 추적용 id만이 아니라 `mailId`/`playerId`도
+  발급하게 되어 이름을 용도에서 떼어냈다. 노드 번호를 대역으로 고정(0 예약 / 1\~99 World /
+  100\~199 Zone / 254 시드 / 255 운영툴) — 예전처럼 World가 0, Zone이 zoneId면 World를 늘리는
+  순간 겹친다. **모든 id는 이 생성기로 발급한다**(규칙: `cpp-patterns.md`), DB `IDENTITY` 제거.
+- **UniqueId 실측 검증**(500만 개, 5프로세스 × 10스레드): 중복 0건, 노드 배정 정확,
+  **DB 레인 분배 12.49\~12.51%**(이상값 12.5%), 단일 노드 **단편화 0.428% / 페이지 채움 99.94%**.
+  다중 노드에서는 논리 단편화가 올라가지만 무작위 키 대조군 대비 **페이지 수 26% 절감**.
+  → "시간순 키라 append-only"는 **발급자가 하나일 때만** 성립한다. 상세는 `docs/local/`의
+  검증 결과 문서.
+
+### 기존
 
 - **4계층 분산 구조**: Client → GatewayServer(순수 릴레이) → WorldServer(라우팅+DB워커) →
   ZoneServer(존 상태). Gateway/World는 이번에 새로 추가된 프로젝트.
@@ -207,7 +231,29 @@
 1. **`docs/load-test-fix-plan.md` 진행** — 10,000세션 부하 테스트에서 나온 처리량 병목
    수정(우선순위: 인구를 여러 존에 분산 배정 → WorldWorker 브로드캐스트 릴레이 큐 분리 →
    팬아웃 프레임 배칭). 수정 후 같은 시나리오로 재검증.
-2. **DB 연동**: `Db::DbWorker`가 지금은 로그만 남긴다 — 실제 DB 붙이기. 운영툴을 SQL
+1-B. **로그인 + World 콘텐츠 캐시** (DB 기반이 깔렸으니 바로 이어지는 작업)
+
+   ```
+   3. EProcessorId::Login + LoginProcessor + C2WLogin / W2CLoginResult + EErrorCode
+      - 자동 가입: 계정이 없으면 UniqueId로 playerId 발급 -> players_upsert -> 기존 흐름
+      - 개발 전용 플래그로 묶을 것 (실서비스면 계정 열거 경로가 된다)
+   4. World 플레이어 콘텐츠 캐시 = { MailModel 미러, CurrencyModel 미러 }
+      - 로그인 때 mails_select / currencies_select 로 적재, 로그아웃 때 폐기(유예 없음)
+      - 이 캐시가 곧 위조 검증 대상이다 (Zone Task가 올라오면 대조)
+   5. playerId -> clientSessionId Mutexed 색인 (중복 로그인, 검사+삽입이 원자적이어야 함)
+   6. UnitOfWork 경로를 BASIC 경유로 되돌리고 캐시 대조 검증 + DB owner = playerId
+   7. 클라이언트 3종 로그인 대응
+   ```
+
+   **7번이 규모가 크다**: `mail_id`/`player_id`가 `uint32_t` → `int64_t`가 되면서 와이어
+   포맷이 바뀐다. Zone `MailModel` → 프로토콜 → `Client`(C#) / `ProtocolClient` /
+   `StressClient`가 전부 딸려오고, 서버만 고치면 클라가 깨지므로 한 커밋에 같이 가야 한다.
+
+   지금 `ZoneLinkHandler::HandleUnitOfWorkStream`은 BASIC을 건너뛰고 DB 레인에서 콘텐츠까지
+   반영한다. 6번이 그걸 되돌리는 작업이다 — 위조 검증 자리가 거기여야 하기 때문이다.
+
+2. **남은 DB 연동**: 스키마와 계층은 준비됐고, Zone의 `UnitOfWork` 태스크를 실제 SP로
+   흘리는 것과 쿠폰 청크(`CouponChunkPush`) 적재가 남았다. 운영툴을 SQL
    Server로 옮겨둔 이유가 이것이다: C++에서는 ODBC(`<sql.h>` + `odbc32.lib`)가 Windows SDK
    내장이라 `3rd/`에 바이너리 의존성이 늘지 않는다. 엔진을 맞춰두면 쿠폰
    청크(`CouponChunkPush`)와 Mail `UnitOfWork` 태스크를 같은 워커에서 실제로 적재할 수 있다.
