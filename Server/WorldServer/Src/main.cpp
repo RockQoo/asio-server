@@ -3,7 +3,7 @@
 #include "Server/WorldServer/Src/Db/DbConnection.h"
 #include "Server/WorldServer/Src/Db/PasswordHash.h"
 
-#include "Shared/Core/Src/Common/RequestId.h"
+#include "Shared/Core/Src/Common/UniqueId.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
@@ -125,10 +125,12 @@ int main(const int argc, char* argv[])
     // 봐야 할 때만 ELogLevel::Debug로 바꿔서 실행할 것.
     Log::Logger::Instance().Initialize("logs/worldserver.log", Log::ELogLevel::Info);
 
-    // World는 RequestId를 스스로 발급하지 않고 Zone이 실어 보낸 값을 그대로 쓰지만, 나중에
-    // World가 만드는 변경(운영툴 명령 등)이 생길 자리를 미리 잡아둔다. 0번은 zoneId가
-    // 1부터 시작하므로 어느 Zone 프로세스와도 겹치지 않는다.
-    Common::RequestIdGenerator::Instance().Initialize(0);
+    // 노드 번호는 World 대역(1~99)의 첫 번호를 쓴다. World를 여러 대로 늘리면 2, 3...으로
+    // 주면 되고, Zone 대역(100~)과 겹치지 않는다(UniqueId.h의 대역표 참고).
+    //
+    // 지금 World가 발급하는 id는 로그인 때 만드는 playerId 정도지만, 존이 실어 보낸 값을
+    // 그대로 쓰는 경로(UnitOfWork)와 섞이므로 노드 번호는 처음부터 제대로 잡아둔다.
+    Common::UniqueIdGenerator::Instance().Initialize(Common::kNodeIdWorldBegin);
 
     try
     {

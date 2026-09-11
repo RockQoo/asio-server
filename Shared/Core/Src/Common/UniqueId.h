@@ -16,11 +16,11 @@ namespace Common
     //     단편화가 난다. 시각이 앞에 오면 append-only 삽입이라 그 문제가 없고, 시간순 정렬도
     //     공짜로 따라온다.
     //   - 8바이트라 와이어와 인덱스 모두 GUID의 절반이다.
-    using RequestId = int64_t;
+    using UniqueId = int64_t;
 
     // "아직 발급되지 않았다/유효하지 않다"를 나타내는 값. 0은 "시각 0 + 노드 0 + 시퀀스 0"이라는
     // 유효한 조합이라 센티넬로 쓸 수 없다 -- 부호 있는 타입을 고른 부수 이득이다.
-    inline constexpr RequestId kInvalidRequestId = -1;
+    inline constexpr UniqueId kInvalidUniqueId = -1;
 
     // 비트 배분:
     //   bit 63       : 부호. 쓰지 않는다(항상 0이라 음수가 나올 수 없다)
@@ -39,21 +39,36 @@ namespace Common
     // 시작하게 되어 13년밖에 남지 않는다. 여기서 세면 2095년까지 간다.
     inline constexpr int64_t kEpochMs = 1767225600000;
 
+    // 노드 번호 대역. **프로세스마다 달라야 하고, 겹치면 서로 같은 id를 발급한다** --
+    // 그래서 "알아서 다른 값"이 아니라 대역으로 못박는다.
+    //
+    //   0          예약. 초기화를 빠뜨린 프로세스를 잡기 위한 값이라 발급에 쓰지 않는다
+    //   1   ~ 99   WorldServer   (World 1번 = 1, 2번 = 2, ...)
+    //   100 ~ 199  ZoneServer    (100 + 담당 최소 zoneId)
+    //   255        운영툴(GmTool) 예약 -- 아직 자체 발급하지 않는다
+    //
+    // 대역을 나눈 이유: 예전에는 World가 0, Zone이 담당 최소 zoneId를 그대로 썼는데, World를
+    // 여러 대로 늘리면 World 1번과 Zone 1번이 같은 번호가 되어 조용히 겹친다.
+    inline constexpr uint32_t kNodeIdReserved = 0;
+    inline constexpr uint32_t kNodeIdWorldBegin = 1;
+    inline constexpr uint32_t kNodeIdZoneBegin = 100;
+    inline constexpr uint32_t kNodeIdTool = 255;
+
     // 프로세스마다 하나. 스레드 여러 개(BASIC 워커 + 유지보수 타이머)가 동시에 부를 수 있어
     // 락 없이 CAS로 처리한다.
-    class RequestIdGenerator
+    class UniqueIdGenerator
     {
     public:
-        [[nodiscard]] static RequestIdGenerator& Instance();
+        [[nodiscard]] static UniqueIdGenerator& Instance();
 
         // 프로세스 기동 시 한 번. nodeId는 프로세스마다 달라야 하고(같으면 id가 겹친다),
-        // 8비트를 넘으면 밀리초 칸을 오염시키므로 여기서 검사한다.
+        // 8비트를 넘거나 예약값(0)이면 밀리초 칸 오염/중복 발급으로 이어지므로 여기서 막는다.
         void Initialize(const uint32_t nodeId);
 
-        [[nodiscard]] RequestId Next();
+        [[nodiscard]] UniqueId Next();
 
     private:
-        RequestIdGenerator() = default;
+        UniqueIdGenerator() = default;
 
         // 마지막으로 발급한 (밀리초 << kSequenceBits | 시퀀스). 둘을 한 워드에 담아야 CAS
         // 하나로 원자적으로 갱신할 수 있다(따로 두면 그 사이에 끼어들 틈이 생긴다).

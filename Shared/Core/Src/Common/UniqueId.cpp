@@ -1,5 +1,5 @@
 #include "Shared/Core/Src/pch.h"
-#include "Shared/Core/Src/Common/RequestId.h"
+#include "Shared/Core/Src/Common/UniqueId.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -21,29 +21,38 @@ namespace Common
         }
     }
 
-    RequestIdGenerator& RequestIdGenerator::Instance()
+    UniqueIdGenerator& UniqueIdGenerator::Instance()
     {
-        static RequestIdGenerator instance;
+        static UniqueIdGenerator instance;
         return instance;
     }
 
-    void RequestIdGenerator::Initialize(const uint32_t nodeId)
+    void UniqueIdGenerator::Initialize(const uint32_t nodeId)
     {
         if (nodeId > kNodeMask)
         {
             // 8비트를 넘으면 조립할 때 밀리초 칸으로 넘쳐서 시각이 미래로 튄다. 그 상태로
             // 발급된 id는 DB에 영구히 남고 나중에 고칠 방법이 없으므로 즉시 드러낸다.
-            LOG.Error(ELogCategory::General, "RequestId 노드 번호가 8비트를 넘는다")
+            LOG.Error(ELogCategory::General, "UniqueId 노드 번호가 8비트를 넘는다")
                 .KV("NodeId", nodeId).KV("Max", kNodeMask);
+            std::abort();
+        }
+
+        if (nodeId == kNodeIdReserved)
+        {
+            // 0은 "초기화를 빠뜨렸다"를 잡기 위한 예약값이다. 이걸 허용하면 Initialize를 안
+            // 부른 프로세스와 0번을 쓰는 프로세스가 구분되지 않아, 중복 발급이 조용히 섞인다.
+            LOG.Error(ELogCategory::General, "UniqueId 노드 번호 0은 예약값이다")
+                .KV("WorldBegin", kNodeIdWorldBegin).KV("ZoneBegin", kNodeIdZoneBegin);
             std::abort();
         }
 
         nodeId_ = nodeId;
 
-        LOG.Info(ELogCategory::General, "RequestId 생성기 초기화").KV("NodeId", nodeId);
+        LOG.Info(ELogCategory::General, "UniqueId 생성기 초기화").KV("NodeId", nodeId);
     }
 
-    RequestId RequestIdGenerator::Next()
+    UniqueId UniqueIdGenerator::Next()
     {
         for (;;)
         {
@@ -58,7 +67,7 @@ namespace Common
                 // epoch 상수가 미래로 잘못 설정됐거나, 서버 시계가 epoch 이전으로 맞춰져
                 // 있거나, 41비트(약 69.7년)를 실제로 다 쓴 경우다. 조용히 넘기면 음수이거나
                 // 과거 id와 겹치는 값이 DB에 쌓인다.
-                LOG.Error(ELogCategory::General, "RequestId 시각이 표현 범위를 벗어났다")
+                LOG.Error(ELogCategory::General, "UniqueId 시각이 표현 범위를 벗어났다")
                     .KV("ElapsedMs", elapsed).KV("MaxMs", kMaxElapsedMs);
                 std::abort();
             }
@@ -93,7 +102,7 @@ namespace Common
                                      | nextSequence;
 
             // 63비트만 채웠으므로 부호 비트가 0이고, 캐스팅으로 음수가 될 수 없다.
-            return static_cast<RequestId>(assembled);
+            return static_cast<UniqueId>(assembled);
         }
     }
 }

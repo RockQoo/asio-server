@@ -3,7 +3,7 @@
 #include "Server/ZoneServer/Src/World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 
-#include "Shared/Core/Src/Common/RequestId.h"
+#include "Shared/Core/Src/Common/UniqueId.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
@@ -14,7 +14,7 @@ namespace Zone
 {
     ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
                                    const uint32_t playerId, const PacketId requestPacketId)
-        : Task::UnitOfWork(clientSessionId, Common::RequestIdGenerator::Instance().Next())
+        : Task::UnitOfWork(clientSessionId, Common::UniqueIdGenerator::Instance().Next())
         , worldLink_(worldLink)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
@@ -24,7 +24,7 @@ namespace Zone
 
     ZoneUnitOfWork::ZoneUnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
                                    const uint32_t playerId)
-        : Task::UnitOfWork(clientSessionId, Common::RequestIdGenerator::Instance().Next())
+        : Task::UnitOfWork(clientSessionId, Common::UniqueIdGenerator::Instance().Next())
         , worldLink_(worldLink)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)

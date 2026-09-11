@@ -92,7 +92,7 @@ mutex가 아예 없습니다.
 | `Thread::AffinityWorkerPool<T>` | `key % N` 고정 매핑 → **키별 상태의 스레드 전용성 보장** = 락 제거의 근거 |
 | `Thread::Mutexed<T>` | `ref->`(읽기) / `ref.Write()->`(쓰기) 프록시. thread_local 재진입 가드로 shared_mutex 재귀 데드락 차단, **shared→unique 승급은 `abort()`로 즉시 노출** |
 | `Task::ITask` / `Task::UnitOfWork` | 변경 N건 → 패킷 1개 배칭. `kind + payloadLen + payload` 포맷이라 **모르는 kind를 만나도 길이만큼 건너뛸 수 있음**. 커밋은 파생 클래스 소멸자에서 하고, 각 태스크가 자기 역연산을 안다(롤백 분기 switch가 없다) |
-| `Common::RequestIdGenerator` | 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 시각이 앞에 오니 append-only 삽입이라 클러스터드 인덱스 페이지 분할이 없다 |
+| `Common::UniqueIdGenerator` | 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 시각이 앞에 오니 append-only 삽입이라 클러스터드 인덱스 페이지 분할이 없다 |
 | `Timer::RepeatingTimer` | 드리프트 보정. 5주기 이상 밀리면 catch-up 폭주 대신 리베이스 |
 
 ---
@@ -437,7 +437,7 @@ AI 코딩 도구(Claude Code)를 **규칙과 훅으로 통제해서** 사용했�
 |---|---|---|
 | 0~3 | 프로젝트 셋업, echo 서버, 패킷 프레이밍, 존 어피니티 라우팅 | 완료 |
 | 4 | Gateway/World/Zone 계층 분리, 재접속 없는 존 핸드오프, Mail(Mutexed/UnitOfWork) | 완료 |
-| 4-1 | 재화(Currency) + 모델 두 개에 걸친 트랜잭션·역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RequestId`) | 완료 |
+| 4-1 | 재화(Currency) + 모델 두 개에 걸친 트랜잭션·역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`UniqueId`) | 완료 |
 | 5 | ZoneServer 5-풀 분리, WorldServer WorldWorker | 완료 |
 | 6 | 부하 도구(StressClient), 대규모 세션 검증, 지연 백분위 계측 | 완료 (병목 진단됨) |
 | 7 | 부하 테스트 병목 수정 (`docs/load-test-fix-plan.md`) | 진행 중 |
