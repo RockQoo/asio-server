@@ -2,6 +2,7 @@
 
 #include "Server/WorldServer/Src/Db/DbCommand.h"
 
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -63,6 +64,14 @@ namespace World
         // 실패 시 DbException을 던진다. 커넥션이 끊긴 상태였다면 먼저 재연결을 시도한다.
         void Execute(const std::vector<DbCommand>& commands, const bool useTransaction,
                      DbResult* outResult);
+
+        // 같은 SP를 int64 파라미터 하나씩 바꿔가며 **한 번의 왕복으로 여러 번** 실행한다
+        // (ODBC 파라미터 배열). 수백만 건을 넣어야 하는 검증 도구용 경로다 -- 한 건씩 보내면
+        // 네트워크 왕복이 건수만큼 생겨서 측정하려는 대상(삽입 성능)이 왕복 지연에 묻힌다.
+        //
+        // 테이블에 직접 INSERT하지 않고 SP를 그대로 쓴다(.claude/rules/sql-patterns.md).
+        // 중복 키가 있으면 그 배치가 통째로 실패하는데, 검증 도구 입장에서는 그게 곧 결과다.
+        void ExecuteMany(const std::string& procedure, const std::span<const int64_t> values);
 
         [[nodiscard]] bool IsOpen() const noexcept { return connection_ != nullptr; }
 

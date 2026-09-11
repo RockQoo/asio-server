@@ -45,6 +45,9 @@ namespace Common
     //   0          예약. 초기화를 빠뜨린 프로세스를 잡기 위한 값이라 발급에 쓰지 않는다
     //   1   ~ 99   WorldServer   (World 1번 = 1, 2번 = 2, ...)
     //   100 ~ 199  ZoneServer    (100 + 담당 최소 zoneId)
+    //   254        시드/도구 예약 -- Sql/seed.sql 이 T-SQL 로 만드는 id 가 여기에 들어간다.
+    //              실행 중인 어느 프로세스도 이 번호를 쓰지 않으므로, 시드 id 와 실제 발급
+    //              id 는 **시각이 겹쳐도** 절대 충돌하지 않는다
     //   255        운영툴(GmTool) 예약 -- 아직 자체 발급하지 않는다
     //
     // 대역을 나눈 이유: 예전에는 World가 0, Zone이 담당 최소 zoneId를 그대로 썼는데, World를
@@ -52,6 +55,7 @@ namespace Common
     inline constexpr uint32_t kNodeIdReserved = 0;
     inline constexpr uint32_t kNodeIdWorldBegin = 1;
     inline constexpr uint32_t kNodeIdZoneBegin = 100;
+    inline constexpr uint32_t kNodeIdSeed = 254;
     inline constexpr uint32_t kNodeIdTool = 255;
 
     // 프로세스마다 하나. 스레드 여러 개(BASIC 워커 + 유지보수 타이머)가 동시에 부를 수 있어

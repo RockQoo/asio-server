@@ -358,6 +358,86 @@ namespace World
         *outResult = std::move(rows);
     }
 
+    void DbConnection::ExecuteMany(const std::string& procedure, const std::span<const int64_t> values)
+    {
+        if (values.empty())
+        {
+            return;
+        }
+
+        if (connection_ == nullptr)
+        {
+            Connect();
+        }
+
+        SQLHSTMT statement = nullptr;
+        ThrowIfFailed(SQLAllocHandle(SQL_HANDLE_STMT, connection_, &statement),
+                      SQL_HANDLE_DBC, connection_, "구문 핸들 할당 실패");
+
+        struct StatementGuard
+        {
+            SQLHSTMT handle;
+            ~StatementGuard() { SQLFreeHandle(SQL_HANDLE_STMT, handle); }
+        } guard{statement};
+
+        // 파라미터 배열의 한 칸이 SQLBIGINT라는 걸 드라이버에 알려준다. 이게 없으면 드라이버가
+        // 구조체 배열(row-wise)로 오해한다.
+        ThrowIfFailed(SQLSetStmtAttr(statement, SQL_ATTR_PARAM_BIND_TYPE,
+                                     reinterpret_cast<SQLPOINTER>(SQL_PARAM_BIND_BY_COLUMN), 0),
+                      SQL_HANDLE_STMT, statement, "파라미터 바인딩 방식 설정 실패");
+
+        const DbCommand shape{procedure, {int64_t{0}}};
+        auto callStatement = MakeCallStatement(shape);
+        ThrowIfFailed(SQLPrepareW(statement, reinterpret_cast<SQLWCHAR*>(callStatement.data()), SQL_NTS),
+                      SQL_HANDLE_STMT, statement, "SP 준비 실패(" + procedure + ")");
+
+        // 한 번에 보낼 개수. 너무 크면 드라이버가 잡는 버퍼가 커지고, 너무 작으면 왕복이
+        // 줄지 않는다. 1000 정도면 왕복 비용이 사실상 사라진다.
+        constexpr size_t kBatchSize = 1000;
+
+        // **트랜잭션으로 묶지 않으면 건당 커밋이 된다.** 커밋마다 트랜잭션 로그를 디스크에
+        // 플러시하므로, 파라미터 배열로 왕복을 줄여도 초당 수백 건에서 막힌다(실측 551/초).
+        // 배치 하나를 트랜잭션 하나로 묶으면 플러시가 배치당 한 번으로 준다.
+        SetAutoCommit(false);
+
+        std::vector<SQLLEN> indicators(kBatchSize, 0);
+        for (size_t offset = 0; offset < values.size(); offset += kBatchSize)
+        {
+            const size_t count = (values.size() - offset < kBatchSize) ? values.size() - offset : kBatchSize;
+
+            ThrowIfFailed(SQLSetStmtAttr(statement, SQL_ATTR_PARAMSET_SIZE,
+                                         reinterpret_cast<SQLPOINTER>(count), 0),
+                          SQL_HANDLE_STMT, statement, "파라미터 배열 크기 설정 실패");
+
+            // const를 벗기는 건 ODBC가 입력 파라미터에도 non-const 포인터를 요구하기 때문이다.
+            // 이 경로는 SQL_PARAM_INPUT이라 드라이버가 버퍼를 쓰지 않는다.
+            auto* buffer = const_cast<int64_t*>(values.data() + offset);
+            ThrowIfFailed(SQLBindParameter(statement, 1, SQL_PARAM_INPUT,
+                                           SQL_C_SBIGINT, SQL_BIGINT, 0, 0,
+                                           buffer, 0, indicators.data()),
+                          SQL_HANDLE_STMT, statement, "배치 파라미터 바인딩 실패");
+
+            const SQLRETURN ret = SQLExecute(statement);
+            if (ret != SQL_NO_DATA && !SQL_SUCCEEDED(ret))
+            {
+                auto failure = MakeException(SQL_HANDLE_STMT, statement,
+                                             "배치 SP 실행 실패(" + procedure + ")");
+                SQLEndTran(SQL_HANDLE_DBC, connection_, SQL_ROLLBACK);
+                SetAutoCommit(true);
+                throw failure;
+            }
+
+            if (!SQL_SUCCEEDED(SQLEndTran(SQL_HANDLE_DBC, connection_, SQL_COMMIT)))
+            {
+                auto failure = MakeException(SQL_HANDLE_DBC, connection_, "배치 커밋 실패");
+                SetAutoCommit(true);
+                throw failure;
+            }
+        }
+
+        SetAutoCommit(true);
+    }
+
     DbConnectionPool::DbConnectionPool(std::string connectionString)
         : connectionString_(std::move(connectionString))
     {
