@@ -1,0 +1,185 @@
+/* asio-server 문서 공용 스타일.
+   외부 리소스(CDN/폰트/이미지)를 쓰지 않는다 -- 오프라인에서 더블클릭으로 여는 로컬 문서다. */
+
+:root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --ink: #1b1f24;
+    --muted: #5b6672;
+    --line: #d4dae1;
+    --accent: #2f6fd0;
+
+    /* 행위자/스레드 색. 시퀀스 다이어그램과 본문 뱃지가 같은 색을 쓴다. */
+    --c-client: #7b5ea7;
+    --c-gateway: #2f8f6f;
+    --c-world: #c2761f;
+    --c-lb: #3f7fbf;
+    --c-player: #c04b6e;
+    --c-zone: #2f6fd0;
+    --c-db: #4a5b6b;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #16191d;
+        --panel: #1e2227;
+        --ink: #e6e9ed;
+        --muted: #9aa5b1;
+        --line: #333a42;
+        --accent: #6ea8fe;
+
+        --c-client: #b39ddb;
+        --c-gateway: #6fc6a3;
+        --c-world: #e0a458;
+        --c-lb: #7cb3e8;
+        --c-player: #e88ba4;
+        --c-zone: #6ea8fe;
+        --c-db: #9fb0c0;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 32px 20px 72px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.7 "Malgun Gothic", "맑은 고딕", -apple-system, Segoe UI, sans-serif;
+}
+
+main { max-width: 1080px; margin: 0 auto; }
+
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.3px; }
+h2 { font-size: 19px; margin: 40px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 16px; margin: 26px 0 8px; }
+p  { margin: 10px 0; }
+.sub { color: var(--muted); margin: 0 0 22px; }
+
+a { color: var(--accent); }
+.back { display: inline-block; margin-bottom: 18px; font-size: 13px; }
+
+code, .mono { font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+code { background: rgba(127, 140, 155, 0.16); padding: 1px 5px; border-radius: 3px; }
+pre {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 14px 16px; overflow-x: auto; line-height: 1.55;
+}
+pre code { background: none; padding: 0; }
+
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+th, td { border: 1px solid var(--line); padding: 8px 11px; text-align: left; vertical-align: top; }
+th { background: rgba(127, 140, 155, 0.12); font-weight: 600; }
+
+.panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px 18px; margin: 14px 0;
+}
+.callout {
+    background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 0 6px 6px 0; padding: 12px 16px; margin: 16px 0;
+}
+.callout.warn { border-left-color: #d9534f; }
+.callout.todo { border-left-color: #d9a441; }
+.callout h4 { margin: 0 0 6px; font-size: 14px; }
+
+/* 행위자 뱃지 */
+.badge {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap;
+}
+.b-client  { background: var(--c-client); }
+.b-gateway { background: var(--c-gateway); }
+.b-world   { background: var(--c-world); }
+.b-lb      { background: var(--c-lb); }
+.b-player  { background: var(--c-player); }
+.b-zone    { background: var(--c-zone); }
+.b-db      { background: var(--c-db); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 22px; }
+
+/* 카드 목록(허브 페이지) */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.card {
+    display: block; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 15px 17px; text-decoration: none; color: inherit;
+}
+.card:hover { border-color: var(--accent); }
+.card b { display: block; font-size: 15px; margin-bottom: 4px; color: var(--accent); }
+.card span { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* ---------------------------------------------------------------------------
+   시퀀스 다이어그램
+   레인 N개를 2N개의 서브 컬럼으로 깐다 -- 레인 i의 중심선이 곧 그리드 라인 2i라서,
+   화살표를 "중심에서 중심까지" 정확히 그을 수 있다. 그래서 각 .msg 는 인라인
+   style 로 grid-column: 2A / 2B 를 직접 갖는다.
+   --------------------------------------------------------------------------- */
+.seq { margin: 20px 0 26px; overflow-x: auto; }
+.seq-inner { min-width: 760px; }
+
+.seq-head { display: grid; gap: 0; margin-bottom: 4px; }
+.actor {
+    grid-row: 1; text-align: center; font-size: 12.5px; font-weight: 600;
+    color: #fff; padding: 7px 4px; border-radius: 6px; margin: 0 5px;
+    line-height: 1.35;
+}
+.actor small { display: block; font-weight: 400; font-size: 11px; opacity: 0.85; }
+.a-client  { background: var(--c-client); }
+.a-gateway { background: var(--c-gateway); }
+.a-world   { background: var(--c-world); }
+.a-lb      { background: var(--c-lb); }
+.a-player  { background: var(--c-player); }
+.a-zone    { background: var(--c-zone); }
+.a-db      { background: var(--c-db); }
+
+.seq-body { position: relative; display: grid; row-gap: 20px; padding: 18px 0 10px; }
+
+.lifelines { position: absolute; inset: 0; display: grid; pointer-events: none; }
+.lifelines i { width: 0; justify-self: center; border-left: 2px dotted var(--line); }
+
+/* 메시지 화살표 */
+.msg { position: relative; align-self: start; padding: 0 6px; }
+.msg .lbl { display: block; font-size: 12.5px; font-weight: 600; text-align: center; margin-bottom: 5px; }
+.msg .lbl em { font-style: normal; font-weight: 400; color: var(--muted); }
+.msg .line { display: block; height: 0; border-top: 2px solid var(--muted); position: relative; }
+.msg .line::after {
+    content: ''; position: absolute; top: -5px; right: -2px;
+    border-left: 9px solid var(--muted); border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+}
+.msg.rtl .line::after {
+    right: auto; left: -2px;
+    border-left: 0; border-right: 9px solid var(--muted);
+}
+.msg .desc { display: block; font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 5px; line-height: 1.5; }
+
+/* 색으로 "어느 스레드가 보냈는가"를 나타낸다 */
+.msg.m-io     .line, .msg.m-io     .line::after { border-color: var(--c-gateway); }
+.msg.m-world  .line, .msg.m-world  .line::after { border-color: var(--c-world); }
+.msg.m-lb     .line, .msg.m-lb     .line::after { border-color: var(--c-lb); }
+.msg.m-player .line, .msg.m-player .line::after { border-color: var(--c-player); }
+.msg.m-zone   .line, .msg.m-zone   .line::after { border-color: var(--c-zone); }
+.msg.m-db     .line, .msg.m-db     .line::after { border-color: var(--c-db); }
+.msg.m-io .line::after     { border-top-color: transparent; border-bottom-color: transparent; }
+.msg.m-world .line::after  { border-top-color: transparent; border-bottom-color: transparent; }
+.msg.m-lb .line::after     { border-top-color: transparent; border-bottom-color: transparent; }
+.msg.m-player .line::after { border-top-color: transparent; border-bottom-color: transparent; }
+.msg.m-zone .line::after   { border-top-color: transparent; border-bottom-color: transparent; }
+.msg.m-db .line::after     { border-top-color: transparent; border-bottom-color: transparent; }
+
+/* 한 레인 안에서 벌어지는 일(락 획득, UoW 소멸 등) */
+.act {
+    position: relative; align-self: start; margin: 0 3px; padding: 8px 10px;
+    background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 0 5px 5px 0; font-size: 12px; line-height: 1.55;
+}
+.act b { display: block; font-size: 12.5px; margin-bottom: 3px; }
+.act.stop { border-left-color: #d9534f; }
+.act.todo { border-left-color: #d9a441; }
+
+/* 단계 번호 */
+.step-no {
+    position: absolute; left: -2px; top: -2px; transform: translate(-100%, 0);
+    font-size: 11px; color: var(--muted); font-weight: 700; padding-right: 8px;
+}
+
+.foot { margin-top: 46px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }

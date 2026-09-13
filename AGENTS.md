@@ -28,4 +28,4 @@ There is no automated unit-test framework or coverage threshold. Build the full 
 
 ## Commit & Pull Request Guidelines
 
-Recent commits use concise, feature-scoped summaries without conventional prefixes, for example `ZoneServer 초기 구현...`. Keep each commit focused and describe the subsystem plus outcome. Pull requests should summarize architectural impact, link relevant issues, list validation performed, and call out protocol or thread-ownership changes. Include screenshots when changing `docs/flowcharts/` or other rendered documentation.
+Recent commits use concise, feature-scoped summaries without conventional prefixes, for example `ZoneServer 초기 구현...`. Keep each commit focused and describe the subsystem plus outcome. Pull requests should summarize architectural impact, link relevant issues, list validation performed, and call out protocol or thread-ownership changes. Include screenshots when changing `docs/` HTML pages or other rendered documentation.

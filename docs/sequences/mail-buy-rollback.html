@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>C2ZMailBuy — 모델 두 개에 걸친 트랜잭션과 역순 롤백</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 시퀀스 다이어그램 목록</a>
+
+<h1>C2ZMailBuy — 모델 두 개에 걸친 트랜잭션과 역순 롤백</h1>
+<p class="sub">우편 지급 + 골드 차감을 <b>한 UnitOfWork</b>로 묶는다. 골드가 모자라면
+이미 들어간 우편을 되돌려야 하는데 — 그 되돌리는 장면이 이 프로젝트에서 실제로 밟히는 유일한 경로다.</p>
+
+<div class="legend">
+    <span class="badge b-client">Client</span>
+    <span class="badge b-world">Gateway / World 릴레이</span>
+    <span class="badge b-player">Zone Player 레인</span>
+    <span class="badge b-zone">모델 (MailModel / CurrencyModel)</span>
+</div>
+
+<div class="seq">
+<div class="seq-inner">
+
+    <div class="seq-head" style="grid-template-columns: repeat(6, 1fr);">
+        <div class="actor a-client">Client<small>게임 스레드</small></div>
+        <div class="actor a-world">Gateway → World<small>순수 릴레이 + 라우팅</small></div>
+        <div class="actor a-player">PlayerProcessor<small>Player 레인</small></div>
+        <div class="actor a-zone">MailModel<small>우편함 (Mutexed)</small></div>
+        <div class="actor a-zone">CurrencyModel<small>지갑 (값)</small></div>
+        <div class="actor a-player">ZoneUnitOfWork<small>Task 목록</small></div>
+    </div>
+
+    <div class="seq-body" style="grid-template-columns: repeat(12, 1fr);">
+        <div class="lifelines" style="grid-template-columns: repeat(6, 1fr);">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+
+        <div class="msg m-io" style="grid-column: 2 / 4; grid-row: 1;">
+            <span class="lbl">① C2ZMailBuy</span>
+            <span class="line"></span>
+            <span class="desc">title / body / durationSec / <b>price</b></span>
+        </div>
+
+        <div class="msg m-world" style="grid-column: 4 / 6; grid-row: 2;">
+            <span class="lbl">② G2WRelay → W2ZRelay</span>
+            <span class="line"></span>
+            <span class="desc">Gateway는 내용을 모르고, World는 zoneId만 보고 넘긴다</span>
+        </div>
+
+        <div class="act" style="grid-column: 5 / 7; grid-row: 3;">
+            <b>③ UnitOfWork를 먼저 연다</b>
+            <code>requestId</code>를 <code>UniqueIdGenerator</code>로 발급한다 —
+            이 요청 하나를 전 서버에서 같은 값으로 가리키기 위해서.
+        </div>
+
+        <div class="msg m-player" style="grid-column: 6 / 8; grid-row: 4;">
+            <span class="lbl">④ AddMail(info, uow)</span>
+            <span class="line"></span>
+            <span class="desc"><b>우편이 먼저다</b> — 순서가 뒤집히면 되돌릴 것이 없어진다</span>
+        </div>
+
+        <div class="msg m-zone" style="grid-column: 8 / 12; grid-row: 5;">
+            <span class="lbl">⑤ AddMailTask 기록</span>
+            <span class="line"></span>
+            <span class="desc">우편함 메모리는 이미 바뀌었고, 되돌리는 법은 Task가 안다</span>
+        </div>
+
+        <div class="msg m-player" style="grid-column: 6 / 10; grid-row: 6;">
+            <span class="lbl">⑥ DecCurrency(Gold, price, uow)</span>
+            <span class="line"></span>
+        </div>
+
+        <div class="act stop" style="grid-column: 9 / 11; grid-row: 7;">
+            <b>⑦ 잔액 부족</b>
+            값을 바꾸는 통로가 <code>SetTracked</code> 하나라서
+            검증·이전값 포착·Task 기록이 전부 여기 한 자리에서 일어난다.
+            <b style="margin-top:5px; color:#c9302c">Task를 남기지 않고 실패를 반환</b>
+        </div>
+
+        <div class="msg m-zone rtl" style="grid-column: 6 / 10; grid-row: 8;">
+            <span class="lbl">⑧ EErrorCode::NotEnoughCurrency</span>
+            <span class="line"></span>
+            <span class="desc"><code>[[nodiscard]]</code>라 호출부가 무시할 수 없다</span>
+        </div>
+
+        <div class="act stop" style="grid-column: 5 / 7; grid-row: 9;">
+            <b>⑨ unitOfWork.SetError(...)</b>
+            그리고 그냥 <b>return</b>한다. 여기에 롤백 코드가 없다는 것이 요점이다.
+        </div>
+
+        <div class="act stop" style="grid-column: 11 / 13; grid-row: 10;">
+            <b>⑩ 소멸자 — HasError()</b>
+            <code>RollbackAll()</code>이 Task 목록을 <b>역순으로</b> 훑는다.
+            무엇을 되돌릴지 고르는 switch가 없다 — 각 Task가 자기 역연산을 안다.
+        </div>
+
+        <div class="msg m-player rtl" style="grid-column: 8 / 12; grid-row: 11;">
+            <span class="lbl">⑪ AddMailTask::Rollback()</span>
+            <span class="line"></span>
+            <span class="desc">④에서 넣은 우편을 우편함에서 도로 뺀다</span>
+        </div>
+
+        <div class="msg m-player rtl" style="grid-column: 2 / 6; grid-row: 12;">
+            <span class="lbl">⑫ Z2CTaskResult <em>(errorCode, 빈 스트림)</em></span>
+            <span class="line"></span>
+            <span class="desc">되돌렸으므로 클라이언트가 적용할 Task가 없다 — 에러 코드만 간다</span>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<h2>성공했다면 — 여기가 테스트 6·7번이다</h2>
+
+<div class="panel">
+⑦에서 잔액이 충분했다면 <code>DecCurrencyTask</code>가 하나 더 쌓이고, 소멸자는 롤백 대신
+<b>Task 2개를 한 번에</b> 내보낸다:
+
+<pre><code>Z2WUnitOfWorkStream  →  World DB 레인  →  AutoDbCommand(ownerId, useTransaction = true)
+                                              ├ up_mails_upsert       (@is_trans_outside = 1)
+                                              ├ up_currencies_upsert  (@is_trans_outside = 1)
+                                              └ COMMIT   /  예외면 ROLLBACK</code></pre>
+
+<b>UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
+<code>@is_trans_outside</code>는 "바깥이 이미 트랜잭션을 열었다"를 SP에 알리는 파라미터다 —
+모르면 SP가 자기 트랜잭션을 또 열어 중첩이 되고, 그러면 안쪽 COMMIT이 실제로 커밋하지 않는다.
+</div>
+
+<div class="callout todo">
+    <h4>지금 상태</h4>
+    메모리 쪽(①~⑫)은 전부 동작하고 롤백도 실측했다. DB 쪽은 <b>배선만 남았다</b> —
+    <code>ZoneLinkHandler</code>가 Task를 훑기만 하고 <code>AutoDbCommand</code>를 만들지 않는다.
+    자세한 건 <a href="mail-add-to-db.html">C2ZMailAdd 경로</a>의 ⑫ 참고.
+</div>
+
+<h2>왜 우편을 먼저 넣는가</h2>
+<div class="callout">
+    골드를 먼저 깎으면 실패 시점에 되돌릴 것이 없다 — 그러면 롤백 코드가 한 번도 실행되지 않고,
+    <b>"되돌릴 수 있다"가 주장으로만 남는다.</b> 순서를 이렇게 둔 덕에 이 경로가 역순 롤백의
+    실측 대상이 된다. 실무에서도 같은 이유로 "되돌리기 어려운 것을 나중에" 둔다.
+</div>
+
+<h2>관련 코드</h2>
+<table>
+    <tr><th>단계</th><th>파일</th></tr>
+    <tr><td>③~⑨</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleMailBuy</code></td></tr>
+    <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Mail/MailTask.h</code></td></tr>
+    <tr><td>⑦</td><td><code>Server/ZoneServer/Src/Currency/CurrencyModel.cpp</code> — <code>SetTracked</code></td></tr>
+    <tr><td>⑩~⑫</td><td><code>Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp</code>, <code>Shared/Core/Src/Task/UnitOfWork.cpp</code></td></tr>
+    <tr><td>DB</td><td><code>Server/WorldServer/Src/Db/AutoDbCommand.h</code>, <code>Sql/mails.sql</code></td></tr>
+</table>
+
+<p class="foot">asio-server · 시퀀스 다이어그램</p>
+</main>
+</body>
+</html>

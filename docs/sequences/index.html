@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>패킷 시퀀스 다이어그램 — asio-server</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="../index.html">← 문서 목록</a>
+
+<h1>패킷 시퀀스 다이어그램</h1>
+<p class="sub">대표 기능이 <b>어느 스레드를 거쳐 어디까지 가는지</b>를 패킷 단위로 따라간다.
+코드를 안 읽고도 흐름이 보이는 것이 목적이다.</p>
+
+<div class="cards">
+    <a class="card" href="mail-add-to-db.html">
+        <b>C2ZMailAdd → DB</b>
+        <span>우편 하나를 넣을 때 Gateway·World·Zone 두 레인·DB 레인을 지나는 전 경로.
+        클라이언트 응답과 DB 저장이 같은 바이트에서 갈라지는 지점, 그리고 지금 끊겨 있는 자리.</span>
+    </a>
+    <a class="card" href="mail-buy-rollback.html">
+        <b>C2ZMailBuy — 트랜잭션과 역순 롤백</b>
+        <span>우편 지급 + 골드 차감을 한 UnitOfWork로 묶고, 잔액이 모자라면 역순으로 되돌린다.
+        호출부에 롤백 코드가 없는 이유.</span>
+    </a>
+    <a class="card" href="zone-handoff.html">
+        <b>존 핸드오프</b>
+        <span>존 경계를 넘는 이동. World가 라우팅 테이블 한 줄만 바꾸고, 클라이언트는 같은
+        연결을 유지한다. 스레드 간 이동과 프로세스 간 이동의 차이.</span>
+    </a>
+</div>
+
+<h2>읽는 법</h2>
+<div class="panel">
+<ul>
+    <li>세로선 하나 = <b>스레드(레인) 하나</b>. 같은 서버라도 레인이 다르면 칸이 다르다 —
+        이 프로젝트에서 중요한 건 프로세스 경계만이 아니라 <b>스레드 경계</b>이기 때문이다.</li>
+    <li>화살표 색 = <b>보낸 쪽 스레드</b>. 상단 뱃지 색과 짝이 맞는다.</li>
+    <li>네모 상자 = 그 레인 안에서 벌어지는 일(락 획득, 소멸자, 판정).
+        <span style="color:#c9302c">빨간 테두리</span>는 실패/중단,
+        <span style="color:#b8860b">노란 테두리</span>는 아직 구현되지 않은 자리다.</li>
+    <li>점선 화살표 = 설계는 있으나 아직 호출되지 않는 경로.</li>
+</ul>
+</div>
+
+<h2>패킷 번호 대역</h2>
+<div class="panel">
+패킷 id는 <code>Shared/Protocol/Src/PacketId.h</code> 하나로 통합돼 있고, 이름 앞 3글자가
+<b>발신 → 수신</b> 방향이다(<code>C2ZMailAdd</code> = Client → Zone). 방향마다 1000 단위로
+대역을 잘라서, <b>값 하나만 보면 어느 소켓의 패킷인지 판정</b>된다.
+규약 원문은 <code>.claude/rules/packet-naming.md</code>.
+</div>
+
+<p class="foot">asio-server · 시퀀스 다이어그램</p>
+</main>
+</body>
+</html>
