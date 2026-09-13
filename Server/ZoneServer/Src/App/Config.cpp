@@ -1,5 +1,5 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/App/Config.h"
+#include "pch.h"
+#include "App/Config.h"
 
 #include "Shared/Core/Src/Common/ConfigFile.h"
 

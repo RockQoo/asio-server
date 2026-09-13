@@ -1,10 +1,10 @@
 #pragma once
 
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Server/ZoneServer/Src/Game/Def.h"
-#include "Server/ZoneServer/Src/Game/Instance.h"
-#include "Server/ZoneServer/Src/Worker/BroadcastDispatcher.h"
-#include "Server/ZoneServer/Src/Worker/ProcessorId.h"
+#include "Game/Def.h"
+#include "Game/Instance.h"
+#include "Worker/BroadcastDispatcher.h"
+#include "Worker/ProcessorId.h"
 
 #include <chrono>
 #include <cstddef>

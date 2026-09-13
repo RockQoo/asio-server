@@ -1,1 +1,1 @@
-#include "Server/WorldServer/Src/pch.h"
+#include "pch.h"

@@ -3,17 +3,17 @@
 #include "Shared/Core/Src/Network/Connector.h"
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Server/ZoneServer/Src/Game/PlayerRegistry.h"
-#include "Server/ZoneServer/Src/Game/Def.h"
-#include "Server/ZoneServer/Src/Handler/PlayerProcessor.h"
-#include "Server/ZoneServer/Src/Handler/WorldLinkHandler.h"
-#include "Server/ZoneServer/Src/Mail/ExpiryService.h"
-#include "Server/ZoneServer/Src/Mail/Registry.h"
-#include "Server/ZoneServer/Src/World/WorldLink.h"
-#include "Server/ZoneServer/Src/Worker/ProcessorId.h"
-#include "Server/ZoneServer/Src/Worker/WorkerManager.h"
+#include "Game/PlayerRegistry.h"
+#include "Game/Def.h"
+#include "Handler/PlayerProcessor.h"
+#include "Handler/WorldLinkHandler.h"
+#include "Mail/ExpiryService.h"
+#include "Mail/Registry.h"
+#include "World/WorldLink.h"
+#include "Worker/ProcessorId.h"
+#include "Worker/WorkerManager.h"
 
-#include "Server/ZoneServer/Src/App/Config.h"
+#include "App/Config.h"
 
 #include <asio.hpp>
 

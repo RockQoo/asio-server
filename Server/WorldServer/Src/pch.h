@@ -10,7 +10,7 @@
 // LOG.Error(category, "메시지").KV(...) 형태의 전역 로그 진입점. 카테고리는 Core 것이 아니라
 // WorldServer(콘텐츠) 자신의 World::ELogCategory를 쓴다.
 #include "Shared/Core/Src/Log/Proxy.h"
-#include "Server/WorldServer/Src/Log/LogCategory.h"
+#include "Log/LogCategory.h"
 
 #include <array>
 #include <atomic>

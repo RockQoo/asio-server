@@ -1,6 +1,6 @@
-#include "Server/WorldServer/Src/pch.h"
+#include "pch.h"
 
-#include "Server/WorldServer/Src/Db/AutoDbCommand.h"
+#include "Db/AutoDbCommand.h"
 
 #include <utility>
 

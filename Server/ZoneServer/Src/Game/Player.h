@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Server/ZoneServer/Src/Currency/Model.h"
-#include "Server/ZoneServer/Src/Game/MoveModel.h"
-#include "Server/ZoneServer/Src/Mail/Model.h"
+#include "Currency/Model.h"
+#include "Game/MoveModel.h"
+#include "Mail/Model.h"
 
 #include "Shared/Core/Src/Common/Types.h"
 

@@ -4,7 +4,7 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
-#include "Tool/StressClient/Src/Stats/Stats.h"
+#include "Stats/Stats.h"
 
 #include <asio.hpp>
 

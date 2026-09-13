@@ -1,5 +1,5 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/World/ClientRegistry.h"
+#include "pch.h"
+#include "World/ClientRegistry.h"
 
 #include "Shared/Core/Src/Common/CoreException.h"
 

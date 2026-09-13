@@ -1,8 +1,8 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/Cli/DbCheck.h"
+#include "pch.h"
+#include "Cli/DbCheck.h"
 
-#include "Server/WorldServer/Src/Db/DbConnection.h"
-#include "Server/WorldServer/Src/Db/PasswordHash.h"
+#include "Db/DbConnection.h"
+#include "Db/PasswordHash.h"
 
 #include <cstdlib>
 #include <iostream>

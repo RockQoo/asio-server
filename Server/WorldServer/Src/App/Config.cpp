@@ -1,5 +1,5 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/App/Config.h"
+#include "pch.h"
+#include "App/Config.h"
 
 #include "Shared/Core/Src/Common/ConfigFile.h"
 

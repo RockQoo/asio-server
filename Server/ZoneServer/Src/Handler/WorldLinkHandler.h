@@ -4,8 +4,8 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/ZoneServer/Src/Game/Def.h"
-#include "Server/ZoneServer/Src/Worker/ProcessorId.h"
+#include "Game/Def.h"
+#include "Worker/ProcessorId.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include <cstdint>

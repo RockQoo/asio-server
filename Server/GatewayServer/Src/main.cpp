@@ -1,7 +1,7 @@
-#include "Server/GatewayServer/Src/pch.h"
-#include "Server/GatewayServer/Src/App/App.h"
+#include "pch.h"
+#include "App/App.h"
 
-#include "Server/GatewayServer/Src/App/Config.h"
+#include "App/Config.h"
 
 #include <cstdlib>
 #include <exception>

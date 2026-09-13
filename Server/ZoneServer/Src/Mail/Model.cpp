@@ -1,6 +1,6 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Mail/Model.h"
-#include "Server/ZoneServer/Src/Mail/MailTask.h"
+#include "pch.h"
+#include "Mail/Model.h"
+#include "Mail/MailTask.h"
 
 #include "Shared/Core/Src/Task/UnitOfWork.h"
 

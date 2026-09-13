@@ -1,5 +1,5 @@
-#include "Server/GatewayServer/Src/pch.h"
-#include "Server/GatewayServer/Src/App/Config.h"
+#include "pch.h"
+#include "App/Config.h"
 
 #include "Shared/Core/Src/Common/ConfigFile.h"
 

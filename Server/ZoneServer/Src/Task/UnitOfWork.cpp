@@ -1,6 +1,6 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Task/UnitOfWork.h"
-#include "Server/ZoneServer/Src/World/WorldLink.h"
+#include "pch.h"
+#include "Task/UnitOfWork.h"
+#include "World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 
 #include "Shared/Core/Src/Common/RUID.h"

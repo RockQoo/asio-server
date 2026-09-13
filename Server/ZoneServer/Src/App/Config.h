@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Server/ZoneServer/Src/Game/Def.h"
-#include "Server/ZoneServer/Src/Worker/WorkerManager.h"
+#include "Game/Def.h"
+#include "Worker/WorkerManager.h"
 
 #include <chrono>
 #include <cstddef>

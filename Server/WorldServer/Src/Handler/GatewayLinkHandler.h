@@ -5,8 +5,8 @@
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Protocol/Src/PacketId.h"
-#include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
-#include "Server/WorldServer/Src/Worker/ProcessorId.h"
+#include "World/ZoneLinkRegistry.h"
+#include "Worker/ProcessorId.h"
 
 #include <cstdint>
 

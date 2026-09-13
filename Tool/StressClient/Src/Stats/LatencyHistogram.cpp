@@ -1,5 +1,5 @@
-#include "Tool/StressClient/Src/pch.h"
-#include "Tool/StressClient/Src/Stats/LatencyHistogram.h"
+#include "pch.h"
+#include "Stats/LatencyHistogram.h"
 
 #include <algorithm>
 #include <cmath>

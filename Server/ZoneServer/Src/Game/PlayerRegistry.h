@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Server/ZoneServer/Src/Game/Player.h"
+#include "Game/Player.h"
 
 #include <cstddef>
 #include <memory>

@@ -1,7 +1,7 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Mail/ExpiryService.h"
-#include "Server/ZoneServer/Src/Mail/Registry.h"
-#include "Server/ZoneServer/Src/Task/UnitOfWork.h"
+#include "pch.h"
+#include "Mail/ExpiryService.h"
+#include "Mail/Registry.h"
+#include "Task/UnitOfWork.h"
 
 namespace Mail
 {

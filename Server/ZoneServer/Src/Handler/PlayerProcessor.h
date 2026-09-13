@@ -2,8 +2,8 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
-#include "Server/ZoneServer/Src/Game/Player.h"
-#include "Server/ZoneServer/Src/Game/PlayerRegistry.h"
+#include "Game/Player.h"
+#include "Game/PlayerRegistry.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include <cstdint>

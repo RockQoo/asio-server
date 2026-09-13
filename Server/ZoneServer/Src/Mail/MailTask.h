@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Server/ZoneServer/Src/Mail/Model.h"
+#include "Mail/Model.h"
 
 #include "Shared/Core/Src/Task/ITask.h"
 

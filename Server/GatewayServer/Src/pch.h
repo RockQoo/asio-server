@@ -6,7 +6,7 @@
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
 #include "Shared/Core/Src/Log/Proxy.h"
-#include "Server/GatewayServer/Src/Log/LogCategory.h"
+#include "Log/LogCategory.h"
 
 #include <array>
 #include <atomic>

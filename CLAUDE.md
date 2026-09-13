@@ -63,7 +63,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   `PlayerState`/`Config` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
-- **include 경로는 솔루션 루트 기준**: `#include "Shared/Core/Src/Network/Session.h"`.
+- **include 경로**: 같은 프로젝트는 `Src` 기준 짧게(`#include "App/Config.h"`), 다른
+  프로젝트는 솔루션 루트 기준(`#include "Shared/Core/Src/Network/Session.h"`) — 접두사
+  유무로 내 것/남의 것이 갈린다. **단 다른 프로젝트가 가져다 쓰는 헤더(Core 전부,
+  `WorldServer/Src/Packet/*.h`)는 자기 헤더도 전체 경로**로 쓴다(남의 프로젝트 안에서
+  컴파일되므로). 근거: `cpp-patterns.md`.
 - **모던 C++23 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
   `std::move`. 세부 규칙(const/sink/emplace/Get const 등)은 `cpp-patterns.md`.
 - **`3rd/asio` 수정 금지** — `.claude/settings.json` PreToolUse 훅으로도 자동 차단.

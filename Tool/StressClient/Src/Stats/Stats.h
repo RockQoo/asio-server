@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Tool/StressClient/Src/Stats/LatencyHistogram.h"
+#include "Stats/LatencyHistogram.h"
 
 #include <atomic>
 #include <cstdint>

@@ -4,9 +4,9 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
-#include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
-#include "Server/WorldServer/Src/Worker/ProcessorId.h"
+#include "Packet/ZoneLinkPackets.h"
+#include "World/ZoneLinkRegistry.h"
+#include "Worker/ProcessorId.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include <optional>

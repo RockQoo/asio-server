@@ -1,6 +1,6 @@
-#include "Server/GatewayServer/Src/pch.h"
-#include "Server/GatewayServer/Src/Handler/WorldLinkHandler.h"
-#include "Server/GatewayServer/Src/World/WorldLink.h"
+#include "pch.h"
+#include "Handler/WorldLinkHandler.h"
+#include "World/WorldLink.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Network/SessionManager.h"

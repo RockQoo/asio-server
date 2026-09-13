@@ -1,5 +1,5 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Game/PlayerRegistry.h"
+#include "pch.h"
+#include "Game/PlayerRegistry.h"
 
 #include "Shared/Core/Src/Common/CoreException.h"
 

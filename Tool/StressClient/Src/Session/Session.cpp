@@ -1,5 +1,5 @@
-#include "Tool/StressClient/Src/pch.h"
-#include "Tool/StressClient/Src/Session/Session.h"
+#include "pch.h"
+#include "Session/Session.h"
 
 #include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"

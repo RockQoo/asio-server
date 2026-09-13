@@ -1,7 +1,7 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Game/Instance.h"
-#include "Server/ZoneServer/Src/Packet/ZonePackets.h"
-#include "Server/ZoneServer/Src/World/WorldLink.h"
+#include "pch.h"
+#include "Game/Instance.h"
+#include "Packet/ZonePackets.h"
+#include "World/WorldLink.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"

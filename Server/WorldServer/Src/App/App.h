@@ -5,14 +5,14 @@
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Protocol/Src/PacketId.h"
-#include "Server/WorldServer/Src/Handler/GatewayLinkHandler.h"
-#include "Server/WorldServer/Src/Handler/ZoneLinkHandler.h"
-#include "Server/WorldServer/Src/Tool/ToolProcessor.h"
-#include "Server/WorldServer/Src/World/ClientRegistry.h"
-#include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
-#include "Server/WorldServer/Src/Worker/ProcessorId.h"
+#include "Handler/GatewayLinkHandler.h"
+#include "Handler/ZoneLinkHandler.h"
+#include "Tool/ToolProcessor.h"
+#include "World/ClientRegistry.h"
+#include "World/ZoneLinkRegistry.h"
+#include "Worker/ProcessorId.h"
 
-#include "Server/WorldServer/Src/App/Config.h"
+#include "App/Config.h"
 
 #include <asio.hpp>
 

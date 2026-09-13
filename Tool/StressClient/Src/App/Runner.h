@@ -2,8 +2,8 @@
 
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
-#include "Tool/StressClient/Src/Session/Session.h"
-#include "Tool/StressClient/Src/Stats/Stats.h"
+#include "Session/Session.h"
+#include "Stats/Stats.h"
 
 #include <chrono>
 #include <cstddef>

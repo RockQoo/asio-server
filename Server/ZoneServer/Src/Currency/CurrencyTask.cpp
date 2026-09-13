@@ -1,5 +1,5 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Currency/CurrencyTask.h"
+#include "pch.h"
+#include "Currency/CurrencyTask.h"
 
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Core/Src/Task/UnitOfWork.h"

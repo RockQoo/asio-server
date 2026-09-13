@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Server/ZoneServer/Src/Currency/Model.h"
+#include "Currency/Model.h"
 
 #include "Shared/Core/Src/Task/ITask.h"
 #include "Shared/Protocol/Src/CurrencyType.h"

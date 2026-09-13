@@ -1,5 +1,5 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/App/App.h"
+#include "pch.h"
+#include "App/App.h"
 
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
 

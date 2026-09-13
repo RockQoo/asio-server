@@ -3,7 +3,7 @@
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Protocol/Src/PacketId.h"
-#include "Server/ZoneServer/Src/Worker/ProcessorId.h"
+#include "Worker/ProcessorId.h"
 
 #include <cstdint>
 #include <vector>

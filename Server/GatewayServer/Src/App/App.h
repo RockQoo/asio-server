@@ -4,11 +4,11 @@
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Network/Listener.h"
 #include "Shared/Core/Src/Network/SessionManager.h"
-#include "Server/GatewayServer/Src/Handler/ClientLinkHandler.h"
-#include "Server/GatewayServer/Src/Handler/WorldLinkHandler.h"
-#include "Server/GatewayServer/Src/World/WorldLink.h"
+#include "Handler/ClientLinkHandler.h"
+#include "Handler/WorldLinkHandler.h"
+#include "World/WorldLink.h"
 
-#include "Server/GatewayServer/Src/App/Config.h"
+#include "App/Config.h"
 
 #include <asio.hpp>
 

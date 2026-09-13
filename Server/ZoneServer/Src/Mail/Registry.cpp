@@ -1,5 +1,5 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Mail/Registry.h"
+#include "pch.h"
+#include "Mail/Registry.h"
 
 namespace Mail
 {

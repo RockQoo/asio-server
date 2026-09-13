@@ -1,7 +1,7 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/Cli/IdTest.h"
+#include "pch.h"
+#include "Cli/IdTest.h"
 
-#include "Server/WorldServer/Src/Db/DbConnection.h"
+#include "Db/DbConnection.h"
 
 #include "Shared/Core/Src/Common/RUID.h"
 

@@ -1,6 +1,6 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/App/App.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "pch.h"
+#include "App/App.h"
+#include "Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"

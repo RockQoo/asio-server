@@ -1,7 +1,7 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/Cli/ConsoleLoop.h"
+#include "pch.h"
+#include "Cli/ConsoleLoop.h"
 
-#include "Server/WorldServer/Src/App/App.h"
+#include "App/App.h"
 
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/PacketId.h"

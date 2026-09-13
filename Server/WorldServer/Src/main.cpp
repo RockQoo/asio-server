@@ -1,10 +1,10 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/App/App.h"
+#include "pch.h"
+#include "App/App.h"
 
-#include "Server/WorldServer/Src/App/Config.h"
-#include "Server/WorldServer/Src/Cli/ConsoleLoop.h"
-#include "Server/WorldServer/Src/Cli/DbCheck.h"
-#include "Server/WorldServer/Src/Cli/IdTest.h"
+#include "App/Config.h"
+#include "Cli/ConsoleLoop.h"
+#include "Cli/DbCheck.h"
+#include "Cli/IdTest.h"
 
 #include "Shared/Core/Src/Common/RUID.h"
 

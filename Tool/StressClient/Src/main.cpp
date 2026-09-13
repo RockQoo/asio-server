@@ -1,5 +1,5 @@
-#include "Tool/StressClient/Src/pch.h"
-#include "Tool/StressClient/Src/App/Runner.h"
+#include "pch.h"
+#include "App/Runner.h"
 
 #include <cstdlib>
 #include <exception>

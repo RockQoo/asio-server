@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Server/ZoneServer/Src/Mail/Model.h"
+#include "Mail/Model.h"
 
 #include <functional>
 #include <memory>

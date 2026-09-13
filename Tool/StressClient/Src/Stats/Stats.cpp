@@ -1,5 +1,5 @@
-#include "Tool/StressClient/Src/pch.h"
-#include "Tool/StressClient/Src/Stats/Stats.h"
+#include "pch.h"
+#include "Stats/Stats.h"
 
 namespace Stress
 {

@@ -1,6 +1,6 @@
-#include "Server/WorldServer/Src/pch.h"
+#include "pch.h"
 
-#include "Server/WorldServer/Src/Db/PasswordHash.h"
+#include "Db/PasswordHash.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

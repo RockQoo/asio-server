@@ -1,5 +1,5 @@
-#include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
+#include "pch.h"
+#include "World/ZoneLinkRegistry.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 

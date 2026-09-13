@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Server/WorldServer/Src/Db/DbCommand.h"
-#include "Server/WorldServer/Src/Db/DbConnection.h"
-#include "Server/WorldServer/Src/Worker/ProcessorId.h"
+#include "Db/DbCommand.h"
+#include "Db/DbConnection.h"
+#include "Worker/ProcessorId.h"
 
 #include "Shared/Core/Src/Processor/Group.h"
 

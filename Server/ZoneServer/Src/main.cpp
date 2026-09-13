@@ -1,7 +1,7 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/App/App.h"
+#include "pch.h"
+#include "App/App.h"
 
-#include "Server/ZoneServer/Src/App/Config.h"
+#include "App/Config.h"
 
 #include "Shared/Core/Src/Common/RUID.h"
 

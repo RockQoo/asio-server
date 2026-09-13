@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Server/WorldServer/Src/Db/DbCommand.h"
+#include "Db/DbCommand.h"
 
 #include <span>
 #include <stdexcept>

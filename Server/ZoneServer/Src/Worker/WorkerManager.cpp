@@ -1,5 +1,5 @@
-#include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/Worker/WorkerManager.h"
+#include "pch.h"
+#include "Worker/WorkerManager.h"
 
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
