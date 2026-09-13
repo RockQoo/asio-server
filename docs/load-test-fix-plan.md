@@ -29,18 +29,21 @@
 ### 1. 인구를 여러 존에 분산 — 근본 원인 해결, 영향도 최고
 
 **문제**: `Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp`의 `HandleClientConnected`가
-모든 신규 클라이언트를 항상 `kDefaultEntryZoneId`(=0)로만 배정한다. 존이 여러 개 떠 있어도
-전부 존 0으로만 몰린다.
+`ZoneLinkRegistry::FindEntryPoint()`를 쓰는데, 이게 **zoneId가 가장 작은 존 하나**의 중앙
+좌표만 돌려준다. 존이 2×2 격자로 4개 떠 있어도 신규 접속이 전부 존 1로만 몰린다.
+(작성 당시에는 상수 `kDefaultEntryZoneId`(=0)였고, 그 뒤 존 격자화와 zoneId 1-기반 전환을
+거치며 `FindEntryPoint()`로 바뀌었다 — 한 곳으로 몰린다는 문제 자체는 그대로다.)
 
 **할 일**:
-- `GatewayLinkHandler`(또는 `WorldServerApp`)가 현재 등록된 존 목록(`ZoneLinkRegistry`)을
-  보고 신규 접속을 라운드로빈(또는 인구 기반)으로 여러 zoneId에 분산 배정하도록 변경.
-- 이때 존 경계(x 범위)가 서로 겹치지 않는 기존 규칙(`zoneId*10 ~ zoneId*10+10`)과 충돌하지
-  않게 주의 — "입장 시 배정되는 존"과 "좌표 기반 존"이 지금은 암묵적으로 같은 개념이라,
-  단순 라운드로빈 배정 시 입장 좌표(x,y)도 그 존의 구간 안에 있도록 같이 맞춰야 한다(현재
-  `ZoneInstance::OnPlayerEnter`가 좌표를 그대로 받아들이므로, 배정 존과 안 맞는 좌표를 주면
-  다음 Move에서 바로 핸드오프가 발생해버림).
-- 검증: `ZoneServer.exe 1,2,3,4`처럼 존 여러 개를 띄운 뒤 `StressClient.exe`로 10,000세션
+- 신규 접속을 등록된 존 목록 전체에 라운드로빈(또는 인구 기반)으로 분산 배정하도록 변경.
+  고칠 자리는 `FindEntryPoint()` 하나다 — 호출부는 `EntryPoint{zoneId, x, y}`를 그대로 쓰므로
+  배정 규칙을 모른다.
+- **좌표를 같이 정해야 한다.** "입장 시 배정되는 존"과 "좌표 기반 존"이 같은 개념이라,
+  zoneId만 돌려 나누고 좌표를 그대로 두면 배정 존과 좌표가 어긋나 다음 Move에서 즉시
+  핸드오프가 터진다(`ZoneInstance::OnPlayerEnter`는 받은 좌표를 그대로 받아들인다).
+  `FindEntryPoint()`가 이미 그 존의 `ZoneDef` 중앙을 계산하고 있으므로, 고를 존만 바꾸면
+  좌표는 따라온다 — 스폰 좌표를 상수로 박지 않은 이유가 이것이다.
+- 검증: `bat/start_server_all.bat`으로 존 4개(프로세스 2개)를 띄운 뒤 `StressClient.exe`로 10,000세션
   재실행 → 인구가 각 존에 고르게 나뉘는지(`zoneserver-*.log`의 "플레이어 입장" 로그로 확인),
   처리량이 존 개수에 비례해 회복되는지 확인.
 
