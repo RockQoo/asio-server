@@ -22,6 +22,7 @@
     <Filter Include="Tool">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000008}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Db" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -76,6 +77,18 @@
     <ClInclude Include="Src\App\App.h">
       <Filter>App</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Db\DbCommand.h">
+      <Filter>Db</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Db\DbConnection.h">
+      <Filter>Db</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Db\AutoDbCommand.h">
+      <Filter>Db</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Db\PasswordHash.h">
+      <Filter>Db</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
@@ -96,6 +109,15 @@
     </ClCompile>
     <ClCompile Include="Src\App\App.cpp">
       <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\DbConnection.cpp">
+      <Filter>Db</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\AutoDbCommand.cpp">
+      <Filter>Db</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\PasswordHash.cpp">
+      <Filter>Db</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>

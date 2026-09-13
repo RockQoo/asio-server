@@ -33,9 +33,6 @@
     <ClInclude Include="Src\Common\BasicTypes.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\RequestId.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Common\Types.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -99,9 +96,6 @@
     <ClInclude Include="Src\Network\IoContextPool.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\ProcessorStats.h">
-      <Filter>Processor</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Processor\Group.h">
       <Filter>Processor</Filter>
     </ClInclude>
@@ -122,6 +116,15 @@
     </ClInclude>
     <ClInclude Include="Src\Task\UnitOfWork.h">
       <Filter>Task</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Common\ConfigFile.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Common\RUID.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\Stats.h">
+      <Filter>Processor</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -155,11 +158,14 @@
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp">
       <Filter>Timer</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Common\RequestId.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Task\UnitOfWork.cpp">
       <Filter>Task</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Common\ConfigFile.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Common\RUID.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

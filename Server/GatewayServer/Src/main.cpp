@@ -1,23 +1,35 @@
 #include "Server/GatewayServer/Src/pch.h"
 #include "Server/GatewayServer/Src/App/App.h"
 
+#include "Shared/Core/Src/Common/ConfigFile.h"
+
 #include <cstdlib>
 #include <exception>
+#include <string>
 #include <utility>
 
-int main()
+int main(const int argc, char** argv)
 {
     Log::Logger::Instance().Initialize("logs/gatewayserver.log");
 
     try
     {
-        // 클라이언트 포트 9000(기존 ZoneServer가 쓰던 포트를 그대로 물려받음), World는
-        // 기본적으로 같은 머신의 9100 포트에서 대기한다고 가정한다.
+        // 설정 파일 경로는 인자로 덮을 수 있다 -- 같은 실행 파일로 다른 설정을 띄울 때 쓴다.
+        const std::string configPath = argc > 1 ? argv[1] : "config/gateway.cfg";
+        const auto configFile = Common::ConfigFile::Load(configPath);
+        if (!configFile.IsLoaded())
+        {
+            LOG.Warning(ELogCategory::General, "설정 파일이 없어 기본값으로 뜬다").KV("Path", configPath);
+        }
+
+        // 구조체의 기본값을 fallback 으로 넘긴다 -- 기본값이 두 군데(구조체와 여기)에 적히면
+        // 한쪽만 고쳤을 때 갈린다.
         Gateway::Config config{};
-        config.clientPort = 9000;
-        config.worldHost = "127.0.0.1";
-        config.worldPort = 9100;
-        config.ioThreadCount = 2;
+        config.clientPort = configFile.GetPort("client_port", config.clientPort);
+        config.worldHost = configFile.GetString("world_host", config.worldHost);
+        config.worldPort = configFile.GetPort("world_port", config.worldPort);
+        config.ioThreadCount = configFile.GetSize("io_threads", config.ioThreadCount);
+        configFile.WarnUnusedKeys();
 
         Gateway::App app(std::move(config));
         app.Run();

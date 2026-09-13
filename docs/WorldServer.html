@@ -39,6 +39,13 @@ DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적�
     사람의 패킷을 멈춘다. 그래서 "막혀도 되는 일"만 모아 별도 그룹에 둔다.
 </div>
 
+<div class="callout">
+    <h4>이 수치는 설정 파일에서 온다</h4>
+    스레드 수·포트·주기는 <code>config/world.cfg</code>에서 읽는다. 값이 틀리면 기본값으로
+    넘어가지 않고 기동을 멈추고, 아무도 읽지 않은 키는 경고로 남는다(오타를 잡는 유일한 수단).
+    자세한 건 <a href="design/config-file.md">설정 파일 설계</a>.
+</div>
+
 <h2>핵심 타입</h2>
 <table>
     <tr><th>타입</th><th>역할</th><th>락</th></tr>

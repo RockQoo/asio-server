@@ -1,6 +1,8 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/App/App.h"
 
+#include "Shared/Core/Src/Common/ConfigFile.h"
+
 #include "Shared/Core/Src/Common/RUID.h"
 
 #include <chrono>
@@ -151,23 +153,46 @@ int main(const int argc, char* argv[])
 
     try
     {
+        // 담당 존 목록만 인자로 받는다 -- 프로세스마다 달라야 하는 유일한 값이라, 그래야
+        // 여러 존 프로세스가 같은 설정 파일을 공유할 수 있다.
+        const std::string configPath = argc > 2 ? argv[2] : "config/zone.cfg";
+        const auto configFile = Common::ConfigFile::Load(configPath);
+        if (!configFile.IsLoaded())
+        {
+            LOG.Warning(ELogCategory::General, "설정 파일이 없어 기본값으로 뜬다").KV("Path", configPath);
+        }
+
+        // 구조체의 기본값을 fallback 으로 넘긴다 -- 기본값이 두 군데에 적히면 한쪽만 고쳤을 때 갈린다.
         Zone::Config config{};
         config.zones = zones;
+
         // 레인마다 크기를 정하는 기준이 다르다:
         //   LB / Player -- owner가 clientSessionId라 실질 병렬도가 접속자 수만큼이다.
         //                  스레드를 늘린 만큼 실제로 갈린다.
         //   Zone        -- **담당 존 수만큼.** 존 하나는 스레드 하나가 상한이라, 더 줘도
-        //                  그 존이 빨라지지 않는다(버거우면 존을 쪼갠다).
+        //                  그 존이 빨라지지 않는다(버거우면 존을 쪼갠다). 그래서 설정에서
+        //                  0을 주면 존 개수로 맞춘다 -- 프로세스마다 담당 존 수가 다르다.
         //   Broadcast   -- World 링크가 하나라 어차피 그 소켓에서 직렬화된다.
-        config.lbThreadCount = 4;
-        config.poolSizes.playerThreadCount = 8;
-        config.poolSizes.zoneThreadCount = zones.size();
-        config.poolSizes.broadcastThreadCount = 1;
-        config.worldHost = "127.0.0.1";
-        config.worldPort = 9200;
-        config.ioThreadCount = 2;
-        config.tickInterval = std::chrono::milliseconds(100);
-        config.mailSweepInterval = std::chrono::milliseconds(1000);
+        config.lbThreadCount = configFile.GetSize("lb_threads", config.lbThreadCount);
+        config.poolSizes.playerThreadCount =
+            configFile.GetSize("pools.player_threads", config.poolSizes.playerThreadCount);
+        config.poolSizes.broadcastThreadCount =
+            configFile.GetSize("pools.broadcast_threads", config.poolSizes.broadcastThreadCount);
+
+        const auto zoneThreads = configFile.GetSize("pools.zone_threads", 0);
+        config.poolSizes.zoneThreadCount = zoneThreads > 0 ? zoneThreads : zones.size();
+
+        config.worldHost = configFile.GetString("world_host", config.worldHost);
+        config.worldPort = configFile.GetPort("world_port", config.worldPort);
+        config.ioThreadCount = configFile.GetSize("io_threads", config.ioThreadCount);
+        config.tickInterval = configFile.GetMilliseconds("intervals.tick_ms", config.tickInterval);
+        config.mailSweepInterval =
+            configFile.GetMilliseconds("intervals.mail_sweep_ms", config.mailSweepInterval);
+        config.statsDumpInterval =
+            configFile.GetMilliseconds("intervals.stats_dump_ms", config.statsDumpInterval);
+        config.slowTaskWarnThreshold =
+            configFile.GetMicroseconds("slow_task_warn_us", config.slowTaskWarnThreshold);
+        configFile.WarnUnusedKeys();
 
         Zone::App app(std::move(config));
         app.Run();

@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 핸드오프 경로 | 가로(1↔2, 3↔4)는 같은 프로세스의 레인 간, **세로(1↔3, 2↔4)는 프로세스(TCP 링크)를 넘는다**(`docs/sequences/zone-handoff.html`) |
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Client`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Client` — C#/MonoGame, 별도 솔루션(`Client/Client.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
+| 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽는다. **기본값은 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). 담당 존 목록만 실행 인자 -- 프로세스마다 달라야 하는 유일한 값 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
 
 ---
@@ -89,6 +90,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 C:\Work\asio-server\
 ├── Directory.Build.props             $(RepoRoot) 정의 -- 솔루션이 둘이라 $(SolutionDir)를 쓸 수 없다
+├── config/                           서버 설정(gateway/world/zone.cfg). key = value, # 주석, 중첩은 점
+│                                     PostBuildEvent가 실행 파일 옆 config/로 복사한다
+│                                     값이 틀리면 기본값으로 넘어가지 않고 끝낸다(docs/design/config-file.md)
 ├── Server/Server.slnx                서버 솔루션 (Core + Gateway/World/Zone)
 ├── Tool/TestClient.slnx              테스트 클라이언트 솔루션 (Core + ProtocolClient/StressClient)
 ├── Shared/                           서버·툴이 공유하는 모듈 (Client가 Server를 의존하지 않게 하는 층)

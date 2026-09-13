@@ -73,6 +73,11 @@ bat\start_client.bat 2            :: Client 창 2개 (MonoGame, 별도 .NET 솔�
 bat\stop_server_all.bat           :: 종료 (-keep 을 주면 콘솔 창은 남김)
 ```
 
+**설정은 `config/*.cfg`** 입니다 — 스레드 수, 포트, 틱 주기를 코드 수정 없이 바꿉니다.
+빌드할 때 실행 파일 옆으로 복사되고, 다른 파일로 띄우려면 경로를 인자로 줍니다
+(`ZoneServer.exe 1,2 D:\configs\zone-load-test.cfg`). 형식과 정책은
+[docs/design/config-file.md](docs/design/config-file.md).
+
 **프로세스가 4개인 게 정상입니다** — `ZoneServer`를 두 개 띄워 존을 2×2 격자로 나눕니다.
 
 ```

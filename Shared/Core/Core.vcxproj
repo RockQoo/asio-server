@@ -104,6 +104,7 @@
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Common\BasicTypes.h" />
+    <ClInclude Include="Src\Common\ConfigFile.h" />
     <ClInclude Include="Src\Common\RUID.h" />
     <ClInclude Include="Src\Common\Types.h" />
     <ClInclude Include="Src\Common\CoreErrorCode.h" />
@@ -130,7 +131,7 @@
     <ClInclude Include="Src\Thread\AffinityWorkerPool.h" />
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
     <ClInclude Include="Src\Thread\Mutexed.h" />
-    <ClInclude Include="Src\Processor\ProcessorStats.h" />
+    <ClInclude Include="Src\Processor\Stats.h" />
     <ClInclude Include="Src\Processor\Group.h" />
     <ClInclude Include="Src\Task\ITask.h" />
     <ClInclude Include="Src\Task\UnitOfWork.h" />
@@ -149,6 +150,7 @@
     <ClCompile Include="Src\Network\IoContextPool.cpp" />
     <ClCompile Include="Src\Thread\WorkerThread.cpp" />
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp" />
+    <ClCompile Include="Src\Common\ConfigFile.cpp" />
     <ClCompile Include="Src\Common\RUID.cpp" />
     <ClCompile Include="Src\Task\UnitOfWork.cpp" />
   </ItemGroup>

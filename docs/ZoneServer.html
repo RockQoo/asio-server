@@ -41,6 +41,13 @@ Broadcast 그룹 (1)   owner = zoneId           팬아웃 전송</code></pre>
     Player 레인 8개로 갈라지게 됐다.
 </div>
 
+<div class="callout">
+    <h4>이 수치는 설정 파일에서 온다</h4>
+    스레드 수·포트·주기는 <code>config/zone.cfg</code>에서 읽는다. 값이 틀리면 기본값으로
+    넘어가지 않고 기동을 멈추고, 아무도 읽지 않은 키는 경고로 남는다(오타를 잡는 유일한 수단).
+    자세한 건 <a href="design/config-file.md">설정 파일 설계</a>.
+</div>
+
 <h2>존 배치 — 2×2 격자</h2>
 <div class="panel">
 <pre><code>  x:0        10        20

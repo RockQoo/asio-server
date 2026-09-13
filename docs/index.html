@@ -25,6 +25,9 @@
     <tr><td><span class="badge b-world">World</span></td><td>라우팅, DB 관문, 공통 콘텐츠</td><td>I/O 2 · BASIC 8 · DB 4</td></tr>
     <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · LB 4 · Player 8 · ZoneSpace n · Broadcast 1</td></tr>
 </table>
+
+<p style="margin:10px 0 0">스레드 수와 포트는 <code>config/*.cfg</code>에서 읽는다 — 위 값은 기본 설정이다
+(<a href="design/config-file.md">형식과 정책</a>).</p>
 </div>
 
 <h2>서버별 문서</h2>
@@ -79,6 +82,11 @@
 <ul style="margin:8px 0">
     <li><a href="design/processor-group.md">processor-group.md</a> — 레인 어피니티(<code>ownerId % N</code>)의 근거와 한계</li>
     <li><a href="design/player-and-models.md">player-and-models.md</a> — 모델마다 보호 방식이 다른 기준</li>
+    <li><a href="design/locking-strategy.md">locking-strategy.md</a> — 락 전략 네 가지와 샤딩이 필요한 이유</li>
+    <li><a href="design/unit-of-work.md">unit-of-work.md</a> — 커밋을 깜빡할 수 없는 구조</li>
+    <li><a href="design/wire-format.md">wire-format.md</a> — 가변 길이 패킷의 바디 구조</li>
+    <li><a href="design/unique-id.md">unique-id.md</a> — <code>RUID</code>(시각+노드+시퀀스)와 실측</li>
+    <li><a href="design/config-file.md">config-file.md</a> — 설정 파서를 직접 만든 이유</li>
 </ul>
 </div>
 
@@ -90,6 +98,7 @@
     <tr><td><code>CLAUDE.md</code></td><td>작업 규약(아키텍처 요약, 코딩 규칙 인덱스)</td></tr>
     <tr><td><code>.claude/rules/</code></td><td>C++ / 패킷 네이밍 / SQL 규약</td></tr>
     <tr><td><code>docs/load-test-fix-plan.md</code></td><td>부하 테스트 병목 수정 계획</td></tr>
+    <tr><td><code>config/*.cfg</code></td><td>서버 설정(스레드 수·포트·주기) — <a href="design/config-file.md">형식과 정책</a></td></tr>
     <tr><td><code>Sql/README.md</code></td><td>게임 DB 스키마 적용 순서</td></tr>
 </table>
 

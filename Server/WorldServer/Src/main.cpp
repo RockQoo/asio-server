@@ -1,5 +1,7 @@
 #include "Server/WorldServer/Src/pch.h"
 #include "Server/WorldServer/Src/App/App.h"
+
+#include "Shared/Core/Src/Common/ConfigFile.h"
 #include "Server/WorldServer/Src/Db/DbConnection.h"
 #include "Server/WorldServer/Src/Db/PasswordHash.h"
 
@@ -317,16 +319,27 @@ int main(const int argc, char* argv[])
 
     try
     {
+        // argv[1] 이 --dbcheck/--idtest 같은 모드 스위치일 수 있으므로 -- 로 시작하면 건너뛴다.
+        const bool hasConfigArg = argc > 1 && std::string_view(argv[1]).substr(0, 2) != "--";
+        const std::string configPath = hasConfigArg ? argv[1] : "config/world.cfg";
+        const auto configFile = Common::ConfigFile::Load(configPath);
+        if (!configFile.IsLoaded())
+        {
+            LOG.Warning(ELogCategory::General, "설정 파일이 없어 기본값으로 뜬다").KV("Path", configPath);
+        }
+
+        // 구조체의 기본값을 fallback 으로 넘긴다 -- 기본값이 두 군데에 적히면 한쪽만 고쳤을 때 갈린다.
         World::Config config{};
-        config.gatewayPort = 9100;
-        config.zonePort = 9200;
-        config.toolPort = 9300;
-        config.ioThreadCount = 2;
+        config.gatewayPort = configFile.GetPort("ports.gateway", config.gatewayPort);
+        config.zonePort = configFile.GetPort("ports.zone", config.zonePort);
+        config.toolPort = configFile.GetPort("ports.tool", config.toolPort);
+        config.ioThreadCount = configFile.GetSize("io_threads", config.ioThreadCount);
         // BASIC은 Main/Tool 프로세서가 공유하는 큐 그룹이고, 실제 병렬도는 스레드 수가 아니라
         // **서로 다른 ownerId의 개수**로 정해진다(대부분 clientSessionId라 충분히 많다).
-        config.basicThreadCount = 8;
+        config.basicThreadCount = configFile.GetSize("basic_threads", config.basicThreadCount);
         // DB는 커넥션 풀 크기와 1:1이 원칙이다. 실제 DB 연동 전이라 개발 머신 기준 임시값.
-        config.dbThreadCount = 4;
+        config.dbThreadCount = configFile.GetSize("db_threads", config.dbThreadCount);
+        configFile.WarnUnusedKeys();
 
         // 시크릿과 DB 연결 문자열은 소스에 박힌 개발 기본값(Config)을 쓰되, 환경
         // 변수가 있으면 그걸 우선한다 -- 공개 저장소에 실제 값을 커밋하지 않기 위한 최소 장치다.
