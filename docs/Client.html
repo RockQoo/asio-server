@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Client — 눈으로 확인하는 클라이언트</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 문서 목록</a>
+
+<h1>Client <span class="badge b-client">C# / MonoGame</span></h1>
+<p class="sub">존 격자·핸드오프·채팅·우편·쿠폰을 한 창에서 <b>눈으로</b> 확인하는 클라이언트.
+REPL로는 잘 안 보이는 것을 화면이 대신 보여주는 게 목적이다.</p>
+
+<h2>전제 — 서버 C++을 고치지 않는다</h2>
+<div class="panel">
+기존 프로토콜과 이미 있는 API만 쓴다. 클라이언트를 만들려고 서버를 고치기 시작하면
+"클라이언트가 있어서 통과하는 테스트"가 되어버리기 때문이다.
+<br><br>
+그래서 <b>별도 솔루션</b>(<code>Client/Client.slnx</code>)이다 — C++ 솔루션에 섞으면
+서버만 빌드할 때 NuGet 복원까지 끌려온다.
+</div>
+
+<h2>서버를 두드리는 세 도구와의 차이</h2>
+<table>
+    <tr><th>도구</th><th>목적</th><th>보는 것</th></tr>
+    <tr><td><b>Client</b></td><td>눈으로 확인</td><td>존 경계를 넘는 순간, 다른 사람이 보이고 사라지는 것</td></tr>
+    <tr><td><code>ProtocolClient</code></td><td>수동 REPL</td><td>패킷 하나하나의 왕복, 에러 코드</td></tr>
+    <tr><td><code>StressClient</code></td><td>부하</td><td>처리량·지연 백분위·레인 편중</td></tr>
+</table>
+
+<h2>구조</h2>
+<div class="panel">
+<pre><code>Client/Client/Src/
+├ Protocol/     코덱(C++ BinaryWriter와 바이트 호환) + PacketId(C2Z/Z2C/W2C 대역만)
+│               + ZoneLayout  ← 서버 ParseZoneList 규칙의 복제
+├ Net/GameLink      TCP + 프레이밍. 수신은 큐에만 넣는다
+├ Net/CouponClient  쿠폰 등록만 HTTP (GmTool.Web)
+├ Model/WorldModel  게임 스레드 전용 상태 → 락이 없다
+├ Text/GlyphAtlas   한글 글리프를 런타임에 GDI+로 굽는다 (.mgcb 미사용)
+└ Ui/               ZoneView · ChatPanel · MailPanel · CouponPanel · Hud</code></pre>
+</div>
+
+<div class="callout">
+    <h4>수신을 큐에만 넣는 이유</h4>
+    소켓 콜백은 별도 스레드에서 온다. 거기서 게임 상태를 직접 고치면 렌더 중인 데이터를
+    건드리게 된다. 큐에 넣고 <b>게임 스레드가 프레임 시작에 꺼내</b> 적용하면,
+    <code>WorldModel</code>은 한 스레드만 만지므로 락이 필요 없다 —
+    서버의 <code>ZoneInstance</code>가 락이 없는 것과 정확히 같은 이유다.
+</div>
+
+<div class="callout warn">
+    <h4>ZoneLayout은 서버 규칙의 복제다</h4>
+    존 배치(<code>kZoneSize</code> / <code>kZonesPerRow</code> / <code>kZoneRows</code>)를
+    클라이언트가 따로 들고 있다. <b>한쪽만 고치면 화면에 그려지는 경계와 실제 핸드오프
+    지점이 어긋난다.</b> 서버가 존 경계를 패킷으로 알려주는 것이 맞고, 그건 존 입장 스냅샷
+    작업과 한 세트다(아직 없음).
+</div>
+
+<h2>쿠폰만 경로가 다르다</h2>
+<div class="panel">
+<pre><code>쿠폰 등록  →  HTTP  →  GmTool.Web
+보상 수령  ←  소켓  ←  우편(Z2CTaskResult)</code></pre>
+
+쿠폰은 게임 패킷이 아니라 운영툴의 HTTP API로 나가고, 결과는 <b>우편으로</b> 돌아온다.
+운영툴이 우편을 보낼 때 새 패킷을 만들지 않고 기존 <code>C2ZMailAdd</code>를 봉투에 감싸
+주입하기 때문에, 존 입장에서는 클라이언트가 직접 보낸 것과 <b>바이트 단위로 구분되지 않는다</b>.
+</div>
+
+<h2>현재 한계 — 클라이언트가 메워주고 있는 것</h2>
+<div class="callout warn">
+    브로드캐스트는 <b>그 순간 존에 있는 사람</b>에게만 간다. 입장할 때 기존 플레이어 목록을
+    주는 패킷도, 누가 나갔는지 알리는 패킷도 없다.
+    <br><br>
+    그래서 지금은 클라이언트가 <b>좌표 하트비트(1초)와 타임아웃(6초)</b>으로 메우고 있다.
+    서버가 <code>Z2CEnterZoneNotify</code>에 존 안의 플레이어 스냅샷을 싣고 퇴장을
+    브로드캐스트하는 쪽이 맞다 — AOI를 넣으면 어차피 서버가 판단해야 하므로 그 작업과 한 세트다.
+</div>
+
+<div class="callout warn">
+    <h4>존을 넘으면 우편함이 비워진다</h4>
+    우편함이 존 로컬이라 새 존에서 빈 상태로 다시 생긴다. 클라이언트는 이걸 감추지 않고
+    <code>MailboxResetByZoneChange</code>로 <b>서버와 같은 상태로 맞춰 비운다</b> —
+    화면만 남겨두면 삭제를 눌렀을 때 <code>MailNotFound</code>만 돌아온다.
+</div>
+
+<h2>실행</h2>
+<pre><code>bat\start_client.bat 2            :: 창 2개 (브로드캐스트 확인에는 최소 2개)
+bat\start_client.bat 2 Debug auto :: 자동 순회 — 짝수 창은 반대 방향으로 돈다</code></pre>
+<p>조작: WASD/방향키 이동, 존 뷰 클릭으로 순간 이동, Enter 채팅, F1 Echo 핑, F2 자동 순회, Esc 패널 닫기.</p>
+
+<h2>관련 문서</h2>
+<div class="cards">
+    <a class="card" href="sequences/zone-handoff.html"><b>존 핸드오프</b><span>화면에서 보이는 그 순간에 서버가 하는 일</span></a>
+    <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>우편 패널의 버튼 하나가 만드는 경로</span></a>
+    <a class="card" href="GatewayServer.html"><b>GatewayServer</b><span>클라이언트가 아는 유일한 서버</span></a>
+</div>
+
+<p class="foot">asio-server · 서버별 문서</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>DB 계층 — 스키마·SP 규약·트랜잭션</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 문서 목록</a>
+
+<h1>DB 계층 <span class="badge b-db">SQL Server + ODBC</span></h1>
+<p class="sub">게임 DB는 <code>asio_game</code>, 운영툴 DB는 별도다. 서버에서 DB로 나가는 길은
+<b>WorldServer의 DB 레인 하나뿐</b>이다.</p>
+
+<h2>왜 ODBC인가</h2>
+<div class="panel">
+<code>&lt;sql.h&gt;</code> + <code>odbc32.lib</code>가 <b>Windows SDK 내장</b>이라
+<code>3rd/</code>에 바이너리 의존성이 늘지 않는다. 운영툴을 SQL Server로 맞춰둔 이유도 이것이다 —
+엔진이 같으면 쿠폰 청크 적재와 우편 Task를 같은 워커에서 처리할 수 있다.
+</div>
+
+<h2>커넥션 — 풀이 아니라 스레드당 하나</h2>
+<div class="panel">
+<pre><code>DB 그룹 (4 레인)
+ ├ 레인 0 → thread_local DbConnection
+ ├ 레인 1 → thread_local DbConnection
+ ├ 레인 2 → thread_local DbConnection
+ └ 레인 3 → thread_local DbConnection</code></pre>
+
+커넥션 풀을 두지 않는다. <b>소비자 수와 커넥션 수를 1:1</b>로 두면 "빌리고 반납하는" 경합이
+아예 없어지고, 이 계층에 락이 하나도 없다. 재연결도 그 레인이 자기 커넥션만 보므로
+전용 스레드가 필요 없다 — 다음 작업이 오면 그 작업이 재연결한다.
+</div>
+
+<h2>트랜잭션 — UnitOfWork 하나 = 트랜잭션 하나</h2>
+<div class="panel">
+<pre><code>AutoDbCommand(pool, dbGroup, ownerId, useTransaction = true)
+    .Add({ "dbo.up_mails_upsert",      { mailId, playerId, ... } })
+    .Add({ "dbo.up_currencies_upsert", { playerId, type, value } })
+                       ↓ 소멸 시 한 번에
+DbConnection::Execute(commands, useTransaction = true)
+    SetAutoCommit(false)
+    ├ {? = CALL up_mails_upsert(?, ?, ...)}       @is_trans_outside = 1
+    ├ {? = CALL up_currencies_upsert(?, ...)}     @is_trans_outside = 1
+    └ COMMIT        예외가 나면 ROLLBACK</code></pre>
+
+여러 UoW를 모으지 않는다. 같은 <code>ownerId</code>의 작업은 항상 같은 레인이라
+UoW들 사이의 <b>순서는 어피니티가 보장</b>한다 — 순서를 맞추는 별도 장치가 없다.
+</div>
+
+<div class="callout">
+    <h4><code>@is_trans_outside</code>가 왜 필요한가</h4>
+    트랜잭션 경계가 <b>두 곳에서</b> 잡힐 수 있기 때문이다.
+    <ul style="margin:6px 0">
+        <li>바깥이 이미 열었는데 SP가 또 열면 <b>중첩</b>이라 안쪽 COMMIT이 실제로 커밋하지 않는다</li>
+        <li>양쪽 다 안 열면 문장이 여러 개인 SP가 중간에 실패했을 때 앞 문장이 그대로 남는다</li>
+    </ul>
+    그래서 호출부가 "바깥에 트랜잭션이 있다"를 알려주고, SP는 그때만 자기 것을 열지 않는다.
+</div>
+
+<h2>SP 골격 — 9개가 전부 같은 모양</h2>
+<div class="panel">
+<pre><code>@is_trans_outside 첫 파라미터
+XACT_STATE 진입 가드
+조건부 트랜잭션 (바깥에 없을 때만 BEGIN)
+... 본문 ...
+GOTO 로 단일 출구
+RETURN 코드</code></pre>
+
+조회 SP도 같은 골격을 쓴다. 모양을 다르게 두면 "이건 왜 다르지"를 매번 판단해야 하고
+호출부에도 분기가 생긴다 — 0행이 정상이라 <code>@@ROWCOUNT</code> 검사만 뺐다.
+<br><br>
+0이 아닌 RETURN은 <code>DbProcedureException</code>으로 던진다. 반환값으로 돌려주면
+호출부가 검사를 빠뜨렸을 때 <b>실패한 작업이 그대로 커밋된다</b> — 던져야 롤백이 걸린다.
+</div>
+
+<h2>스키마 — 테이블/콘텐츠 단위 파일</h2>
+<table>
+    <tr><th>파일</th><th>내용</th></tr>
+    <tr><td><code>Sql/players.sql</code></td><td><code>players</code> + select / upsert</td></tr>
+    <tr><td><code>Sql/mails.sql</code></td><td><code>mails</code> + select / upsert / delete</td></tr>
+    <tr><td><code>Sql/currencies.sql</code></td><td><code>currencies</code> + select / upsert</td></tr>
+    <tr><td><code>Sql/unique_keys.sql</code></td><td>UniqueId 검증용 (게임 스키마 아님)</td></tr>
+    <tr><td><code>Sql/seed.sql</code></td><td>개발용 시드 계정</td></tr>
+</table>
+
+<div class="callout">
+    <h4>한 콘텐츠의 테이블과 SP를 같은 파일에 둔다</h4>
+    테이블 정의와 그걸 만지는 SP가 떨어져 있으면 컬럼을 하나 바꿀 때 고쳐야 할 자리를 놓친다.
+    적용 순서는 FK 때문에 <code>players</code>가 먼저다.
+</div>
+
+<h2>모든 id는 UniqueIdGenerator가 발급한다</h2>
+<div class="panel">
+<code>IDENTITY</code>를 쓰지 않는다. 서버가 메모리에서 먼저 확정하고 클라이언트에 응답한 뒤
+DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에 담을 id가 없다</b>.
+
+<pre><code>UniqueId = [ 시각 41비트 ][ 노드 8비트 ][ 시퀀스 14비트 ]  (int64)</code></pre>
+
+전역 유일이라 <code>mail_id</code> 하나로 PK가 서고, 시간순으로 커져서 클러스터 인덱스
+뒤쪽에 쌓인다. 다만 실측해보니 <b>"재배치가 없다"는 발급 노드가 하나일 때만</b> 성립한다 —
+단일 노드는 단편화 0.428% / 페이지 채움 99.94%지만 5개 노드가 동시에 발급하면 단편화가
+98%대로 오른다. 그래도 무작위 키 대조군보다 페이지 수가 22% 적다.
+</div>
+
+<div class="callout warn">
+    <h4>지금 막혀 있는 곳 — mailId 타입</h4>
+    <code>MailModel</code>의 <code>nextMailId_</code>가 아직 <b>플레이어마다 1부터 세는
+    <code>uint32_t</code></b>다. SP는 <code>@mail_id BIGINT</code>(UniqueId 전제)라,
+    이 상태로 저장하면 <b>두 사람의 첫 우편이 둘 다 <code>mail_id = 1</code></b>이 되어 PK가 충돌한다.
+    <br><br>
+    <code>int64_t</code>로 바꾸면 와이어 포맷이 달라지므로 Zone · 프로토콜 · Client(C#) ·
+    ProtocolClient · StressClient를 <b>한 커밋에 같이</b> 고쳐야 한다.
+</div>
+
+<div class="callout todo">
+    <h4>그리고 배선</h4>
+    <code>ZoneLinkHandler::ApplyMailTask</code>가 Task를 읽기만 하고
+    <code>AutoDbCommand</code>를 만들지 않는다. 스트림당 하나를 만들고 Task 루프가
+    <code>Add()</code>만 하면 위 트랜잭션이 그대로 성립한다.
+</div>
+
+<h2>관련 문서</h2>
+<div class="cards">
+    <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>Task가 DB 레인까지 가는 전 경로</span></a>
+    <a class="card" href="sequences/mail-buy-rollback.html"><b>MailBuy 트랜잭션</b><span>Task 2개가 한 트랜잭션이 되는 지점</span></a>
+    <a class="card" href="WorldServer.html"><b>WorldServer</b><span>DB 레인을 소유하는 쪽</span></a>
+</div>
+
+<h2>코드 위치</h2>
+<pre><code>Server/WorldServer/Src/Db/
+├ AutoDbCommand    UoW 하나 = 트랜잭션 하나 (RAII)
+├ DbConnection     ODBC 커넥션, 트랜잭션, SP 호출
+├ DbCommand        SP 이름 + 파라미터 (임의 SQL 통로 없음)
+└ PasswordHash     CNG PBKDF2-HMAC-SHA256
+
+Sql/               게임 스키마 (규약: .claude/rules/sql-patterns.md)</code></pre>
+
+<p class="foot">asio-server · 서버별 문서</p>
+</main>
+</body>
+</html>

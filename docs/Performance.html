@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>성능 측정 — 무엇을 어떻게 쟀나</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 문서 목록</a>
+
+<h1>성능 측정</h1>
+<p class="sub">자동화 스위트가 없는 대신 부하 도구를 직접 만들어
+<b>정확성 · 처리량 · 지연을 동시에</b> 측정했다. 숫자보다 <b>어떻게 쟀는가</b>가 중요하다.</p>
+
+<h2>측정 방식</h2>
+<table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td><b>지연 기준</b></td><td><code>C2ZMailAdd</code> 송신 → <code>Z2CTaskResult</code> 수신까지의 <b>클라이언트 체감 왕복</b>.
+        서버 내부 처리 시간만 재면 큐에서 밀린 시간이 빠져 실제보다 낙관적인 값이 나온다</td></tr>
+    <tr><td><b>히스토그램</b></td><td>원시 샘플을 들고 있지 않고 <b>551개 로그스케일 버킷</b>에 relaxed atomic으로 기록.
+        수백만 샘플에도 상수 메모리·O(1)이라 측정이 실험을 방해하지 않는다</td></tr>
+    <tr><td><b>추적 상한</b></td><td>100초. 처음엔 10초였는데 과부하 실험에서 P95·P99가 전부 최상위 버킷에 몰려
+        <b>얼마나 나쁜지를 구분할 수 없었다</b>(실제 최대는 131초). 상한에 걸린 값은 <code>≥100초</code>로 구분 표기</td></tr>
+    <tr><td><b>1 사이클</b></td><td><code>MailAdd → Ack → MailDel → Ack</code> — 왕복 2회</td></tr>
+</table>
+
+<div class="callout">
+    <h4>정확성을 같이 재는 이유</h4>
+    "빨랐다"만으로는 락 없는 설계를 증명하지 못한다. 이 도구는 <b>Del로 돌아온 mailId가 내가
+    Add해서 받은 그 mailId인가</b>를 매 사이클 대조한다 — 스레드가 섞이면 여기서 불일치가 잡힌다.
+</div>
+
+<h2>측정 결과</h2>
+<p>AMD Ryzen 7 9800X3D(8코어 16스레드), Windows 11, <b>Release 빌드</b>.
+서버 3개와 부하 클라이언트가 <b>같은 머신</b>에서 CPU를 나눠 쓰므로 지연에는 클라이언트 측 경합도 포함된다.</p>
+
+<table>
+    <tr><th>시나리오</th><th>처리량</th><th>P50</th><th>P95</th><th>P99</th><th>최대</th><th>정확성</th><th>브로드캐스트</th></tr>
+    <tr>
+        <td><b>1,000 세션 × 200</b></td>
+        <td><b>18,337 사이클/초</b><br>(200,000 / 10.9초)</td>
+        <td>16 ms</td><td>40 ms</td><td>180 ms</td><td>359 ms</td>
+        <td>불일치 0 / 스톨 0</td><td><b>100%</b></td>
+    </tr>
+    <tr>
+        <td><b>10,000 세션 × 100</b><br><small>전원 존 1개</small></td>
+        <td>471 사이클/초<br>(300초에 14.2%)</td>
+        <td>73 ms</td><td>62 초</td><td>≥100 초</td><td>148 초</td>
+        <td><b>불일치 0</b> / 스톨 10,000</td><td>49.5%</td>
+    </tr>
+</table>
+
+<h2>1만 세션에서 무슨 일이 있었나</h2>
+
+<div class="callout">
+    <h4>깨진 게 아니라 느려진 것</h4>
+    14만 사이클(= Mail 왕복 28만 회)에서 <b>mailId 불일치 0건, 데드락 0건, 서버 WARN/ERROR 0건</b>,
+    종료 시 정상 정리. 정확성은 완전히 유지됐다. 대신 처리량이 1/39로 무너졌고 전 세션이
+    스톨 판정(20초 무응답)을 받았다.
+</div>
+
+<div class="panel">
+<b>원인은 "존 하나에 1만 명"이었다.</b> 콘텐츠 처리의 주인이 <code>zoneId</code>였기 때문에
+그 존의 모든 우편 작업이 <b>스레드 하나로 직렬화</b>됐고, 거기에 브로드캐스터 50명이
+인구수만큼(최대 1만) 개별 프레임을 쏘는 팬아웃이 겹쳤다.
+<br><br>
+<b>구조로 고쳤다</b> — 콘텐츠의 주인을 <code>clientSessionId</code>로 바꿔
+Player 레인(8개)과 ZoneSpace 레인(존 수)을 분리했다. 같은 존에 사람이 몰려도
+우편·재화 처리는 8개 레인으로 갈라진다.
+</div>
+
+<div class="callout warn">
+    <h4>다만 위 표는 <b>그 수정 이전</b> 숫자다</h4>
+    레인 분리 후 같은 시나리오를 아직 다시 돌리지 않았다. 재측정 전까지 471 사이클/초는
+    "고치기 전의 기록"으로만 읽어야 한다.
+</div>
+
+<h2>남은 병목 후보</h2>
+<table>
+    <tr><th>#</th><th>내용</th><th>상태</th></tr>
+    <tr><td>1</td><td><b>입장 존이 항상 하나</b> — <code>FindEntryPoint()</code>가 zoneId가 가장 작은 존만 돌려준다.
+        존이 4개 떠 있어도 부하 테스트 인구가 전부 존 1에 남는다</td><td>미수정</td></tr>
+    <tr><td>2</td><td><b>World가 라우팅과 브로드캐스트 릴레이를 같은 그룹에서 처리</b> — 릴레이 큐 분리 후보</td><td>미수정</td></tr>
+    <tr><td>3</td><td><b>브로드캐스트가 대상 1명당 프레임 1개</b> — 다중 대상 배칭 후보</td><td>미수정</td></tr>
+</table>
+<p>수정 계획: <code>docs/load-test-fix-plan.md</code></p>
+
+<h2>대량 쿠폰 발급 (운영툴)</h2>
+<p>100만 장, 청크 1만 건 × 100회. 세 번 모두 <b>메모리 중복 재시도 0건, DB 100만 건 전부 고유</b>.</p>
+
+<table>
+    <tr><th>조건</th><th>소요</th><th>처리량</th></tr>
+    <tr><td>Release, World 전송 포함</td><td>11.5 초</td><td><b>87,123 장/초</b></td></tr>
+    <tr><td>Release, World 전송 제외</td><td>10.5 초</td><td><b>95,066 장/초</b></td></tr>
+    <tr><td>Debug, World 전송 포함</td><td>12.3 초</td><td>81,453 장/초</td></tr>
+</table>
+
+<div class="callout">
+    <h4>이 표의 핵심은 Debug↔Release 차이가 15%도 안 된다는 것</h4>
+    병목이 <b>코드 생성 속도가 아니라 I/O</b>(SqlBulkCopy 적재 + 스풀 <code>fsync</code>)라는 뜻이다.
+    더 줄이려면 CSPRNG를 최적화할 게 아니라 청크 크기나 인서트 방식을 손봐야 한다.
+    <br><br>
+    마지막 측정은 <b>WorldServer를 일부러 죽인 채</b> 돌렸는데 정상 완료됐다 —
+    쿠폰의 권위 저장소는 운영툴 SQL Server이고 World 전송은 부가 경로라는 설계가 의도대로 동작한 것이다.
+</div>
+
+<h2>UniqueId 실측</h2>
+<div class="panel">
+500만 개(5프로세스 × 10스레드): <b>중복 0건</b>, 노드 배정 정확, DB 레인 분배 12.49~12.51%(이상값 12.5%).
+<br><br>
+클러스터 인덱스 관점에서는 <b>"시간순 키라 append-only"가 발급자가 하나일 때만 성립</b>했다 —
+단일 노드는 단편화 0.428% / 페이지 채움 99.94%지만, 5개 노드가 동시에 발급하면 단편화가 98%대로 오른다.
+그래도 무작위 키 대조군보다 <b>페이지 수가 22% 적다</b>.
+</div>
+
+<h2>재현</h2>
+<pre><code>bat\start_server_all.bat Release
+StressClient.exe 127.0.0.1 9000 1000 200
+StressClient.exe 127.0.0.1 9000 10000 100 1000 20 900
+          &lt;host&gt; &lt;port&gt; &lt;세션수&gt; &lt;사이클수&gt; [램프업/초] [스톨판정초] [최대초]</code></pre>
+<p>종료 시 처리량·지연 백분위·불일치·스톨·브로드캐스트 수신율을 요약한다.
+<b>Debug는 약 5배 느리므로</b> 위 수치를 재현하려면 Release여야 한다.</p>
+
+<p class="foot">asio-server · 성능 측정</p>
+</main>
+</body>
+</html>

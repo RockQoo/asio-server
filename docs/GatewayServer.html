@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>GatewayServer — 접속 종단</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 문서 목록</a>
+
+<h1>GatewayServer <span class="badge b-gateway">접속 종단</span></h1>
+<p class="sub">클라이언트가 아는 유일한 서버. 게임 로직이 <b>한 줄도</b> 없다.</p>
+
+<h2>한 줄 요약</h2>
+<div class="panel">
+클라이언트 소켓을 받아(9000) World로 나가는 연결(9100) 하나에 <b>순수 릴레이</b>한다.
+패킷 내용을 해석하지 않고, 앞에 <code>clientSessionId</code>만 붙여 넘긴다.
+</div>
+
+<h2>왜 따로 두는가</h2>
+<table>
+    <tr><th>목적</th><th>내용</th></tr>
+    <tr><td><b>내부 구조 은닉</b></td><td>클라이언트는 World도 Zone도 주소를 모른다. 존이 몇 개인지, 프로세스가 몇 개인지도 모른다</td></tr>
+    <tr><td><b>접속 폭주 흡수</b></td><td>accept·TLS·타임아웃 같은 연결 계층 부담이 게임 로직 서버까지 가지 않는다</td></tr>
+    <tr><td><b>존 이동이 투명해진다</b></td><td>핸드오프는 World의 라우팅 테이블에서만 일어나므로 Gateway는 이동 자체를 모른다</td></tr>
+</table>
+
+<h2>스레드 구조</h2>
+<div class="panel">
+<b>I/O 스레드 2개뿐이다.</b> 별도 로직 큐가 없다 — 하는 일이 바이트 복사와 전달뿐이라
+큐를 하나 더 두면 지연만 늘어난다.
+<pre><code>IoContextPool(2)
+ ├ Listener(9000)   ClientLinkHandler   클라이언트 accept
+ └ Connector(9100)  WorldLinkHandler    World로 나가는 연결(끊기면 재시도)</code></pre>
+</div>
+
+<h2>패킷</h2>
+<table>
+    <tr><th>방향</th><th>패킷</th><th>내용</th></tr>
+    <tr><td>G → W</td><td><code>G2WClientConnected</code></td><td>새 클라이언트가 붙었다. World가 존을 배정한다</td></tr>
+    <tr><td>G → W</td><td><code>G2WRelay</code></td><td>클라 패킷을 봉투에 담아 전달</td></tr>
+    <tr><td>G → W</td><td><code>G2WClientDisconnected</code></td><td>끊겼다. World가 라우팅 테이블에서 지운다</td></tr>
+    <tr><td>W → G</td><td><code>W2GRelay</code></td><td>봉투에서 꺼내 해당 클라이언트 소켓으로</td></tr>
+</table>
+
+<div class="callout">
+    <h4>봉투(ClientEnvelopeHeader)가 하는 일</h4>
+    Zone은 클라이언트와 직접 연결되지 않는다. 그래서 "누구에게 보내는 것인가"를
+    <code>clientSessionId</code>로 적어 World까지 들려 보내고, Gateway가 그걸 보고
+    실제 소켓을 고른다. 덕분에 <b>Zone은 소켓을 하나도 모른다</b>.
+</div>
+
+<h2>관련 문서</h2>
+<div class="cards">
+    <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>Gateway가 ①~② 구간에서 하는 일</span></a>
+    <a class="card" href="WorldServer.html"><b>WorldServer</b><span>Gateway가 넘긴 패킷을 받아 라우팅하는 쪽</span></a>
+</div>
+
+<h2>코드 위치</h2>
+<pre><code>Server/GatewayServer/Src/
+├ App/GatewayServerApp       Listener + Connector 소유
+├ Handler/ClientLinkHandler  클라이언트 accept, G2WRelay 생성
+└ Handler/WorldLinkHandler   World 연결, W2GRelay 수신</code></pre>
+
+<p class="foot">asio-server · 서버별 문서</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>WorldServer — 라우팅 두뇌와 DB 관문</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 문서 목록</a>
+
+<h1>WorldServer <span class="badge b-world">라우팅 + DB</span></h1>
+<p class="sub">누가 어느 존에 있는지 아는 유일한 서버. 그리고 DB로 나가는 유일한 관문.</p>
+
+<h2>한 줄 요약</h2>
+<div class="panel">
+포트 셋을 열어(Gateway 9100 / Zone 9200 / 운영툴 9300) 클라이언트 패킷을 <b>담당 존으로</b>,
+존이 올린 변경분을 <b>DB로</b> 보낸다. 존 이동은 여기 라우팅 테이블 한 줄로 끝난다.
+</div>
+
+<h2>스레드 구조 — 그룹 두 개</h2>
+<div class="panel">
+<pre><code>I/O 스레드 2개        소켓에서 바이트만 복사, ownerId를 훔쳐보고 큐에 넣는다
+      ↓
+BASIC 그룹 (8 레인)   owner = clientSessionId
+      ├ Main 프로세서   클라이언트 라우팅 (ClientRegistry / ZoneLinkRegistry)
+      └ Tool 프로세서   운영툴 명령
+      ↓
+DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적재 (블로킹 허용)</code></pre>
+
+<b>Main과 Tool이 한 그룹을 공유하는 이유</b>는 둘 다 주인이 <code>clientSessionId</code>이기
+때문이다. 주인이 같으면 같은 레인으로 가고, 그러면 운영툴이 만지는 대상과 그 사람의 일반
+패킷이 <b>같은 스레드에서 순서대로</b> 처리된다 — 그래서 라우팅 테이블에 락이 없다.
+</div>
+
+<div class="callout">
+    <h4>DB 그룹을 따로 둔 이유</h4>
+    DB 호출은 <b>블로킹</b>이다. 라우팅 레인에서 같이 하면 쿼리 한 번이 그 레인에 걸린 모든
+    사람의 패킷을 멈춘다. 그래서 "막혀도 되는 일"만 모아 별도 그룹에 둔다.
+</div>
+
+<h2>핵심 타입</h2>
+<table>
+    <tr><th>타입</th><th>역할</th><th>락</th></tr>
+    <tr><td><code>ClientRegistry</code></td><td>clientSessionId → (gatewaySession, 현재 zoneId)</td><td>없음 — BASIC 레인 전용, 샤딩</td></tr>
+    <tr><td><code>ZoneLinkRegistry</code></td><td>zoneId → (zoneSession, 담당 사각형)</td><td>없음 — 같은 이유</td></tr>
+    <tr><td><code>AutoDbCommand</code></td><td>SP 커맨드를 모았다가 <b>소멸 시</b> 한 번에 실행</td><td>—</td></tr>
+    <tr><td><code>DbConnection</code></td><td>ODBC 커넥션 하나. <b>레인 스레드마다 thread_local 1개</b></td><td>없음 — 1:1이라 공유가 없다</td></tr>
+    <tr><td><code>ToolProcessor</code></td><td>운영툴 전용 포트(9300)의 핸들러</td><td>없음 — 다른 링크와 같은 스레드 규약</td></tr>
+</table>
+
+<h2>존 이동 = 라우팅 테이블 한 줄</h2>
+<div class="panel">
+존이 "이 사람이 내 사각형을 벗어났다"고 알려오면, World가 좌표로 대상 존을 찾아
+<code>clientRegistry_.SetZone(clientSessionId, 대상)</code> 한 줄을 실행한다.
+<b>그게 핸드오프의 전부다.</b> 클라이언트는 재접속도 재인증도 하지 않는다.
+<br><br>
+자세한 흐름: <a href="sequences/zone-handoff.html">존 핸드오프 시퀀스</a>
+</div>
+
+<h2>DB로 나가는 길</h2>
+<div class="panel">
+존이 <code>Z2WUnitOfWorkStream</code>을 올리면 <b>BASIC 레인을 거치지 않고</b> DB 그룹으로 직행한다 —
+라우팅 상태를 전혀 건드리지 않기 때문이다.
+
+<pre><code>Z2WUnitOfWorkStream  →  dbGroup_.Post(Db, ownerId)
+                          └ AutoDbCommand(ownerId, useTransaction = true)
+                              ├ up_mails_upsert       (@is_trans_outside = 1)
+                              ├ up_currencies_upsert  (@is_trans_outside = 1)
+                              └ COMMIT   /  예외면 ROLLBACK</code></pre>
+
+<b>UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
+</div>
+
+<div class="callout todo">
+    <h4>아직 안 된 것</h4>
+    <ul style="margin:6px 0">
+        <li><b>Task → SP 호출 배선</b> — <code>ApplyMailTask</code>가 로그만 남긴다. 위 그림의 마지막 칸이 비어 있다</li>
+        <li><b>콘텐츠 메모리 캐시</b> — 로그인 시 우편/재화를 적재해 존이 올린 Task를 대조(위조 검증)할 자리</li>
+        <li><b>공통 콘텐츠</b> — 길드처럼 여러 존에 걸친 것이 들어올 자리</li>
+    </ul>
+</div>
+
+<h2>관련 문서</h2>
+<div class="cards">
+    <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>World가 ③·⑪ 구간에서 하는 일</span></a>
+    <a class="card" href="DB.html"><b>DB 계층</b><span>스키마·SP 규약·트랜잭션</span></a>
+    <a class="card" href="ZoneServer.html"><b>ZoneServer</b><span>World가 패킷을 넘기는 쪽</span></a>
+</div>
+
+<h2>코드 위치</h2>
+<pre><code>Server/WorldServer/Src/
+├ Worker/ProcessorId.h        Main / Tool / Db
+├ World/ClientRegistry        누가 어느 존에 있는가
+├ World/ZoneLinkRegistry      어느 존이 어느 사각형인가
+├ Handler/GatewayLinkHandler  클라 패킷 → 담당 존
+├ Handler/ZoneLinkHandler     존 패킷 → 클라 / DB
+├ Tool/ToolProcessor          운영툴(9300)
+└ Db/                         AutoDbCommand · DbConnection · PasswordHash</code></pre>
+
+<p class="foot">asio-server · 서버별 문서</p>
+</main>
+</body>
+</html>

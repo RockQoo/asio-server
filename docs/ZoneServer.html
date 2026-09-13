@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>ZoneServer — 존 권위 상태와 레인 분리</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 문서 목록</a>
+
+<h1>ZoneServer <span class="badge b-player">게임 로직</span></h1>
+<p class="sub">플레이어와 존의 권위 상태를 들고 있는 서버. <b>이 프로젝트의 핵심이 전부 여기 있다.</b></p>
+
+<h2>한 줄 요약</h2>
+<div class="panel">
+프로세스 하나가 존 여러 개를 호스팅한다(<code>ZoneServer.exe 1,2</code>).
+World로 <b>나가서</b> 붙고(accept하지 않는다), 받은 패킷을 <b>주인에 따라 다른 레인</b>으로 보낸다.
+</div>
+
+<h2>레인 네 개 — 주인이 다르기 때문에 나뉜다</h2>
+<div class="panel">
+<pre><code>I/O 스레드 2개
+      ↓  바이트만 복사
+LB 그룹 (4)          패킷 파싱, 주인 판정. 게임 상태를 안 만진다
+      ↓
+Player 그룹 (8)      owner = clientSessionId   우편·재화·UnitOfWork
+ZoneSpace 그룹 (존 수) owner = zoneId           로스터·좌표·경계·틱
+Broadcast 그룹 (1)   owner = zoneId           팬아웃 전송</code></pre>
+
+<b>Player와 ZoneSpace를 나눈 것이 이 서버의 설계 핵심이다.</b>
+"그 사람만의 것"(우편함, 지갑)과 "존 전체가 공유하는 것"(누가 이 존에 있는가, 좌표)은
+주인이 다르다. 한 레인에 두면 주인을 하나로 정할 수 없어 결국 존 키로 통일되고,
+그러면 <b>그 존의 모든 콘텐츠가 스레드 하나로 직렬화된다</b>.
+</div>
+
+<div class="callout">
+    <h4>실제로 겪은 일</h4>
+    1만 세션 부하 테스트에서 처리량이 1/39로 무너졌던 원인이 정확히 그것이었다.
+    콘텐츠 처리의 주인을 <code>clientSessionId</code>로 바꾸면서 같은 존에 사람이 몰려도
+    Player 레인 8개로 갈라지게 됐다.
+</div>
+
+<h2>존 배치 — 2×2 격자</h2>
+<div class="panel">
+<pre><code>  x:0        10        20
+y:20 ┌─────────┬─────────┐
+     │  존 1   │  존 2   │   ← ZoneServer.exe 1,2  (프로세스 #1)
+y:10 ├─────────┼─────────┤
+     │  존 3   │  존 4   │   ← ZoneServer.exe 3,4  (프로세스 #2)
+y: 0 └─────────┴─────────┘</code></pre>
+
+<b>zoneId는 1부터다.</b> 0은 "존 없음/미배정" 예약값 — 0을 유효 존으로 쓰면
+"0번 존에 있다"와 "아직 아무 존에도 없다"가 같은 값이 되어 구분할 수 없다.
+<br><br>
+배치를 정하는 코드는 <code>ParseZoneList</code> <b>하나뿐</b>이고, 그 아래 계층은
+담당 사각형(<code>ZoneDef</code>)을 그대로 들고 다녀서 격자라는 것조차 모른다.
+<br><br>
+<b>주의</b> — 클라이언트의 <code>ZoneLayout.cs</code>와 <code>StressClient</code>가 같은 값을
+복제한다. 한쪽만 고치면 화면 경계와 실제 핸드오프 지점이 어긋난다.
+</div>
+
+<h2>핵심 타입</h2>
+<table>
+    <tr><th>타입</th><th>역할</th><th>보호</th></tr>
+    <tr><td><code>Player</code></td><td>플레이어 한 명 + 그 사람의 모델들</td><td>모델마다 다름 (아래)</td></tr>
+    <tr><td><code>PlayerRegistry</code></td><td>clientSessionId → Player</td><td>없음 — 레인 수만큼 샤딩</td></tr>
+    <tr><td><code>ZoneInstance</code></td><td>존 하나의 권위 상태(로스터·경계·틱)</td><td>없음 — ZoneSpace 레인 전용</td></tr>
+    <tr><td><code>MailModel</code></td><td>우편함</td><td><code>Mutexed</code> — 만료 스윕과 만난다</td></tr>
+    <tr><td><code>CurrencyModel</code></td><td>지갑. 값 변경 통로가 <code>SetTracked</code> 하나</td><td>없음 — Player 레인 전용</td></tr>
+    <tr><td><code>ZoneUnitOfWork</code></td><td>변경분을 모았다가 소멸자에서 결말을 낸다</td><td>—</td></tr>
+</table>
+
+<div class="callout">
+    <h4>모델마다 보호가 다른 기준</h4>
+    <b>"실제로 몇 개의 레인이 건드리는가"</b> 하나다. 하나면 락이 없고, 둘이면 <code>Mutexed</code>다.
+    전부 락을 걸면 안전하지만 그건 이 프로젝트가 보여주려는 것이 아니고, 전부 안 걸면 깨진다.
+    자세한 건 <a href="design/player-and-models.md">설계 근거 문서</a>.
+</div>
+
+<h2>UnitOfWork — 커밋 호출이 없다</h2>
+<div class="panel">
+상태를 바꾸는 요청은 전부 같은 모양이다:
+
+<pre><code>ZoneUnitOfWork uow(...);           // ① 먼저 연다 (파싱 실패도 같은 경로로 응답해야 하므로)
+if (실패) { uow.SetError(...); return; }   // ② 에러만 심고 그냥 return
+model.Change(..., uow);            // ③ 바뀐 내용은 Task로 기록된다
+                                   // ④ 스코프를 벗어나는 순간 소멸자가 결말을 낸다</code></pre>
+
+성공이면 <b>한 번만</b> 직렬화해서 World(DB)와 클라이언트로 같은 바이트를 보내고,
+실패면 Task 목록을 <b>역순으로</b> 훑어 각자의 역연산으로 되돌린다.
+호출부에 롤백 코드도, 성공/실패 분기도 없다.
+<br><br>
+되돌리는 장면: <a href="sequences/mail-buy-rollback.html">C2ZMailBuy 롤백 시퀀스</a>
+</div>
+
+<h2>관련 문서</h2>
+<div class="cards">
+    <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>LB → Player 레인 → UoW 전 구간</span></a>
+    <a class="card" href="sequences/zone-handoff.html"><b>존 핸드오프</b><span>ZoneSpace 레인의 틱이 경계를 판정한다</span></a>
+    <a class="card" href="design/processor-group.md"><b>ProcessorGroup 설계</b><span>레인 어피니티의 근거와 함정</span></a>
+</div>
+
+<h2>코드 위치</h2>
+<pre><code>Server/ZoneServer/Src/
+├ Worker/ProcessorId.h        Lb / Player / ZoneSpace / Broadcast
+├ Handler/WorldLinkHandler    World 연결, LB 레인
+├ Handler/PlayerProcessor     패킷별 핸들러 (Move·Chat·Mail·MailBuy)
+├ Game/Player · PlayerRegistry
+├ Game/ZoneInstance           로스터·경계·틱
+├ Mail/ · Currency/           콘텐츠 모델 + Task
+└ Task/ZoneUnitOfWork         소멸자에서 전송 / 역순 롤백</code></pre>
+
+<p class="foot">asio-server · 서버별 문서</p>
+</main>
+</body>
+</html>

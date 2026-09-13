@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>asio-server 문서</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+
+<h1>asio-server 문서</h1>
+<p class="sub">C++23 / standalone ASIO 기반 분산 게임 서버. 존 단위 스레드 어피니티로
+<b>락 없이</b> 게임 상태를 처리하는 구조를 실무 서버 모양에 맞춰 재현한 포트폴리오.</p>
+
+<h2>전체 그림</h2>
+<div class="panel">
+<pre><code>Client ──▶ GatewayServer ──▶ WorldServer ──▶ ZoneServer ──▶ SQL Server
+           (순수 릴레이)      (라우팅 + DB)    (게임 로직)
+                                  ▲
+                              GmTool (9300)</code></pre>
+
+<table>
+    <tr><th>프로세스</th><th>역할</th><th>스레드</th></tr>
+    <tr><td><span class="badge b-gateway">Gateway</span></td><td>클라이언트 accept, 순수 릴레이</td><td>I/O 2</td></tr>
+    <tr><td><span class="badge b-world">World</span></td><td>라우팅, DB 관문, 공통 콘텐츠</td><td>I/O 2 · BASIC 8 · DB 4</td></tr>
+    <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · LB 4 · Player 8 · ZoneSpace n · Broadcast 1</td></tr>
+</table>
+</div>
+
+<h2>서버별 문서</h2>
+<div class="cards">
+    <a class="card" href="Client.html">
+        <b>Client</b>
+        <span>C#/MonoGame 시각 클라이언트. 눈으로 확인하는 것과, 지금 클라이언트가 메워주고 있는 서버의 빈자리.</span>
+    </a>
+    <a class="card" href="GatewayServer.html">
+        <b>GatewayServer</b>
+        <span>클라이언트가 아는 유일한 서버. 게임 로직 0, I/O 스레드 2개.</span>
+    </a>
+    <a class="card" href="WorldServer.html">
+        <b>WorldServer</b>
+        <span>누가 어느 존에 있는지 아는 유일한 서버. 존 이동은 여기 한 줄로 끝난다.</span>
+    </a>
+    <a class="card" href="ZoneServer.html">
+        <b>ZoneServer</b>
+        <span>레인 네 개, 주인이 다르면 스레드가 다르다. UnitOfWork와 역순 롤백.</span>
+    </a>
+    <a class="card" href="DB.html">
+        <b>DB 계층</b>
+        <span>스키마·SP 골격·트랜잭션. UnitOfWork 하나 = 트랜잭션 하나.</span>
+    </a>
+    <a class="card" href="Performance.html">
+        <b>성능 측정</b>
+        <span>1만 세션까지의 처리량·지연 백분위와, 숫자보다 중요한 "어떻게 쟀는가".</span>
+    </a>
+</div>
+
+<h2>패킷 시퀀스 다이어그램</h2>
+<div class="cards">
+    <a class="card" href="sequences/mail-add-to-db.html">
+        <b>C2ZMailAdd → DB</b>
+        <span>우편 하나가 Gateway·World·Zone 두 레인·DB 레인을 지나는 전 경로.</span>
+    </a>
+    <a class="card" href="sequences/mail-buy-rollback.html">
+        <b>C2ZMailBuy — 역순 롤백</b>
+        <span>모델 두 개에 걸친 트랜잭션이 실패했을 때 되돌아가는 장면.</span>
+    </a>
+    <a class="card" href="sequences/zone-handoff.html">
+        <b>존 핸드오프</b>
+        <span>재접속 없이 존을 넘는다. 스레드 간 이동과 프로세스 간 이동의 차이.</span>
+    </a>
+</div>
+<p><a href="sequences/index.html">시퀀스 다이어그램 목록 및 읽는 법 →</a></p>
+
+<h2>설계 근거</h2>
+<div class="panel">
+소스에서 옮겨온 "왜 이 설계를 택했나"는 <a href="design/">docs/design/</a>에 있다.
+코드 옆에는 함정 경고와 한 줄 포인터만 남긴다.
+<ul style="margin:8px 0">
+    <li><a href="design/processor-group.md">processor-group.md</a> — 레인 어피니티(<code>ownerId % N</code>)의 근거와 한계</li>
+    <li><a href="design/player-and-models.md">player-and-models.md</a> — 모델마다 보호 방식이 다른 기준</li>
+</ul>
+</div>
+
+<h2>그 밖의 문서</h2>
+<table>
+    <tr><th>문서</th><th>내용</th></tr>
+    <tr><td><code>README.md</code></td><td>프로젝트 소개, 빌드/실행</td></tr>
+    <tr><td><code>PROGRESS.md</code></td><td>구현 이력과 다음 할 일</td></tr>
+    <tr><td><code>CLAUDE.md</code></td><td>작업 규약(아키텍처 요약, 코딩 규칙 인덱스)</td></tr>
+    <tr><td><code>.claude/rules/</code></td><td>C++ / 패킷 네이밍 / SQL 규약</td></tr>
+    <tr><td><code>docs/load-test-fix-plan.md</code></td><td>부하 테스트 병목 수정 계획</td></tr>
+    <tr><td><code>Sql/README.md</code></td><td>게임 DB 스키마 적용 순서</td></tr>
+</table>
+
+<p class="foot">asio-server · 오프라인 열람용 로컬 문서 (외부 리소스를 쓰지 않는다)</p>
+</main>
+</body>
+</html>
