@@ -28,7 +28,7 @@ Core는 게임 콘텐츠를 모르는 정적 라이브러리라 거기에 패킷
 <보내는쪽><2><받는쪽><PacketName>
 ```
 
-구분자 없이 붙여 쓴다: `C2ZMove`, `W2TToolCommandAck`. **앞 3글자는 예외 없이 방향**이다.
+구분자 없이 붙여 쓴다: `C2ZMove`, `W2TCommandResult`. **앞 3글자는 예외 없이 방향**이다.
 
 | 약자 | 노드 |
 |------|------|
@@ -66,14 +66,14 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 | 9000 – 9999 | `W2T` |
 | 10000 – | 예약 (새 방향이 생기면 1000 단위로 잘라 쓴다) |
 
-대역 안에서는 **대역 시작 + 1**부터 센다(`C2ZEcho = 1`, `W2ZEnterZoneRequest = 6001`).
+대역 안에서는 **대역 시작 + 1**부터 센다(`C2ZEcho = 1`, `W2ZEnterZone = 6001`).
 값은 한 번 정하면 재사용하지 않는다 -- 패킷을 지워도 그 번호는 비워둔다.
 
 ### 왜 대역을 자르는가
 
 `Header::id`는 `uint16_t` 하나뿐이라 어느 링크에서 온 값인지 헤더만 봐서는 모른다.
 대역을 나누기 전에는 네 개의 id 공간이 전부 1번부터 시작해서, 숫자 `3`이 링크마다 각각
-`G2WRelay` / `C2ZMove` / `W2ZLeaveZoneNotify` / `T2WNoticeRequest`를 뜻했다. 소켓이
+`G2WRelay` / `C2ZMove` / `W2ZLeaveZone` / `T2WNotice`를 뜻했다. 소켓이
 분리돼 있어 사고는 안 났지만, 잘못 흘러든 패킷이 **다른 뜻으로 조용히 해석될 수 있는**
 상태였다. 대역이 겹치지 않으면 그런 패킷은 미등록 id로 즉시 튕긴다.
 
@@ -103,22 +103,22 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 | 4002 | `G2WClientDisconnected` | `GatewayLinkPacketId::ClientDisconnected` |
 | 4003 | `G2WRelay` | `GatewayLinkPacketId::FromClient` |
 | 5001 | `W2GRelay` | `GatewayLinkPacketId::ToClient` |
-| 6001 | `W2ZEnterZoneRequest` | `ZoneLinkPacketId::EnterZoneRequest` |
-| 6002 | `W2ZLeaveZoneNotify` | `ZoneLinkPacketId::LeaveZoneNotify` |
+| 6001 | `W2ZEnterZone` | `ZoneLinkPacketId::EnterZoneRequest` |
+| 6002 | `W2ZLeaveZone` | `ZoneLinkPacketId::LeaveZoneNotify` |
 | 6003 | `W2ZRelay` | `ZoneLinkPacketId::ForwardToZone` |
 | 7001 | `Z2WZoneRegister` | `ZoneLinkPacketId::ZoneRegister` |
 | 7002 | `Z2WRelay` | `ZoneLinkPacketId::ForwardToWorld` |
-| 7003 | `Z2WZoneTransferRequest` | `ZoneLinkPacketId::ZoneTransferRequest` |
+| 7003 | `Z2WZoneTransfer` | `ZoneLinkPacketId::ZoneTransferRequest` |
 | 7004 | `Z2WUnitOfWorkStream` | `ZoneLinkPacketId::UnitOfWorkStream` |
-| 8001 | `T2WToolHello` | `ToolLinkPacketId::ToolHello` |
-| 8002 | `T2WNoticeRequest` | `ToolLinkPacketId::NoticeRequest` |
-| 8003 | `T2WMailSendRequest` | `ToolLinkPacketId::MailSendRequest` |
-| 8004 | `T2WMailDeleteRequest` | `ToolLinkPacketId::MailDeleteRequest` |
+| 8001 | `T2WHello` | `ToolLinkPacketId::ToolHello` |
+| 8002 | `T2WNotice` | `ToolLinkPacketId::NoticeRequest` |
+| 8003 | `T2WMailSend` | `ToolLinkPacketId::MailSendRequest` |
+| 8004 | `T2WMailDelete` | `ToolLinkPacketId::MailDeleteRequest` |
 | 8005 | `T2WCouponChunkPush` | `ToolLinkPacketId::CouponChunkPush` |
-| 8006 | `T2WClientListRequest` | `ToolLinkPacketId::ClientListRequest` |
-| 9001 | `W2TToolHelloAck` | `ToolLinkPacketId::ToolHelloAck` |
-| 9002 | `W2TClientListReply` | `ToolLinkPacketId::ClientListReply` |
-| 9003 | `W2TToolCommandAck` | `ToolLinkPacketId::ToolCommandAck` |
+| 8006 | `T2WClientList` | `ToolLinkPacketId::ClientListRequest` |
+| 9001 | `W2THelloResult` | `ToolLinkPacketId::ToolHelloAck` |
+| 9002 | `W2TClientList` | `ToolLinkPacketId::ClientListReply` |
+| 9003 | `W2TCommandResult` | `ToolLinkPacketId::ToolCommandAck` |
 
 ### `~Relay` 4개
 
@@ -166,7 +166,7 @@ enum을 직접 선언하고, 클라이언트 패킷 정의를 "참고용"으로 
 같은 얘기를 두 번 하는 셈이라(`Protocol` + `PacketId`) 시그니처가 길어질 뿐이었다.
 
 ```cpp
-dispatcher_.Register(PacketId::T2WToolHello, this, &ToolProcessor::HandleToolHello);
+dispatcher_.Register(PacketId::T2WHello, this, &ToolProcessor::HandleToolHello);
 void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId, ...);
 ```
 
@@ -174,7 +174,7 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 프로젝트마다 자기 것을 같은 이름으로 노출하는 반면 `PacketId`는 저장소 전체에 하나뿐이라
 이름이 겹칠 여지도 없다.
 
-**`using enum`은 쓰지 않는다.** `using enum Protocol::PacketId;`까지 가면 `T2WToolHello`처럼
+**`using enum`은 쓰지 않는다.** `using enum Protocol::PacketId;`까지 가면 `T2WHello`처럼
 한정자 없이 쓸 수 있지만, 열거자 30여 개가 전역 이름이 되고 이 헤더를 include한 모든 TU가
 그걸 떠안는다. `PacketId::` 한 겹은 "이 값이 패킷 id"라는 표시로 남겨둔다. 타입 안전성은
 어느 쪽이든 그대로다(`enum class`이므로 정수로의 암묵 변환은 계속 막힌다).

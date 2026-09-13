@@ -24,6 +24,7 @@
     </Filter>
     <Filter Include="Db" />
     <Filter Include="Cli" />
+    <Filter Include="Login" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -54,10 +55,13 @@
     <ClInclude Include="Src\Packet\ToolLinkPackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Login\LoginProcessor.h">
+      <Filter>Login</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Tool\ToolProcessor.h">
       <Filter>Tool</Filter>
     </ClInclude>
-    <ClInclude Include="Src\World\ClientRegistry.h">
+    <ClInclude Include="Src\World\PlayerManager.h">
       <Filter>World</Filter>
     </ClInclude>
     <ClInclude Include="Src\World\ZoneLinkRegistry.h">
@@ -105,7 +109,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
-    <ClCompile Include="Src\World\ClientRegistry.cpp">
+    <ClCompile Include="Src\World\PlayerManager.cpp">
       <Filter>World</Filter>
     </ClCompile>
     <ClCompile Include="Src\World\ZoneLinkRegistry.cpp">
@@ -116,6 +120,9 @@
     </ClCompile>
     <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp">
       <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Login\LoginProcessor.cpp">
+      <Filter>Login</Filter>
     </ClCompile>
     <ClCompile Include="Src\Tool\ToolProcessor.cpp">
       <Filter>Tool</Filter>

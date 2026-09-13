@@ -28,6 +28,45 @@ namespace World
             return -1;
         }
 
+        [[nodiscard]] std::string EncodeBase64(const std::span<const uint8_t> data)
+        {
+            static constexpr std::string_view kAlphabet =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+            std::string out;
+            out.reserve((data.size() + 2) / 3 * 4);
+
+            size_t index = 0;
+            for (; index + 2 < data.size(); index += 3)
+            {
+                const uint32_t triple = (static_cast<uint32_t>(data[index]) << 16)
+                                        | (static_cast<uint32_t>(data[index + 1]) << 8)
+                                        | static_cast<uint32_t>(data[index + 2]);
+                out.push_back(kAlphabet[(triple >> 18) & 0x3F]);
+                out.push_back(kAlphabet[(triple >> 12) & 0x3F]);
+                out.push_back(kAlphabet[(triple >> 6) & 0x3F]);
+                out.push_back(kAlphabet[triple & 0x3F]);
+            }
+
+            // 남은 1~2바이트는 0으로 채워 4글자를 만들고 모자란 만큼 '='로 덮는다 --
+            // .NET Convert.ToBase64String과 같은 규약이라 시드 해시와 형식이 섞여도 된다.
+            if (const auto remaining = data.size() - index; remaining > 0)
+            {
+                uint32_t triple = static_cast<uint32_t>(data[index]) << 16;
+                if (remaining == 2)
+                {
+                    triple |= static_cast<uint32_t>(data[index + 1]) << 8;
+                }
+
+                out.push_back(kAlphabet[(triple >> 18) & 0x3F]);
+                out.push_back(kAlphabet[(triple >> 12) & 0x3F]);
+                out.push_back(remaining == 2 ? kAlphabet[(triple >> 6) & 0x3F] : '=');
+                out.push_back('=');
+            }
+
+            return out;
+        }
+
         [[nodiscard]] bool DecodeBase64(const std::string_view text, std::vector<uint8_t>& out)
         {
             out.clear();
@@ -105,6 +144,13 @@ namespace World
             BCryptCloseAlgorithmProvider(algorithm, 0);
             return BCRYPT_SUCCESS(status);
         }
+
+        // 자동 가입이 쓰는 값들. **반복 횟수는 시드(Sql/seed.sql)와 같은 1000이고, 실서비스
+        // 값이 아니다** -- 로그인이 한꺼번에 몰리는 부하 테스트에서 PBKDF2 CPU가 DB 커넥션
+        // 대기 시간을 가려버리면 정작 재려던 값을 못 잰다. 값을 올리려면 저장 형식이 횟수를
+        // 품고 있으므로 기존 계정은 그대로 두고 새 계정부터 올라간다.
+        constexpr uint64_t kSignUpIterations = 1000;
+        constexpr size_t kSaltLength = 16;
     }
 
     bool VerifyPassword(const std::string& password, const std::string& storedHash)
@@ -146,5 +192,24 @@ namespace World
         }
 
         return EqualsConstantTime(expected, derived);
+    }
+
+    std::string HashPassword(const std::string& password)
+    {
+        // 솔트는 암호학적 난수여야 한다. std::mt19937은 시드만 알면 재현되므로 여기 쓸 수 없다.
+        std::vector<uint8_t> salt(kSaltLength);
+        if (!BCRYPT_SUCCESS(BCryptGenRandom(nullptr, salt.data(), static_cast<ULONG>(salt.size()),
+                                            BCRYPT_USE_SYSTEM_PREFERRED_RNG)))
+        {
+            return {};
+        }
+
+        std::array<uint8_t, kHashLength> derived{};
+        if (!DeriveKey(password, salt, kSignUpIterations, derived))
+        {
+            return {};
+        }
+
+        return std::to_string(kSignUpIterations) + "." + EncodeBase64(salt) + "." + EncodeBase64(derived);
     }
 }

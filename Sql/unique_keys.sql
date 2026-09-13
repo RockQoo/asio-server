@@ -47,7 +47,7 @@ GO
 -- 배치는 바깥에서 트랜잭션으로 묶여 들어오므로(@is_trans_outside=1) 여기서 건별 트랜잭션이
 -- 열리지 않는다 -- 열리면 건당 커밋이 되어 실측 기준 95배 느려진다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_unique_keys_insert]
+CREATE OR ALTER PROCEDURE [dbo].[usp_unique_keys_insert]
     @is_trans_outside TINYINT,
     @id               BIGINT
 AS
@@ -82,7 +82,7 @@ ErrorHandler:
 END
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[up_unique_keys_random_insert]
+CREATE OR ALTER PROCEDURE [dbo].[usp_unique_keys_random_insert]
     @is_trans_outside TINYINT,
     @id               BIGINT
 AS
@@ -129,7 +129,7 @@ GO
 -- 어느 프로세스 몫인지 가릴 수 없다. 비트 배치(시퀀스 14비트 / 노드 8비트)를 SQL 이 복제하는
 -- 셈이라, C++ 쪽 RUID 비트를 바꾸면 여기도 같이 고쳐야 한다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_unique_keys_count_by_node]
+CREATE OR ALTER PROCEDURE [dbo].[usp_unique_keys_count_by_node]
     @is_trans_outside TINYINT,
     @node_id          BIGINT
 AS

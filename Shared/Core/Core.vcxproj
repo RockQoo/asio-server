@@ -127,8 +127,6 @@
     <ClInclude Include="Src\Network\Connector.h" />
     <ClInclude Include="Src\Network\SessionManager.h" />
     <ClInclude Include="Src\Network\IoContextPool.h" />
-    <ClInclude Include="Src\Thread\WorkerThread.h" />
-    <ClInclude Include="Src\Thread\AffinityWorkerPool.h" />
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
     <ClInclude Include="Src\Thread\Mutexed.h" />
     <ClInclude Include="Src\Processor\Stats.h" />
@@ -148,7 +146,6 @@
     <ClCompile Include="Src\Network\Connector.cpp" />
     <ClCompile Include="Src\Network\SessionManager.cpp" />
     <ClCompile Include="Src\Network\IoContextPool.cpp" />
-    <ClCompile Include="Src\Thread\WorkerThread.cpp" />
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp" />
     <ClCompile Include="Src\Common\ConfigFile.cpp" />
     <ClCompile Include="Src\Common\RUID.cpp" />

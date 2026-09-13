@@ -140,7 +140,7 @@ namespace Zone
         state.playerId = playerId;
         state.x = x;
         state.y = y;
-        worldSession->SendPacket(PacketId::Z2WZoneTransferRequest,
+        worldSession->SendPacket(PacketId::Z2WZoneTransfer,
                                  std::as_bytes(std::span(&state, 1)));
 
         LOG.Info(ELogCategory::Zone, "존 경계 넘음, World에 핸드오프 요청")

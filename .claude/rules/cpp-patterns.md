@@ -98,7 +98,7 @@ include 하지 않고 자기 프로젝트 pch 만 include 한다(새 `.cpp` 첫 
 
 **by-value 매개변수는, 본문에서 다시 `std::move()`해서 멤버/컨테이너로 넘기는 sink가 아니라면
 `const`를 붙인다.** Sink 패턴(`App(Config config)`,
-`WorkerThread(std::string name)`, `PostTask(Task task)`처럼 값으로 받아 본문에서 멤버로
+`Log::Logger(std::string path)`, `Processor::Group(std::string name, ...)`처럼 값으로 받아 본문에서 멤버로
 move)엔 **`const`를 붙이면 안 된다** — 붙이면 `std::move(param)`이 `const T&&`가 되어 이동이
 복사로 조용히 강등된다. 이런 sink는 별도 `T&&` 오버로드도 필요 없다(값 매개변수 자체가 양쪽
 호출을 다 커버). **판단 기준**: 본문에서 다시 move하면 sink(const 금지), 읽기만 하면(호출자가
@@ -117,7 +117,7 @@ move로 넘겼어도) const 가능.
 
 읽기 전용 getter(`GetXxx`/`IsXxx`/`Xxx()`)는 예외 없이 `const`. **예외**: 호출자가 내부 상태를
 의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`WorkerManager::GetZoneInstance()`,
-`AffinityWorkerPool::GetWorker()`, `IoContextPool::Next()`/`At()`, `Session::Socket()`)는
+`IoContextPool::Next()`/`At()`, `Session::Socket()`)는
 `const`로 선언할 수 없다(컴파일 에러). 새 getter는 "호출자가 반환값으로 상태를 바꿔야
 하는가?"로 판단.
 

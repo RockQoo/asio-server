@@ -99,12 +99,6 @@
     <ClInclude Include="Src\Processor\Group.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Thread\WorkerThread.h">
-      <Filter>Thread</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Thread\AffinityWorkerPool.h">
-      <Filter>Thread</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Timer\RepeatingTimer.h">
       <Filter>Timer</Filter>
     </ClInclude>
@@ -151,9 +145,6 @@
     </ClCompile>
     <ClCompile Include="Src\Network\IoContextPool.cpp">
       <Filter>Network</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Thread\WorkerThread.cpp">
-      <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp">
       <Filter>Timer</Filter>

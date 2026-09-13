@@ -30,6 +30,17 @@ namespace Protocol
         NotEnoughCurrency = 200,      // 잔액 부족. 부분 차감을 하지 않으므로 아무것도 안 바뀐다
         UnknownCurrencyType = 201,    // 알 수 없는 재화 종류(None 포함)
         InvalidCurrencyAmount = 202,  // 증감량이 음수(증가/감소를 한 함수로 섞지 않는다)
+
+        // ---- Login (300 ~ 399) ----
+        //
+        // **계정이 없는 것은 실패가 아니다** -- 그 자리에서 만들고 성공으로 돌려준다
+        // (Sql/players.sql의 usp_players_upsert가 자동 가입 경로다). 그래서 "없는 계정"에
+        // 해당하는 코드가 여기 없고, 있어서도 안 된다.
+        LoginInvalidInput = 300,          // 아이디/비밀번호가 비었거나 길이 제한을 넘음
+        LoginWrongPassword = 301,         // 계정은 있는데 비밀번호가 다름
+        LoginDbFailure = 302,             // DB 조회/생성이 실패했다(재시도하면 될 수 있다)
+        LoginAlreadyAuthenticated = 303,  // 이미 로그인한 연결이 또 보냄
+        LoginNoZoneAvailable = 304,       // 인증은 됐는데 입장시킬 존이 아직 World에 붙지 않음
     };
 }
 

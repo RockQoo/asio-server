@@ -97,7 +97,7 @@ public sealed class ZoneView
     }
 
     /// <summary>
-    /// 존 사이 경계선. 이 선을 넘는 이동이 곧 핸드오프 요청(Z2WZoneTransferRequest)이다.
+    /// 존 사이 경계선. 이 선을 넘는 이동이 곧 핸드오프 요청(Z2WZoneTransfer)이다.
     ///
     /// <para>
     /// 존 사각형마다 그리지 않고 따로 그리는 이유: 격자가 되면서 한 경계선이 존 두 개에

@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "Tool/ToolProcessor.h"
-#include "World/ClientRegistry.h"
+#include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
@@ -41,11 +41,11 @@ namespace World
         }
     }
 
-    ToolProcessor::ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+    ToolProcessor::ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                                  Processor::Group<EProcessorId>& basicGroup,
                                  Processor::Group<EProcessorId>& dbGroup,
                                  std::string sharedSecret)
-        : clientRegistry_(clientRegistry)
+        : playerManager_(playerManager)
         , zoneLinkRegistry_(zoneLinkRegistry)
         , basicGroup_(basicGroup)
         , dbGroup_(dbGroup)
@@ -54,46 +54,28 @@ namespace World
         RegisterHandlers();
     }
 
-    void ToolProcessor::ScatterToShards(std::function<uint32_t(const size_t shardIndex)> perShard,
-                                         std::function<void(const uint32_t total)> onComplete)
+    std::vector<Network::SessionId> ToolProcessor::SnapshotOnlineClients() const
     {
-        const auto shardCount = clientRegistry_.ShardCount();
-
-        // 카운터를 shared_ptr로 두는 이유: 이 함수는 곧 반환되지만 샤드 메시지들은 그 뒤에
-        // 실행되므로, 마지막 하나가 끝날 때까지 살아 있어야 한다.
-        auto remaining = std::make_shared<std::atomic<size_t>>(shardCount);
-        auto total = std::make_shared<std::atomic<uint32_t>>(0);
-        auto sharedPerShard = std::make_shared<std::function<uint32_t(const size_t)>>(std::move(perShard));
-        auto sharedOnComplete = std::make_shared<std::function<void(const uint32_t)>>(std::move(onComplete));
-
-        for (size_t shardIndex = 0; shardIndex < shardCount; ++shardIndex)
-        {
-            // 샤드 인덱스를 그대로 ownerId로 쓴다 -- shardIndex < shardCount이고 그룹의 스레드
-            // 선택도 `% shardCount`라, 정확히 그 샤드를 소유한 스레드로 간다(그래서 샤드 개수와
-            // BASIC 스레드 개수가 반드시 같아야 한다 -- App 생성자 참고).
-            basicGroup_.Post(EProcessorId::Tool, shardIndex,
-                [shardIndex, remaining, total, sharedPerShard, sharedOnComplete]
-                {
-                    total->fetch_add((*sharedPerShard)(shardIndex), std::memory_order_relaxed);
-
-                    // 마지막으로 끝난 스레드가 결말을 낸다. acq_rel이라 그 스레드에서는 다른
-                    // 샤드들이 더한 값이 모두 보인다.
-                    if (remaining->fetch_sub(1, std::memory_order_acq_rel) == 1)
-                    {
-                        (*sharedOnComplete)(total->load(std::memory_order_relaxed));
-                    }
-                });
-        }
+        // 목록을 먼저 값으로 떠서 락을 벗어난 뒤에 쓴다. 순회 중에 전송/주입을 하면 읽기 락을
+        // 잡은 채로 오래 머무는 데다, 그 안에서 매니저를 다시 변경하면 교착한다.
+        std::vector<Network::SessionId> targets;
+        targets.reserve(playerManager_->Count());
+        playerManager_->ForEach(
+            [&targets](const Network::SessionId clientSessionId, const PlayerInfo&)
+            {
+                targets.push_back(clientSessionId);
+            });
+        return targets;
     }
 
     void ToolProcessor::RegisterHandlers()
     {
-        dispatcher_.Register(PacketId::T2WToolHello, this, &ToolProcessor::HandleToolHello);
-        dispatcher_.Register(PacketId::T2WNoticeRequest, this, &ToolProcessor::HandleNoticeRequest);
-        dispatcher_.Register(PacketId::T2WMailSendRequest, this, &ToolProcessor::HandleMailSendRequest);
-        dispatcher_.Register(PacketId::T2WMailDeleteRequest, this, &ToolProcessor::HandleMailDeleteRequest);
+        dispatcher_.Register(PacketId::T2WHello, this, &ToolProcessor::HandleHello);
+        dispatcher_.Register(PacketId::T2WNotice, this, &ToolProcessor::HandleNotice);
+        dispatcher_.Register(PacketId::T2WMailSend, this, &ToolProcessor::HandleMailSend);
+        dispatcher_.Register(PacketId::T2WMailDelete, this, &ToolProcessor::HandleMailDelete);
         dispatcher_.Register(PacketId::T2WCouponChunkPush, this, &ToolProcessor::HandleCouponChunkPush);
-        dispatcher_.Register(PacketId::T2WClientListRequest, this, &ToolProcessor::HandleClientListRequest);
+        dispatcher_.Register(PacketId::T2WClientList, this, &ToolProcessor::HandleClientList);
     }
 
     void ToolProcessor::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
@@ -112,8 +94,10 @@ namespace World
         // **ownerId를 운영툴 세션 id로 잡는 이유**: 운영툴 명령의 "주인"은 대상이 아니라 명령을
         // 보낸 그 연결이다 -- 대상이 전역(공지)이거나 캠페인 코드(쿠폰)라 하나로 못 정하기
         // 때문이다. 이렇게 두면 한 운영툴 연결이 보낸 명령들끼리는 보낸 순서대로 처리된다.
-        // 대상별 상태를 만져야 하는 명령은 여기서 다시 그 대상의 ownerId로 던진다
-        // (ScatterToShards / InjectClientPacket 경로).
+        //
+        // **대상의 상태는 PlayerManager가 Mutexed라 어느 레인에서 읽어도 안전하다.** 예전에는
+        // 그 매니저가 어피니티 전제로 샤딩돼 있어서, 단일 대상 명령(우편 발송/삭제)이 운영툴
+        // 레인에서 남의 샤드를 읽는 레이스가 있었다.
         const auto packetId = static_cast<PacketId>(header.id);
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
@@ -122,7 +106,7 @@ namespace World
         {
             // ToolHello 이전에는 어떤 요청도 받지 않는다. requestId는 모든 요청 페이로드의 맨
             // 앞 4바이트로 고정이라, 본문 파싱 없이도 여기서 꺼내 거절 응답에 실을 수 있다.
-            if (packetId != PacketId::T2WToolHello && !IsAuthenticated(session->Id()))
+            if (packetId != PacketId::T2WHello && !IsAuthenticated(session->Id()))
             {
                 uint32_t requestId = 0;
                 Packet::BinaryReader reader(payloadCopy);
@@ -130,7 +114,7 @@ namespace World
 
                 LOG.Warning(ELogCategory::Tool, "인증 전 운영툴 요청 거절")
                     .KV("SessionId", session->Id()).KV("PacketId", static_cast<uint16_t>(packetId));
-                SendCommandAck(session, requestId, EToolResultCode::NotAuthenticated, 0);
+                SendCommandResult(session, requestId, EToolResultCode::NotAuthenticated, 0);
                 return;
             }
 
@@ -153,21 +137,21 @@ namespace World
         return authenticatedSessions_->contains(toolSessionId);
     }
 
-    void ToolProcessor::SendCommandAck(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
+    void ToolProcessor::SendCommandResult(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
                                        const EToolResultCode resultCode, const uint32_t affectedCount) const
     {
-        ToolCommandAckPacket ack{};
+        ToolCommandResultPacket ack{};
         ack.requestId = requestId;
         ack.resultCode = static_cast<uint16_t>(resultCode);
         ack.affectedCount = affectedCount;
-        toolSession->SendPacket(PacketId::W2TToolCommandAck,
+        toolSession->SendPacket(PacketId::W2TCommandResult,
                                 std::as_bytes(std::span(&ack, 1)));
     }
 
     bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                                             const std::span<const byte> innerPayload) const
     {
-        const auto client = clientRegistry_.Find(clientSessionId);
+        const auto client = playerManager_->Find(clientSessionId);
         if (!client)
         {
             return false;
@@ -193,7 +177,7 @@ namespace World
         return true;
     }
 
-    void ToolProcessor::HandleToolHello(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleHello(const std::shared_ptr<Network::Session>& toolSession,
                                          const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
@@ -205,7 +189,7 @@ namespace World
             || !reader.ReadString(sharedSecret) || !reader.ReadString(operatorName))
         {
             LOG.Warning(ELogCategory::Tool, "ToolHello 파싱 실패").KV("SessionId", toolSession->Id());
-            SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -228,11 +212,11 @@ namespace World
                 .KV("VersionOk", versionOk).KV("SecretOk", secretOk);
         }
 
-        ToolHelloAckPacket ack{};
+        ToolHelloResultPacket ack{};
         ack.requestId = requestId;
         ack.accepted = accepted ? uint8_t{1} : uint8_t{0};
         ack.protocolVersion = kToolLinkProtocolVersion;
-        toolSession->SendPacket(PacketId::W2TToolHelloAck,
+        toolSession->SendPacket(PacketId::W2THelloResult,
                                 std::as_bytes(std::span(&ack, 1)));
 
         if (!accepted)
@@ -242,7 +226,7 @@ namespace World
         }
     }
 
-    void ToolProcessor::HandleNoticeRequest(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleNotice(const std::shared_ptr<Network::Session>& toolSession,
                                              const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
@@ -250,7 +234,7 @@ namespace World
         std::string message;
         if (!reader.Read(requestId) || !reader.ReadString(message) || message.empty())
         {
-            SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -258,42 +242,34 @@ namespace World
         noticeWriter.WriteString(message);
         const auto noticePayload = noticeWriter.GetBuffer();
 
-        // 대상이 전 클라이언트라 샤드마다 하나씩 던진다. 각 스레드가 자기 샤드 몫만 보내고,
-        // 마지막으로 끝난 스레드가 합계를 운영툴에 응답한다(ScatterToShards 주석 참고).
-        ScatterToShards(
-            [this, noticePayload](const size_t shardIndex)
+        // **읽기 락 한 번으로 끝난다.** 매니저가 샤딩이던 시절에는 전부 순회할 수 있는
+        // 스레드가 없어서 샤드마다 메시지를 던지고 합계를 취합해야 했다(ScatterToShards).
+        uint32_t sentCount = 0;
+        playerManager_->ForEach(
+            [&](const Network::SessionId clientSessionId, const PlayerInfo& info)
             {
-                uint32_t sentCount = 0;
-                clientRegistry_.ForEachInShard(shardIndex,
-                    [&](const Network::SessionId clientSessionId, const ClientInfo& info)
-                    {
-                        if (!info.gatewaySession)
-                        {
-                            return;
-                        }
+                if (!info.gatewaySession)
+                {
+                    return;
+                }
 
-                        ClientEnvelopeHeader envelopeHeader{};
-                        envelopeHeader.clientSessionId = clientSessionId;
-                        envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
+                ClientEnvelopeHeader envelopeHeader{};
+                envelopeHeader.clientSessionId = clientSessionId;
+                envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
 
-                        Packet::BinaryWriter envelopeWriter;
-                        envelopeWriter.Write(envelopeHeader);
-                        envelopeWriter.WriteBytes(noticePayload);
-                        info.gatewaySession->SendPacket(PacketId::W2GRelay,
-                                                        envelopeWriter.GetBuffer());
-                        ++sentCount;
-                    });
-                return sentCount;
-            },
-            [this, toolSession, requestId, message](const uint32_t total)
-            {
-                LOG.Info(ELogCategory::Tool, "운영툴 공지 브로드캐스트")
-                    .KV("RequestId", requestId).KV("SentTo", total).KV("Message", message);
-                SendCommandAck(toolSession, requestId, EToolResultCode::Ok, total);
+                Packet::BinaryWriter envelopeWriter;
+                envelopeWriter.Write(envelopeHeader);
+                envelopeWriter.WriteBytes(noticePayload);
+                info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeWriter.GetBuffer());
+                ++sentCount;
             });
+
+        LOG.Info(ELogCategory::Tool, "운영툴 공지 브로드캐스트")
+            .KV("RequestId", requestId).KV("SentTo", sentCount).KV("Message", message);
+        SendCommandResult(toolSession, requestId, EToolResultCode::Ok, sentCount);
     }
 
-    void ToolProcessor::HandleMailSendRequest(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleMailSend(const std::shared_ptr<Network::Session>& toolSession,
                                                const std::span<const byte> payload)
     {
         Packet::BinaryReader reader(payload);
@@ -306,13 +282,13 @@ namespace World
         if (!reader.Read(requestId) || !reader.Read(targetKind) || !reader.Read(clientSessionId)
             || !reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
         {
-            SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
         if (title.empty() || durationSec <= 0)
         {
-            SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -326,84 +302,66 @@ namespace World
 
         if (targetKind == kMailTargetAllOnline)
         {
-            // 공지와 같은 이유로 샤드마다 던진다. 한 샤드 안의 대상들은 전부 그 샤드를 소유한
-            // 스레드에 속하므로, 그 스레드에서 InjectClientPacket(내부에서 clientRegistry_를
-            // 다시 조회한다)을 불러도 남의 샤드를 건드리지 않는다.
-            ScatterToShards(
-                [this, mailPayload](const size_t shardIndex)
+            // **대상 목록을 먼저 스냅샷으로 뜬 뒤 락 밖에서 주입한다** --
+            // InjectClientPacket이 매니저를 다시 조회하므로, 읽기 락을 잡은 채로 부르면
+            // 같은 스레드가 락을 재진입하게 된다.
+            uint32_t sentCount = 0;
+            for (const auto target : SnapshotOnlineClients())
+            {
+                if (InjectClientPacket(target, PacketId::C2ZMailAdd, mailPayload))
                 {
-                    // 대상 목록을 먼저 스냅샷으로 뜬 뒤에 주입한다 -- InjectClientPacket이 다시
-                    // 같은 샤드를 조회하므로, 순회 중에 같은 컨테이너를 재진입 조회하는 모양을
-                    // 만들지 않기 위함이다(같은 스레드라 UB는 아니지만 읽기 좋지 않다).
-                    std::vector<Network::SessionId> targets;
-                    targets.reserve(clientRegistry_.CountInShard(shardIndex));
-                    clientRegistry_.ForEachInShard(shardIndex,
-                        [&targets](const Network::SessionId clientSessionId, const ClientInfo&)
-                        {
-                            targets.push_back(clientSessionId);
-                        });
+                    ++sentCount;
+                }
+            }
 
-                    uint32_t sentCount = 0;
-                    for (const auto target : targets)
-                    {
-                        if (InjectClientPacket(target, PacketId::C2ZMailAdd, mailPayload))
-                        {
-                            ++sentCount;
-                        }
-                    }
-                    return sentCount;
-                },
-                [this, toolSession, requestId, title, durationSec](const uint32_t total)
-                {
-                    LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(접속 중 전체)")
-                        .KV("RequestId", requestId).KV("SentTo", total)
-                        .KV("Title", title).KV("DurationSec", durationSec);
-                    SendCommandAck(toolSession, requestId, EToolResultCode::Ok, total);
-                });
+            LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(접속 중 전체)")
+                .KV("RequestId", requestId).KV("SentTo", sentCount)
+                .KV("Title", title).KV("DurationSec", durationSec);
+            SendCommandResult(toolSession, requestId, EToolResultCode::Ok, sentCount);
             return;
         }
 
         if (targetKind != kMailTargetSingle)
         {
-            SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
-        if (!clientRegistry_.Find(clientSessionId))
+        if (!playerManager_->Find(clientSessionId))
         {
             LOG.Warning(ELogCategory::Tool, "운영툴 우편 대상이 접속 중이 아님")
                 .KV("RequestId", requestId).KV("ClientSessionId", clientSessionId);
-            SendCommandAck(toolSession, requestId, EToolResultCode::TargetNotFound, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::TargetNotFound, 0);
             return;
         }
 
         if (!InjectClientPacket(clientSessionId, PacketId::C2ZMailAdd, mailPayload))
         {
-            SendCommandAck(toolSession, requestId, EToolResultCode::ZoneUnavailable, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::ZoneUnavailable, 0);
             return;
         }
 
         LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(단일 대상)")
             .KV("RequestId", requestId).KV("ClientSessionId", clientSessionId)
             .KV("Title", title).KV("DurationSec", durationSec);
-        SendCommandAck(toolSession, requestId, EToolResultCode::Ok, 1);
+        SendCommandResult(toolSession, requestId, EToolResultCode::Ok, 1);
     }
 
-    void ToolProcessor::HandleMailDeleteRequest(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleMailDelete(const std::shared_ptr<Network::Session>& toolSession,
                                                  const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(ToolMailDeleteRequestPacket))
+        if (payload.size() < sizeof(ToolMailDeletePacket))
         {
-            SendCommandAck(toolSession, 0, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, 0, EToolResultCode::BadRequest, 0);
             return;
         }
 
-        ToolMailDeleteRequestPacket request{};
-        std::memcpy(&request, payload.data(), sizeof(ToolMailDeleteRequestPacket));
+        ToolMailDeletePacket request{};
+        std::memcpy(&request, payload.data(), sizeof(ToolMailDeletePacket));
 
-        if (!clientRegistry_.Find(request.clientSessionId))
+        if (!playerManager_->Find(request.clientSessionId))
         {
-            SendCommandAck(toolSession, request.requestId, EToolResultCode::TargetNotFound, 0);
+            SendCommandResult(toolSession, request.requestId, EToolResultCode::TargetNotFound, 0);
             return;
         }
 
@@ -414,7 +372,7 @@ namespace World
         if (!InjectClientPacket(request.clientSessionId, PacketId::C2ZMailDel,
                                 mailWriter.GetBuffer()))
         {
-            SendCommandAck(toolSession, request.requestId, EToolResultCode::ZoneUnavailable, 0);
+            SendCommandResult(toolSession, request.requestId, EToolResultCode::ZoneUnavailable, 0);
             return;
         }
 
@@ -424,7 +382,7 @@ namespace World
         LOG.Info(ELogCategory::Tool, "운영툴 우편 삭제 요청 전달")
             .KV("RequestId", request.requestId).KV("ClientSessionId", request.clientSessionId)
             .KV("MailId", request.mailId);
-        SendCommandAck(toolSession, request.requestId, EToolResultCode::Ok, 1);
+        SendCommandResult(toolSession, request.requestId, EToolResultCode::Ok, 1);
     }
 
     void ToolProcessor::HandleCouponChunkPush(const std::shared_ptr<Network::Session>& toolSession,
@@ -438,7 +396,7 @@ namespace World
         if (!reader.Read(requestId) || !reader.ReadString(campaignCode)
             || !reader.Read(chunkSeq) || !reader.Read(couponCount))
         {
-            SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -449,7 +407,7 @@ namespace World
             std::string code;
             if (!reader.ReadString(code))
             {
-                SendCommandAck(toolSession, requestId, EToolResultCode::BadRequest, 0);
+                SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
                 return;
             }
             couponCodes.push_back(std::move(code));
@@ -472,68 +430,57 @@ namespace World
                     .KV("FirstCode", couponCodes.empty() ? std::string{"(없음)"} : couponCodes.front());
             });
 
-        SendCommandAck(toolSession, requestId, EToolResultCode::Ok, couponCount);
+        SendCommandResult(toolSession, requestId, EToolResultCode::Ok, couponCount);
     }
 
-    void ToolProcessor::HandleClientListRequest(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleClientList(const std::shared_ptr<Network::Session>& toolSession,
                                                  const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(ToolClientListRequestPacket))
+        if (payload.size() < sizeof(ToolClientListPacket))
         {
-            SendCommandAck(toolSession, 0, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, 0, EToolResultCode::BadRequest, 0);
             return;
         }
 
-        ToolClientListRequestPacket request{};
-        std::memcpy(&request, payload.data(), sizeof(ToolClientListRequestPacket));
+        ToolClientListPacket request{};
+        std::memcpy(&request, payload.data(), sizeof(ToolClientListPacket));
 
-        // 목록도 샤드에 흩어져 있으므로 모아야 한다. 각 스레드가 자기 샤드 몫을 공유 버퍼에
-        // 넣고, 마지막으로 끝난 스레드가 한 장으로 만들어 보낸다. 여기서만 Mutexed를 쓰는
-        // 이유는 취합 버퍼가 유일하게 여러 샤드 스레드가 함께 쓰는 자리이기 때문이다.
-        auto collected = std::make_shared<Thread::Mutexed<std::vector<ToolClientEntry>>>();
-        const auto requestIdCopy = request.requestId;
+        // 읽기 락 한 번으로 모은다. 샤딩이던 시절에는 샤드 스레드들이 공유 버퍼에 밀어 넣고
+        // 마지막 스레드가 취합했는데, 그 취합 버퍼를 지키려고 여기에만 Mutexed가 하나 더
+        // 있었다 -- 매니저 자체가 Mutexed가 되면서 둘 다 없어졌다.
+        std::vector<ToolClientEntry> collected;
+        uint32_t totalCount = 0;
 
-        ScatterToShards(
-            [this, collected](const size_t shardIndex)
+        playerManager_->ForEach(
+            [&](const Network::SessionId clientSessionId, const PlayerInfo& info)
             {
-                uint32_t addedCount = 0;
-                clientRegistry_.ForEachInShard(shardIndex,
-                    [&](const Network::SessionId clientSessionId, const ClientInfo& info)
-                    {
-                        // MaxBodySize를 넘기면 받는 쪽 Buffer가 예외를 던지므로 상한에서
-                        // 자른다. 이 목록은 우편 대상을 고르기 위한 것이라 전수 조회가 필수는
-                        // 아니다.
-                        auto writer = collected->Write();
-                        if (writer->size() >= kMaxClientListEntries)
-                        {
-                            return;
-                        }
+                ++totalCount;
 
-                        ToolClientEntry entry{};
-                        entry.clientSessionId = clientSessionId;
-                        entry.zoneId = info.zoneId;
-                        writer->push_back(entry);
-                        ++addedCount;
-                    });
-                return addedCount;
-            },
-            [this, toolSession, requestIdCopy, collected](const uint32_t total)
-            {
-                const auto reader = collected->Read();
-
-                Packet::BinaryWriter writer;
-                writer.Write(requestIdCopy);
-                writer.Write(static_cast<uint32_t>(reader->size()));
-                for (const auto& entry : *reader)
+                // MaxBodySize를 넘기면 받는 쪽 Buffer가 예외를 던지므로 상한에서 자른다.
+                // 이 목록은 우편 대상을 고르기 위한 것이라 전수 조회가 필수는 아니다.
+                if (collected.size() >= kMaxClientListEntries)
                 {
-                    writer.Write(entry);
+                    return;
                 }
 
-                toolSession->SendPacket(PacketId::W2TClientListReply, writer.GetBuffer());
-
-                LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
-                    .KV("RequestId", requestIdCopy).KV("Total", total)
-                    .KV("Returned", reader->size());
+                ToolClientEntry entry{};
+                entry.clientSessionId = clientSessionId;
+                entry.zoneId = info.zoneId;
+                collected.push_back(entry);
             });
+
+        Packet::BinaryWriter writer;
+        writer.Write(request.requestId);
+        writer.Write(static_cast<uint32_t>(collected.size()));
+        for (const auto& entry : collected)
+        {
+            writer.Write(entry);
+        }
+
+        toolSession->SendPacket(PacketId::W2TClientList, writer.GetBuffer());
+
+        LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
+            .KV("RequestId", request.requestId).KV("Total", totalCount)
+            .KV("Returned", collected.size());
     }
 }

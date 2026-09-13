@@ -18,7 +18,7 @@ C++ 쪽 규약(PascalCase 타입, camelCase + trailing underscore 멤버)을 DB�
 |------|------|-----|
 | **테이블** | **복수형** snake_case | `dbo.mails`, `dbo.players`, `dbo.currencies` |
 | **컬럼** | 단수형 snake_case | `mail_id`, `player_id`, `body`, `send_ut` |
-| **저장 프로시저** | `up_{콘텐츠}_{동작}` | `dbo.up_mails_upsert`, `dbo.up_mails_delete`, `dbo.up_currencies_upsert` |
+| **저장 프로시저** | `usp_{콘텐츠}_{동작}` | `dbo.usp_mails_upsert`, `dbo.usp_mails_delete`, `dbo.usp_currencies_upsert` |
 | **파라미터** | `@` + 컬럼과 같은 이름 | `@player_id`, `@mail_id` |
 | 기본 키 | `pk_{테이블}` | `pk_mails` |
 | 유니크 키 | `uk_{테이블}_{용도}` | `uk_players_name` |
@@ -125,7 +125,7 @@ sqlcmd -S 127.0.0.1,1433 -U sa -P 0000 -C -b -f 65001 -d asio_game -i Sql\player
 일괄로 붙일 수 있다.
 
 ```sql
-CREATE OR ALTER PROCEDURE [dbo].[up_mails_upsert]
+CREATE OR ALTER PROCEDURE [dbo].[usp_mails_upsert]
     @is_trans_outside TINYINT,           -- ① 항상 첫 파라미터
     @mail_id          BIGINT,
     ...
@@ -171,7 +171,7 @@ SP 하나만 보낼 때는 열려 있지 않다. 이걸 SP 가 모르면:
 - 바깥이 이미 트랜잭션인데 SP 가 또 열면 **중첩 트랜잭션**이 된다. T-SQL 의 중첩 `COMMIT` 은
   카운터만 줄이고 실제로 커밋하지 않는데, SP 는 커밋했다고 믿고 빠져나간다.
 - 바깥이 트랜잭션이 아닌데 SP 도 안 열면, 문장이 여러 개인 SP 가 **중간에 실패했을 때 앞 문장이
-  그대로 남는다**(`up_currencies_upsert` 의 잔액 갱신 + 감사 로그가 그 경우다).
+  그대로 남는다**(`usp_currencies_upsert` 의 잔액 갱신 + 감사 로그가 그 경우다).
 
 `DbConnection::ExecuteOne` 이 이 값을 자동으로 채운다 -- 콘텐츠 코드는 넘기지 않는다.
 
@@ -217,12 +217,12 @@ C++ 쪽에서는 0 이 아닌 반환값이 `World::DbProcedureException` 으로 
 결과인지 말해주지 못하기 때문이다.
 
 그래서 그 경로를 쓰는 쪽은 **성공 여부를 따로 확인해야 한다.** `--idtest` 는 삽입 전후의
-행 수를 노드 번호로 걸러 세고 그 증가분이 넣은 개수와 같은지 본다(`up_unique_keys_count_by_node`).
+행 수를 노드 번호로 걸러 세고 그 증가분이 넣은 개수와 같은지 본다(`usp_unique_keys_count_by_node`).
 중복 키가 조용히 건너뛰어지면 거기서 갈린다. **절대값이 아니라 증가분을 보는 이유**는 테이블을
 비우지 않고 다시 돌렸을 때 멀쩡한 실행이 실패로 뒤집히지 않게 하기 위해서다.
 
 ### 영향 행 0 이 항상 거절은 아니다
 
-`up_mails_delete` 에는 `@@ROWCOUNT` 검사가 없다. 만료 스윕과 사용자 삭제가 같은 우편을 두고
+`usp_mails_delete` 에는 `@@ROWCOUNT` 검사가 없다. 만료 스윕과 사용자 삭제가 같은 우편을 두고
 겹칠 수 있는데, 그건 오류가 아니라 정상적인 경합이다. **"한 행이 바뀌어야 정상인가"를 SP 마다
 판단해서 붙인다** -- 기계적으로 복사하면 정상 경로가 실패로 뒤집힌다.

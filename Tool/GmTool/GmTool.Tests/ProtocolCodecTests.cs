@@ -161,15 +161,15 @@ public class BinaryPacketCodecTests
 public class ToolLinkEnumTests
 {
     [Theory]
-    [InlineData(PacketId.T2WToolHello, 8001)]
-    [InlineData(PacketId.W2TToolHelloAck, 9001)]
-    [InlineData(PacketId.T2WNoticeRequest, 8002)]
-    [InlineData(PacketId.T2WMailSendRequest, 8003)]
-    [InlineData(PacketId.T2WMailDeleteRequest, 8004)]
+    [InlineData(PacketId.T2WHello, 8001)]
+    [InlineData(PacketId.W2THelloResult, 9001)]
+    [InlineData(PacketId.T2WNotice, 8002)]
+    [InlineData(PacketId.T2WMailSend, 8003)]
+    [InlineData(PacketId.T2WMailDelete, 8004)]
     [InlineData(PacketId.T2WCouponChunkPush, 8005)]
-    [InlineData(PacketId.T2WClientListRequest, 8006)]
-    [InlineData(PacketId.W2TClientListReply, 9002)]
-    [InlineData(PacketId.W2TToolCommandAck, 9003)]
+    [InlineData(PacketId.T2WClientList, 8006)]
+    [InlineData(PacketId.W2TClientList, 9002)]
+    [InlineData(PacketId.W2TCommandResult, 9003)]
     public void 패킷_id가_Cpp쪽_PacketId와_같다(PacketId id, int expected)
     {
         Assert.Equal(expected, (int)id);

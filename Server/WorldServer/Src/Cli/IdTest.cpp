@@ -49,7 +49,7 @@ namespace World
             {
                 DbConnection connection(connectionString);
                 DbResult result;
-                connection.Execute({DbCommand{"dbo.up_unique_keys_count_by_node",
+                connection.Execute({DbCommand{"dbo.usp_unique_keys_count_by_node",
                                                      {static_cast<int64_t>(nodeId)}}},
                                    false, &result);
                 return result.empty() ? std::nullopt : GetInt64(result.front(), 0);
@@ -127,7 +127,7 @@ namespace World
                 }
                 std::sort(round.begin(), round.end());
 
-                connection.ExecuteMany(randomMode ? "dbo.up_unique_keys_random_insert" : "dbo.up_unique_keys_insert",
+                connection.ExecuteMany(randomMode ? "dbo.usp_unique_keys_random_insert" : "dbo.usp_unique_keys_insert",
                                        round);
                 all.insert(all.end(), round.begin(), round.end());
 

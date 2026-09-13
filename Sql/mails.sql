@@ -41,7 +41,7 @@ GO
 -- 로그인 직후 World 가 캐시에 적재할 우편함. 삭제된 것은 빼고 준다.
 -- 조회라 0행이 정상이므로 @@ROWCOUNT 검사(⑤)만 없다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_mails_select]
+CREATE OR ALTER PROCEDURE [dbo].[usp_mails_select]
     @is_trans_outside TINYINT,
     @player_id        BIGINT
 AS
@@ -81,9 +81,9 @@ GO
 -- 규칙 4: 우편 추가와 내용 변경이 하나의 SP.
 --
 -- **delete_ut 를 건드리지 않는다.** 이미 삭제된 우편에 upsert 가 들어와도 되살아나면 안 되고,
--- 살아 있는 우편의 삭제 상태를 실수로 지우지도 않아야 한다. 삭제/복구는 up_mails_delete 만의 일이다.
+-- 살아 있는 우편의 삭제 상태를 실수로 지우지도 않아야 한다. 삭제/복구는 usp_mails_delete 만의 일이다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_mails_upsert]
+CREATE OR ALTER PROCEDURE [dbo].[usp_mails_upsert]
     @is_trans_outside TINYINT,
     @mail_id          BIGINT,
     @player_id        BIGINT,
@@ -136,14 +136,14 @@ GO
 -- -----------------------------------------------------------------------------
 -- 규칙 5: 행을 지우지 않고 삭제 시각만 남긴다.
 --
--- 이름이 up_mails_delete 인 이유는 **호출부 입장에서 하는 일이 "삭제"이기 때문**이다. 실제
+-- 이름이 usp_mails_delete 인 이유는 **호출부 입장에서 하는 일이 "삭제"이기 때문**이다. 실제
 -- 쿼리가 UPDATE 라는 건 이 SP 안의 구현 사항이고, 그걸 이름에 드러내면 부르는 쪽이 "왜
 -- 삭제인데 upsert 를 부르지" 하고 헷갈린다.
 --
 -- **영향 행 0 을 거절로 보지 않는다.** 만료 스윕과 사용자 삭제가 겹칠 수 있는데, 그건 오류가
 -- 아니라 정상적인 경합이다. 그래서 여기만 @@ROWCOUNT 검사가 없다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_mails_delete]
+CREATE OR ALTER PROCEDURE [dbo].[usp_mails_delete]
     @is_trans_outside TINYINT,
     @mail_id          BIGINT,
     @delete_ut        BIGINT

@@ -40,10 +40,15 @@ namespace Protocol
                                     // requestPacketId=0은 요청 없이 서버가 만든 변경(메일 만료 등).
 
         // ---- C2W : 클라이언트 -> World (2000 ~ 2999) ----
-        // 로그인/인증 자리. 현재 비어 있다.
+        // **이 대역만 World가 끝점이다.** Gateway는 여전히 내용을 모르는 릴레이지만, World는
+        // 봉투 안의 id가 이 대역이면 존으로 넘기지 않고 직접 처리한다
+        // (GatewayLinkHandler::HandleFromClient -> LoginProcessor).
+        C2WLogin = 2001,  // playerName + password(둘 다 길이 접두). 계정이 없으면 그 자리에서 만든다
 
         // ---- W2C : World -> 클라이언트 (3000 ~ 3999) ----
         W2CNotice = 3001,  // World가 Zone을 거치지 않고 접속 중 전체에게 직접 브로드캐스트
+        W2CLogin = 3002,   // C2WLogin의 결과. errorCode(4) + playerId(8) + playerName(길이 접두).
+                           // 실패면 playerId=0 + 빈 이름. 성공이면 곧이어 존 입장이 진행된다
 
         // ---- G2W : Gateway -> World (4000 ~ 4999) ----
         G2WClientConnected = 4001,     // 클라이언트 accept 직후. payload = clientSessionId(8바이트)
@@ -54,30 +59,30 @@ namespace Protocol
         W2GRelay = 5001,  // ClientEnvelopeHeader + 클라이언트에게 보낼 원본 패킷 그대로
 
         // ---- W2Z : World -> Zone (6000 ~ 6999) ----
-        W2ZEnterZoneRequest = 6001,  // 플레이어를 이 존에 입장(신규 배정 또는 핸드오프 전입)시킴
-        W2ZLeaveZoneNotify = 6002,   // 접속 종료로 이 존에서 플레이어를 제거하라는 지시
+        W2ZEnterZone = 6001,  // 플레이어를 이 존에 입장(신규 배정 또는 핸드오프 전입)시킴
+        W2ZLeaveZone = 6002,   // 접속 종료로 이 존에서 플레이어를 제거하라는 지시
         W2ZRelay = 6003,             // ClientEnvelopeHeader + 클라이언트 원본 패킷 그대로
 
         // ---- Z2W : Zone -> World (7000 ~ 7999) ----
         Z2WZoneRegister = 7001,         // Zone 접속 직후, 이 Zone이 담당하는 x구간을 알림
         Z2WRelay = 7002,                // ClientEnvelopeHeader + 클라이언트에게 보낼 원본 패킷 그대로
-        Z2WZoneTransferRequest = 7003,  // 존 경계를 넘는 이동. Zone이 로컬 상태를 먼저 지우고 요청한다
+        Z2WZoneTransfer = 7003,  // 존 경계를 넘는 이동. Zone이 로컬 상태를 먼저 지우고 요청한다
         Z2WUnitOfWorkStream = 7004,     // Mail 등 변경 이벤트 묶음(Task::UnitOfWork가 직렬화)
 
         // ---- T2W : 운영툴 -> World (8000 ~ 8999) ----
         // 요청 계열은 페이로드 맨 앞에 항상 requestId(uint32)를 둔다 -- 소켓 하나에 여러
         // 요청이 동시에 흘러다니므로 응답을 어느 요청의 답인지 짝지을 키가 필요하다.
-        T2WToolHello = 8001,          // 공유 시크릿 인증. 통과 전에는 다른 패킷을 전부 거부한다
-        T2WNoticeRequest = 8002,      // 접속 중 전체에게 공지 브로드캐스트
-        T2WMailSendRequest = 8003,    // 특정 클라이언트 또는 전체에게 우편 발송
-        T2WMailDeleteRequest = 8004,  // 특정 클라이언트의 우편 1건 삭제
+        T2WHello = 8001,          // 공유 시크릿 인증. 통과 전에는 다른 패킷을 전부 거부한다
+        T2WNotice = 8002,      // 접속 중 전체에게 공지 브로드캐스트
+        T2WMailSend = 8003,    // 특정 클라이언트 또는 전체에게 우편 발송
+        T2WMailDelete = 8004,  // 특정 클라이언트의 우편 1건 삭제
         T2WCouponChunkPush = 8005,    // 운영툴이 로컬에서 생성한 쿠폰 번호 묶음(청크) 적재
-        T2WClientListRequest = 8006,  // 지금 접속 중인 클라이언트 목록 조회
+        T2WClientList = 8006,  // 지금 접속 중인 클라이언트 목록 조회
 
         // ---- W2T : World -> 운영툴 (9000 ~ 9999) ----
-        W2TToolHelloAck = 9001,     // 인증 결과
-        W2TClientListReply = 9002,  // T2WClientListRequest의 응답
-        W2TToolCommandAck = 9003,   // 공지/우편/쿠폰 요청의 처리 결과
+        W2THelloResult = 9001,     // 인증 결과
+        W2TClientList = 9002,  // T2WClientListRequest의 응답
+        W2TCommandResult = 9003,   // 공지/우편/쿠폰 요청의 처리 결과
     };
 
     // 대역에서 되뽑은 방향. 타입을 방향별로 쪼개지 않는 대신 이 값으로 검증한다.
@@ -115,7 +120,7 @@ namespace Protocol
     }
 }
 
-// 어디서든 `Protocol::` 없이 `PacketId::T2WToolHello`처럼 바로 쓰기 위한 전역 노출.
+// 어디서든 `Protocol::` 없이 `PacketId::T2WHello`처럼 바로 쓰기 위한 전역 노출.
 // `ELogCategory`(Shared/Core/Src/Log/LogCategory.h)와 같은 방식이다. 같은 이유로 전역에
 // 노출하는 이름은 이것과 `Protocol::EErrorCode` 둘뿐이고, 둘 다 저장소를 통틀어 하나씩이라
 // 이름이 겹칠 여지가 없다. `enum class`라 `using enum`이

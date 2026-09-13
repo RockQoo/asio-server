@@ -5,13 +5,14 @@
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Packet/ZoneLinkPackets.h"
+#include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace World
 {
-    class ClientRegistry;
+    // PlayerManager::Mutexed 를 쓰므로 전방 선언으로는 부족하다.
 
     // Zone <-> World 연결의 IPacketHandler. Zone 서버 프로세스가 여러 개 연결해 오며, 각 연결이
     // 자기가 호스팅하는 zoneId/담당 사각형을 ZoneRegister로 알려온다.
@@ -27,7 +28,7 @@ namespace World
     class ZoneLinkHandler final : public Network::IPacketHandler
     {
     public:
-        ZoneLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+        ZoneLinkHandler(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                          Processor::Group<EProcessorId>& basicGroup,
                          Processor::Group<EProcessorId>& dbGroup);
 
@@ -50,7 +51,7 @@ namespace World
 
         void HandleZoneRegister(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
         void HandleForwardToWorld(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
-        void HandleZoneTransferRequest(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
+        void HandleZoneTransfer(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
 
         // I/O 스레드에서 스트림 앞부분(playerId/requestId/ownerId)만 읽어 DB 그룹으로 넘긴다.
         // 같은 ownerId의 스트림은 항상 같은 DB 스레드로 가므로, 한 플레이어의 변경이 도착
@@ -62,7 +63,7 @@ namespace World
         // state를 값으로 받는 이유: 좌표를 원래 존 안쪽으로 보정해서 그대로 다시 보낸다.
         void ReturnToSourceZone(PlayerZoneStatePacket state) const;
 
-        ClientRegistry& clientRegistry_;
+        PlayerManager::Mutexed& playerManager_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
         Processor::Group<EProcessorId>& basicGroup_;
         Processor::Group<EProcessorId>& dbGroup_;

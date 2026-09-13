@@ -7,8 +7,8 @@ namespace Client.Protocol;
 /// <para>
 /// 이름 앞 3글자는 "보내는 노드 2 받는 노드"이고, 방향마다 1000 단위로 번호 대역이 잘려 있다.
 /// C++ enum에는 서버 내부 링크(G2W/W2G/W2Z/Z2W)와 운영툴(T2W/W2T) 대역도 함께 들어 있지만,
-/// <b>이쪽은 클라이언트 대면 대역만 선언한다</b> — C2Z(요청) / Z2C(존 응답·통지) / W2C(World
-/// 직접 브로드캐스트) 셋이 클라이언트가 볼 수 있는 전부다. 릴레이 봉투
+/// <b>이쪽은 클라이언트 대면 대역만 선언한다</b> — C2Z(존이 처리) / Z2C(존 응답·통지) /
+/// C2W(World가 처리 = 로그인) / W2C(World가 직접 보냄) 넷이 클라이언트가 볼 수 있는 전부다. 릴레이 봉투
 /// (<c>ClientEnvelopeHeader</c>)는 GatewayServer가 벗겨서 넘겨주므로 클라이언트에 도달하는
 /// 바이트는 항상 <c>Header</c> + 순수 페이로드다.
 /// </para>
@@ -48,6 +48,19 @@ public enum PacketId : ushort
     /// </summary>
     Z2CTaskResult = 1007,
 
+    /// <summary>
+    /// C2W: playerName + password(둘 다 길이 접두 UTF-8). <b>존이 아니라 World가 처리한다</b> —
+    /// 계정이 없으면 서버가 그 자리에서 만들고(자동 가입), 성공하면 곧이어 존에 입장시킨다.
+    /// 이 패킷이 통과하기 전에는 다른 C2Z 패킷이 존까지 가지 않는다.
+    /// </summary>
+    C2WLogin = 2001,
+
     /// <summary>W2C: World가 존을 거치지 않고 접속 중 전체에 직접 뿌리는 공지(길이 접두 문자열).</summary>
     W2CNotice = 3001,
+
+    /// <summary>
+    /// W2C: <see cref="C2WLogin"/>의 결과. errorCode(int32) + playerId(int64) + playerName(길이 접두).
+    /// 실패면 playerId=0에 이름도 비어 있다.
+    /// </summary>
+    W2CLogin = 3002,
 }

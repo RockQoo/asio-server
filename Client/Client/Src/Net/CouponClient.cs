@@ -31,7 +31,7 @@ public sealed record CouponRedeemResponse(
 ///
 /// <para>
 /// 보상은 이 응답으로 오지 않는다. 등록이 성공하면 GmTool이 World에
-/// <c>T2WMailSendRequest</c>를 보내고, 그게 존을 거쳐 <c>Z2CTaskResult</c>(Mail Added)로
+/// <c>T2WMailSend</c>를 보내고, 그게 존을 거쳐 <c>Z2CTaskResult</c>(Mail Added)로
 /// <b>소켓 쪽으로</b> 도착한다 — 화면에서는 우편함에 한 통이 새로 생기는 것으로 보인다.
 /// </para>
 /// </summary>

@@ -20,31 +20,31 @@ namespace GmTool.Core.Protocol;
 public enum PacketId : ushort
 {
     /// <summary>T2W: 공유 시크릿 인증. 통과 전에는 다른 패킷이 모두 거부된다.</summary>
-    T2WToolHello = 8001,
+    T2WHello = 8001,
 
     /// <summary>T2W: 접속 중 전체 클라이언트에게 공지 브로드캐스트.</summary>
-    T2WNoticeRequest = 8002,
+    T2WNotice = 8002,
 
     /// <summary>T2W: 특정 클라이언트 또는 접속 중 전체에게 우편 발송.</summary>
-    T2WMailSendRequest = 8003,
+    T2WMailSend = 8003,
 
     /// <summary>T2W: 특정 클라이언트의 우편 1건 삭제.</summary>
-    T2WMailDeleteRequest = 8004,
+    T2WMailDelete = 8004,
 
     /// <summary>T2W: 운영툴이 로컬에서 생성한 쿠폰 번호 묶음(청크) 적재 요청.</summary>
     T2WCouponChunkPush = 8005,
 
     /// <summary>T2W: 지금 접속 중인 클라이언트 목록 조회.</summary>
-    T2WClientListRequest = 8006,
+    T2WClientList = 8006,
 
     /// <summary>W2T: 인증 결과.</summary>
-    W2TToolHelloAck = 9001,
+    W2THelloResult = 9001,
 
-    /// <summary>W2T: <see cref="T2WClientListRequest"/>의 응답.</summary>
-    W2TClientListReply = 9002,
+    /// <summary>W2T: <see cref="T2WClientList"/>의 응답.</summary>
+    W2TClientList = 9002,
 
     /// <summary>W2T: 공지/우편/쿠폰 요청의 처리 결과.</summary>
-    W2TToolCommandAck = 9003,
+    W2TCommandResult = 9003,
 }
 
 /// <summary>

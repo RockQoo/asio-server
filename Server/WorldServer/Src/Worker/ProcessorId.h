@@ -14,9 +14,12 @@ namespace World
     // 몰라야 한다. Count는 Group이 통계 배열 크기를 잡는 데 쓰므로 항상 마지막이다.
     enum class EProcessorId : uint8_t
     {
-        Main,   // 클라이언트 라우팅(ClientRegistry / ZoneLinkRegistry) -- BASIC 그룹
+        Main,   // 클라이언트 라우팅(PlayerManager / ZoneLinkRegistry) -- BASIC 그룹
+        Login,  // 로그인/자동 가입의 뒷처리 -- BASIC 그룹(Main과 스레드를 공유한다).
+                // 주인이 clientSessionId로 Main과 같아서, 로그인이 PlayerManager에 쓴 값을
+                // 그 사람의 다음 패킷이 그대로 본다(다른 레인이면 그 사이가 레이스가 된다)
         Tool,   // 운영툴 명령 -- BASIC 그룹(Main과 스레드를 공유한다)
-        Db,     // UnitOfWork 스트림 적재 -- DB 그룹(블로킹을 허용하는 별도 그룹)
+        Db,     // UnitOfWork 스트림 적재 + 로그인 계정 조회/생성 -- DB 그룹(블로킹을 허용)
         Count,
     };
 
@@ -25,6 +28,7 @@ namespace World
         switch (processorId)
         {
         case EProcessorId::Main:  return "Main";
+        case EProcessorId::Login: return "Login";
         case EProcessorId::Tool:  return "Tool";
         case EProcessorId::Db:    return "Db";
         case EProcessorId::Count: break;

@@ -21,7 +21,7 @@ namespace World
             DbConnection connection(connectionString);
 
             DbResult result;
-            connection.Execute({DbCommand{"dbo.up_players_select", {std::string("tester1")}}},
+            connection.Execute({DbCommand{"dbo.usp_players_select", {std::string("tester1")}}},
                                false, &result);
 
             if (result.empty())
@@ -34,7 +34,7 @@ namespace World
             const auto storedHash = GetString(result[0], 2);
             if (!playerId || !storedHash)
             {
-                std::cout << "[dbcheck] FAIL: up_players_select의 결과 컬럼 형태가 예상과 다릅니다.\n";
+                std::cout << "[dbcheck] FAIL: usp_players_select의 결과 컬럼 형태가 예상과 다릅니다.\n";
                 return EXIT_FAILURE;
             }
 

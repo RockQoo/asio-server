@@ -35,11 +35,11 @@ GO
 
 -- -----------------------------------------------------------------------------
 -- 로그인 조회. 비밀번호 비교는 서버에서 한다 -- 해시 비교를 SP 에서 하면 평문이 와이어와
--- DB 로그에 남는다. 계정이 없으면 0행이고, 그때 서버가 up_players_upsert 로 자동 가입시킨다.
+-- DB 로그에 남는다. 계정이 없으면 0행이고, 그때 서버가 usp_players_upsert 로 자동 가입시킨다.
 --
 -- 조회라 0행이 정상이므로 @@ROWCOUNT 검사(⑤)만 없다. 나머지 골격은 쓰기 SP 와 같다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_players_select]
+CREATE OR ALTER PROCEDURE [dbo].[usp_players_select]
     @is_trans_outside TINYINT,
     @player_name      NVARCHAR(32)
 AS
@@ -84,7 +84,7 @@ GO
 -- MERGE 에 HOLDLOCK 을 붙인 이유: 이 SP 만 여러 세션이 같은 키로 동시에 칠 수 있다(첫 로그인).
 -- 나머지 SP 는 같은 player_id 가 항상 같은 DB 레인으로 가서 동시 실행이 없다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_players_upsert]
+CREATE OR ALTER PROCEDURE [dbo].[usp_players_upsert]
     @is_trans_outside TINYINT,
     @player_id        BIGINT,
     @player_name      NVARCHAR(32),

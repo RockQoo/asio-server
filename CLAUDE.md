@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Client`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Client` — C#/MonoGame, 별도 솔루션(`Client/Client.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
 | 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽고, 로딩은 각 서버의 `Src/App/Config.{h,cpp}`의 `LoadConfig`가 맡는다(`main`은 호출만). **기본값은 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). **싱글턴으로 만들지 않는다** -- 근거는 `docs/design/config-file.md`. 담당 존 목록만 실행 인자 |
-| 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
+| 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일). 진행 중인 부하 병목 수정 계획과 측정 수치는 `docs/local/`에 있다(gitignore 대상이라 경로를 여기 적지 않는다 — 필수 규칙 참고) |
 
 ---
 
@@ -53,6 +53,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **참고 출처를 커밋되는 파일에 적지 않는다** — 외부 자료/도서/영상을 참고했더라도
   `README.md`/`PROGRESS.md`/소스 주석/`docs/`에는 출처를 남기지 않는다.
   기록이 필요하면 `docs/local/`(gitignore 대상)에만 둔다.
+- **새 문서의 기본 위치는 `docs/local/`이다.** 파일명은 `<이름>.local.<확장자>`(kebab-case).
+  공개 `docs/`에 두는 것은 "저장소를 읽는 사람에게 보여줄 것"으로 한정하고 그때만 따로 정한다
+  — 확정 전 수치나 진행 중인 계획을 공개 문서에 두면 틀린 정보를 보여주게 된다.
+  **거꾸로, 커밋되는 파일에서 `docs/local/` 아래의 개별 파일을 경로로 가리키지 않는다.**
+  clone한 사람에게는 없는 파일이라 깨진 링크가 된다(그래서 아래 구조 트리에도 없다).
 - **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
   (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
@@ -81,7 +86,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   | 새 패킷 흐름 | `docs/sequences/`에 다이어그램 추가(규칙: `docs/sequences/README.md`) + `docs/index.html`·`sequences/index.html` 카드 |
   | 기존 흐름의 경로 변경 | 그 흐름의 시퀀스 HTML(단계 번호·레인 수·grid-column까지) |
   | DB 스키마/SP/트랜잭션 | `docs/DB.html` |
-  | 측정 수치 | `docs/Performance.html` |
+  | 측정 수치 | `docs/local/`의 측정 문서 (**공개 `docs/`에 두지 않는다**) |
   | 설계 근거(왜 이렇게 했나) | `docs/design/`(규칙: `docs/design/README.md`) |
 
   `docs/index.html`은 **문서 진입점**이라 여기가 틀리면 나머지가 맞아도 길을 잘못 든다 —
@@ -109,7 +114,7 @@ C:\Work\asio-server\
 │   │       │                         Dispatcher<TId,TContext>
 │   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
 │   │       │                         connect, Listener와 대칭), Session, SessionManager
-│   │       ├── Thread/               WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
+│   │       ├── Processor/            Group(큐 그룹 = asio io_context + strand N개), Stats
 │   │       ├── Timer/                RepeatingTimer
 │   │       ├── Thread/Mutexed.h      shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
 │   │       └── Task/                 ITask(변경 기록 하나 -- 직렬화/역연산은 파생이 구현),
@@ -163,11 +168,10 @@ C:\Work\asio-server\
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
 ├── docs/                             읽기용 문서 (전부 오프라인 HTML, 외부 리소스 금지)
 │   ├── index.html                    문서 진입점 -- README.md가 여기를 가리킨다
-│   ├── Client/Gateway/World/Zone/DB/Performance.html   서버별 특징·기능
+│   ├── Client/Gateway/World/Zone/DB.html               서버별 특징·기능
 │   ├── sequences/                    패킷 시퀀스 다이어그램 (규칙: sequences/README.md)
 │   ├── design/                       소스에서 옮겨온 설계 근거 (규칙: design/README.md)
 │   └── assets/style.css              문서 공용 스타일 (새로 만들지 말 것)
-├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
 ├── bat/                              start_server_all.bat(전체 기동 + VS attach용 PID 출력. wt.exe가 있으면
 │                                     창 하나에 탭 4개, 없으면 창을 따로 — cmd.exe엔 탭이 없다)
 │                                     stop_server_all.bat(종료)/start_protocol_client.bat(ProtocolClient)
@@ -233,7 +237,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Listener` / `Connector` | accept / outbound connect. 둘 다 성공 시 `IPacketHandler::OnSessionOpened` 호출 |
 | | `Session` | 소켓 1개, `strand_`로 보호 — `SendPacket()`은 어느 스레드에서든 호출 가능 |
 | | `Dispatcher<TId,TContext>` | 패킷 타입 → 핸들러 템플릿 라우터 (게임 무관) |
-| | `WorkerThread` / `AffinityWorkerPool<TWorker>` | 작업 큐 1개 소비 스레드 / `key % N` 고정 라우팅 풀 |
+| | `Processor::Group<TId>` | 큐 그룹 = asio `io_context` + 스레드 N개 + `strand` N개. `Post(id, work)`는 남는 스레드, `Post(id, ownerId, work)`는 `ownerId % N` strand로 직렬화 |
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::RUIDGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
@@ -320,7 +324,7 @@ Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지
 WorldWorker, Mail(Mutexed/UnitOfWork) 시스템, 재화(Currency) + 모델 두 개에 걸친 트랜잭션과
 역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RUID`), 부하 테스트 도구(StressClient),
 시각 클라이언트(Client)까지 완료.
-부하 테스트로 발견된 처리량 병목 수정이 진행 중(`docs/load-test-fix-plan.md`). 남은 것:
+부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`). 남은 것:
 실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
 

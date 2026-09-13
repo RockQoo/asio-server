@@ -18,7 +18,9 @@ public sealed record ClientOptions(
     int GatewayPort,
     string GmToolBaseUrl,
     bool AutoTour = false,
-    bool AutoTourReverse = false)
+    bool AutoTourReverse = false,
+    string LoginName = "tester1",
+    string LoginPassword = "0000")
 {
     /// <summary>
     /// 기본값. Gateway 9000은 <c>ProtocolClient</c>의 기본 포트와 같고, 5080은
@@ -79,7 +81,7 @@ public sealed class ClientGame : Game
     /// 이 시간(초) 이상 소식이 없는 플레이어를 목록에서 지운다.
     ///
     /// <para>
-    /// 퇴장 통지도 프로토콜에 없다 — 서버는 <c>W2ZLeaveZoneNotify</c>로 자기 상태에서만
+    /// 퇴장 통지도 프로토콜에 없다 — 서버는 <c>W2ZLeaveZone</c>로 자기 상태에서만
     /// 지우고 남은 사람들에게 알리지 않는다. 위 하트비트가 있으니 "소식이 끊긴 것"으로
     /// 퇴장을 추정할 수 있고, 안 지우면 접속을 끊은 창이 화면에 영원히 남는다.
     /// 하트비트 주기의 몇 배로 잡아 일시적인 지연을 퇴장으로 오해하지 않게 한다.
@@ -122,6 +124,8 @@ public sealed class ClientGame : Game
     private readonly ChatPanel chatPanel_ = new();
     private readonly MailPanel mailPanel_ = new();
     private readonly Hud hud_ = new();
+    private readonly LoginScreen loginScreen_ = new();
+    private readonly LoadingScreen loadingScreen_ = new();
     private readonly GameLink link_;
     private readonly CouponClient coupons_;
     private readonly CouponPanel couponPanel_;
@@ -137,6 +141,9 @@ public sealed class ClientGame : Game
 
     /// <summary>이번 프레임의 시각(초). Update 시작에서 한 번 갱신한다.</summary>
     private double nowSeconds_;
+
+    /// <summary>지금 어느 단계인가. 첫 화면은 항상 로그인이다(<see cref="GamePhase"/> 주석).</summary>
+    private GamePhase phase_ = GamePhase.Login;
 
     private double moveSentAtSeconds_ = double.NegativeInfinity;
     private double echoSentAtSeconds_ = double.NegativeInfinity;
@@ -209,8 +216,12 @@ public sealed class ClientGame : Game
         world_.AddSystemLine($"쿠폰 등록은 {options_.GmToolBaseUrl} (GmTool.Web)로 나갑니다.");
 
         // 접속을 기다리지 않고 창을 먼저 띄운다 — 서버가 안 떠 있을 때 "창이 안 열린다"가
-        // 아니라 "접속 실패"가 화면에 보이는 쪽이 진단에 쓸모 있다.
+        // 아니라 "접속 실패"가 화면에 보이는 쪽이 진단에 쓸모 있다. 로그인 화면도 같은 이유로
+        // 접속 여부와 무관하게 먼저 뜨고, 접속 버튼만 잠긴다.
         _ = link_.ConnectAsync();
+
+        loginScreen_.Prefill(options_.LoginName, options_.LoginPassword);
+        loginScreen_.FocusName();
 
         base.Initialize();
     }
@@ -240,13 +251,67 @@ public sealed class ClientGame : Game
             world_.Apply(packet, nowSeconds_);
         }
 
-        AnnouncePositionOnZoneChange();
-        HandleGlobalKeys();
-        HandleMovement(gameTime);
-        HandleEcho();
-        world_.ForgetStalePlayers(nowSeconds_ - PlayerForgetAfterSeconds);
+        // **단계별로 아예 다른 일을 한다.** 로그인 전에 이동/Echo를 보내봐야 서버가 존으로
+        // 넘기지 않고 버리므로(GatewayLinkHandler::HandleFromClient), 클라이언트도 같은
+        // 경계를 지킨다.
+        switch (phase_)
+        {
+            case GamePhase.Login:
+                UpdateLoginPhase();
+                break;
+
+            case GamePhase.Loading:
+                UpdateLoadingPhase();
+                break;
+
+            case GamePhase.InGame:
+                AnnouncePositionOnZoneChange();
+                HandleGlobalKeys();
+                HandleMovement(gameTime);
+                HandleEcho();
+                world_.ForgetStalePlayers(nowSeconds_ - PlayerForgetAfterSeconds);
+                break;
+        }
 
         base.Update(gameTime);
+    }
+
+    /// <summary>
+    /// 로그인 응답을 반영한다. 성공이면 로딩 단계로 넘기고, 실패면 팝업에 사유를 띄운다.
+    ///
+    /// <para>
+    /// 처리한 결과는 <c>BeginLogin()</c>으로 비운다 — 안 비우면 매 프레임 같은 결과를 다시
+    /// 처리해서 에러 팝업을 닫아도 곧바로 다시 뜬다.
+    /// </para>
+    /// </summary>
+    private void UpdateLoginPhase()
+    {
+        if (world_.Login is not { } outcome)
+        {
+            return;
+        }
+
+        world_.BeginLogin();
+
+        if (outcome.Succeeded)
+        {
+            phase_ = GamePhase.Loading;
+            return;
+        }
+
+        loginScreen_.ShowError(ErrorCodeText.Describe(outcome.ErrorCode));
+    }
+
+    /// <summary>
+    /// 존 배정을 기다린다. 지금 기다릴 것은 <c>Z2CEnterZoneNotify</c> 하나뿐이라, 받는 즉시
+    /// 넘어간다(로딩할 것이 없으면 그냥 지나가는 단계다).
+    /// </summary>
+    private void UpdateLoadingPhase()
+    {
+        if (world_.HasEnteredZone)
+        {
+            phase_ = GamePhase.InGame;
+        }
     }
 
     /// <summary>
@@ -437,6 +502,17 @@ public sealed class ClientGame : Game
         var nowUt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var screen = GraphicsDevice.Viewport.Bounds;
 
+        if (phase_ != GamePhase.InGame)
+        {
+            spriteBatch.Begin();
+            DrawPreGame(painter, screen, totalSeconds);
+            spriteBatch.End();
+
+            input_.EndFrame();
+            base.Draw(gameTime);
+            return;
+        }
+
         Layout(painter, screen);
 
         spriteBatch.Begin();
@@ -469,6 +545,37 @@ public sealed class ClientGame : Game
 
         input_.EndFrame();
         base.Draw(gameTime);
+    }
+
+    /// <summary>
+    /// 로그인/로딩 화면. 인게임 UI(존 뷰·채팅·우편·쿠폰)는 한 조각도 그리지 않는다 — 아직
+    /// 존에 들어가지 않아서 보여줄 상태 자체가 없다.
+    /// </summary>
+    private void DrawPreGame(Painter painter, Rectangle screen, double totalSeconds)
+    {
+        if (phase_ == GamePhase.Login)
+        {
+            if (loginScreen_.UpdateAndDraw(painter, input_, link_, screen, totalSeconds) is { } request)
+            {
+                SendLogin(request);
+            }
+
+            return;
+        }
+
+        loadingScreen_.Draw(painter, world_, screen, totalSeconds);
+    }
+
+    private void SendLogin(LoginRequest request)
+    {
+        // 직전 결과를 비운 뒤에 보낸다 -- 재시도인데 옛 응답이 남아 있으면 그걸 새 응답으로
+        // 읽어버린다.
+        world_.BeginLogin();
+
+        var writer = new BinaryPacketWriter();
+        writer.WriteString(request.PlayerName);
+        writer.WriteString(request.Password);
+        link_.Send(PacketId.C2WLogin, writer);
     }
 
     /// <summary>

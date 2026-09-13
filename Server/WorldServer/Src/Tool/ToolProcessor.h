@@ -7,12 +7,13 @@
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Packet/ToolResultCode.h"
+#include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
 
 namespace World
 {
-    class ClientRegistry;
+    // PlayerManager::Mutexed 를 쓰므로 전방 선언으로는 부족하다.
     class ZoneLinkRegistry;
     class WorldWorker;
 
@@ -28,7 +29,7 @@ namespace World
     class ToolProcessor final : public Network::IPacketHandler
     {
     public:
-        ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+        ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                       Processor::Group<EProcessorId>& basicGroup,
                       Processor::Group<EProcessorId>& dbGroup,
                       std::string sharedSecret);
@@ -42,32 +43,26 @@ namespace World
     private:
         void RegisterHandlers();
 
-        void HandleToolHello(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
-        void HandleNoticeRequest(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
-        void HandleMailSendRequest(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
-        void HandleMailDeleteRequest(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
+        void HandleHello(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
+        void HandleNotice(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
+        void HandleMailSend(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
+        void HandleMailDelete(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
         void HandleCouponChunkPush(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
-        void HandleClientListRequest(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
+        void HandleClientList(const std::shared_ptr<Network::Session>& toolSession, const std::span<const byte> payload);
 
         // ToolHello를 통과하지 않은 세션의 요청은 전부 NotAuthenticated로 거절한다. 인증 자체는
         // 공유 시크릿 비교 한 번뿐이지만, 운영툴 링크는 "이 포트에 붙을 수 있는 프로세스"를
         // 방화벽/루프백으로 제한하는 것이 실질적인 1차 방어선이고 이건 그 위의 최소 확인이다.
         [[nodiscard]] bool IsAuthenticated(const Network::SessionId toolSessionId) const;
 
-        // 전체 클라이언트를 훑어야 하는 명령(공지, 접속 중 전체 우편, 목록 조회)의 팬아웃.
+        // 접속 중인 클라이언트 id를 값으로 떠온다.
         //
-        // **왜 이런 모양이 되는가**: ClientRegistry가 clientSessionId로 샤딩돼 있어서 전체를
-        // 순회할 수 있는 스레드가 없다. 그래서 샤드마다 메시지를 하나씩(ownerId=샤드 인덱스)
-        // 던져 각 스레드가 자기 몫만 처리하게 하고, 마지막으로 끝난 스레드가 합계를 모아
-        // onComplete를 한 번 부른다. 어피니티로 락을 없앤 대가가 전역 작업의 이 팬아웃이다.
-        //
-        // perShard는 그 샤드를 소유한 스레드에서 실행되며 처리 건수를 반환한다.
-        // onComplete는 마지막 샤드를 처리한 스레드에서 딱 한 번 실행된다(어느 스레드인지는
-        // 정해지지 않으므로, 거기서 만지는 것은 전송뿐이어야 한다).
-        void ScatterToShards(std::function<uint32_t(const size_t shardIndex)> perShard,
-                             std::function<void(const uint32_t total)> onComplete);
+        // **왜 순회하면서 바로 처리하지 않는가**: PlayerManager::ForEach는 읽기 락을 잡은 채로
+        // 돈다. 그 안에서 InjectClientPacket을 부르면 매니저를 다시 조회하므로 같은 스레드가
+        // 락을 재진입한다. 목록만 떠서 락을 벗어난 뒤에 처리한다.
+        [[nodiscard]] std::vector<Network::SessionId> SnapshotOnlineClients() const;
 
-        void SendCommandAck(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
+        void SendCommandResult(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
                             const EToolResultCode resultCode, const uint32_t affectedCount) const;
 
         // 클라이언트 한 명에게 "그 클라이언트가 보낸 것처럼" 원본 클라이언트 패킷을 존에
@@ -79,7 +74,7 @@ namespace World
         // 항목 하나가 12바이트라 여유를 둬서 500개로 잡았다(8 + 500*12 = 6008바이트).
         static constexpr size_t kMaxClientListEntries = 500;
 
-        ClientRegistry& clientRegistry_;
+        PlayerManager::Mutexed& playerManager_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
         Processor::Group<EProcessorId>& basicGroup_;
         Processor::Group<EProcessorId>& dbGroup_;

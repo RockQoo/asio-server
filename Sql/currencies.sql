@@ -35,7 +35,7 @@ GO
 -- 로그인 직후 World 가 캐시에 적재할 재화 전체.
 -- 조회라 0행이 정상이므로 @@ROWCOUNT 검사(⑤)만 없다.
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_currencies_select]
+CREATE OR ALTER PROCEDURE [dbo].[usp_currencies_select]
     @is_trans_outside TINYINT,
     @player_id        BIGINT
 AS
@@ -77,7 +77,7 @@ GO
 -- 감사 로그가 붙으면 여기에 INSERT 가 하나 더 들어와 문장이 두 개가 된다 -- 그때가 조건부
 -- 트랜잭션이 실제로 값을 하는 자리다(하나만 적용된 채 남으면 안 되므로).
 -- -----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE [dbo].[up_currencies_upsert]
+CREATE OR ALTER PROCEDURE [dbo].[usp_currencies_upsert]
     @is_trans_outside TINYINT,
     @player_id        BIGINT,
     @currency_type    TINYINT,

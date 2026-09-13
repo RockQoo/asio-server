@@ -51,11 +51,11 @@ namespace Zone
     {
         switch (packetId)
         {
-        case PacketId::W2ZEnterZoneRequest:
+        case PacketId::W2ZEnterZone:
             // PlayerZoneStatePacket.clientSessionId -- zoneId(uint32) 뒤라 offset 4.
             return World::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
 
-        case PacketId::W2ZLeaveZoneNotify:
+        case PacketId::W2ZLeaveZone:
             // LeaveZoneNotifyPacket.clientSessionId (offset 0)
             return World::PeekOwnerId<Network::SessionId>(payload);
 
@@ -105,10 +105,10 @@ namespace Zone
         // 여기부터는 LB 레인. 패킷 id 파싱과 1차 분기만 하고, 콘텐츠 해석은 플레이어 레인 몫이다.
         switch (packetId)
         {
-        case PacketId::W2ZEnterZoneRequest:
+        case PacketId::W2ZEnterZone:
             HandleEnterZoneRequest(payload);
             break;
-        case PacketId::W2ZLeaveZoneNotify:
+        case PacketId::W2ZLeaveZone:
             HandleLeaveZoneNotify(payload);
             break;
         case PacketId::W2ZRelay:

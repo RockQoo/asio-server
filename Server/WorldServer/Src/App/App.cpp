@@ -13,12 +13,11 @@ namespace World
         , ioPool_(config_.ioThreadCount)
         , basicGroup_("Basic", config_.basicThreadCount, config_.slowTaskWarnThreshold)
         , dbGroup_("Db", config_.dbThreadCount, config_.slowTaskWarnThreshold)
-        // 샤드 개수를 BASIC 스레드 수와 맞춘다 -- 둘 다 `% N`으로 나누므로 같아야 "그 샤드를
-        // 만지는 스레드가 항상 하나"가 성립한다(ClientRegistry.h 주석 참고).
-        , clientRegistry_(basicGroup_.ThreadCount())
-        , gatewayLinkHandler_(clientRegistry_, zoneLinkRegistry_, basicGroup_)
-        , zoneLinkHandler_(clientRegistry_, zoneLinkRegistry_, basicGroup_, dbGroup_)
-        , toolProcessor_(clientRegistry_, zoneLinkRegistry_, basicGroup_, dbGroup_, config_.toolSharedSecret)
+        , dbPool_(config_.dbConnectionString)
+        , loginProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, dbPool_)
+        , gatewayLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, loginProcessor_)
+        , zoneLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_)
+        , toolProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, config_.toolSharedSecret)
         , signals_(ioPool_.At(0), SIGINT, SIGTERM)
     {
     }
@@ -61,7 +60,7 @@ namespace World
         // **종속 관계의 역순으로 내린다**: BASIC이 DB에 일을 던지므로 BASIC을 먼저 세워야
         // DB로 새 일이 더 들어오지 않는다. 그리고 **DB 그룹이 마지막까지 남아 밀린 저장을
         // 소진**해야 한다 -- 급하게 내리면 몇 초 분량의 플레이 결과가 사라진다.
-        // (WorkerThread::Stop()은 큐에 남은 작업을 소진한 뒤 스레드를 join한다.)
+        // (Group::Stop()은 work_guard를 놓아 남은 작업을 소진시킨 뒤 스레드를 join한다.)
         basicGroup_.Stop();
         dbGroup_.Stop();
         LOG.Info(ELogCategory::General, "WorldServer 종료 완료");
@@ -86,48 +85,50 @@ namespace World
 
     void App::BroadcastToAll(const PacketId clientPacketId, const std::span<const byte> payload)
     {
-        // 콘솔 REPL 스레드에서 호출되므로(I/O 스레드가 아닌 또 다른 생산자) clientRegistry_를
-        // 직접 만지지 않고 BASIC 그룹으로 넘긴다. payload는 호출자의 지역 버퍼를 가리키므로,
-        // 비동기 메시지로 넘어가기 전에 복사해서 소유권을 옮긴다.
+        // 콘솔 REPL 스레드에서 호출되므로(I/O 스레드가 아닌 또 다른 생산자) 여기서 바로 돌지
+        // 않고 BASIC 그룹으로 넘긴다. payload는 호출자의 지역 버퍼를 가리키므로, 비동기
+        // 메시지로 넘어가기 전에 복사해서 소유권을 옮긴다.
         //
-        // 전체 대상이라 **샤드마다 메시지를 하나씩** 던진다 -- clientRegistry_가
-        // clientSessionId로 샤딩돼 있어 전부 순회할 수 있는 스레드가 없기 때문이다
-        // (ToolProcessor::ScatterToShards와 같은 이유이고, 여기는 응답할 곳이 없어 취합이
-        // 필요 없으므로 헬퍼 없이 단순 팬아웃으로 둔다).
+        // **한 메시지로 끝난다** -- 레지스트리가 Mutexed가 되면서 읽기 락 하나로 전체를 순회할
+        // 수 있게 됐다. 샤딩이던 시절에는 "전부 순회할 수 있는 스레드"가 없어서 샤드마다
+        // 메시지를 던지고 결과를 취합해야 했다.
+        //
+        // **ownerId를 주지 않는다** -- 대상이 전 클라이언트라 주인이 없고, 공지끼리 순서를
+        // 맞출 필요도 없다. 주인을 억지로 0으로 주면 공지가 항상 0번 strand로만 가서, 전체
+        // 순회라는 무거운 일이 레인 하나에 쌓인다. 남는 스레드가 집어가게 둔다.
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
-        for (size_t shardIndex = 0; shardIndex < clientRegistry_.ShardCount(); ++shardIndex)
-        {
-            basicGroup_.Post(EProcessorId::Main, shardIndex,
-                [this, clientPacketId, shardIndex, payloadCopy]
-                {
-                    ClientEnvelopeHeader header{};
-                    header.innerPacketId = static_cast<uint16_t>(clientPacketId);
+        basicGroup_.Post(EProcessorId::Main,
+            [this, clientPacketId, payloadCopy = std::move(payloadCopy)]
+            {
+                ClientEnvelopeHeader header{};
+                header.innerPacketId = static_cast<uint16_t>(clientPacketId);
 
-                    size_t sentCount = 0;
-                    clientRegistry_.ForEachInShard(shardIndex,
-                        [&](const Network::SessionId clientSessionId, const ClientInfo& info)
+                size_t sentCount = 0;
+                size_t registeredCount = 0;
+
+                playerManager_->ForEach(
+                    [&](const Network::SessionId clientSessionId, const PlayerInfo& info)
+                    {
+                        ++registeredCount;
+                        if (!info.gatewaySession)
                         {
-                            if (!info.gatewaySession)
-                            {
-                                return;
-                            }
+                            return;
+                        }
 
-                            header.clientSessionId = clientSessionId;
-                            Packet::BinaryWriter envelopeWriter;
-                            envelopeWriter.Write(header);
-                            envelopeWriter.WriteBytes(payloadCopy);
-                            info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeWriter.GetBuffer());
-                            ++sentCount;
-                        });
+                        header.clientSessionId = clientSessionId;
+                        Packet::BinaryWriter envelopeWriter;
+                        envelopeWriter.Write(header);
+                        envelopeWriter.WriteBytes(payloadCopy);
+                        info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeWriter.GetBuffer());
+                        ++sentCount;
+                    });
 
-                    LOG.Info(ELogCategory::General, "전체 브로드캐스트 처리(샤드)")
-                        .KV("PacketId", static_cast<uint16_t>(clientPacketId))
-                        .KV("Shard", shardIndex)
-                        .KV("RegisteredClients", clientRegistry_.CountInShard(shardIndex))
-                        .KV("SentTo", sentCount);
-                });
-        }
+                LOG.Info(ELogCategory::General, "전체 브로드캐스트 처리")
+                    .KV("PacketId", static_cast<uint16_t>(clientPacketId))
+                    .KV("RegisteredClients", registeredCount)
+                    .KV("SentTo", sentCount);
+            });
     }
 
     void App::SetupSignalHandling()

@@ -10,9 +10,9 @@
 
 | 파일 | 내용 |
 |------|------|
-| `players.sql` | `players` + `uk_players_name` + `up_players_select` / `up_players_upsert` |
-| `mails.sql` | `mails` + `ix_mails_player` + `up_mails_select` / `up_mails_upsert` / `up_mails_delete` |
-| `currencies.sql` | `currencies` + `up_currencies_select` / `up_currencies_upsert` (감사 로그는 나중에 이 파일에 추가) |
+| `players.sql` | `players` + `uk_players_name` + `usp_players_select` / `usp_players_upsert` |
+| `mails.sql` | `mails` + `ix_mails_player` + `usp_mails_select` / `usp_mails_upsert` / `usp_mails_delete` |
+| `currencies.sql` | `currencies` + `usp_currencies_select` / `usp_currencies_upsert` (감사 로그는 나중에 이 파일에 추가) |
 | `unique_keys.sql` | RUID 검증용 `id_tests` / `id_test_randoms` + 삽입 SP **(게임 스키마 아님)** |
 | `seed.sql` | 개발용 시드 계정 2만 4건 (비밀번호 전부 `0000`) |
 | `verify_unique_keys.sql` | 검증 결과 확인 쿼리 (중복/노드 분배/레인 분배/단편화) |

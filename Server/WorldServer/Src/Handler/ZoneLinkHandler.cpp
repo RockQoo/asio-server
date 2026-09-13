@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "Handler/ZoneLinkHandler.h"
-#include "World/ClientRegistry.h"
+#include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Packet/OwnerIdPeek.h"
 #include "Packet/RelayEnvelope.h"
@@ -69,10 +69,10 @@ namespace World
         }
     }
 
-    ZoneLinkHandler::ZoneLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
+    ZoneLinkHandler::ZoneLinkHandler(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                                       Processor::Group<EProcessorId>& basicGroup,
                                       Processor::Group<EProcessorId>& dbGroup)
-        : clientRegistry_(clientRegistry)
+        : playerManager_(playerManager)
         , zoneLinkRegistry_(zoneLinkRegistry)
         , basicGroup_(basicGroup)
         , dbGroup_(dbGroup)
@@ -86,7 +86,7 @@ namespace World
         // DB 그룹으로 가기 때문이다(헤더 주석 참고).
         dispatcher_.Register(PacketId::Z2WZoneRegister, this, &ZoneLinkHandler::HandleZoneRegister);
         dispatcher_.Register(PacketId::Z2WRelay, this, &ZoneLinkHandler::HandleForwardToWorld);
-        dispatcher_.Register(PacketId::Z2WZoneTransferRequest, this, &ZoneLinkHandler::HandleZoneTransferRequest);
+        dispatcher_.Register(PacketId::Z2WZoneTransfer, this, &ZoneLinkHandler::HandleZoneTransfer);
     }
 
     std::optional<uint64_t> ZoneLinkHandler::OwnerIdOf(const PacketId packetId, const std::span<const byte> payload)
@@ -101,7 +101,7 @@ namespace World
             // ClientEnvelopeHeader.clientSessionId (offset 0)
             return PeekOwnerId<Network::SessionId>(payload);
 
-        case PacketId::Z2WZoneTransferRequest:
+        case PacketId::Z2WZoneTransfer:
             // PlayerZoneStatePacket.clientSessionId -- zoneId(uint32) 뒤라 offset 4다.
             // 구조체가 #pragma pack(1)이라 패딩이 없다는 것에 기대고 있다.
             return PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
@@ -196,7 +196,7 @@ namespace World
         ClientEnvelopeHeader envelopeHeader{};
         std::memcpy(&envelopeHeader, payload.data(), sizeof(ClientEnvelopeHeader));
 
-        const auto client = clientRegistry_.Find(envelopeHeader.clientSessionId);
+        const auto client = playerManager_->Find(envelopeHeader.clientSessionId);
         if (!client || !client->gatewaySession)
         {
             return;
@@ -205,7 +205,7 @@ namespace World
         client->gatewaySession->SendPacket(PacketId::W2GRelay, payload);
     }
 
-    void ZoneLinkHandler::HandleZoneTransferRequest(const std::shared_ptr<Network::Session>& /*zoneSession*/,
+    void ZoneLinkHandler::HandleZoneTransfer(const std::shared_ptr<Network::Session>& /*zoneSession*/,
                                                       const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(PlayerZoneStatePacket))
@@ -233,9 +233,9 @@ namespace World
             return;
         }
 
-        clientRegistry_.SetZone(state.clientSessionId, *targetZoneId);
+        playerManager_.Write()->SetZone(state.clientSessionId, *targetZoneId);
         state.zoneId = *targetZoneId;  // 목표 존으로 덮어써서 그대로 EnterZoneRequest에 재사용
-        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZoneRequest,
+        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone,
                                                  std::as_bytes(std::span(&state, 1)));
 
         LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트 재접속 없음)")
@@ -263,8 +263,8 @@ namespace World
         state.x = std::clamp(state.x, sourceZoneLink->xMin, sourceZoneLink->xMax - Epsilon);
         state.y = std::clamp(state.y, sourceZoneLink->yMin, sourceZoneLink->yMax - Epsilon);
 
-        clientRegistry_.SetZone(state.clientSessionId, state.zoneId);
-        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZoneRequest,
+        playerManager_.Write()->SetZone(state.clientSessionId, state.zoneId);
+        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone,
                                                  std::as_bytes(std::span(&state, 1)));
 
         LOG.Warning(ELogCategory::Zone, "이동 대상 존이 없어 원래 존으로 되돌림(월드 경계 밖)")

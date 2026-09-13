@@ -23,7 +23,7 @@
   `currencies`/`unique_keys`로 쪼갰다 — 테이블과 그걸 만지는 SP가 떨어져 있으면 컬럼 하나를
   바꿀 때 고칠 자리를 놓친다. SP 9개는 같은 골격으로 다시 썼다: `@is_trans_outside` 첫
   파라미터, `XACT_STATE` 진입 가드, 조건부 트랜잭션, `GOTO`로 단일 출구, `RETURN` 코드,
-  `up_` 접두사. **`@is_trans_outside`가 필요한 이유**는 트랜잭션 경계가 두 곳에서 잡히기
+  `usp_` 접두사. **`@is_trans_outside`가 필요한 이유**는 트랜잭션 경계가 두 곳에서 잡히기
   때문이다 — 호출부가 SP 여러 개를 묶어 보낼 때는 커넥션에 이미 트랜잭션이 열려 있는데 SP가
   그걸 모르고 또 열면 중첩이라 안쪽 COMMIT이 실제로 커밋하지 않고, 반대로 양쪽 다 안 열면
   문장이 여러 개인 SP가 중간에 실패했을 때 앞 문장이 그대로 남는다. 조회 SP도 같은 골격을
@@ -108,7 +108,7 @@
   재사용해 세션당 스레드 없이 io_context 풀 하나로 1만 소켓까지 비동기 멀티플렉싱.
   Release 기준 1,000세션×200사이클은 18,337 사이클/초로 완전 통과(불일치 0, 스톨 0,
   브로드캐스트 100%, P95 40ms). 10,000세션은 데드락/데이터 불일치 0을 유지하면서도 처리량이
-  471 사이클/초로 무너짐(P95 62초) — 원인·수정 계획은 `docs/load-test-fix-plan.md`.
+  471 사이클/초로 무너짐(P95 62초). 원인과 수정 계획은 따로 정리해 두었다.
 - **지연(RTT) 백분위 계측**: `StressClient`가 처리량뿐 아니라 P50/P95/P99/P99.9를 낸다.
   원시 샘플 대신 551개 로그스케일 버킷(`Stats/LatencyHistogram.h`)에 relaxed atomic으로
   기록 — 수백만 샘플에도 상수 메모리·O(1)이라 계측이 실험 자체를 방해하지 않는다. 재는
@@ -148,7 +148,7 @@
   `GatewayLinkPacketId`, `ZoneLinkPacketId`, `ToolLinkPacketId`)이 전부 1번부터 값을 쓰고
   있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Shared/Protocol/Src/PacketId.h`의
   **`Protocol::PacketId` 하나**로 합치고 이름 앞 3글자를 발신→수신 방향으로 고정했다
-  (`C2ZMove`, `W2TToolCommandAck`). 방향마다 1000 단위로 대역을 잘라 **값 하나로 어느
+  (`C2ZMove`, `W2TCommandResult`). 방향마다 1000 단위로 대역을 잘라 **값 하나로 어느
   소켓의 패킷인지 판정**된다 — 규약 원문은 `.claude/rules/packet-naming.md`.
   - 부수로 갈라진 것: 요청과 응답이 id를 공유하던 `C2ZEcho`/`C2ZMove`/`C2ZChat`이 분리됐고
     (`C2ZEcho`/`Z2CEchoAck` 등), `Z2CMoveNotify` 본문 앞에 `sessionId(uint32)`가 붙었다
@@ -188,7 +188,7 @@
   - **쿠폰만 소켓이 아니라 HTTP**다. 쿠폰 등록은 클라이언트 패킷 대역에 아예 없고, 대신
     GmTool.Web의 `POST /api/coupon/redeem`(운영자 토큰 없이 열려 있는 유일한 엔드포인트 —
     게임 사용자용으로 설계된 자리)이 이미 사용 처리와 **보상 우편 발송**까지 한다. 보상은
-    HTTP 응답이 아니라 `T2WMailSendRequest` → 존 → `Z2CTaskResult` 경로로 소켓으로 온다.
+    HTTP 응답이 아니라 `T2WMailSend` → 존 → `Z2CTaskResult` 경로로 소켓으로 온다.
     C++ 서버에 다시 만들지 않은 이유: World에 DB 연동부터 새로 해야 한다(3절 2번 항목).
   - **한글 글리프는 런타임에 GDI+로 굽는다**(`Src/Text/GlyphAtlas.cs`). SpriteFont로 한글을
     넣으려면 U+AC00~U+D7A3(11172자)을 통째로 선언해야 해서 텍스처가 감당이 안 된다. 실제로
@@ -206,7 +206,7 @@
       한쪽을 가만히 두면 다른 쪽에서 아예 안 보인다 — 실제로 이 증상으로 발견했다). 클라이언트가
       이동이 없어도 1초마다 좌표를 다시 보내 메운다(`PositionHeartbeatInterval`).
       **제대로 하려면 `Z2CEnterZoneNotify`(또는 별도 패킷)에 존 안의 플레이어 스냅샷이 실려야 한다.**
-    - **퇴장 통지가 없다.** 서버는 `W2ZLeaveZoneNotify`로 자기 상태에서만 지우고 같은 존의
+    - **퇴장 통지가 없다.** 서버는 `W2ZLeaveZone`로 자기 상태에서만 지우고 같은 존의
       남은 사람들에게 알리지 않는다. 위 하트비트가 끊긴 것으로 퇴장을 추정해 6초 뒤 목록에서
       지운다(`WorldModel.ForgetStalePlayers`). 안 지우면 끊은 창이 화면에 영원히 남는다.
   - 존 경계 좌표는 서버가 안 알려준다(`Z2CEnterZoneNotify`는 playerId+zoneId뿐). 서버
@@ -271,7 +271,7 @@
 
 ## 3. 다음에 하면 좋을 일
 
-1. **`docs/load-test-fix-plan.md` 진행** — 10,000세션 부하 테스트에서 나온 처리량 병목
+1. **부하 병목 수정 진행** — 10,000세션 부하 테스트에서 나온 처리량 병목
    수정(우선순위: 인구를 여러 존에 분산 배정 → WorldWorker 브로드캐스트 릴레이 큐 분리 →
    팬아웃 프레임 배칭). 수정 후 같은 시나리오로 재검증.
 1-B. **로그인 + World 콘텐츠 캐시** (DB 기반이 깔렸으니 바로 이어지는 작업)

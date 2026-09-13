@@ -12,7 +12,7 @@ namespace Stress
     // **추적 상한이 100초인 이유**: 10초로 뒀더니 과부하 실험에서 P95/P99가 전부 최상위
     // 버킷에 몰려 "10초"로만 보고됐다(실제 최대 131초). 상한에 붙은 백분위는 지표가 아니다.
     //
-    // 측정 방법과 결과: docs/Performance.html
+    // 측정 방법과 결과는 docs/local/ 의 측정 문서 참고(로컬 전용)
     class LatencyHistogram
     {
     public:

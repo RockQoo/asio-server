@@ -16,6 +16,14 @@ namespace Client.Ui;
 /// </summary>
 public sealed class InputState
 {
+    /// <summary>
+    /// 아무 입력도 없는 고정 인스턴스. <b>모달 팝업이 떠 있는 동안 그 아래 위젯에 이걸 넘긴다</b> —
+    /// 위젯마다 "지금 막혀 있나"를 인자로 받게 하는 대신, 입력 자체를 비워서 넘기는 쪽이
+    /// 위젯 코드를 건드리지 않는다. <see cref="BeginFrame"/>를 부르지 않으므로 키/마우스가
+    /// 전부 기본값(눌린 것 없음)으로 남는다.
+    /// </summary>
+    public static InputState Blocked { get; } = new();
+
     private KeyboardState keyboard_;
     private KeyboardState previousKeyboard_;
     private MouseState mouse_;

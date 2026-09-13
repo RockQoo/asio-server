@@ -68,11 +68,20 @@ public sealed class TextField
     /// <summary>비어 있을 때 흐리게 보여줄 안내 문구.</summary>
     public string Placeholder { get; }
 
+    /// <summary>
+    /// 값을 그대로 그리지 않고 가릴지(비밀번호 칸). <b>가리는 것은 그리기뿐이고</b>
+    /// <see cref="Value"/>는 평문 그대로다 — 서버로도 평문이 나간다(TLS가 전제).
+    /// </summary>
+    public bool Masked { get; init; }
+
     public TextField(string placeholder, int maxLength)
     {
         Placeholder = placeholder;
         maxLength_ = maxLength;
     }
+
+    /// <summary>화면에 실제로 그릴 문자열. 비밀번호 칸이면 글자 수만큼 점으로 바꾼다.</summary>
+    private string DisplayText => Masked ? new string('●', Value.Length) : Value;
 
     public void Clear() => Value = string.Empty;
 
@@ -148,7 +157,7 @@ public sealed class TextField
         }
         else
         {
-            painter.Text(painter.Font.Ellipsize(Value, innerWidth), textPosition, Color.White);
+            painter.Text(painter.Font.Ellipsize(DisplayText, innerWidth), textPosition, Color.White);
         }
 
         if (!HasFocus)
@@ -159,7 +168,7 @@ public sealed class TextField
         // 커서는 0.5초 주기로 깜빡인다. 포커스가 어디 있는지 색만으로는 잘 안 보인다.
         if ((int)(totalSeconds * 2.0) % 2 == 0)
         {
-            var caretX = rect.X + 6 + MathF.Min(painter.Font.Measure(Value).X, innerWidth);
+            var caretX = rect.X + 6 + MathF.Min(painter.Font.Measure(DisplayText).X, innerWidth);
             painter.FillRect(
                 new Rectangle((int)caretX, rect.Y + 4, 1, rect.Height - 8), new Color(200, 220, 255));
         }

@@ -45,6 +45,15 @@ public sealed record MailEntry(uint MailId, string Title, string Body, long Send
 /// <summary>채팅/시스템 로그 한 줄.</summary>
 public sealed record ChatLine(string Text, ChatLineKind Kind);
 
+/// <summary>
+/// <c>W2CLogin</c> 한 통을 그대로 담은 결과. <c>ErrorCode</c>가 <c>Success</c>면 곧이어 존
+/// 배정(<c>Z2CEnterZoneNotify</c>)이 온다.
+/// </summary>
+public sealed record LoginOutcome(int ErrorCode, long PlayerId, string PlayerName)
+{
+    public bool Succeeded => ErrorCode == (int)Protocol.ErrorCode.Success;
+}
+
 public enum ChatLineKind
 {
     /// <summary>다른 플레이어의 발언.</summary>
@@ -73,6 +82,21 @@ public sealed class WorldModel
     private readonly Dictionary<uint, RemotePlayer> players_ = [];
     private readonly List<MailEntry> mails_ = [];
     private readonly List<ChatLine> chatLines_ = [];
+
+    /// <summary>
+    /// 마지막 <c>W2CLogin</c> 응답. 아직 안 왔으면 null이라, 화면이 "대기 중"과 "결과 도착"을
+    /// 이 값 하나로 가른다.
+    /// </summary>
+    public LoginOutcome? Login { get; private set; }
+
+    /// <summary>
+    /// 로그인으로 확정된 DB의 player_id. <see cref="MyPlayerId"/>와 <b>다른 값이다</b> —
+    /// 그쪽은 존이 브로드캐스트에 쓰는 uint32이고 이건 계정의 영속 키(int64)다.
+    /// </summary>
+    public long AccountPlayerId { get; private set; }
+
+    /// <summary>로그인한 계정 이름. 서버가 확정해 돌려준 값이다.</summary>
+    public string PlayerName { get; private set; } = string.Empty;
 
     /// <summary>내 playerId. <c>Z2CEnterZoneNotify</c>를 받기 전에는 0이다.</summary>
     public uint MyPlayerId { get; private set; }
@@ -116,10 +140,16 @@ public sealed class WorldModel
     public void AddSystemLine(string text) => AddChatLine(new ChatLine(text, ChatLineKind.System));
 
     /// <summary>
+    /// <c>C2WLogin</c>을 보내기 직전에 부른다. 직전 결과를 지워서, 다시 시도했을 때 옛 응답이
+    /// 새 응답으로 오해되지 않게 한다.
+    /// </summary>
+    public void BeginLogin() => Login = null;
+
+    /// <summary>
     /// 지정 시각 이후로 소식이 없는 다른 플레이어를 목록에서 지운다.
     ///
     /// <para>
-    /// 프로토콜에 <b>퇴장 통지가 없어서</b> 필요한 처리다 — 서버는 <c>W2ZLeaveZoneNotify</c>로
+    /// 프로토콜에 <b>퇴장 통지가 없어서</b> 필요한 처리다 — 서버는 <c>W2ZLeaveZone</c>로
     /// 자기 상태에서만 지우고 같은 존의 남은 사람들에게 알리지 않는다. 안 지우면 접속을 끊은
     /// 클라이언트가 화면에 영원히 남는다. 내 자신은 지우지 않는다(내 소식이 끊긴 건 퇴장이
     /// 아니라 연결 문제이고, 그건 상태 줄이 따로 보여준다).
@@ -182,6 +212,10 @@ public sealed class WorldModel
                 ApplyNotice(packet.Payload, nowSeconds);
                 break;
 
+            case PacketId.W2CLogin:
+                ApplyLogin(packet.Payload);
+                break;
+
             default:
                 // 등록하지 않은 id는 조용히 버리지 않고 남긴다 — 서버가 새 패킷을 보내기
                 // 시작했는데 클라이언트가 아직 모르는 상황이 눈에 띄어야 한다.
@@ -224,6 +258,38 @@ public sealed class WorldModel
         {
             AddChatLine(new ChatLine($"존 {zoneId}에 입장했습니다. (playerId={playerId})", ChatLineKind.System));
         }
+    }
+
+    /// <summary>
+    /// <c>W2CLogin</c>: errorCode(int32) + playerId(int64) + playerName(길이 접두).
+    ///
+    /// <para>
+    /// 파싱에 실패하면 <see cref="Login"/>을 그대로 두지 않고 <c>InvalidPayload</c>로 채운다 —
+    /// null로 남기면 화면이 영원히 "대기 중"이라 타임아웃이 돌 때까지 아무 설명이 없다.
+    /// </para>
+    /// </summary>
+    private void ApplyLogin(byte[] payload)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadInt32(out var errorCode)
+            || !reader.TryReadInt64(out var playerId)
+            || !reader.TryReadString(out var playerName))
+        {
+            Login = new LoginOutcome((int)ErrorCode.InvalidPayload, 0, string.Empty);
+            return;
+        }
+
+        Login = new LoginOutcome(errorCode, playerId, playerName);
+
+        if (!Login.Succeeded)
+        {
+            AddSystemLine($"[로그인 실패] {ErrorCodeText.Describe(errorCode)}");
+            return;
+        }
+
+        AccountPlayerId = playerId;
+        PlayerName = playerName;
+        AddSystemLine($"[로그인] {playerName} (playerId={playerId})");
     }
 
     private void ApplyMoveNotify(byte[] payload, double nowSeconds)

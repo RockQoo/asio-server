@@ -34,7 +34,6 @@ Client ──▶ GatewayServer ──▶ WorldServer ──▶ ZoneServer ──
 | [docs/WorldServer.html](docs/WorldServer.html) | 라우팅 두뇌와 DB 관문 |
 | [docs/ZoneServer.html](docs/ZoneServer.html) | 레인 네 개, UnitOfWork와 역순 롤백 |
 | [docs/DB.html](docs/DB.html) | 스키마·SP 골격·트랜잭션 |
-| [docs/Performance.html](docs/Performance.html) | 처리량·지연 실측과 측정 방법 |
 | [docs/sequences/](docs/sequences/index.html) | **패킷 시퀀스 다이어그램** — 대표 기능이 어느 스레드를 거치는지 |
 | [docs/design/](docs/design/README.md) | 소스에서 옮겨온 설계 근거 |
 | [PROGRESS.md](PROGRESS.md) | 구현 이력과 다음 할 일 |
@@ -114,7 +113,6 @@ bat\start_gmtool.bat      :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 | `StressClient` | 대규모 동시 접속·정확성·지연 | `StressClient.exe 127.0.0.1 9000 1000 200` |
 | `Client` | 존 이동·채팅·우편·쿠폰을 눈으로 | `bat\start_client.bat 2 Debug auto` |
 
-측정 방법과 결과: [docs/Performance.html](docs/Performance.html) ·
 클라이언트로 무엇을 보는지: [docs/Client.html](docs/Client.html)
 
 운영툴은 xUnit 77개가 붙어 있습니다 — `cd Tool\GmTool && dotnet test`

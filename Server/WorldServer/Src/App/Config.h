@@ -13,7 +13,6 @@ namespace World
 
         // BASIC 큐 그룹의 스레드 수. Main/Tool 프로세서가 이 스레드들을 **공유**하고, 어느
         // 스레드로 갈지는 메시지의 ownerId가 정한다(ProcessorId.h 주석 참고).
-        // ClientRegistry의 샤드 개수가 이 값과 같아야 한다 -- 둘 다 `% N`으로 나누기 때문이다.
         size_t basicThreadCount{8};
 
         // DB 큐 그룹의 스레드 수. **커넥션 풀 크기와 1:1이 원칙이다** -- 스레드가 커넥션보다

@@ -126,8 +126,9 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
+    <ClInclude Include="Src\Login\LoginProcessor.h" />
     <ClInclude Include="Src\Tool\ToolProcessor.h" />
-    <ClInclude Include="Src\World\ClientRegistry.h" />
+    <ClInclude Include="Src\World\PlayerManager.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
     <ClInclude Include="Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Worker\ProcessorId.h" />
@@ -148,13 +149,14 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Src\World\ClientRegistry.cpp" />
+    <ClCompile Include="Src\World\PlayerManager.cpp" />
     <ClCompile Include="Src\World\ZoneLinkRegistry.cpp" />
     <ClCompile Include="Src\Handler\GatewayLinkHandler.cpp" />
     <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp" />
     <ClCompile Include="Src\Db\DbConnection.cpp" />
     <ClCompile Include="Src\Db\AutoDbCommand.cpp" />
     <ClCompile Include="Src\Db\PasswordHash.cpp" />
+    <ClCompile Include="Src\Login\LoginProcessor.cpp" />
     <ClCompile Include="Src\Tool\ToolProcessor.cpp" />
     <ClCompile Include="Src\App\App.cpp" />
     <ClCompile Include="Src\main.cpp" />
