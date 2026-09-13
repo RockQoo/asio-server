@@ -23,20 +23,15 @@ namespace World
     class ZoneLinkRegistry;
     class WorldWorker;
 
-    // 운영툴(Tool/GmTool) <-> World 연결의 IPacketHandler. GatewayLinkHandler/ZoneLinkHandler와
-    // 같은 자리에 있는 세 번째 링크 핸들러이며, 전용 accept 포트(WorldServerConfig::toolPort)
-    // 하나를 담당한다.
+    // 운영툴 전용 accept 포트(toolPort)의 IPacketHandler. **스레드 규약은 다른 두 링크
+    // 핸들러와 동일하다** -- I/O 스레드는 바이트만 복사해 넘기고, 레지스트리를 만지는 Handle*
+    // 는 전부 배정된 레인에서 돈다. authenticatedSessions_에 락이 없는 것도 그래서다.
     //
-    // 스레드 규약은 다른 두 핸들러와 완전히 동일하다: OnPacket은 이 연결의 I/O 스레드(Session의
-    // strand)에서 실행되므로 바이트만 복사해 WorldWorker로 넘기고, ClientRegistry/
-    // ZoneLinkRegistry를 실제로 만지는 Handle* 메서드들은 전부 그 단일 스레드에서 돈다.
-    // authenticatedSessions_도 그래서 락이 없다 -- WorldWorker 스레드만 이 집합을 건드린다.
+    // **우편/공지의 "내용"을 새로 정의하지 않는다** -- 기존 클라이언트 패킷(C2ZMailAdd 등)을
+    // ClientEnvelopeHeader로 감싸 존에 주입하므로 Zone/Mail/UnitOfWork 경로가 평소와 한 글자도
+    // 다르지 않게 흐른다. 우회로를 만들면 "운영툴로 넣은 우편만 만료가 안 된다"는 사고가 난다.
     //
-    // 설계상 중요한 점: 이 클래스는 우편/공지의 "내용"을 새로 정의하지 않는다. 우편은 기존
-    // 클라이언트 패킷(PacketId::C2ZMailAdd/MailDel)을 ClientEnvelopeHeader로 감싸 존에
-    // 주입하는 방식이라(ForwardToZone), Zone/Mail/UnitOfWork/DbWorker 경로가 평소 클라이언트
-    // 요청과 한 글자도 다르지 않게 흐른다. 운영툴이 게임 로직의 별도 우회로를 만들지 않는 게
-    // 목적이다 -- 우회로를 만들면 "운영툴로 넣은 우편만 만료가 안 된다" 같은 사고가 난다.
+    // 와이어 포맷: docs/design/wire-format.md
     class ToolProcessor final : public Network::IPacketHandler
     {
     public:

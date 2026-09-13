@@ -14,12 +14,8 @@
 
 namespace Processor
 {
-    // 그룹에 담을 수 있는 프로세서 id enum의 요건. 통계를 프로세서별 배열 칸으로 잡아야 해서
-    // 마지막 원소로 개수를 알려주는 `Count`를 요구한다(ELogCategory처럼 콘텐츠 계층이 각자
-    // 자기 enum을 정의한다 -- Core는 어떤 프로세서가 있는지 몰라야 한다).
-    // 통계를 프로세서별 배열 칸으로 잡아야 해서 마지막 원소로 개수를 알려주는 `Count`를,
-    // 덤프에 이름을 찍으려고 같은 네임스페이스의 ADL `ToString()`을 요구한다
-    // (Log::LogCategoryType과 같은 방식 -- Core는 어떤 프로세서가 있는지 몰라야 한다).
+    // 그룹에 담을 수 있는 프로세서 id enum의 요건: 통계 배열 크기를 잡을 `Count`와, 덤프에
+    // 이름을 찍을 ADL `ToString()`. 콘텐츠 계층이 각자 자기 enum을 정의한다(설계 근거 문서).
     template <typename T>
     concept ProcessorId = std::is_enum_v<T> && requires (T value)
     {
@@ -27,24 +23,14 @@ namespace Processor
         { ToString(value) } -> std::convertible_to<std::string_view>;
     };
 
-    // 큐 그룹 하나 = 소비자 스레드 N개. 메시지는 세 가지를 갖는다:
-    //
-    //   ownerId     -- **스레드를 결정한다**(ownerId % N). 같은 주인의 일은 언제나 같은
-    //                  스레드에서 순서대로 처리되므로, 그 주인의 데이터에는 락이 필요 없다.
-    //   processorId -- **스레드 배정에 관여하지 않는다.** 그 스레드에서 누구의 핸들러를
-    //                  부르는지를 나타내는 태그이고, 계측과 로그에서 작업 종류를 가르는 데
-    //                  쓴다. 그래서 한 그룹 안에 여러 프로세서(Main/Tool/...)가 스레드를
-    //                  공유하며 공존한다.
-    //   내용        -- 프로세스 내부 전달이라 **직렬화하지 않는다.** 호출 가능 객체를 타입
-    //                  그대로 옮긴다(직렬화는 프로세스 경계, 즉 패킷에서만 한다).
-    //
-    // **ownerId를 무엇으로 할지는 호출부가 정한다.** 기준은 "이 메시지가 건드릴 데이터의
-    // 주인"이다 -- 세션 작업이면 sessionId, 존 공간 상태를 만지면 zoneId, 길드 동기화면
-    // guildId. 그래서 이 클래스는 ownerId의 의미를 모르고 uint64_t로만 받는다.
+    // 큐 그룹 하나 = 소비자 스레드 N개. `ownerId % N`으로 스레드가 정해지므로 같은 주인의
+    // 일은 항상 같은 스레드에서 순서대로 처리된다 -- 그 주인의 데이터에는 락이 필요 없다.
+    // (processorId는 배정과 무관한 계측용 태그다.)
     //
     // **주의 -- 한 메시지가 주인이 다른 데이터를 함께 만지면 이 보호가 깨진다.** 그때는
-    // ownerId 어피니티(1층) 대신 모델 단위 읽기/쓰기 락(Thread::Mutexed, 2층)이 필요하다.
-    // 어피니티는 "대부분의 경합을 없애는" 장치이지 "모든 경합을 없애는" 장치가 아니다.
+    // 어피니티 대신 모델 단위 읽기/쓰기 락(Thread::Mutexed)이 필요하다.
+    //
+    // 설계 근거: docs/design/processor-group.md
     template <ProcessorId TProcessorId>
     class ProcessorGroup
     {
@@ -104,11 +90,8 @@ namespace Processor
 
                 if (slowWarnUs_ > 0 && workUs > slowWarnUs_)
                 {
-                    // 이 헤더는 여러 프로젝트(Core/WorldServer/ZoneServer/...)에서 include되고,
-                    // 프로젝트마다 자기 ELogCategory를 따로 정의한다(cpp-patterns.md 참고) --
-                    // 전부가 공통으로 갖는 General이어야 어디서 include되든 컴파일된다
-                    // (Thread::Mutexed가 같은 이유로 General을 쓴다. WorldServer에서는
-                    // `ELogCategory::Thread`가 아예 Thread 네임스페이스로 해석돼 버린다).
+                    // **General이어야 한다** -- 이 헤더는 여러 프로젝트에서 include되고 각자
+                    // 자기 ELogCategory를 정의하므로, 공통 항목이 아니면 컴파일이 깨진다.
                     LOG.Warning(ELogCategory::General, "처리 시간이 임계치를 넘은 작업")
                         .KV("Group", name_).KV("Lane", lane.worker.Name())
                         .KV("Processor", static_cast<uint32_t>(processorId))
@@ -145,13 +128,8 @@ namespace Processor
             return ProcessorStatSnapshot::From(lanes_[laneIndex]->stats[static_cast<size_t>(processorId)]);
         }
 
-        // 주기적으로 불러 지금 상태를 로그로 남긴다. **대기 시간이 이 덤프의 핵심**이다:
-        //   대기가 길고 CPU가 남는다  -> 스레드 부족. 늘리면 나아진다
-        //   대기가 길고 CPU가 꽉 찼다 -> 스레드를 늘려도 무의미. 로직이나 구조를 고쳐야 한다
-        // 처리 시간만 봐서는 이 둘이 구분되지 않는다.
-        //
-        // 스레드별로도 찍는 이유는 **편중**을 보려는 것이다 -- ownerId 종류가 적으면 한
-        // 스레드만 뜨겁고 나머지는 논다. 그게 이 프로젝트가 겪은 병목의 모양이었다.
+        // 주기적으로 불러 지금 상태를 로그로 남긴다. **대기 시간이 이 덤프의 핵심**이고,
+        // 스레드별로도 찍는 건 편중을 보려는 것이다(읽는 법: docs/design/processor-group.md).
         void LogStats() const
         {
             for (size_t processorIndex = 0; processorIndex < kProcessorCount; ++processorIndex)
@@ -191,9 +169,7 @@ namespace Processor
     private:
         using Clock = std::chrono::steady_clock;
 
-        // 스레드 하나 + 그 스레드가 단독으로 쓰는 통계 칸들. 통계를 스레드마다 따로 두는 이유는
-        // 경합을 없애려는 것이기도 하지만, 그보다 **어느 스레드에 일이 몰렸는지**를 보려는
-        // 것이다 -- ownerId 종류가 적으면 스레드 하나만 뜨겁고 나머지는 논다.
+        // 스레드 하나 + 그 스레드가 단독으로 쓰는 통계 칸들(따로 두는 이유는 설계 근거 문서).
         struct Lane
         {
             explicit Lane(std::string laneName)

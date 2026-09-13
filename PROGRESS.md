@@ -118,9 +118,9 @@
   전체 프로세스를 한 번에 띄우는 배치 파일. Client는 별도 .NET 솔루션이라 bin/x64가 아닌
   자기 경로로 빌드되므로 `dotnet run`으로 띄운다(창 개수를 인자로 받는다 -- 브로드캐스트
   확인에는 최소 2개가 필요하다).
-- 새 기능 추가 시 `docs/flowcharts/`에 다이어그램을 같이 갱신하는 규칙이 실제로 잘 지켜지고
-  있음(`zone-handoff-and-mail.html`, `protocolclient-echo-move-chat.html`, `gmtool-operations.html`,
-  `client-screen-and-coupon.html`).
+- 문서를 `docs/`로 재편했다(2026-09-13). 플로우차트(단계 나열)를 걷어내고 **패킷 시퀀스
+  다이어그램**(`docs/sequences/`)으로 바꿨다 -- 누가 누구에게 보냈는지가 드러나지 않던 것이
+  이유다. 서버별 설명은 `docs/*.html`, 설계 근거는 `docs/design/`, README는 진입점으로 축소.
 - **운영툴(`Tool/GmTool`, C#/.NET 10/SQL Server)**: 서버 쪽은 WorldServer에 세 번째 accept
   포트(9300)와 `Tool/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
   **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라

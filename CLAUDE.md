@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 기동 순서 | `bat/start_server_all.bat`(World→Zone(1,2)→Zone(3,4)→Gateway, Windows Terminal 탭 4개) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
 | 존 배치 | **2×2 격자**(`1 2` / `3 4`, 각 존 10×10, 월드 x:[0,20) y:[0,20)). 규칙은 `ParseZoneList`의 `kZoneSize`/`kZonesPerRow`/`kZoneRows`뿐이고 클라이언트 `ZoneLayout.cs`가 같은 값을 복제한다 — **한쪽만 고치면 화면 경계와 실제 핸드오프 지점이 어긋난다** |
 | 존 번호 | **zoneId는 1부터.** 0은 "존 없음/미배정" 예약값이고 `ParseZoneList`가 거부한다 |
-| 핸드오프 경로 | 가로(1↔2, 3↔4)는 같은 프로세스의 BASIC 스레드 간, **세로(1↔3, 2↔4)는 프로세스(TCP 링크)를 넘는다** |
+| 핸드오프 경로 | 가로(1↔2, 3↔4)는 같은 프로세스의 레인 간, **세로(1↔3, 2↔4)는 프로세스(TCP 링크)를 넘는다**(`docs/sequences/zone-handoff.html`) |
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Client`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Client` — C#/MonoGame, 별도 솔루션(`Client/Client.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
@@ -38,14 +38,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 필수 규칙
 
-- **언어**: 응답/코드 주석 전부 한글. 주석은 "무엇을"이 아니라 "왜"(스레드 안전성/객체 수명
-  트릭 위주)를 설명한다. **C# 운영툴(`Tool/GmTool`)도 동일** — XML 문서 주석(`///`)과 일반
-  주석 모두 한글로 "왜"를 적는다.
+- **언어**: 응답/코드 주석 전부 한글. **C# 운영툴(`Tool/GmTool`)도 동일** — XML 문서
+  주석(`///`)과 일반 주석 모두 한글.
+- **주석의 분량**: 주석은 "무엇을"이 아니라 "왜"를 설명하되, **소스에는 "고칠 때 모르면
+  사고 나는 것"만 남긴다** — 스레드 규약, 호출 순서 의존, 객체 수명 트릭, 한두 줄짜리 경고.
+  설계 배경("왜 이 대안을 버렸나", 측정 결과, 대안 검토)은 `docs/design/`에 문서로 옮기고
+  소스에는 `// 설계 근거: docs/design/xxx.md` 한 줄만 남긴다(규칙: `docs/design/README.md`).
+  **한 선언 위에 8줄이 넘는 주석 블록이 생기면 옮길 때가 된 것이다.**
 - **C# 코드 규약**(`Tool/GmTool`): private 필드는 C++와 맞춰 trailing underscore
   (`factory_`), 그 외에는 표준 .NET 컨벤션(PascalCase 메서드/프로퍼티)을 따른다.
   `Nullable`/`ImplicitUsings` 활성 상태를 유지하고, 경고 0개로 빌드되게 한다.
 - **참고 출처를 커밋되는 파일에 적지 않는다** — 외부 자료/도서/영상을 참고했더라도
-  `README.md`/`PROGRESS.md`/소스 주석/`docs/flowcharts/`에는 출처를 남기지 않는다.
+  `README.md`/`PROGRESS.md`/소스 주석/`docs/`에는 출처를 남기지 않는다.
   기록이 필요하면 `docs/local/`(gitignore 대상)에만 둔다.
 - **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
   (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
@@ -61,8 +65,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **모던 C++23 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
   `std::move`. 세부 규칙(const/sink/emplace/Get const 등)은 `cpp-patterns.md`.
 - **`3rd/asio` 수정 금지** — `.claude/settings.json` PreToolUse 훅으로도 자동 차단.
-- **새 기능/패킷 흐름 추가 시 `docs/flowcharts/`에 HTML 다이어그램도 추가**(규칙:
-  `docs/flowcharts/README.md`) — I/O ↔ 로직 스레드 경계를 스레드별 색으로 한눈에 보이게.
+- **구조가 바뀌면 `docs/`를 같은 커밋에서 고친다.** 코드만 고치고 문서를 두면 다음 세션이
+  틀린 문서를 읽고 잘못 판단한다(실제로 그래서 "5-풀/BASIC" 서술이 개편 뒤에도 남아 있었다).
+  무엇이 바뀌었느냐에 따라 손댈 곳:
+
+  | 바뀐 것 | 같이 고칠 문서 |
+  |---|---|
+  | 스레드/레인 구성, 프로세스 역할, 포트 | **`docs/index.html`**(전체 그림 + 스레드 표) + 해당 `docs/*.html` |
+  | 새 패킷 흐름 | `docs/sequences/`에 다이어그램 추가(규칙: `docs/sequences/README.md`) + `docs/index.html`·`sequences/index.html` 카드 |
+  | 기존 흐름의 경로 변경 | 그 흐름의 시퀀스 HTML(단계 번호·레인 수·grid-column까지) |
+  | DB 스키마/SP/트랜잭션 | `docs/DB.html` |
+  | 측정 수치 | `docs/Performance.html` |
+  | 설계 근거(왜 이렇게 했나) | `docs/design/`(규칙: `docs/design/README.md`) |
+
+  `docs/index.html`은 **문서 진입점**이라 여기가 틀리면 나머지가 맞아도 길을 잘못 든다 —
+  구조 변경 커밋에서는 항상 먼저 확인할 것. `README.md`는 진입점 역할만 하므로 보통
+  손댈 필요가 없다(빌드/실행 방법이 바뀐 경우만).
 
 ---
 
@@ -100,12 +118,12 @@ C:\Work\asio-server\
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
 │           ├── Worker/               TaskWorker(범용 실행기), ZoneWorkerManager
-│           │                         (BASIC/TICK/BROADCAST 3개 풀 소유), BroadcastDispatcher
+│           │                         (ZoneSpace/Broadcast 그룹 소유), BroadcastDispatcher
 │           ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
 │           ├── Currency/             CurrencyModel(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
 │           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
 │           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)
-│           ├── Game/ZoneInstance        존별 권위 상태(BASIC 전용, 공유 없음 = 락 없음), PacketDispatcher로
+│           ├── Game/ZoneInstance        존별 권위 상태(ZoneSpace 레인 전용 = 락 없음), PacketDispatcher로
 │           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │           ├── Mail/                 MailModel/MailTask/MailRegistry(만료 스윕용 색인)/MailExpiryService
 │           └── Task/ZoneUnitOfWork   UnitOfWork 파생 — World(DB)/클라이언트 전송 + 역연산 롤백
@@ -129,7 +147,12 @@ C:\Work\asio-server\
 │       ├── GmTool.Web/               Blazor Web App(InteractiveServer) + Minimal API + SqlKata 리포지토리
 │       └── GmTool.Tests/             xUnit 77개 (쿠폰 체계/대량 발급/와이어 호환성)
 ├── 3rd/asio/include/                 standalone ASIO 벤더 코드 (수정 금지)
-├── docs/flowcharts/                  기능별 HTML 플로우차트 (index.html부터, 오프라인 열람용)
+├── docs/                             읽기용 문서 (전부 오프라인 HTML, 외부 리소스 금지)
+│   ├── index.html                    문서 진입점 -- README.md가 여기를 가리킨다
+│   ├── Client/Gateway/World/Zone/DB/Performance.html   서버별 특징·기능
+│   ├── sequences/                    패킷 시퀀스 다이어그램 (규칙: sequences/README.md)
+│   ├── design/                       소스에서 옮겨온 설계 근거 (규칙: design/README.md)
+│   └── assets/style.css              문서 공용 스타일 (새로 만들지 말 것)
 ├── docs/load-test-fix-plan.md        진행 중인 부하 테스트 병목 수정 계획
 ├── bat/                              start_server_all.bat(전체 기동 + VS attach용 PID 출력. wt.exe가 있으면
 │                                     창 하나에 탭 4개, 없으면 창을 따로 — cmd.exe엔 탭이 없다)
@@ -153,26 +176,31 @@ C:\Work\asio-server\
 
 ---
 
-## 아키텍처: 4계층 분산 + 존 내부 5-풀 분리
+## 아키텍처: 4계층 분산 + 메시지 큐 프로세서(레인) 구조
 
 ```
-Client → GatewayServer(릴레이) → WorldServer(WorldWorker 단일 스레드, 라우팅) → ZoneServer
-                                                                         NETWORK(I/O)
-                                                                            ↓ 바이트만 복사
-                                                                         LB(패킷 파싱, zoneId 판단)
-                                                                            ↓ PostToBasic(zoneId, ...)
-                                                                         BASIC(zoneId sticky, 게임 로직)
-                                                                            ↓ (필요 시)
-                                                                         BROADCAST(zoneId sticky, 팬아웃)
+Client → GatewayServer(순수 릴레이) → WorldServer(라우팅 + DB) → ZoneServer(게임 로직)
+                                      I/O 2                      I/O 2
+                                      BASIC 8  owner=세션         LB 4        파싱/주인 판정
+                                        ├ Main  라우팅            Player 8    owner=clientSessionId
+                                        └ Tool  운영툴            ZoneSpace n owner=zoneId
+                                      DB 4     owner=세션         Broadcast 1 owner=zoneId
 ```
 
-핵심 불변식: **같은 zoneId의 패킷은 항상 같은 BASIC 스레드로만 라우팅된다**(`zoneId %
-BASIC풀크기`) — 그 존 상태(`ZoneInstance`)는 항상 그 스레드에서만 접근되므로 락이 필요 없다.
-NETWORK/LB 스레드는 게임 상태를 직접 안 건드리고 바이트만 복사해 넘긴다(예외: `C2ZEcho`는
-공유 상태가 없어 LB 스레드에서 즉시 응답). TICK/BROADCAST는 BASIC과 "다른" 스레드이므로,
-BASIC이 소유한 컨테이너(`players_` 등)를 직접 건드리면 안 되고 스냅샷을 넘겨야 한다
-(`BroadcastDispatcher` 참고). **한 존에 인구가 과도하게 몰리면 이 불변식이 곧 "BASIC
-스레드 1개로 사실상 직렬화"를 뜻하게 된다** — 인구는 여러 존에 분산하는 게 전제다.
+핵심 불변식: **큐 그룹의 스레드는 `ownerId % N`으로 정해진다** — 같은 주인의 일은 항상
+같은 스레드에서 순서대로 처리되므로 그 주인의 데이터에는 락이 없다. `processorId`는
+스레드 배정에 관여하지 않는 **계측용 태그**라, 한 그룹 안에 여러 프로세서가 공존한다
+(World의 Main/Tool이 그 예 — 둘 다 주인이 `clientSessionId`라 스레드를 공유한다).
+
+**주인을 무엇으로 하느냐가 곧 설계다.** Zone은 "그 사람만의 것"(우편·재화·UnitOfWork,
+owner=`clientSessionId`)과 "존 전체가 공유하는 것"(로스터·좌표·경계·틱, owner=`zoneId`)을
+다른 그룹으로 나눈다. **한 레인에 두면 주인을 하나로 못 정해 결국 존 키로 통일되고, 그러면
+그 존의 모든 콘텐츠가 스레드 하나로 직렬화된다** — 1만 세션 부하 테스트가 무너진 원인이
+정확히 그것이었다(`Server/ZoneServer/Src/Worker/ProcessorId.h`).
+
+주의: **한 메시지가 주인이 다른 데이터를 함께 만지면 이 보호가 깨진다.** 그때는 어피니티
+대신 모델 단위 락(`Thread::Mutexed`)이 필요하다 — 근거와 함정은
+`docs/design/processor-group.md`.
 
 존 경계를 넘는 이동(핸드오프)은 WorldServer가 라우팅 테이블(`ClientRegistry`)만 바꿔서
 처리한다 — Gateway는 이동 자체를 모르고, 클라이언트는 EnterZoneNotify로 새 zoneId를 통지받을
@@ -195,13 +223,15 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::UniqueIdGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
-| `WorldServer` | `WorldWorker` | 단일 처리 스레드. I/O는 여기 `PostTask`로만 넘김 |
-| | `ClientRegistry` / `ZoneLinkRegistry` | WorldWorker 전용 접근 전제라 락 없음 |
-| | `Db::DbWorker` | owner-hash 기반 DB 워커 풀(현재 로그만, 실제 쿼리는 TODO) |
+| | `Processor::ProcessorGroup<TId>` | 큐 그룹 = 스레드 N개. `ownerId % N`으로 배정, 레인별 대기/처리 시간 계측 |
+| `WorldServer` | `ClientRegistry` / `ZoneLinkRegistry` | BASIC 레인 전용 접근 전제라 락 없음(레인 수만큼 샤딩) |
+| | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
+| | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 실제 SP 호출 배선은 아직 TODO |
 | `ZoneServer` | `ZoneInstance` | 존 하나의 권위 상태. `PacketDispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
-| | `TaskWorker` | 특정 존을 소유하지 않는 범용 실행기(BASIC/TICK/BROADCAST 풀이 이걸 사용) |
-| | `ZoneWorkerManager` | BASIC/TICK/BROADCAST 3개 풀 + 존별 tick 타이머 소유 |
-| | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 풀 소유 |
+| | `PlayerProcessor` | 패킷별 핸들러(Move/Chat/Mail/MailBuy). Player 레인에서 돈다 |
+| | `PlayerRegistry` | clientSessionId → Player. 레인 수만큼 샤딩돼 락이 없다 |
+| | `ZoneWorkerManager` | ZoneSpace/Broadcast 그룹 + 존별 tick 타이머 소유 |
+| | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 그룹 소유 |
 | | `Zone::Player` | 플레이어 한 명 + 그 사람의 모델들. 우편함만 `Mutexed` 핸들이고(만료 스윕이 다른 스레드) 재화는 값 — 모델마다 실제 접근 스레드 수에 맞춘다 |
 | | `Mail::MailModel` / `Currency::CurrencyModel` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
 | | `Zone::ZoneUnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 각 태스크가 자기 역연산으로 되돌리고(분기 switch 없음), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
@@ -245,7 +275,8 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 | 패킷 id 네이밍 규칙 / 방향별 번호 대역 | `.claude/rules/packet-naming.md` |
 | SQL 네이밍(테이블 복수형 snake_case) / SP 작성 규약 | `.claude/rules/sql-patterns.md` |
 | CLI 빌드 절차 | `.claude/skills/build/SKILL.md` |
-| 기능별 HTML 플로우차트 | `docs/flowcharts/` (규칙: `docs/flowcharts/README.md`) |
+| 패킷 시퀀스 다이어그램 | `docs/sequences/` (규칙: `docs/sequences/README.md`) |
+| 서버별 설명 / 설계 근거 | `docs/*.html` / `docs/design/` (규칙: `docs/design/README.md`) |
 
 ---
 
@@ -271,7 +302,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 
 ## 로드맵 상태
 
-Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), ZoneServer 5-풀 분리, WorldServer
+Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지 큐 프로세서 구조, WorldServer
 WorldWorker, Mail(Mutexed/UnitOfWork) 시스템, 재화(Currency) + 모델 두 개에 걸친 트랜잭션과
 역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`UniqueId`), 부하 테스트 도구(StressClient),
 시각 클라이언트(Client)까지 완료.
