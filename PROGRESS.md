@@ -65,11 +65,11 @@
   한 번에 보낸다. **UnitOfWork 하나 = 트랜잭션 하나**이고 여러 UoW를 모으지 않는다.
   커넥션은 레인 스레드마다 `thread_local` 1개라 "커넥션 수 = 소비자 수 1:1"이 그대로 성립하고
   이 계층에 락이 없다. 비밀번호는 CNG PBKDF2-HMAC-SHA256.
-- **`RequestId` → `UniqueId`**: 이 생성기가 요청 추적용 id만이 아니라 `mailId`/`playerId`도
+- **`RequestId` → `RUID`**: 이 생성기가 요청 추적용 id만이 아니라 `mailId`/`playerId`도
   발급하게 되어 이름을 용도에서 떼어냈다. 노드 번호를 대역으로 고정(0 예약 / 1\~99 World /
   100\~199 Zone / 254 시드 / 255 운영툴) — 예전처럼 World가 0, Zone이 zoneId면 World를 늘리는
   순간 겹친다. **모든 id는 이 생성기로 발급한다**(규칙: `cpp-patterns.md`), DB `IDENTITY` 제거.
-- **UniqueId 실측 검증**(500만 개, 5프로세스 × 10스레드): 중복 0건, 노드 배정 정확,
+- **RUID 실측 검증**(500만 개, 5프로세스 × 10스레드): 중복 0건, 노드 배정 정확,
   **DB 레인 분배 12.49\~12.51%**(이상값 12.5%), 단일 노드 **단편화 0.428% / 페이지 채움 99.94%**.
   다중 노드에서는 논리 단편화가 올라가지만 무작위 키 대조군 대비 **페이지 수 26% 절감**.
   → "시간순 키라 append-only"는 **발급자가 하나일 때만** 성립한다. 상세는 `docs/local/`의
@@ -242,7 +242,7 @@
     `Registry`는 지우지 않고 **만료 스윕용 색인**으로 남겼다(지우면 `players_`에 락을
     걸어 "존 상태는 락 없음"을 깨거나, 스윕을 BASIC으로 옮겨 `Mutexed`가 필요한 자리를
     없애야 했다).
-  - **`Common::UniqueIdGenerator`**: 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 8 +
+  - **`Common::RUIDGenerator`**: 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 8 +
     시퀀스 14비트, 기준 시각 2026-01-01). 랜덤 GUID를 쓰지 않은 이유는 `BIGINT`가 signed고
     무작위 키가 클러스터드 인덱스 페이지 분할을 만들기 때문이다. 노드 번호는 담당 존 중
     가장 작은 zoneId를 그대로 쓴다(별도 설정 없음).
@@ -278,7 +278,7 @@
 
    ```
    3. EProcessorId::Login + LoginProcessor + C2WLogin / W2CLoginResult + EErrorCode
-      - 자동 가입: 계정이 없으면 UniqueId로 playerId 발급 -> players_upsert -> 기존 흐름
+      - 자동 가입: 계정이 없으면 RUID로 playerId 발급 -> players_upsert -> 기존 흐름
       - 개발 전용 플래그로 묶을 것 (실서비스면 계정 열거 경로가 된다)
    4. World 플레이어 콘텐츠 캐시 = { Model 미러, Model 미러 }
       - 로그인 때 mails_select / currencies_select 로 적재, 로그아웃 때 폐기(유예 없음)

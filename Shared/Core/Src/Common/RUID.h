@@ -16,11 +16,11 @@ namespace Common
     //     단편화가 난다. 시각이 앞에 오면 append-only 삽입이라 그 문제가 없고, 시간순 정렬도
     //     공짜로 따라온다.
     //   - 8바이트라 와이어와 인덱스 모두 GUID의 절반이다.
-    using UniqueId = int64_t;
+    using RUID = int64_t;
 
     // "아직 발급되지 않았다/유효하지 않다"를 나타내는 값. 0은 "시각 0 + 노드 0 + 시퀀스 0"이라는
     // 유효한 조합이라 센티넬로 쓸 수 없다 -- 부호 있는 타입을 고른 부수 이득이다.
-    inline constexpr UniqueId kInvalidUniqueId = -1;
+    inline constexpr RUID kInvalidRUID = -1;
 
     // 비트 배분:
     //   bit 63       : 부호. 쓰지 않는다(항상 0이라 음수가 나올 수 없다)
@@ -61,19 +61,19 @@ namespace Common
 
     // 프로세스마다 하나. 스레드 여러 개(BASIC 워커 + 유지보수 타이머)가 동시에 부를 수 있어
     // 락 없이 CAS로 처리한다.
-    class UniqueIdGenerator
+    class RUIDGenerator
     {
     public:
-        [[nodiscard]] static UniqueIdGenerator& Instance();
+        [[nodiscard]] static RUIDGenerator& Instance();
 
         // 프로세스 기동 시 한 번. nodeId는 프로세스마다 달라야 하고(같으면 id가 겹친다),
         // 8비트를 넘거나 예약값(0)이면 밀리초 칸 오염/중복 발급으로 이어지므로 여기서 막는다.
         void Initialize(const uint32_t nodeId);
 
-        [[nodiscard]] UniqueId Next();
+        [[nodiscard]] RUID Next();
 
     private:
-        UniqueIdGenerator() = default;
+        RUIDGenerator() = default;
 
         // 마지막으로 발급한 (밀리초 << kSequenceBits | 시퀀스). 둘을 한 워드에 담아야 CAS
         // 하나로 원자적으로 갱신할 수 있다(따로 두면 그 사이에 끼어들 틈이 생긴다).

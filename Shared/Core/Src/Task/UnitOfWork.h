@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
-#include "Shared/Core/Src/Common/UniqueId.h"
+#include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Task/ITask.h"
 
 #include <cstdint>
@@ -28,7 +28,7 @@ namespace Task
     public:
         // requestId는 이 요청 하나를 가리키는 값이다 -- 발급은 콘텐츠 계층이 한다(Core는
         // 어느 프로세스인지, 노드 번호가 몇인지 모른다).
-        UnitOfWork(const uint64_t ownerId, const Common::UniqueId requestId);
+        UnitOfWork(const uint64_t ownerId, const Common::RUID requestId);
 
         UnitOfWork(const UnitOfWork&) = delete;
         UnitOfWork& operator=(const UnitOfWork&) = delete;
@@ -57,7 +57,7 @@ namespace Task
         [[nodiscard]] int32_t GetError() const noexcept { return errorCode_; }
         [[nodiscard]] bool IsEmpty() const noexcept { return tasks_.empty(); }
         [[nodiscard]] uint64_t GetOwnerId() const noexcept { return ownerId_; }
-        [[nodiscard]] Common::UniqueId GetRequestId() const noexcept { return requestId_; }
+        [[nodiscard]] Common::RUID GetRequestId() const noexcept { return requestId_; }
 
     protected:
         // 다형적으로 삭제할 일이 없는(항상 스택에 두는) 타입이라 가상 소멸자를 두지 않는다.
@@ -78,7 +78,7 @@ namespace Task
 
     private:
         uint64_t ownerId_;
-        Common::UniqueId requestId_;
+        Common::RUID requestId_;
         int32_t errorCode_{};
         std::vector<std::unique_ptr<ITask>> tasks_;
     };
@@ -92,7 +92,7 @@ namespace Task
     public:
         // 롤백 중에 쌓이는 태스크는 어차피 버려지므로 요청 id를 새로 태우지 않는다.
         RollbackUnitOfWork()
-            : UnitOfWork(0, Common::kInvalidUniqueId)
+            : UnitOfWork(0, Common::kInvalidRUID)
         {
         }
 

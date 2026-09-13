@@ -3,7 +3,7 @@
 #include "Server/WorldServer/Src/Db/DbConnection.h"
 #include "Server/WorldServer/Src/Db/PasswordHash.h"
 
-#include "Shared/Core/Src/Common/UniqueId.h"
+#include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
@@ -124,7 +124,7 @@ namespace
 
     // `WorldServer.exe --idtest <노드번호> <스레드수> <스레드당개수> [random]`
     //
-    // UniqueIdGenerator가 다중 스레드 경합에서도 중복 없는 id를 만드는지, 그리고 그 id가
+    // RUIDGenerator가 다중 스레드 경합에서도 중복 없는 id를 만드는지, 그리고 그 id가
     // 클러스터 인덱스에 순차 삽입되는지 확인한다.
     //
     // **프로세스를 여러 개 띄워 쓴다.** 한 프로세스에서 노드 번호를 바꿔가며 흉내 내지 않는
@@ -135,7 +135,7 @@ namespace
                                     const size_t threadCount, const size_t perThread,
                                     const bool randomMode)
     {
-        Common::UniqueIdGenerator::Instance().Initialize(nodeId);
+        Common::RUIDGenerator::Instance().Initialize(nodeId);
 
         const size_t total = threadCount * perThread;
         std::cout << "[idtest] node=" << nodeId << " threads=" << threadCount
@@ -214,7 +214,7 @@ namespace
                         {
                             bucket.push_back(randomMode
                                 ? distribution(randomEngine)
-                                : Common::UniqueIdGenerator::Instance().Next());
+                                : Common::RUIDGenerator::Instance().Next());
                         }
                     });
                 }
@@ -309,11 +309,11 @@ int main(const int argc, char* argv[])
     Log::Logger::Instance().Initialize("logs/worldserver.log", Log::ELogLevel::Info);
 
     // 노드 번호는 World 대역(1~99)의 첫 번호를 쓴다. World를 여러 대로 늘리면 2, 3...으로
-    // 주면 되고, Zone 대역(100~)과 겹치지 않는다(UniqueId.h의 대역표 참고).
+    // 주면 되고, Zone 대역(100~)과 겹치지 않는다(RUID.h의 대역표 참고).
     //
     // 지금 World가 발급하는 id는 로그인 때 만드는 playerId 정도지만, 존이 실어 보낸 값을
     // 그대로 쓰는 경로(UnitOfWork)와 섞이므로 노드 번호는 처음부터 제대로 잡아둔다.
-    Common::UniqueIdGenerator::Instance().Initialize(Common::kNodeIdWorldBegin);
+    Common::RUIDGenerator::Instance().Initialize(Common::kNodeIdWorldBegin);
 
     try
     {
@@ -349,7 +349,7 @@ int main(const int argc, char* argv[])
             return RunDbCheck(config.dbConnectionString);
         }
 
-        // UniqueId 검증 모드. 인자가 모자라면 사용법만 찍고 끝낸다.
+        // RUID 검증 모드. 인자가 모자라면 사용법만 찍고 끝낸다.
         if (argc > 1 && std::string(argv[1]) == "--idtest")
         {
             if (argc < 5)

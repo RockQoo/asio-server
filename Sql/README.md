@@ -13,7 +13,7 @@
 | `players.sql` | `players` + `uk_players_name` + `up_players_select` / `up_players_upsert` |
 | `mails.sql` | `mails` + `ix_mails_player` + `up_mails_select` / `up_mails_upsert` / `up_mails_delete` |
 | `currencies.sql` | `currencies` + `up_currencies_select` / `up_currencies_upsert` (감사 로그는 나중에 이 파일에 추가) |
-| `unique_keys.sql` | UniqueId 검증용 `id_tests` / `id_test_randoms` + 삽입 SP **(게임 스키마 아님)** |
+| `unique_keys.sql` | RUID 검증용 `id_tests` / `id_test_randoms` + 삽입 SP **(게임 스키마 아님)** |
 | `seed.sql` | 개발용 시드 계정 2만 4건 (비밀번호 전부 `0000`) |
 | `verify_unique_keys.sql` | 검증 결과 확인 쿼리 (중복/노드 분배/레인 분배/단편화) |
 
@@ -38,12 +38,12 @@ sqlcmd -S 127.0.0.1,1433 -U asio_game -P 0000 -C -b -f 65001 -d asio_game -i Sql
 
 `-f 65001`을 빠뜨리면 UTF-8 파일이 CP949로 읽혀 한글이 깨진 채 저장된다.
 
-## 키 설계 — 모든 id는 `Common::UniqueIdGenerator`가 발급한다
+## 키 설계 — 모든 id는 `Common::RUIDGenerator`가 발급한다
 
 `IDENTITY`를 쓰지 않는다. 서버가 메모리에서 먼저 확정하고 클라이언트에 응답한 뒤 DB에
 반영하는 구조(UnitOfWork)라, **DB가 id를 정하면 그 응답에 담을 id가 없기 때문이다.**
 
-`UniqueId`는 `[시각 41비트][노드 8비트][시퀀스 14비트]`라 두 가지를 동시에 만족한다.
+`RUID`는 `[시각 41비트][노드 8비트][시퀀스 14비트]`라 두 가지를 동시에 만족한다.
 
 * **전역 유일** → `mail_id` 하나만으로 PK가 성립한다(플레이어별 복합키가 필요 없다)
 * **시간순 증가** → 클러스터 인덱스에 뒤쪽으로 쌓인다

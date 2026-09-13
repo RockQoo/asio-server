@@ -1,11 +1,11 @@
-# UniqueId — 모든 id를 서버가 발급한다
+# RUID — 모든 id를 서버가 발급한다
 
-대상 코드: `Shared/Core/Src/Common/UniqueId.h`
+대상 코드: `Shared/Core/Src/Common/RUID.h`
 
 ## 구조
 
 ```
-UniqueId = [ 밀리초 41비트 ][ 노드 8비트 ][ 시퀀스 14비트 ]   (int64)
+RUID = [ 밀리초 41비트 ][ 노드 8비트 ][ 시퀀스 14비트 ]   (int64)
 ```
 
 `requestId`뿐 아니라 `mailId`/`playerId`도 이 생성기가 발급한다 — 그래서 이름을 용도에서

@@ -1,5 +1,5 @@
 -- =============================================================================
--- UniqueId 검증 결과 확인 쿼리
+-- RUID 검증 결과 확인 쿼리
 --
 -- 앞서 WorldServer.exe --idtest 로 채운 dbo.id_tests / dbo.id_test_randoms 를 읽는다.
 -- 실행: sqlcmd -S 127.0.0.1,1433 -U sa -P 0000 -C -d asio_game -i Sqlverify_unique_keys.sql

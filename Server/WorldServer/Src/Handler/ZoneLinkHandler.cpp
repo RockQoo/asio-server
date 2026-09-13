@@ -9,7 +9,7 @@
 #include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 
-#include "Shared/Core/Src/Common/UniqueId.h"
+#include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 
@@ -281,7 +281,7 @@ namespace World
         // 여기는 아직 I/O 스레드다 -- 라우팅에 필요한 만큼만 읽는다.
         Packet::BinaryReader reader(payload);
         uint32_t playerId{};
-        Common::UniqueId requestId{};
+        Common::RUID requestId{};
         if (!reader.Read(playerId) || !reader.Read(requestId))
         {
             return;

@@ -123,9 +123,9 @@ template <typename E> requires std::is_enum_v<E>
 `main(const int argc, ...)`, asio 콜백처럼 언어/라이브러리가 정확히 `int`를 강제하는 자리는
 그대로 둔다.
 
-## 식별자는 무조건 `Common::UniqueIdGenerator`로 발급한다
+## 식별자는 무조건 `Common::RUIDGenerator`로 발급한다
 
-**새로 만드는 id는 예외 없이 `Common::UniqueIdGenerator::Instance().Next()`로 받는다.**
+**새로 만드는 id는 예외 없이 `Common::RUIDGenerator::Instance().Next()`로 받는다.**
 `playerId`, `mailId`처럼 DB에 영구히 남는 것은 물론이고, 새 콘텐츠의 id도 마찬가지다.
 
 금지하는 것들과 이유:
@@ -137,16 +137,16 @@ template <typename E> requires std::is_enum_v<E>
 | `GUID`/무작위 | 클러스터드 인덱스 키로 쓰면 삽입이 인덱스 중간에 꽂혀 페이지 분할과 단편화가 난다 |
 | 시각만 쓰기 | 같은 밀리초에 두 개가 나오면 겹친다 |
 
-`UniqueId`는 **시각(41비트) + 노드(8비트) + 시퀀스(14비트)** 라 위 네 가지를 한 번에 푼다 —
+`RUID`는 **시각(41비트) + 노드(8비트) + 시퀀스(14비트)** 라 위 네 가지를 한 번에 푼다 —
 프로세스가 재시작해도 시각이 앞으로만 가고, 노드 번호가 프로세스를 가르고, 시퀀스가 같은
 밀리초 안을 가른다. 그리고 시각이 상위 비트라 **id가 시간순으로 커져서** 클러스터드 인덱스에
 append-only로 쌓인다.
 
-노드 번호는 대역이 정해져 있다(`Shared/Core/Src/Common/UniqueId.h`) — 0은 예약,
+노드 번호는 대역이 정해져 있다(`Shared/Core/Src/Common/RUID.h`) — 0은 예약,
 1\~99가 World, 100\~199가 Zone, 255가 운영툴. **겹치면 서로 같은 id를 발급하므로 새 프로세스
 종류가 생기면 대역을 먼저 정하고 상수로 추가한다.**
 
-한 가지 구분: **생성기는 하나지만 쓰는 쪽 이름은 용도를 따른다.** 같은 `UniqueId`가
+한 가지 구분: **생성기는 하나지만 쓰는 쪽 이름은 용도를 따른다.** 같은 `RUID`가
 `playerId`/`mailId`/`requestId`로 불리고, DB 컬럼도 `request_id`처럼 용도 이름을 쓴다.
 
 ## 에러는 문자열이 아니라 에러 코드로 식별 (Core용/콘텐츠용 두 개)
@@ -330,3 +330,27 @@ class Instance
 ```xml
 <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
 ```
+
+## 직접 만든 기반 타입에는 `R` 접두사를 붙인다
+
+`UniqueId`처럼 **이 프로젝트가 직접 만든 기반 타입**인데 이름이 일반적이면, 표준/서드파티/
+콘텐츠 쪽 이름과 충돌하거나 헷갈릴 여지가 크다. 그런 타입은 **`R` 접두사**를 붙여 출처를
+이름에 박는다(개발자 이니셜).
+
+```cpp
+UniqueId           ->  RUID
+UniqueIdGenerator  ->  RUIDGenerator
+kInvalidUniqueId   ->  kInvalidRUID
+```
+
+**언제 붙이나**: 직접 설계한 기반 타입이고, 이름만 보면 표준 라이브러리나 남의 것으로
+오해할 수 있을 때. `RUID`가 그런 경우다 — GUID/UUID와 쓰임은 비슷하지만 구조도 보장도
+전혀 다른(시각 41 + 노드 8 + 시퀀스 14비트) **이 프로젝트 고유의 것**이라, 이름이
+`UniqueId`면 "어디서 가져온 표준 유틸"로 읽힌다.
+
+**언제 안 붙이나**: 콘텐츠 타입(`Mail::Model`, `Zone::Instance`)과 인프라 타입
+(`Session`, `Listener`)에는 붙이지 않는다. 이미 네임스페이스가 출처를 말해주고,
+전부 붙이면 접두사가 의미를 잃는다.
+
+한 가지 유지되는 구분: **생성기는 하나지만 쓰는 쪽 이름은 용도를 따른다.** 같은 `RUID`가
+`playerId`/`mailId`/`requestId`로 불리고, DB 컬럼도 `request_id`처럼 용도 이름을 쓴다.

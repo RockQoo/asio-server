@@ -81,7 +81,7 @@ RETURN 코드</code></pre>
     <tr><td><code>Sql/players.sql</code></td><td><code>players</code> + select / upsert</td></tr>
     <tr><td><code>Sql/mails.sql</code></td><td><code>mails</code> + select / upsert / delete</td></tr>
     <tr><td><code>Sql/currencies.sql</code></td><td><code>currencies</code> + select / upsert</td></tr>
-    <tr><td><code>Sql/unique_keys.sql</code></td><td>UniqueId 검증용 (게임 스키마 아님)</td></tr>
+    <tr><td><code>Sql/unique_keys.sql</code></td><td>RUID 검증용 (게임 스키마 아님)</td></tr>
     <tr><td><code>Sql/seed.sql</code></td><td>개발용 시드 계정</td></tr>
 </table>
 
@@ -91,12 +91,12 @@ RETURN 코드</code></pre>
     적용 순서는 FK 때문에 <code>players</code>가 먼저다.
 </div>
 
-<h2>모든 id는 UniqueIdGenerator가 발급한다</h2>
+<h2>모든 id는 RUIDGenerator가 발급한다</h2>
 <div class="panel">
 <code>IDENTITY</code>를 쓰지 않는다. 서버가 메모리에서 먼저 확정하고 클라이언트에 응답한 뒤
 DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에 담을 id가 없다</b>.
 
-<pre><code>UniqueId = [ 시각 41비트 ][ 노드 8비트 ][ 시퀀스 14비트 ]  (int64)</code></pre>
+<pre><code>RUID = [ 시각 41비트 ][ 노드 8비트 ][ 시퀀스 14비트 ]  (int64)</code></pre>
 
 전역 유일이라 <code>mail_id</code> 하나로 PK가 서고, 시간순으로 커져서 클러스터 인덱스
 뒤쪽에 쌓인다. 다만 실측해보니 <b>"재배치가 없다"는 발급 노드가 하나일 때만</b> 성립한다 —
@@ -107,7 +107,7 @@ DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에
 <div class="callout warn">
     <h4>지금 막혀 있는 곳 — mailId 타입</h4>
     <code>Model</code>의 <code>nextMailId_</code>가 아직 <b>플레이어마다 1부터 세는
-    <code>uint32_t</code></b>다. SP는 <code>@mail_id BIGINT</code>(UniqueId 전제)라,
+    <code>uint32_t</code></b>다. SP는 <code>@mail_id BIGINT</code>(RUID 전제)라,
     이 상태로 저장하면 <b>두 사람의 첫 우편이 둘 다 <code>mail_id = 1</code></b>이 되어 PK가 충돌한다.
     <br><br>
     <code>int64_t</code>로 바꾸면 와이어 포맷이 달라지므로 Zone · 프로토콜 · Client(C#) ·

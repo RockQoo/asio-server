@@ -1,7 +1,7 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/App/App.h"
 
-#include "Shared/Core/Src/Common/UniqueId.h"
+#include "Shared/Core/Src/Common/RUID.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -124,7 +124,7 @@ int main(const int argc, char* argv[])
             .KV("Token", token);
     }
 
-    // UniqueId의 노드 번호. 프로세스마다 달라야 하는데(같으면 id가 겹친다) 이 프로젝트는
+    // RUID의 노드 번호. 프로세스마다 달라야 하는데(같으면 id가 겹친다) 이 프로젝트는
     // 담당 존 목록이 프로세스마다 다르므로, **Zone 대역(100~) + 담당 최소 zoneId**를 쓴다 --
     // 별도 설정 없이 "1,2" / "3,4" 두 프로세스가 101번, 103번 노드가 된다.
     //
@@ -137,7 +137,7 @@ int main(const int argc, char* argv[])
         {
             minZoneId = def.zoneId < minZoneId ? def.zoneId : minZoneId;
         }
-        Common::UniqueIdGenerator::Instance().Initialize(Common::kNodeIdZoneBegin + minZoneId);
+        Common::RUIDGenerator::Instance().Initialize(Common::kNodeIdZoneBegin + minZoneId);
     }
 
     if (zones.empty())

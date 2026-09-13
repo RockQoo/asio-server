@@ -162,7 +162,7 @@ C:\Work\asio-server\
 │                                     setup_game_db.bat(게임 DB 생성 + 스키마/시드 적용)
 ├── Sql/                              게임 DB(asio_game) 스키마 — **테이블/콘텐츠 단위 파일**
 │                                     players.sql / mails.sql / currencies.sql
-│                                     unique_keys.sql(UniqueId 검증용, 게임 스키마 아님)
+│                                     unique_keys.sql(RUID 검증용, 게임 스키마 아님)
 │                                     seed.sql / verify_unique_keys.sql
 │                                     적용 순서는 FK 때문에 players가 먼저 — 자세한 건 Sql/README.md
 ├── bin/x64/{Debug,Release}/          산출물 (gitignored)
@@ -222,7 +222,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `WorkerThread` / `AffinityWorkerPool<TWorker>` | 작업 큐 1개 소비 스레드 / `key % N` 고정 라우팅 풀 |
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
-| | `Common::UniqueIdGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
+| | `Common::RUIDGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
 | | `Processor::Group<TId>` | 큐 그룹 = 스레드 N개. `ownerId % N`으로 배정, 레인별 대기/처리 시간 계측 |
 | `WorldServer` | `ClientRegistry` / `ZoneLinkRegistry` | BASIC 레인 전용 접근 전제라 락 없음(레인 수만큼 샤딩) |
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
@@ -304,7 +304,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 
 Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지 큐 프로세서 구조, WorldServer
 WorldWorker, Mail(Mutexed/UnitOfWork) 시스템, 재화(Currency) + 모델 두 개에 걸친 트랜잭션과
-역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`UniqueId`), 부하 테스트 도구(StressClient),
+역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RUID`), 부하 테스트 도구(StressClient),
 시각 클라이언트(Client)까지 완료.
 부하 테스트로 발견된 처리량 병목 수정이 진행 중(`docs/load-test-fix-plan.md`). 남은 것:
 실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI. 자세한 표는

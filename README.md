@@ -120,7 +120,7 @@ bat\start_gmtool.bat      :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 |---|---|---|
 | 0~3 | 셋업, echo 서버, 패킷 프레이밍, 존 어피니티 라우팅 | 완료 |
 | 4 | Gateway/World/Zone 분리, 재접속 없는 핸드오프, Mail(Mutexed/UnitOfWork) | 완료 |
-| 4-1 | 재화 + 모델 두 개에 걸친 트랜잭션·역순 롤백, 요청 식별자(`UniqueId`) | 완료 |
+| 4-1 | 재화 + 모델 두 개에 걸친 트랜잭션·역순 롤백, 요청 식별자(`RUID`) | 완료 |
 | 5 | 레인 분리(Player / ZoneSpace / Broadcast), 메시지 큐 프로세서 구조 | 완료 |
 | 6 | 부하 도구(StressClient), 지연 백분위 계측 | 완료 |
 | 7 | 부하 병목 수정 후 **재측정** | 진행 중 |
