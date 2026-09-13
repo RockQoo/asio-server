@@ -327,7 +327,7 @@ bat\start_client.bat 2     :: 창 2개. 브로드캐스트 확인에는 최소 2
 
 ```bat
 bat\start_client.bat 2 Debug auto   :: 창 2개, 방향을 서로 반대로
-dotnet run --project Tool\Client\Client -- --auto-rev
+dotnet run --project Client\Client -- --auto-rev
 ```
 
 REPL로는 잘 안 보이는 것들을 화면이 대신 보여주는 게 목적입니다:
