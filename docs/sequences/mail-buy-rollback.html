@@ -119,8 +119,8 @@
 <b>Task 2개를 한 번에</b> 내보낸다:
 
 <pre><code>Z2WUnitOfWorkStream  →  World DB 레인  →  AutoDbCommand(ownerId, useTransaction = true)
-                                              ├ up_mails_upsert       (@is_trans_outside = 1)
-                                              ├ up_currencies_upsert  (@is_trans_outside = 1)
+                                              ├ usp_mails_upsert       (@is_trans_outside = 1)
+                                              ├ usp_currencies_upsert  (@is_trans_outside = 1)
                                               └ COMMIT   /  예외면 ROLLBACK</code></pre>
 
 <b>UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.

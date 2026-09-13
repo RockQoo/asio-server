@@ -79,7 +79,7 @@
 
 - **4계층 분산 구조**: Client → GatewayServer(순수 릴레이) → WorldServer(라우팅+DB워커) →
   ZoneServer(존 상태). Gateway/World는 이번에 새로 추가된 프로젝트.
-- **존 핸드오프**: 존 경계를 넘으면 World가 라우팅 테이블(`ClientRegistry`)만 바꾼다 —
+- **존 핸드오프**: 존 경계를 넘으면 World가 라우팅 테이블(`PlayerManager`(당시 이름 `ClientRegistry`))만 바꾼다 —
   Gateway는 이동 자체를 모르고, 클라이언트는 Z2CEnterZoneNotify 통지만 받을 뿐 재접속 없이
   같은 연결을 유지한다.
 - **ZoneServer 5-풀 구조**: NETWORK(소켓 I/O) → LB(패킷 파싱, zoneId 판단) → BASIC(zoneId
@@ -92,9 +92,15 @@
   존에 있다"와 "아직 아무 존에도 없다"가 같은 값이 되어 구분할 수 없다.
   배치를 정하는 코드는 `ParseZoneList` 하나(`kZoneSize`/`kZonesPerRow`/`kZoneRows`)이고,
   그 아래 계층은 `Def`(담당 사각형)를 그대로 들고 다니므로 배치 규칙을 모른다.
-- **WorldServer**: 단일 처리 스레드(`WorldWorker`)가 라우팅 상태(`ClientRegistry`/
-  `ZoneLinkRegistry`)를 락 없이 소유. I/O 스레드는 `PostTask`로만 넘긴다. DB 워커 풀
-  (`Db::DbWorker`, owner-hash)은 실제 쿼리 없이 로그만 남기는 스텁 상태.
+- **WorldServer**: `Basic`(8) / `Db`(4) 두 큐 그룹. **Zone과 스레드 모델이 다르다** — Zone은
+  모든 메시지가 주인을 갖지만 World는 기본이 "남는 스레드"이고 순서·정합성이 필요한 것만
+  주인을 지정한다. 그래서 전역 테이블(`PlayerManager`/`ZoneLinkRegistry`)이 `Mutexed`다.
+  `PlayerManager`는 한동안 샤딩이었는데, "그 샤드는 그 번호 스레드만 만진다"는 전제가 World에
+  성립하지 않았다(운영툴의 단일 대상 명령이 남의 샤드를 읽고 있었다).
+- **로그인(`C2WLogin`)**: 계정 확인 → 없으면 자동 가입 → `usp_players_load`로 우편·재화를 한
+  왕복에 읽어 캐시 → `W2ZEnterZone`에 실어 존까지. 레인을 네 번 갈아타고 **도중에 주인이
+  바뀐다**(이름 해시 → playerId). TCP 연결이 곧 플레이어이던 동작이 여기서 끝났다.
+  DB **읽기만** 되고 쓰기(UnitOfWork→SP)는 아직 로그만 남긴다.
 - **Mail 시스템**: `Model`/`Registry`/`ExpiryService`(만료 자동삭제, 별도
   유지보수 타이머). `Thread::Mutexed`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
   BASIC 스레드와 유지보수 타이머가 만나는 유일한 지점만 락"을 보여준다. 상태 변경은
@@ -123,12 +129,15 @@
   이유다. 서버별 설명은 `docs/*.html`, 설계 근거는 `docs/design/`, README는 진입점으로 축소.
 - **운영툴(`Tool/GmTool`, C#/.NET 10/SQL Server)**: 서버 쪽은 WorldServer에 세 번째 accept
   포트(9300)와 `Tool/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
-  **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → `WorldWorker::PostTask`)이라
-  `authenticatedSessions_`에도 락이 없다. 툴 쪽은 Blazor Web App + Minimal API +
+  **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → Basic 그룹으로 Post)을 따른다.
+  `authenticatedSessions_`는 툴 세션이 주인이라 지금도 락이 없지만, **운영툴이 만지는
+  플레이어 테이블은 남의 것**이라 `PlayerManager`가 `Mutexed`여야 했다(당시엔 샤딩만 믿고
+  넘어갔고, 단일 대상 우편 명령이 남의 샤드를 읽는 경합이 남아 있었다).
+  툴 쪽은 Blazor Web App + Minimal API +
   SqlKata/Microsoft.Data.SqlClient 구성.
   - **우편은 새 패킷을 만들지 않는다**: 기존 `PacketId::C2ZMailAdd`/`C2ZMailDel`을
     `ClientEnvelopeHeader`로 감싸 `W2ZRelay`으로 주입한다. 존 입장에서는 클라이언트가
-    직접 보낸 것과 바이트 단위로 구분이 안 되므로, Mail/`UnitOfWork`/DbWorker 경로가 그대로
+    직접 보낸 것과 바이트 단위로 구분이 안 되므로, Mail/`UnitOfWork`/DB 레인 경로가 그대로
     재사용된다(운영 전용 우회로를 만들면 "운영툴 우편만 만료가 안 되는" 사고가 난다).
   - **대량 쿠폰 발급**: 캠페인 코드 5자리를 네임스페이스로 써서 중복 검사 범위를 캠페인
     하나로 가두고(전역 유일성 검사는 그 5자리뿐), 캠페인마다 전용 테이블(`coupon_<코드>`)을
@@ -272,28 +281,42 @@
 ## 3. 다음에 하면 좋을 일
 
 1. **부하 병목 수정 진행** — 10,000세션 부하 테스트에서 나온 처리량 병목
-   수정(우선순위: 인구를 여러 존에 분산 배정 → WorldWorker 브로드캐스트 릴레이 큐 분리 →
+   수정(우선순위: 인구를 여러 존에 분산 배정 → World Basic 그룹의 브로드캐스트 릴레이 큐 분리 →
    팬아웃 프레임 배칭). 수정 후 같은 시나리오로 재검증.
-1-B. **로그인 + World 콘텐츠 캐시** (DB 기반이 깔렸으니 바로 이어지는 작업)
+1-B. **로그인 + World 콘텐츠 캐시**
 
    ```
-   3. EProcessorId::Login + LoginProcessor + C2WLogin / W2CLoginResult + EErrorCode
-      - 자동 가입: 계정이 없으면 RUID로 playerId 발급 -> players_upsert -> 기존 흐름
-      - 개발 전용 플래그로 묶을 것 (실서비스면 계정 열거 경로가 된다)
-   4. World 플레이어 콘텐츠 캐시 = { Model 미러, Model 미러 }
-      - 로그인 때 mails_select / currencies_select 로 적재, 로그아웃 때 폐기(유예 없음)
-      - 이 캐시가 곧 위조 검증 대상이다 (Zone Task가 올라오면 대조)
-   5. playerId -> clientSessionId Mutexed 색인 (중복 로그인, 검사+삽입이 원자적이어야 함)
-   6. UnitOfWork 경로를 BASIC 경유로 되돌리고 캐시 대조 검증 + DB owner = playerId
-   7. 클라이언트 3종 로그인 대응
+   3. [완료] EProcessorId::Login + LoginProcessor + C2WLogin / W2CLogin + EErrorCode 300 대역
+             자동 가입(계정이 없으면 RUID 발급 -> usp_players_upsert)까지 포함
+   4. [완료] World 플레이어 콘텐츠 캐시 (PlayerManager 의 PlayerInfo.mails / .currencies)
+             로그인 때 usp_players_load 로 적재, 접속 종료 때 함께 폐기
+             W2ZEnterZone 이 가변 길이가 되어 존까지 실어 보낸다
+   5. [남음] playerId -> clientSessionId 색인 (중복 로그인, 검사+삽입이 원자적이어야 함)
+   6. [남음] 존이 올린 UnitOfWork 를 캐시에 반영 + 대조 검증(위조) + 실제 SP 호출
+   7. [남음] 클라이언트 3종 로그인 대응 + mail_id/player_id int64 확대
    ```
+
+   **6번이 지금 가장 어색한 자리다.** 읽기는 되는데 **쓰기가 안 된다** —
+   `ApplyMailTask`/`ApplyCurrencyTask`가 로그만 남기고 SP를 부르지 않아서 골드를 써도 DB에는
+   그대로다. 같은 이유로 캐시가 **로그인 시점 스냅샷에서 멈춰 있어**, 존에서 새로 만든 우편은
+   프로세스를 넘는 핸드오프에서 사라진다. 그 자리가 곧 위조 검증 자리(캐시와 대조)이기도 하다.
 
    **7번이 규모가 크다**: `mail_id`/`player_id`가 `uint32_t` → `int64_t`가 되면서 와이어
    포맷이 바뀐다. Zone `Model` → 프로토콜 → `Client`(C#) / `ProtocolClient` /
    `StressClient`가 전부 딸려오고, 서버만 고치면 클라가 깨지므로 한 커밋에 같이 가야 한다.
 
-   지금 `ZoneLinkHandler::HandleUnitOfWorkStream`은 BASIC을 건너뛰고 DB 레인에서 콘텐츠까지
-   반영한다. 6번이 그걸 되돌리는 작업이다 — 위조 검증 자리가 거기여야 하기 때문이다.
+   **`ProtocolClient` / `StressClient` 는 현재 동작하지 않는다** — 로그인을 보내지 않아 존
+   입장이 막힌다. 7번에서 같이 고친다. `StressClient` 는 시드에 `stress_00001~20000` 이
+   이미 있으므로 세션 index 로 이름만 조립하면 된다.
+
+1-C. **strand 세분화** (부하 측정 뒤)
+
+   `Processor::Group` 이 `asio::io_context` + `strand` 로 바뀌면서 strand 개수를 owner 마다
+   둘 수 있게 됐다(예전 구조에서는 큐 = 스레드라 불가능했다). 지금은 스레드 수와 같아
+   `owner % N` 이 겹치는 남남끼리 서로를 막는다.
+
+   **바꾸기 전에 부하 수치를 먼저 남긴다** — 그래야 왜 바꿨는지가 숫자로 남는다.
+   그러려면 `StressClient` 가 먼저 살아야 하므로 1-B 7번 뒤다.
 
 2. **남은 DB 연동**: 스키마와 계층은 준비됐고, Zone의 `UnitOfWork` 태스크를 실제 SP로
    흘리는 것과 쿠폰 청크(`CouponChunkPush`) 적재가 남았다. 운영툴을 SQL

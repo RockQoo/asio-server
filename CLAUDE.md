@@ -133,7 +133,9 @@ C:\Work\asio-server\
 │   │   ├── Src/App/Config.{h,cpp}    Config 구조체 + LoadConfig -- main은 한 줄로 받아 App에 넘긴다
 │   │   ├── Src/Cli/                  실행 인자 모드: ConsoleLoop(notice REPL) / DbCheck / IdTest
 │   │   │                             main에 있던 것을 뺐다(403 -> 86줄). 세 서버 모두 App/Config.{h,cpp} 구조가 같다
-│   │   └── Src/World/                ClientRegistry, ZoneLinkRegistry (BASIC 레인 전용 접근)
+│   │   ├── Src/World/                PlayerManager(로그인 캐시 + 라우팅), ZoneLinkRegistry
+│   │   │                             — World는 "남는 스레드"가 기본이라 둘 다 Mutexed
+│   │   └── Src/Login/                LoginProcessor — C2WLogin → 계정 조회/자동 가입 → 콘텐츠 적재
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
 │           ├── Worker/               TaskWorker(범용 실행기), WorkerManager
@@ -199,16 +201,36 @@ C:\Work\asio-server\
 ```
 Client → GatewayServer(순수 릴레이) → WorldServer(라우팅 + DB) → ZoneServer(게임 로직)
                                       I/O 2                      I/O 2
-                                      BASIC 8  owner=세션         LB 4        파싱/주인 판정
-                                        ├ Main  라우팅            Player 8    owner=clientSessionId
-                                        └ Tool  운영툴            ZoneSpace n owner=zoneId
-                                      DB 4     owner=세션         Broadcast 1 owner=zoneId
+                                      Basic 8  기본 = 남는 스레드  LB 4        파싱/주인 판정
+                                        ├ Basic 라우팅            Player 8    owner=clientSessionId
+                                        ├ Login 로그인            ZoneSpace n owner=zoneId
+                                        └ Tool  운영툴            Broadcast 1 owner=zoneId
+                                      Db 4     owner 지정 시 직렬화
 ```
 
-핵심 불변식: **큐 그룹의 스레드는 `ownerId % N`으로 정해진다** — 같은 주인의 일은 항상
-같은 스레드에서 순서대로 처리되므로 그 주인의 데이터에는 락이 없다. `processorId`는
-스레드 배정에 관여하지 않는 **계측용 태그**라, 한 그룹 안에 여러 프로세서가 공존한다
-(World의 Main/Tool이 그 예 — 둘 다 주인이 `clientSessionId`라 스레드를 공유한다).
+핵심 불변식: **큐 그룹은 `asio::io_context` + 스레드 N개 + `strand` N개**이고, 넣는 방법이
+둘이다.
+
+| 호출 | 배정 | 보장 |
+|---|---|---|
+| `Post(processorId, work)` | 남는 스레드 아무 데나 | 없음 |
+| `Post(processorId, ownerId, work)` | `strand[ownerId % N]` | 같은 주인끼리 **동시 실행 없음 + 넣은 순서대로** |
+
+`processorId`는 스레드 배정에 관여하지 않는 **계측용 태그**라, 한 그룹 안에 여러 프로세서가
+공존한다(World의 Basic/Login/Tool이 그 예 — 셋이 같은 8스레드를 쓴다).
+
+**Zone과 World는 이 두 방법을 쓰는 비율이 정반대다.**
+
+- **Zone**: 모든 메시지가 주인을 갖는다(`clientSessionId` 또는 `zoneId`). 그래서 그 주인의
+  데이터는 락이 필요 없다 — 어피니티가 곧 보호다.
+- **World**: 기본이 "남는 스레드"이고, 순서·정합성이 걸린 것만 주인을 지정한다. 그래서 여러
+  스레드가 같이 보는 전역 테이블(`PlayerManager`, `ZoneLinkRegistry`)은 **반드시
+  `Thread::Mutexed`**다. "World도 샤딩했으니 락이 없다"는 한때의 전제였고 성립하지 않는다 —
+  운영툴의 단일 대상 명령이 남의 샤드를 읽고 있었다.
+
+**strand는 "같은 스레드"를 약속하지 않는다.** 약속하는 것은 비동시성·순서·happens-before
+세 가지뿐이다. 직렬화가 목적이면 충분하지만, `thread_local`로 주인별 상태를 들고 있으면
+깨진다(DB 커넥션이 `thread_local`인 것은 주인별이 아니라 스레드별이라 괜찮다).
 
 **주인을 무엇으로 하느냐가 곧 설계다.** Zone은 "그 사람만의 것"(우편·재화·UnitOfWork,
 owner=`clientSessionId`)과 "존 전체가 공유하는 것"(로스터·좌표·경계·틱, owner=`zoneId`)을
@@ -220,9 +242,12 @@ owner=`clientSessionId`)과 "존 전체가 공유하는 것"(로스터·좌표·
 대신 모델 단위 락(`Thread::Mutexed`)이 필요하다 — 근거와 함정은
 `docs/design/processor-group.md`.
 
-존 경계를 넘는 이동(핸드오프)은 WorldServer가 라우팅 테이블(`ClientRegistry`)만 바꿔서
+존 경계를 넘는 이동(핸드오프)은 WorldServer가 라우팅 테이블(`PlayerManager`)만 바꿔서
 처리한다 — Gateway는 이동 자체를 모르고, 클라이언트는 EnterZoneNotify로 새 zoneId를 통지받을
 뿐 재접속/재인증 없이 같은 TCP 연결을 그대로 쓴다.
+
+접속 직후에는 라우팅 대상이 아니다. **`C2WLogin`을 통과해야** `PlayerManager`가 그 세션을
+인증 상태로 바꾸고, 그 전에 온 게임 패킷은 존으로 넘어가지 않는다(`docs/sequences/login.html`).
 
 `Shared/Core/`는 **게임 로직을 전혀 모르는** 정적 라이브러리, 각 서버 프로젝트가 자기 콘텐츠(존/
 라우팅/릴레이)를 담당한다. Core를 `Server/` 밑이 아니라 `Shared/`에 둔 이유는 `Tool/`의
@@ -241,10 +266,10 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::RUIDGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
-| | `Processor::Group<TId>` | 큐 그룹 = 스레드 N개. `ownerId % N`으로 배정, 레인별 대기/처리 시간 계측 |
-| `WorldServer` | `ClientRegistry` / `ZoneLinkRegistry` | BASIC 레인 전용 접근 전제라 락 없음(레인 수만큼 샤딩) |
+| `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 로그인 때 읽은 우편·재화 캐시도 들고 있다 |
+| | `Login::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **레인을 네 번 갈아타고 도중에 주인이 바뀐다**(이름 해시 → `playerId`) |
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
-| | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 실제 SP 호출 배선은 아직 TODO |
+| | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기** 경로는 실제로 돌고, UoW의 **쓰기** 배선은 아직 TODO |
 | `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
 | | `PlayerProcessor` | 패킷별 핸들러(Move/Chat/Mail/MailBuy). Player 레인에서 돈다 |
 | | `PlayerRegistry` | clientSessionId → Player. 레인 수만큼 샤딩돼 락이 없다 |
@@ -320,12 +345,13 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 
 ## 로드맵 상태
 
-Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지 큐 프로세서 구조, WorldServer
-WorldWorker, Mail(Mutexed/UnitOfWork) 시스템, 재화(Currency) + 모델 두 개에 걸친 트랜잭션과
-역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RUID`), 부하 테스트 도구(StressClient),
-시각 클라이언트(Client)까지 완료.
+Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지 큐 프로세서 구조(asio
+`io_context` + `strand`), Mail(Mutexed/UnitOfWork) 시스템, 재화(Currency) + 모델 두 개에 걸친
+트랜잭션과 역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RUID`), 부하 테스트 도구(StressClient),
+시각 클라이언트(Client), **로그인(`C2WLogin`) + 자동 가입 + World 콘텐츠 캐시**까지 완료.
 부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`). 남은 것:
-실제 DB 연동(`Db::DbWorker`는 현재 로그만 남김), Actor/Monster/AOI. 자세한 표는
+**DB 쓰기 경로**(UnitOfWork → SP 배선 — 읽기는 로그인으로 열렸다), 중복 로그인 차단,
+`mail_id`/`player_id`의 `int64` 확대, Actor/Monster/AOI. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
 
 ---

@@ -36,13 +36,13 @@
 <h2>트랜잭션 — UnitOfWork 하나 = 트랜잭션 하나</h2>
 <div class="panel">
 <pre><code>AutoDbCommand(pool, dbGroup, ownerId, useTransaction = true)
-    .Add({ "dbo.up_mails_upsert",      { mailId, playerId, ... } })
-    .Add({ "dbo.up_currencies_upsert", { playerId, type, value } })
+    .Add({ "dbo.usp_mails_upsert",      { mailId, playerId, ... } })
+    .Add({ "dbo.usp_currencies_upsert", { playerId, type, value } })
                        ↓ 소멸 시 한 번에
 DbConnection::Execute(commands, useTransaction = true)
     SetAutoCommit(false)
-    ├ {? = CALL up_mails_upsert(?, ?, ...)}       @is_trans_outside = 1
-    ├ {? = CALL up_currencies_upsert(?, ...)}     @is_trans_outside = 1
+    ├ {? = CALL usp_mails_upsert(?, ?, ...)}       @is_trans_outside = 1
+    ├ {? = CALL usp_currencies_upsert(?, ...)}     @is_trans_outside = 1
     └ COMMIT        예외가 나면 ROLLBACK</code></pre>
 
 여러 UoW를 모으지 않는다. 같은 <code>ownerId</code>의 작업은 항상 같은 레인이라
@@ -59,7 +59,7 @@ UoW들 사이의 <b>순서는 어피니티가 보장</b>한다 — 순서를 맞
     그래서 호출부가 "바깥에 트랜잭션이 있다"를 알려주고, SP는 그때만 자기 것을 열지 않는다.
 </div>
 
-<h2>SP 골격 — 9개가 전부 같은 모양</h2>
+<h2>SP 골격 — 11개가 전부 같은 모양</h2>
 <div class="panel">
 <pre><code>@is_trans_outside 첫 파라미터
 XACT_STATE 진입 가드
@@ -115,10 +115,39 @@ DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에
 </div>
 
 <div class="callout todo">
-    <h4>그리고 배선</h4>
+    <h4>그리고 배선 — 지금은 읽기만 된다</h4>
     <code>ZoneLinkHandler::ApplyMailTask</code>가 Task를 읽기만 하고
     <code>AutoDbCommand</code>를 만들지 않는다. 스트림당 하나를 만들고 Task 루프가
     <code>Add()</code>만 하면 위 트랜잭션이 그대로 성립한다.
+    <p style="margin:8px 0 0"><b>읽기 경로는 로그인으로 열렸다</b> —
+    <code>usp_players_select</code> / <code>usp_players_upsert</code> /
+    <code>usp_players_load</code>가 실제로 돌고 있다. 쓰기만 비어 있어서, 골드를 써도 DB에는
+    그대로다.</p>
+</div>
+
+<h2>결과 집합이 여러 개인 SP</h2>
+<div class="panel">
+<code>usp_players_load</code>는 <b>SELECT를 두 번</b> 한다 — 우편, 그리고 재화. 로그인은 사람이
+기다리는 경로라 왕복 수가 그대로 체감 지연이 되고, 둘을 따로 부르면 그 사이에 다른 작업이
+끼어들어 <b>두 조회가 서로 다른 시점을 본다</b>.
+
+<pre style="margin:10px 0 0"><code>DbRow       = 행 하나
+DbResultSet = 행 목록          ← SELECT 한 번의 결과
+DbResult    = 결과 집합 목록   ← SP 하나가 낸 전부</code></pre>
+
+<p style="margin:10px 0 0"><b>SELECT 순서가 곧 계약이다.</b> 호출부가 인덱스 0/1로 꺼내므로,
+집합을 추가할 일이 생기면 <b>뒤에 붙인다</b> — 중간에 끼우면 읽는 쪽이 조용히 밀린다.</p>
+</div>
+
+<div class="callout">
+    <h4>재화 조회에만 NOLOCK이 없다</h4>
+    조회 기본값은 <code>WITH(NOLOCK)</code>이지만(<code>sql-patterns.md</code>), 같은 문서가
+    "한 행도 놓치면 안 되는 집계"를 예외로 둔다. <code>usp_players_load</code>의 재화 부분이
+    정확히 그 자리다.
+    <p style="margin:8px 0 0">여기서 읽은 잔액이 <b>World의 권위 캐시</b>가 되고, 짝이 되는
+    <code>usp_currencies_upsert</code>가 증감이 아니라 <b>절대값</b>을 쓴다. 그래서 행 하나를
+    놓치면 0으로 캐시되고 <b>다음 쓰기에서 잔액이 확정적으로 소멸한다</b>. 우편은 놓쳐도 다시
+    받으면 되므로 그대로 뒀다.</p>
 </div>
 
 <h2>관련 문서</h2>

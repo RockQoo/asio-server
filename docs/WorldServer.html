@@ -14,23 +14,86 @@
 
 <h2>한 줄 요약</h2>
 <div class="panel">
-포트 셋을 열어(Gateway 9100 / Zone 9200 / 운영툴 9300) 클라이언트 패킷을 <b>담당 존으로</b>,
-존이 올린 변경분을 <b>DB로</b> 보낸다. 존 이동은 여기 라우팅 테이블 한 줄로 끝난다.
+포트 셋을 열어(Gateway 9100 / Zone 9200 / 운영툴 9300) <b>로그인을 처리하고</b>, 클라이언트 패킷을
+<b>담당 존으로</b>, 존이 올린 변경분을 <b>DB로</b> 보낸다. 존 이동은 여기 라우팅 테이블 한 줄로 끝난다.
 </div>
 
 <h2>스레드 구조 — 그룹 두 개</h2>
 <div class="panel">
 <pre><code>I/O 스레드 2개        소켓에서 바이트만 복사, ownerId를 훔쳐보고 큐에 넣는다
       ↓
-BASIC 그룹 (8 레인)   owner = clientSessionId
-      ├ Main 프로세서   클라이언트 라우팅 (ClientRegistry / ZoneLinkRegistry)
+Basic 그룹 (스레드 8 + strand 8)
+      ├ Main 프로세서   클라이언트 라우팅 (PlayerManager / ZoneLinkRegistry)
+      ├ Login 프로세서  로그인 결과 반영 + 존 입장
       └ Tool 프로세서   운영툴 명령
       ↓
-DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적재 (블로킹 허용)</code></pre>
+Db 그룹 (스레드 4 + strand 4)     블로킹을 허용하는 별도 그룹
+      └ Db 프로세서     UnitOfWork 적재 · 로그인 계정 조회/생성/콘텐츠 적재</code></pre>
 
-<b>Main과 Tool이 한 그룹을 공유하는 이유</b>는 둘 다 주인이 <code>clientSessionId</code>이기
-때문이다. 주인이 같으면 같은 레인으로 가고, 그러면 운영툴이 만지는 대상과 그 사람의 일반
-패킷이 <b>같은 스레드에서 순서대로</b> 처리된다 — 그래서 라우팅 테이블에 락이 없다.
+<b>세 프로세서가 한 그룹을 공유한다.</b> 프로세서는 스레드가 아니라 "그 스레드 위에서 어느
+함수를 부르는가"를 가르는 태그다 — 어느 스레드에서 도는지는 메시지의 주인이 정한다.
+</div>
+
+<div class="callout">
+    <h4>Zone과 여기가 다르다</h4>
+    Zone은 <b>모든 메시지가 주인을 갖는다</b>(<code>clientSessionId</code> / <code>zoneId</code>).
+    그래서 어느 데이터든 한 번에 한 스레드만 만지고, 모델에 락이 거의 없다.
+    <p style="margin:8px 0 0">World는 하는 일이 대부분 <b>릴레이</b>라 짧고 순서가 중요한 것과,
+    전체 대상이라 주인이 없는 것이 섞여 있다. 그래서 주인을 줄지 말지 <b>메시지마다 고른다</b>:</p>
+<pre style="margin:10px 0 0"><code>Post(프로세서, ownerId, work)   주인 있음 → strand[ownerId % N]
+                                겹치지 않고 보낸 순서대로. 그 데이터엔 락이 없다
+
+Post(프로세서, work)            주인 없음 → 남는 스레드가 집어간다
+                                순서 보장 없음. 만지는 데이터가 스스로 지켜야 한다</code></pre>
+    <p style="margin:8px 0 0">그래서 World의 전역 테이블(<code>PlayerManager</code> /
+    <code>ZoneLinkRegistry</code>)은 <b><code>Thread::Mutexed</code></b>다. 지금 주인 없이 도는 것은
+    전체 공지 하나뿐이고, 나머지는 전부 순서가 필요하다.</p>
+</div>
+
+<div class="callout">
+    <h4>"같은 스레드"가 아니라 "직렬화"다</h4>
+    <code>Processor::Group</code>은 <code>asio::io_context</code> + <code>strand</code>로 되어 있다.
+    strand는 <b>겹치지 않음 · 보낸 순서 · 앞 작업의 쓰기가 뒤에 보임</b>을 보장하지만 매번 같은
+    스레드를 쓰지는 않는다. 락 없는 접근에 필요한 조건은 그 셋이고 스레드 정체성은 아니다.
+    <p style="margin:8px 0 0">대가는 하나 — <b><code>thread_local</code>에 기대면 안 된다.</b>
+    DB 커넥션이 스레드당 하나인 것은 그대로 유효하지만(커넥션 수 = 스레드 수), 커넥션에 세션
+    상태를 남기고 다음 작업이 그걸 기대하면 깨진다.</p>
+</div>
+
+<h2>로그인 — 레인을 네 번 갈아탄다</h2>
+<div class="panel">
+<pre><code>Basic(Login, owner=clientSessionId)    C2WLogin 파싱 / 중복 로그인 거절
+      ↓
+Db(Db, owner=hash(playerName))         usp_players_select → 비밀번호 검증
+                                       없으면 RUID 발급 + usp_players_upsert (자동 가입)
+      ↓
+Db(Db, owner=playerId)                 usp_players_load → 우편 · 재화
+      ↓
+Basic(Login, owner=clientSessionId)    캐시 적재 → W2CLogin → W2ZEnterZone(콘텐츠 동봉)</code></pre>
+
+<b>계정이 없는 것은 실패가 아니다</b> — 그 자리에서 만들고 성공으로 돌려준다. 그래서 에러 코드에
+"없는 계정"이 없고, 있어서도 안 된다.
+
+<p style="margin:10px 0 0"><b>주인이 두 번 바뀐다.</b> 계정 조회 단계에는 아직 playerId를 모르므로
+이름을 해시해 쓰고(같은 이름의 동시 첫 로그인이 한 레인으로 직렬화되어 SP의 <code>HOLDLOCK</code>과
+이중 안전망이 된다), 계정이 확정된 뒤에는 <b>영속 키인 playerId</b>로 바꾼다 — 이후 그 사람의
+UnitOfWork와 같은 레인으로 묶인다.</p>
+</div>
+
+<div class="callout">
+    <h4>적재 실패는 로그인 실패로 끊는다</h4>
+    빈 캐시로 들여보내면 그 사람의 우편과 재화가 없는 것으로 보이고, 그 상태에서 뭔가를 쓰면
+    <b>DB의 실제 값을 덮어쓴다</b> — 재화는 증감이 아니라 절대값 UPDATE라 잔액이 그대로 사라진다.
+</div>
+
+<div class="callout">
+    <h4>World가 클라이언트 패킷을 들여다보는 유일한 자리</h4>
+    <code>GatewayLinkHandler::HandleFromClient</code>는 봉투 안 id의 <b>방향이 C2W면</b> 존으로
+    넘기지 않고 <code>LoginProcessor</code>로 보낸다. 대역으로 가르므로 로그인 말고 다른 C2W 패킷이
+    생겨도 이 분기는 그대로다.
+    <p style="margin:8px 0 0"><b>인증 전에는 게임 패킷이 존까지 가지 않는다.</b> TCP 연결만으로
+    게임이 시작되던 동작이 여기서 끝났다 — <code>G2WClientConnected</code>는 등록만 하고, 존 입장은
+    로그인 성공 시점이다.</p>
 </div>
 
 <div class="callout">
@@ -49,9 +112,10 @@ DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적�
 <h2>핵심 타입</h2>
 <table>
     <tr><th>타입</th><th>역할</th><th>락</th></tr>
-    <tr><td><code>ClientRegistry</code></td><td>clientSessionId → (gatewaySession, 현재 zoneId)</td><td>없음 — BASIC 레인 전용, 샤딩</td></tr>
-    <tr><td><code>ZoneLinkRegistry</code></td><td>zoneId → (zoneSession, 담당 사각형)</td><td>없음 — 같은 이유</td></tr>
-    <tr><td><code>AutoDbCommand</code></td><td>SP 커맨드를 모았다가 <b>소멸 시</b> 한 번에 실행</td><td>—</td></tr>
+    <tr><td><code>PlayerManager</code></td><td>접속 중인 플레이어 전원 — 라우팅(게이트웨이 링크, zoneId) + 계정(playerId, 인증) + 콘텐츠 캐시(우편·재화)</td><td><b>Mutexed</b> — 어느 스레드에서든 읽힌다</td></tr>
+    <tr><td><code>ZoneLinkRegistry</code></td><td>zoneId → (zoneSession, 담당 사각형)</td><td><b>Mutexed</b> — 같은 이유</td></tr>
+    <tr><td><code>LoginProcessor</code></td><td>C2W 대역 처리. 계정 조회·자동 가입·콘텐츠 적재·존 입장</td><td>없음 — 레인 규약</td></tr>
+    <tr><td><code>AutoDbCommand</code></td><td>SP 커맨드를 모았다가 <b>소멸 시</b> 한 번에 실행. 콜백은 DB 레인에서</td><td>—</td></tr>
     <tr><td><code>DbConnection</code></td><td>ODBC 커넥션 하나. <b>레인 스레드마다 thread_local 1개</b></td><td>없음 — 1:1이라 공유가 없다</td></tr>
     <tr><td><code>ToolProcessor</code></td><td>운영툴 전용 포트(9300)의 핸들러</td><td>없음 — 다른 링크와 같은 스레드 규약</td></tr>
 </table>
@@ -59,21 +123,25 @@ DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적�
 <h2>존 이동 = 라우팅 테이블 한 줄</h2>
 <div class="panel">
 존이 "이 사람이 내 사각형을 벗어났다"고 알려오면, World가 좌표로 대상 존을 찾아
-<code>clientRegistry_.SetZone(clientSessionId, 대상)</code> 한 줄을 실행한다.
+<code>playerManager_.Write()->SetZone(clientSessionId, 대상)</code> 한 줄을 실행한다.
 <b>그게 핸드오프의 전부다.</b> 클라이언트는 재접속도 재인증도 하지 않는다.
+<br><br>
+전입하는 존에는 <b>캐시의 우편·재화를 다시 실어 보낸다</b>(<code>W2ZEnterZone</code>) — 그래야 새 존이
+빈 모델로 시작하지 않는다. 다만 캐시가 아직 로그인 시점 스냅샷이라, 존에서 <em>새로 만든</em> 우편은
+프로세스를 넘을 때 여전히 사라진다(위 "아직 안 된 것" 참고).
 <br><br>
 자세한 흐름: <a href="sequences/zone-handoff.html">존 핸드오프 시퀀스</a>
 </div>
 
 <h2>DB로 나가는 길</h2>
 <div class="panel">
-존이 <code>Z2WUnitOfWorkStream</code>을 올리면 <b>BASIC 레인을 거치지 않고</b> DB 그룹으로 직행한다 —
+존이 <code>Z2WUnitOfWorkStream</code>을 올리면 <b>Basic 레인을 거치지 않고</b> Db 그룹으로 직행한다 —
 라우팅 상태를 전혀 건드리지 않기 때문이다.
 
 <pre><code>Z2WUnitOfWorkStream  →  dbGroup_.Post(Db, ownerId)
                           └ AutoDbCommand(ownerId, useTransaction = true)
-                              ├ up_mails_upsert       (@is_trans_outside = 1)
-                              ├ up_currencies_upsert  (@is_trans_outside = 1)
+                              ├ usp_mails_upsert       (@is_trans_outside = 1)
+                              ├ usp_currencies_upsert  (@is_trans_outside = 1)
                               └ COMMIT   /  예외면 ROLLBACK</code></pre>
 
 <b>UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
@@ -82,8 +150,12 @@ DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적�
 <div class="callout todo">
     <h4>아직 안 된 것</h4>
     <ul style="margin:6px 0">
-        <li><b>Task → SP 호출 배선</b> — <code>ApplyMailTask</code>가 로그만 남긴다. 위 그림의 마지막 칸이 비어 있다</li>
-        <li><b>콘텐츠 메모리 캐시</b> — 로그인 시 우편/재화를 적재해 존이 올린 Task를 대조(위조 검증)할 자리</li>
+        <li><b>Task → SP 호출 배선</b> — <code>ApplyMailTask</code>가 로그만 남긴다. 위 그림의 마지막
+            칸이 비어 있다. <b>지금은 읽기만 되고 쓰기가 안 된다</b> — 골드를 써도 DB에는 그대로다</li>
+        <li><b>캐시 갱신</b> — 콘텐츠 캐시는 생겼지만 <b>로그인 시점의 DB 스냅샷에서 멈춰 있다.</b>
+            존이 올린 Task를 캐시에 반영하는 단계가 없어서, 존에서 새로 만든 우편은 프로세스를
+            넘는 핸드오프에서 사라진다. <b>그 자리가 곧 위조 검증 자리</b>다(캐시와 대조)</li>
+        <li><b>중복 로그인</b> — 같은 계정으로 여러 연결이 동시에 붙는다</li>
         <li><b>공통 콘텐츠</b> — 길드처럼 여러 존에 걸친 것이 들어올 자리</li>
     </ul>
 </div>
@@ -97,11 +169,13 @@ DB 그룹 (4 레인)      owner = clientSessionId → UnitOfWork 스트림 적�
 
 <h2>코드 위치</h2>
 <pre><code>Server/WorldServer/Src/
-├ Worker/ProcessorId.h        Main / Tool / Db
-├ World/ClientRegistry        누가 어느 존에 있는가
+├ Worker/ProcessorId.h        Main / Login / Tool / Db
+├ World/PlayerManager         누가 어느 존에 있고 무엇을 갖고 있는가
 ├ World/ZoneLinkRegistry      어느 존이 어느 사각형인가
-├ Handler/GatewayLinkHandler  클라 패킷 → 담당 존
+├ Handler/GatewayLinkHandler  클라 패킷 → C2W면 로그인, 아니면 담당 존
 ├ Handler/ZoneLinkHandler     존 패킷 → 클라 / DB
+├ Login/LoginProcessor        로그인 · 자동 가입 · 콘텐츠 적재
+├ Packet/EnterZoneBody.h      W2ZEnterZone 가변 본문(콘텐츠 동봉)
 ├ Tool/ToolProcessor          운영툴(9300)
 └ Db/                         AutoDbCommand · DbConnection · PasswordHash</code></pre>
 

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>C2WLogin — 로그인과 자동 가입</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 시퀀스 다이어그램 목록</a>
+
+<h1>C2WLogin — 로그인과 자동 가입</h1>
+<p class="sub">계정을 확인하고, 없으면 만들고, 그 사람의 우편·재화를 읽어 존까지 넘긴다.
+<b>DB가 실제로 돌아가는 유일한 경로</b>이자, World가 클라이언트 패킷을 직접 처리하는 유일한 자리다.</p>
+
+<div class="legend">
+    <span class="badge b-client">Client</span>
+    <span class="badge b-gateway">Gateway I/O</span>
+    <span class="badge b-world">World Login 레인</span>
+    <span class="badge b-db">World Db 레인</span>
+    <span class="badge b-player">Zone Player 레인</span>
+</div>
+
+<div class="seq">
+<div class="seq-inner">
+
+    <div class="seq-head" style="grid-template-columns: repeat(6, 1fr);">
+        <div class="actor a-client">Client<small>게임 스레드</small></div>
+        <div class="actor a-gateway">GatewayServer<small>I/O 스레드</small></div>
+        <div class="actor a-world">WorldServer<small>Login 레인</small></div>
+        <div class="actor a-db">WorldServer<small>Db 레인</small></div>
+        <div class="actor a-db">SQL Server<small>asio_game</small></div>
+        <div class="actor a-player">ZoneServer<small>Player 레인</small></div>
+    </div>
+
+    <div class="seq-body" style="grid-template-columns: repeat(12, 1fr);">
+        <div class="lifelines" style="grid-template-columns: repeat(6, 1fr);">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+
+        <div class="msg m-io" style="grid-column: 2 / 4; grid-row: 1;">
+            <span class="lbl">① C2WLogin</span>
+            <span class="line"></span>
+            <span class="desc">playerName / password (둘 다 길이 접두)</span>
+        </div>
+
+        <div class="act" style="grid-column: 3 / 5; grid-row: 2;">
+            <b>봉투를 씌운다</b>
+            다른 패킷과 똑같이 clientSessionId만 붙인다.
+            <b style="margin-top:5px">로그인인지도 모른다</b>
+        </div>
+
+        <div class="msg m-io" style="grid-column: 4 / 6; grid-row: 3;">
+            <span class="lbl">② G2WRelay</span>
+            <span class="line"></span>
+        </div>
+
+        <div class="act" style="grid-column: 5 / 7; grid-row: 4;">
+            <b>봉투 안 id의 방향을 본다</b>
+            C2W 대역이면 존으로 넘기지 않고 LoginProcessor로.
+            <b style="margin-top:5px">World가 클라 패킷을 여는 유일한 자리</b>
+        </div>
+
+        <div class="msg m-lane" style="grid-column: 5 / 7; grid-row: 5;">
+            <span class="lbl">③ Post(Login, clientSessionId)</span>
+            <span class="line"></span>
+            <span class="desc">그 사람 전용 strand — 인증 상태를 쓸 자리라 순서가 필요하다</span>
+        </div>
+
+        <div class="act" style="grid-column: 5 / 7; grid-row: 6;">
+            <b>파싱 · 중복 로그인 거절</b>
+            이미 인증된 연결이 또 보내면 여기서 끊는다.
+        </div>
+
+        <div class="msg m-lane" style="grid-column: 6 / 8; grid-row: 7;">
+            <span class="lbl">④ Post(Db, hash(playerName))</span>
+            <span class="line"></span>
+            <span class="desc">아직 playerId를 모르니 이름으로 해시한다</span>
+        </div>
+
+        <div class="msg m-db" style="grid-column: 7 / 9; grid-row: 8;">
+            <span class="lbl">⑤ usp_players_select</span>
+            <span class="line"></span>
+            <span class="desc">player_id / player_name / password_hash</span>
+        </div>
+
+        <div class="act" style="grid-column: 6 / 8; grid-row: 9;">
+            <b>비밀번호를 서버에서 비교한다</b>
+            PBKDF2-HMAC-SHA256. SP에서 비교하면 평문이 와이어와 DB 로그에 남는다.
+            <b style="margin-top:5px">0행이면 → 자동 가입</b>
+        </div>
+
+        <div class="msg m-db" style="grid-column: 7 / 9; grid-row: 10;">
+            <span class="lbl">⑥ usp_players_upsert <span style="opacity:.7">(계정이 없을 때만)</span></span>
+            <span class="line"></span>
+            <span class="desc">RUID로 playerId 발급 → MERGE(HOLDLOCK) → 확정된 id 반환</span>
+        </div>
+
+        <div class="msg m-db" style="grid-column: 7 / 9; grid-row: 11;">
+            <span class="lbl">⑦ usp_players_load</span>
+            <span class="line"></span>
+            <span class="desc">결과 집합 둘 — 우편, 재화</span>
+        </div>
+
+        <div class="act" style="grid-column: 6 / 8; grid-row: 12;">
+            <b>owner가 playerId로 바뀐다</b>
+            계정이 확정됐으니 이제 영속 키를 쓴다.
+            이후 이 사람의 UnitOfWork와 같은 레인으로 묶인다.
+        </div>
+
+        <div class="msg m-lane" style="grid-column: 5 / 7; grid-row: 13;">
+            <span class="lbl">⑧ Post(Login, clientSessionId)</span>
+            <span class="line"></span>
+            <span class="desc">다시 그 사람의 strand로 — BASIC 상태를 만져야 한다</span>
+        </div>
+
+        <div class="act" style="grid-column: 5 / 7; grid-row: 14;">
+            <b>PlayerManager에 캐싱 · 인증 확정 · 존 확보</b>
+            존을 <b>먼저</b> 확보한다 — 인증만 세워두면 어느 존에도 없는 상태로 남는다.
+        </div>
+
+        <div class="msg m-io" style="grid-column: 3 / 6; grid-row: 15;">
+            <span class="lbl">⑨ W2CLogin</span>
+            <span class="line"></span>
+            <span class="desc">errorCode / playerId / playerName — 결과를 먼저 보낸다</span>
+        </div>
+
+        <div class="msg m-lane" style="grid-column: 5 / 8; grid-row: 16;">
+            <span class="lbl">⑩ W2ZEnterZone</span>
+            <span class="line"></span>
+            <span class="desc">고정 머리 + <b>우편 목록 + 재화 목록</b>(가변 길이)</span>
+        </div>
+
+        <div class="act" style="grid-column: 6 / 8; grid-row: 17;">
+            <b>채워진 모델로 Player를 만든다</b>
+            Mail::Model::Seed / Currency::Model::Seed.
+            <b style="margin-top:5px">InsertMail이 아니다</b>
+        </div>
+
+        <div class="msg m-io" style="grid-column: 2 / 7; grid-row: 18;">
+            <span class="lbl">⑪ Z2CEnterZoneNotify</span>
+            <span class="line"></span>
+            <span class="desc">클라이언트는 이걸 받고 로딩 화면을 닫는다</span>
+        </div>
+    </div>
+</div>
+</div>
+
+<h2>읽는 법</h2>
+
+<div class="panel">
+<b>레인을 네 번 갈아탄다.</b> ③에서 Login 레인, ④에서 Db 레인, ⑦ 뒤에 같은 Db 레인이지만
+<b>주인이 바뀌고</b>, ⑧에서 다시 Login 레인으로 돌아온다.
+
+<p style="margin:10px 0 0">DB 왕복이 <b>반드시 Db 그룹</b>이어야 하는 이유는 블로킹이기 때문이다.
+실측으로 한 번에 8ms 걸린다 — 라우팅 레인에서 하면 그 레인에 걸린 모든 플레이어가 그동안 멈춘다.</p>
+</div>
+
+<div class="callout">
+    <h4>계정이 없는 것은 실패가 아니다</h4>
+    ⑥이 그 자리다. 없으면 만들고 성공으로 돌려준다. 그래서 에러 코드(300 대역)에 "없는 계정"이
+    없고, 있어서도 안 된다.
+    <p style="margin:8px 0 0">같은 이름으로 <b>동시에</b> 첫 로그인이 들어오면 한쪽만 INSERT되고
+    다른 쪽은 유니크 인덱스에 걸린다. 그래서 SP가 <b>확정된 player_id를 항상 돌려주고</b>, 호출부는
+    자기가 발급한 값이 아니라 그 값을 쓴다 — 안 그러면 존재하지 않는 playerId로 게임을 시작한다.</p>
+</div>
+
+<div class="callout">
+    <h4>적재 실패는 로그인 실패로 끊는다</h4>
+    ⑦이 실패했을 때 빈 캐시로 들여보내면, 그 사람의 우편과 재화가 없는 것으로 보인다.
+    그 상태에서 뭔가를 쓰면 <b>DB의 실제 값을 덮어쓴다</b> — 재화는 증감이 아니라 절대값
+    UPDATE라 잔액이 그대로 사라진다.
+</div>
+
+<div class="callout">
+    <h4>⑨가 ⑩보다 먼저인 이유</h4>
+    클라이언트가 로딩 화면으로 넘어간 <b>뒤에</b> 존 입장 통지를 받아야 "로그인은 됐는데 화면이
+    안 넘어간다"가 안 생긴다. 두 패킷이 서로 다른 소켓으로 나가므로 어차피 ⑩이 늦게 도착하지만,
+    보내는 순서를 코드에 박아 의도를 드러낸다.
+</div>
+
+<div class="callout todo">
+    <h4>아직 안 된 것</h4>
+    <ul style="margin:6px 0">
+        <li><b>쓰기 경로</b> — 존이 올린 UnitOfWork가 아직 SP를 부르지 않는다(로그만 남긴다).
+            즉 <b>읽기만 되고 쓰기가 안 된다</b> — 골드를 써도 DB에는 그대로다</li>
+        <li><b>캐시 갱신</b> — ⑧의 캐시가 <b>그 시점의 DB 스냅샷에서 멈춰 있다.</b> 존에서 새로
+            만든 우편은 프로세스를 넘는 핸드오프에서 사라진다. <b>그 자리가 위조 검증 자리</b>이기도
+            하다(존이 올린 Task를 캐시와 대조)</li>
+        <li><b>중복 로그인</b> — ⑥ 단계의 거절은 "같은 연결이 두 번" 뿐이고, 같은 계정으로 <b>다른
+            연결</b>이 붙는 것은 아직 막지 않는다</li>
+    </ul>
+</div>
+
+<h2>관련 문서</h2>
+<div class="cards">
+    <a class="card" href="../WorldServer.html"><b>WorldServer</b><span>③~⑩ 구간의 스레드 구조</span></a>
+    <a class="card" href="../DB.html"><b>DB 계층</b><span>SP 규약과 트랜잭션 경계</span></a>
+    <a class="card" href="mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>로그인 뒤 콘텐츠가 흐르는 길</span></a>
+</div>
+
+<p class="foot">asio-server · 패킷 시퀀스 다이어그램</p>
+</main>
+</body>
+</html>

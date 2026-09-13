@@ -22,12 +22,17 @@
 <table>
     <tr><th>프로세스</th><th>역할</th><th>스레드</th></tr>
     <tr><td><span class="badge b-gateway">Gateway</span></td><td>클라이언트 accept, 순수 릴레이</td><td>I/O 2</td></tr>
-    <tr><td><span class="badge b-world">World</span></td><td>라우팅, DB 관문, 공통 콘텐츠</td><td>I/O 2 · BASIC 8 · DB 4</td></tr>
+    <tr><td><span class="badge b-world">World</span></td><td>로그인, 라우팅, DB 관문, 공통 콘텐츠</td><td>I/O 2 · Basic 8 · Db 4</td></tr>
     <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · LB 4 · Player 8 · ZoneSpace n · Broadcast 1</td></tr>
 </table>
 
 <p style="margin:10px 0 0">스레드 수와 포트는 <code>config/*.cfg</code>에서 읽는다 — 위 값은 기본 설정이다
 (<a href="design/config-file.md">형식과 정책</a>).</p>
+
+<p style="margin:10px 0 0"><b>큐 그룹에 일을 넣는 길이 두 가지다.</b> 주인(<code>ownerId</code>)을
+주면 그 주인의 일이 <b>겹치지 않고 보낸 순서대로</b> 처리되고(<code>asio::strand</code>), 주지 않으면
+<b>남는 스레드</b>가 집어간다. Zone은 전부 주인을 지정해 락 없이 돌고, World는 순서가 필요한 것만
+지정한다 — 그래서 World의 전역 테이블은 <code>Thread::Mutexed</code>다.</p>
 </div>
 
 <h2>서버별 문서</h2>
@@ -42,7 +47,7 @@
     </a>
     <a class="card" href="WorldServer.html">
         <b>WorldServer</b>
-        <span>누가 어느 존에 있는지 아는 유일한 서버. 존 이동은 여기 한 줄로 끝난다.</span>
+        <span>로그인의 끝점이자, 누가 어느 존에 있는지 아는 유일한 서버. 존 이동은 여기 한 줄로 끝난다.</span>
     </a>
     <a class="card" href="ZoneServer.html">
         <b>ZoneServer</b>
@@ -56,6 +61,10 @@
 
 <h2>패킷 시퀀스 다이어그램</h2>
 <div class="cards">
+    <a class="card" href="sequences/login.html">
+        <b>C2WLogin — 로그인과 자동 가입</b>
+        <span>레인을 네 번 갈아탄다. 계정이 없으면 만들고, 우편·재화를 읽어 존까지 넘긴다.</span>
+    </a>
     <a class="card" href="sequences/mail-add-to-db.html">
         <b>C2ZMailAdd → DB</b>
         <span>우편 하나가 Gateway·World·Zone 두 레인·DB 레인을 지나는 전 경로.</span>

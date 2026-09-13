@@ -87,7 +87,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
 
         <div class="act" style="grid-column: 5 / 7; grid-row: 8;">
             <b>⑧ 핸드오프의 전부</b>
-            <code>clientRegistry_.SetZone(clientSessionId, 3)</code>
+            <code>playerManager_.Write()->SetZone(clientSessionId, 3)</code>
             <b style="margin-top:5px">이 한 줄이 곧 존 이동이다</b>
             다음 패킷부터 World가 존 3으로 보낸다.
         </div>

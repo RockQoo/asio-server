@@ -31,7 +31,7 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 |------|------|
 | [processor-group.md](processor-group.md) | `Shared/Core/Src/Processor/Group.h` |
 | [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Game/Player.h` |
-| [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `ClientRegistry`, `ZoneLinkRegistry` |
+| [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `PlayerManager`, `ZoneLinkRegistry` |
 | [unit-of-work.md](unit-of-work.md) | `Task/UnitOfWork.h`, `Zone/Task/UnitOfWork.cpp` |
 | [wire-format.md](wire-format.md) | `Packet/ToolLinkPackets.h`, `Packet/ZoneLinkPackets.h` |
 | [unique-id.md](unique-id.md) | `Shared/Core/Src/Common/RUID.h` |

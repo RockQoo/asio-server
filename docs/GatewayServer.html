@@ -26,6 +26,16 @@
     <tr><td><b>존 이동이 투명해진다</b></td><td>핸드오프는 World의 라우팅 테이블에서만 일어나므로 Gateway는 이동 자체를 모른다</td></tr>
 </table>
 
+<div class="callout">
+    <h4>로그인도 그냥 중계한다</h4>
+    <code>C2WLogin</code>이 와도 Gateway는 <b>그게 로그인인지 모른다</b> — 다른 패킷과 똑같이
+    <code>clientSessionId</code>만 붙여 World로 넘긴다. 봉투 안 id를 보고 로그인으로 가르는 것은
+    World다(<a href="WorldServer.html">WorldServer</a>).
+    <p style="margin:8px 0 0">그래서 <b>Gateway에는 인증 개념이 없다.</b> 인증 전 게임 패킷을
+    막는 것도 World가 한다 — 판정을 한 곳에 두는 편이 추적이 쉽고, Gateway가 게임 프로토콜을
+    알기 시작하면 "게임 로직 0"이라는 전제가 무너진다.</p>
+</div>
+
 <h2>스레드 구조</h2>
 <div class="panel">
 <b>I/O 스레드 2개뿐이다.</b> 별도 로직 큐가 없다 — 하는 일이 바이트 복사와 전달뿐이라

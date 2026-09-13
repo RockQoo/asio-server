@@ -50,13 +50,36 @@ Notice는 World가 직접 발신하므로 `W2C`다. id만 봐도 어디서 끝�
 (`C2ZChat` / `Z2CChatNotify`). 방향이 갈리면 본문 구조가 갈라지는 순간이 언젠가 오는데,
 id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가 조용히 만들어진다.
 
+### `Req`/`Ack`는 붙이지 않는다
+
+**방향이 이미 말하는 것을 접미사로 반복하지 않는다.** `C2W`면 클라가 보내는 것이니 `Req`는
+같은 말을 두 번 하는 것이고, `W2C`면 서버가 주는 것이니 `Ack`도 마찬가지다.
+`~Relay` 4개를 줄인 것(아래)과 같은 논리다.
+
+```
+W2ZEnterZoneRequest  ->  W2ZEnterZone
+T2WMailSendRequest   ->  T2WMailSend
+W2TClientListReply   ->  W2TClientList     (방향이 갈라주므로 T2W와 같은 이름이어도 된다)
+T2WToolHello         ->  T2WHello          (Tool도 T2W가 이미 말한다)
+```
+
+**다만 접미사가 방향이 아니라 다른 것을 말하면 남긴다:**
+
+| 접미사 | 무엇을 말하나 | 예 |
+|---|---|---|
+| `Result` | 본문 맨 앞에 **결과 코드**가 있다 | `W2CLogin`은 예외 — 이름만으로 결과임이 분명해 안 붙였다. `W2TCommandResult`, `Z2CTaskResult` |
+| `Notify` | 요청한 사람이 아니라 **주변에 뿌린다**(브로드캐스트) | `Z2CChatNotify`, `Z2CMoveNotify` |
+
+판단 기준은 하나다 — **그 단어를 빼면 정보가 사라지는가.** 사라지면 남기고, 접두 3글자가
+이미 말하고 있으면 뗀다.
+
 ## 번호 대역
 
 | 대역 | 방향 |
 |------|------|
 | 1 – 999 | `C2Z` |
 | 1000 – 1999 | `Z2C` |
-| 2000 – 2999 | `C2W` (로그인/인증 자리, 현재 비어 있음) |
+| 2000 – 2999 | `C2W` (로그인/인증. **이 대역만 World가 끝점**이다) |
 | 3000 – 3999 | `W2C` |
 | 4000 – 4999 | `G2W` |
 | 5000 – 5999 | `W2G` |
@@ -98,7 +121,9 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 | ~~1005~~ | ~~`Z2CMailAddAck`~~ | `Z2CTaskResult`로 통합되며 폐기(번호 재사용 안 함) |
 | ~~1006~~ | ~~`Z2CMailDelAck`~~ | 〃 |
 | 1007 | `Z2CTaskResult` | 신규 — UnitOfWork 결과 공통 응답 |
+| 2001 | `C2WLogin` | 신규 — playerName + password. 계정이 없으면 그 자리에서 만든다 |
 | 3001 | `W2CNotice` | `Zone::PacketId::Notice` |
+| 3002 | `W2CLogin` | 신규 — errorCode + playerId + playerName |
 | 4001 | `G2WClientConnected` | `GatewayLinkPacketId::ClientConnected` |
 | 4002 | `G2WClientDisconnected` | `GatewayLinkPacketId::ClientDisconnected` |
 | 4003 | `G2WRelay` | `GatewayLinkPacketId::FromClient` |
