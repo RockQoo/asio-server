@@ -61,7 +61,7 @@ public sealed class ClientGame : Game
     ///
     /// <para>
     /// <b>왜 필요한가</b>: 존 브로드캐스트는 <em>그 패킷을 처리하는 순간 존에 있는 플레이어</em>
-    /// 에게만 간다(<c>ZoneInstance::BroadcastToZone</c>이 그때의 <c>players_</c>로 대상 목록을
+    /// 에게만 간다(<c>Instance::BroadcastToZone</c>이 그때의 <c>players_</c>로 대상 목록을
     /// 만든다). 그런데 프로토콜에 <b>"입장 시 기존 플레이어 목록"을 주는 패킷이 없어서</b>,
     /// 나중에 들어온 창은 이미 있던 플레이어가 <em>움직일 때까지</em> 그 존재를 알 수 없다.
     /// 창을 두 개 띄워 놓고 한쪽을 가만히 두면 다른 쪽 화면에서 아예 안 보이는 셈이다.
@@ -406,7 +406,7 @@ public sealed class ClientGame : Game
     {
         // 존이 있는 구간 안으로만 제한한다. WorldMaxX를 넘어서면 그 좌표를 담당하는 존이
         // 아예 없어서, 서버는 로컬 상태를 먼저 지운 뒤 라우팅 대상을 못 찾고 그대로 끝낸다
-        // (ZoneInstance::HandleMove -> RequestZoneTransfer). 화면에서는 캐릭터가 사라진 것처럼
+        // (Instance::HandleMove -> RequestZoneTransfer). 화면에서는 캐릭터가 사라진 것처럼
         // 보이는데 원인이 클라이언트에 없어서 헷갈리므로, 애초에 못 나가게 막는다.
         const float Epsilon = 0.001f;
         localX_ = Math.Clamp(x, 0.0f, ZoneLayout.WorldMaxX - Epsilon);

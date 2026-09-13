@@ -7,7 +7,7 @@
 
 namespace Currency
 {
-    CurrencyTask::CurrencyTask(CurrencyModel& model, const Protocol::ECurrencyType type,
+    CurrencyTask::CurrencyTask(Model& model, const Protocol::ECurrencyType type,
                                const int64_t newValue, const int64_t oldValue)
         : model_(model)
         , type_(type)

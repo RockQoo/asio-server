@@ -40,8 +40,8 @@
   배정 규칙을 모른다.
 - **좌표를 같이 정해야 한다.** "입장 시 배정되는 존"과 "좌표 기반 존"이 같은 개념이라,
   zoneId만 돌려 나누고 좌표를 그대로 두면 배정 존과 좌표가 어긋나 다음 Move에서 즉시
-  핸드오프가 터진다(`ZoneInstance::OnPlayerEnter`는 받은 좌표를 그대로 받아들인다).
-  `FindEntryPoint()`가 이미 그 존의 `ZoneDef` 중앙을 계산하고 있으므로, 고를 존만 바꾸면
+  핸드오프가 터진다(`Instance::OnPlayerEnter`는 받은 좌표를 그대로 받아들인다).
+  `FindEntryPoint()`가 이미 그 존의 `Def` 중앙을 계산하고 있으므로, 고를 존만 바꾸면
   좌표는 따라온다 — 스폰 좌표를 상수로 박지 않은 이유가 이것이다.
 - 검증: `bat/start_server_all.bat`으로 존 4개(프로세스 2개)를 띄운 뒤 `StressClient.exe`로 10,000세션
   재실행 → 인구가 각 존에 고르게 나뉘는지(`zoneserver-*.log`의 "플레이어 입장" 로그로 확인),
@@ -87,5 +87,5 @@
 ## 참고: 이미 해결된 항목 (재작업 불필요)
 
 - 부하 도구(`StressClient`) 자체의 스톨 감지 오탐 버그는 이전 세션에서 이미 수정 완료
-  (`StressSession::HandleBroadcastPacket`이 더 이상 `MarkProgress()`를 호출하지 않음).
+  (`Session::HandleBroadcastPacket`이 더 이상 `MarkProgress()`를 호출하지 않음).
 - 우편 요청의 응답 프로토콜은 이미 반영·빌드 완료(이후 `Z2CTaskResult` 하나로 통합됐다).

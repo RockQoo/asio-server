@@ -12,7 +12,7 @@
 // LOG.Error(category, "메시지").KV(...) 형태의 전역 로그 진입점 + Core 자신의 기본 카테고리
 // (ELogCategory::Network/Packet/Thread/General). BasicTypes.h와 같은 이유로 PCH 예외 대상 —
 // 안정적인 크로스커팅 인프라라 개발 중 자주 바뀌지 않는다.
-#include "Shared/Core/Src/Log/LogProxy.h"
+#include "Shared/Core/Src/Log/Proxy.h"
 #include "Shared/Core/Src/Log/LogCategory.h"
 
 #include <array>

@@ -54,6 +54,9 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
+           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;ASIO_STANDALONE;ASIO_NO_DEPRECATED;_WIN32_WINNT=0x0A00;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -75,6 +78,9 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
+           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -101,7 +107,7 @@
     <ClInclude Include="Src\World\WorldLink.h" />
     <ClInclude Include="Src\Handler\ClientLinkHandler.h" />
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />
-    <ClInclude Include="Src\App\GatewayServerApp.h" />
+    <ClInclude Include="Src\App\App.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -110,7 +116,7 @@
     </ClCompile>
     <ClCompile Include="Src\Handler\ClientLinkHandler.cpp" />
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp" />
-    <ClCompile Include="Src\App\GatewayServerApp.cpp" />
+    <ClCompile Include="Src\App\App.cpp" />
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>
   <ItemGroup>

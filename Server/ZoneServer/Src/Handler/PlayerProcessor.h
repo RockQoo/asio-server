@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Shared/Core/Src/Packet/PacketDispatcher.h"
+#include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Server/ZoneServer/Src/Game/Player.h"
 #include "Server/ZoneServer/Src/Game/PlayerRegistry.h"
 #include "Shared/Protocol/Src/PacketId.h"
@@ -13,13 +13,13 @@
 namespace Zone
 {
     class WorldLink;
-    class ZoneWorkerManager;
+    class WorkerManager;
     class BroadcastDispatcher;
 }
 
 namespace Mail
 {
-    class MailRegistry;
+    class Registry;
 }
 
 namespace Zone
@@ -41,15 +41,15 @@ namespace Zone
     // 이동은 네 단계로 나뉘고, 요점은 **이동 패킷이 존 레인을 건드리지 않는다**는 것이다:
     //   ① 여기서 파싱·검증  ② MoveModel에 요청만 기록
     //   ③ 브로드캐스트는 즉시(틱을 기다리면 체감 지연이 커진다)
-    //   ④ 적분·경계 판정은 존 레인이 다음 틱에 (ZoneInstance::Tick)
+    //   ④ 적분·경계 판정은 존 레인이 다음 틱에 (Instance::Tick)
     //
     // 흐름 전체: docs/sequences/zone-handoff.html
     class PlayerProcessor
     {
     public:
-        PlayerProcessor(PlayerRegistry& playerRegistry, ZoneWorkerManager& zoneWorkers,
+        PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
                         BroadcastDispatcher& broadcastDispatcher, WorldLink& worldLink,
-                        Mail::MailRegistry& mailRegistry);
+                        Mail::Registry& mailRegistry);
 
         // 아래 셋은 전부 그 clientSessionId를 담당하는 플레이어 레인 스레드에서 호출된다.
         void OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
@@ -84,10 +84,10 @@ namespace Zone
                              const Network::SessionId excludeClientSessionId = 0) const;
 
         PlayerRegistry& playerRegistry_;
-        ZoneWorkerManager& zoneWorkers_;
+        WorkerManager& zoneWorkers_;
         BroadcastDispatcher& broadcastDispatcher_;
         WorldLink& worldLink_;
-        Mail::MailRegistry& mailRegistry_;
+        Mail::Registry& mailRegistry_;
 
         // 패킷 타입 -> 핸들러. **존마다도 플레이어마다도 아니고 이 처리기에 하나만** 둔다 --
         // 개체마다 테이블을 갖는 구조는 등록 내용이 개체별로 다를 때만 의미가 있고, 그렇지
@@ -95,6 +95,6 @@ namespace Zone
         // 동접이면 무시할 수 없는 양이 된다).
         // 등록은 생성자에서 끝나고 이후로는 읽기 전용이라, 여러 스레드가 동시에 Dispatch해도
         // 안전하다.
-        Packet::PacketDispatcher<PacketId, PlayerContext> packetDispatcher_;
+        Packet::Dispatcher<PacketId, PlayerContext> packetDispatcher_;
     };
 }

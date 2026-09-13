@@ -10,7 +10,7 @@ namespace Client.Ui;
 /// </summary>
 public sealed class ChatPanel
 {
-    /// <summary>C++ <c>Packet::PacketHeader::MaxBodySize()</c>를 넘지 않도록 넉넉히 잡은 상한.</summary>
+    /// <summary>C++ <c>Packet::Header::MaxBodySize()</c>를 넘지 않도록 넉넉히 잡은 상한.</summary>
     private const int MaxMessageLength = 200;
 
     /// <summary>

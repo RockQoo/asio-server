@@ -1,5 +1,5 @@
 #include "Tool/StressClient/Src/pch.h"
-#include "Tool/StressClient/Src/App/StressRunner.h"
+#include "Tool/StressClient/Src/App/Runner.h"
 
 #include <cstdlib>
 #include <exception>
@@ -14,7 +14,7 @@ int main(const int argc, char** argv)
     {
         // 인자: host port sessionCount cyclesPerSession rampUpPerSecond stallThresholdSec maxDurationSec
         // 전부 생략 가능(기본값 사용). 예: StressClient.exe 127.0.0.1 9000 10000 200 500 15 300
-        Stress::StressConfig config{};
+        Stress::Config config{};
         if (argc > 1) { config.host = argv[1]; }
         if (argc > 2) { config.port = static_cast<uint16_t>(std::stoi(argv[2])); }
         if (argc > 3) { config.sessionCount = static_cast<size_t>(std::stoull(argv[3])); }
@@ -23,7 +23,7 @@ int main(const int argc, char** argv)
         if (argc > 6) { config.stallThreshold = std::chrono::seconds(std::stoll(argv[6])); }
         if (argc > 7) { config.maxDuration = std::chrono::seconds(std::stoll(argv[7])); }
 
-        Stress::StressRunner runner(std::move(config));
+        Stress::Runner runner(std::move(config));
         runner.Run();
     }
     catch (const std::exception& ex)

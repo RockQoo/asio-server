@@ -1,5 +1,5 @@
 #include "Server/WorldServer/Src/pch.h"
-#include "Server/WorldServer/Src/App/WorldServerApp.h"
+#include "Server/WorldServer/Src/App/App.h"
 #include "Server/WorldServer/Src/Db/DbConnection.h"
 #include "Server/WorldServer/Src/Db/PasswordHash.h"
 
@@ -27,7 +27,7 @@ namespace
     // 콘솔에서 "notice <메시지>"를 입력하면 WorldServer가 Zone을 거치지 않고 접속 중인 모든
     // 클라이언트에게 직접 브로드캐스트한다 -- World가 클라이언트 레지스트리를 직접 들고 있어서
     // 가능한 구조를 수동으로 확인하기 위한 REPL이다.
-    void ConsoleLoop(World::WorldServerApp& app, std::atomic<bool>& running)
+    void ConsoleLoop(World::App& app, std::atomic<bool>& running)
     {
         std::string line;
         while (running.load() && std::getline(std::cin, line))
@@ -317,7 +317,7 @@ int main(const int argc, char* argv[])
 
     try
     {
-        World::WorldServerConfig config{};
+        World::Config config{};
         config.gatewayPort = 9100;
         config.zonePort = 9200;
         config.toolPort = 9300;
@@ -328,7 +328,7 @@ int main(const int argc, char* argv[])
         // DB는 커넥션 풀 크기와 1:1이 원칙이다. 실제 DB 연동 전이라 개발 머신 기준 임시값.
         config.dbThreadCount = 4;
 
-        // 시크릿과 DB 연결 문자열은 소스에 박힌 개발 기본값(WorldServerConfig)을 쓰되, 환경
+        // 시크릿과 DB 연결 문자열은 소스에 박힌 개발 기본값(Config)을 쓰되, 환경
         // 변수가 있으면 그걸 우선한다 -- 공개 저장소에 실제 값을 커밋하지 않기 위한 최소 장치다.
         // 운영툴 쪽도 같은 이름의 환경 변수(또는 appsettings)를 읽으므로 둘을 같이 바꿔야 한다.
         if (const auto secret = ReadEnv("ASIO_SERVER_TOOL_SECRET"))
@@ -372,7 +372,7 @@ int main(const int argc, char* argv[])
             return RunIdTest(config.dbConnectionString, nodeId, threadCount, perThread, randomMode);
         }
 
-        World::WorldServerApp app(std::move(config));
+        World::App app(std::move(config));
 
         std::atomic<bool> running{true};
         std::thread consoleThread(ConsoleLoop, std::ref(app), std::ref(running));

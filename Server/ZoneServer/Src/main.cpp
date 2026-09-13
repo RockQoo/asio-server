@@ -1,5 +1,5 @@
 #include "Server/ZoneServer/Src/pch.h"
-#include "Server/ZoneServer/Src/App/ZoneServerApp.h"
+#include "Server/ZoneServer/Src/App/App.h"
 
 #include "Shared/Core/Src/Common/UniqueId.h"
 
@@ -32,12 +32,12 @@ namespace
     // ParseZoneList가 그 존을 거부한다(월드 밖에 존을 만들어 조용히 어긋나는 것보다 낫다).
     constexpr uint32_t kZoneRows = 2;
 
-    // "1,2" 같은 콤마 구분 zoneId 목록을 파싱해 ZoneDef 목록으로 만든다. 한 프로세스가 zoneId
+    // "1,2" 같은 콤마 구분 zoneId 목록을 파싱해 Def 목록으로 만든다. 한 프로세스가 zoneId
     // 여러 개를 동시에 호스팅할 수 있다는 걸 보여주는 게 목적이라, 실행 인자 하나로 "이
     // 프로세스가 담당할 존 목록"을 그대로 config로 넘긴다.
     //
     // 좌표는 zoneId에서 계산한다(격자 규칙). 나중에 크기·위치가 불규칙한 배치가 필요해지면 이
-    // 함수만 CSV 로더로 바꾸면 되고, 아래 계층(ZoneDef를 그대로 들고 다니는 구조)은 그대로다.
+    // 함수만 CSV 로더로 바꾸면 되고, 아래 계층(Def를 그대로 들고 다니는 구조)은 그대로다.
     //
     // **zoneId는 1부터 시작한다.** 0을 비워두는 이유는 "존 없음/미배정"을 값 하나로 나타낼
     // 자리가 필요하기 때문이다 -- 클라이언트는 입장 전 zoneId를 0으로 들고 있고, World도
@@ -45,7 +45,7 @@ namespace
     // 있다"와 "아직 아무 존에도 없다"가 같은 값이 된다.
     struct ZoneListParseResult
     {
-        std::vector<Zone::ZoneDef> zones;
+        std::vector<Zone::Def> zones;
         // 무시한 인자 토큰. 로거 초기화가 파싱보다 뒤라서(로그 파일명이 존 목록으로 정해진다)
         // 여기서 바로 못 찍고, main이 초기화 후에 경고로 남긴다.
         std::vector<std::string> rejectedTokens;
@@ -80,7 +80,7 @@ namespace
                 continue;
             }
 
-            Zone::ZoneDef def{};
+            Zone::Def def{};
             def.zoneId = zoneId;
             def.xMin = static_cast<float>(column) * kZoneSize;
             def.xMax = def.xMin + kZoneSize;
@@ -151,7 +151,7 @@ int main(const int argc, char* argv[])
 
     try
     {
-        Zone::ZoneServerConfig config{};
+        Zone::Config config{};
         config.zones = zones;
         // 레인마다 크기를 정하는 기준이 다르다:
         //   LB / Player -- owner가 clientSessionId라 실질 병렬도가 접속자 수만큼이다.
@@ -169,7 +169,7 @@ int main(const int argc, char* argv[])
         config.tickInterval = std::chrono::milliseconds(100);
         config.mailSweepInterval = std::chrono::milliseconds(1000);
 
-        Zone::ZoneServerApp app(std::move(config));
+        Zone::App app(std::move(config));
         app.Run();
     }
     catch (const std::exception& ex)

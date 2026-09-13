@@ -88,7 +88,7 @@ GO
 -- -----------------------------------------------------------------------------
 -- currency_type 1 = Gold (Shared/Protocol/Src/CurrencyType.h). 0 은 "종류 없음" 예약값이다.
 --
--- 1000 은 Zone 의 CurrencyModel::gold_ 초기값과 같은 값이다. DB 연동이 끝나면 그 하드코딩된
+-- 1000 은 Zone 의 Model::gold_ 초기값과 같은 값이다. DB 연동이 끝나면 그 하드코딩된
 -- 초기값은 0 이 되고 여기서 읽은 값을 SetCurrency 로 채우는 경로만 남는다.
 INSERT INTO dbo.currencies (player_id, currency_type, amount)
 SELECT p.player_id, 1, 1000

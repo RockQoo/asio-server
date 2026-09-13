@@ -18,7 +18,7 @@ CREATE TABLE dbo.mails
     player_id BIGINT         NOT NULL,
     title     NVARCHAR(128)  NOT NULL,
     body      NVARCHAR(1024) NOT NULL,
-    -- Zone 의 MailInfo.sendUt / endUt 를 그대로 받는다. 유닉스 시각(초)이라 BIGINT 다.
+    -- Zone 의 Info.sendUt / endUt 를 그대로 받는다. 유닉스 시각(초)이라 BIGINT 다.
     -- DATETIME2 로 바꾸지 않는 이유: 서버 메모리·와이어·클라이언트가 전부 정수로 다루는데
     -- DB에서만 형식이 다르면 경계마다 변환이 생기고 그 자리가 버그가 된다.
     send_ut   BIGINT         NOT NULL,

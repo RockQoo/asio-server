@@ -20,7 +20,7 @@ namespace Zone
     // 규칙이 큐 그룹의 스레드 선택 규칙과 같아야 하므로(둘 다 `% N`) 생성자가 그룹의 스레드
     // 수를 그대로 받는다.
     //
-    // Player를 shared_ptr로 들고 있는 이유는 **존 레인(ZoneInstance의 로스터)도 같은 객체를
+    // Player를 shared_ptr로 들고 있는 이유는 **존 레인(Instance의 로스터)도 같은 객체를
     // 가리키기 때문**이다. 두 레인이 같은 객체를 보되, 모델별로 어느 레인이 만질 수 있는지는
     // Player.h 주석이 규정한다.
     class PlayerRegistry

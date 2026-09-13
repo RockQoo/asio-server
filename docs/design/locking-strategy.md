@@ -10,7 +10,7 @@
 
 | 전략 | 쓰는 자리 | 예 |
 |------|-----------|-----|
-| ① 레인 어피니티 | 주인이 분명한 데이터 | `Player`의 지갑, `ZoneInstance`의 로스터 |
+| ① 레인 어피니티 | 주인이 분명한 데이터 | `Player`의 지갑, `Instance`의 로스터 |
 | ② 샤딩 | 주인별로 나뉘지만 컨테이너를 공유해야 하는 것 | `ClientRegistry`, `PlayerRegistry` |
 | ③ 스냅샷 전달 | 다른 레인이 읽어야 하는 것 | 브로드캐스트 대상 목록 |
 | ④ 명시적 락(`Mutexed`) | 주인을 가로질러 접근하는 자리 | `ZoneLinkRegistry`, 우편함 |
@@ -31,7 +31,7 @@ rehash가 컨테이너 자체를 흔든다.**
 ### 대가 — 전체 순회를 한 스레드에서 할 수 없다
 
 샤드마다 그 샤드를 소유한 스레드로 메시지를 하나씩 보내야 한다.
-`ForEachInShard`가 그 용도다(`WorldServerApp::BroadcastToAll`).
+`ForEachInShard`가 그 용도다(`App::BroadcastToAll`).
 
 ## ④ 왜 ZoneLinkRegistry만 락이 필요한가
 
@@ -43,7 +43,7 @@ rehash가 컨테이너 자체를 흔든다.**
 모델 단위 읽기/쓰기 락(2층)이 필요하다. 쓰기는 존 서버가 붙고 끊길 때뿐이라 극히 드물고
 읽기는 패킷마다 일어나므로 `shared_mutex` 기반 `Mutexed`가 정확히 맞는 도구다.
 
-관련: [ProcessorGroup — 어피니티는 만능이 아니다](processor-group.md)
+관련: [Group — 어피니티는 만능이 아니다](processor-group.md)
 
 ## Mutexed 사용법
 

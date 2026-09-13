@@ -74,8 +74,8 @@ namespace World
     }
 
     ZoneLinkHandler::ZoneLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                                      Processor::ProcessorGroup<EProcessorId>& basicGroup,
-                                      Processor::ProcessorGroup<EProcessorId>& dbGroup)
+                                      Processor::Group<EProcessorId>& basicGroup,
+                                      Processor::Group<EProcessorId>& dbGroup)
         : clientRegistry_(clientRegistry)
         , zoneLinkRegistry_(zoneLinkRegistry)
         , basicGroup_(basicGroup)
@@ -122,7 +122,7 @@ namespace World
     }
 
     void ZoneLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
-                                   const Packet::PacketHeader& header,
+                                   const Packet::Header& header,
                                    const std::span<const byte> payload)
     {
         // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 라우팅에 필요한 정수 하나만 읽고

@@ -1,13 +1,13 @@
 #include "Server/ZoneServer/Src/pch.h"
 #include "Server/ZoneServer/Src/Handler/PlayerProcessor.h"
-#include "Server/ZoneServer/Src/Game/ZoneInstance.h"
-#include "Server/ZoneServer/Src/Mail/MailModel.h"
-#include "Server/ZoneServer/Src/Mail/MailRegistry.h"
+#include "Server/ZoneServer/Src/Game/Instance.h"
+#include "Server/ZoneServer/Src/Mail/Model.h"
+#include "Server/ZoneServer/Src/Mail/Registry.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
-#include "Server/ZoneServer/Src/Task/ZoneUnitOfWork.h"
+#include "Server/ZoneServer/Src/Task/UnitOfWork.h"
 #include "Server/ZoneServer/Src/World/WorldLink.h"
 #include "Server/ZoneServer/Src/Worker/BroadcastDispatcher.h"
-#include "Server/ZoneServer/Src/Worker/ZoneWorkerManager.h"
+#include "Server/ZoneServer/Src/Worker/WorkerManager.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
@@ -22,9 +22,9 @@
 
 namespace Zone
 {
-    PlayerProcessor::PlayerProcessor(PlayerRegistry& playerRegistry, ZoneWorkerManager& zoneWorkers,
+    PlayerProcessor::PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
                                      BroadcastDispatcher& broadcastDispatcher, WorldLink& worldLink,
-                                     Mail::MailRegistry& mailRegistry)
+                                     Mail::Registry& mailRegistry)
         : playerRegistry_(playerRegistry)
         , zoneWorkers_(zoneWorkers)
         , broadcastDispatcher_(broadcastDispatcher)
@@ -170,7 +170,7 @@ namespace Zone
         // UnitOfWork를 먼저 열어두는 이유: 파싱 실패도 "이 요청의 결말"이라 클라이언트에는
         // 같은 경로(Z2CTaskResult)로 에러가 돌아가야 한다. 스코프를 벗어나는 순간 소멸자가
         // 성공이면 전송, 실패면 역순 롤백까지 끝낸다 -- 별도의 커밋 호출이 없다.
-        ZoneUnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
+        UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailAdd);
 
         if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
@@ -189,7 +189,7 @@ namespace Zone
         const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
 
-        Mail::MailInfo info{};
+        Mail::Info info{};
         info.title = std::move(title);
         info.body = std::move(body);
         info.sendUt = nowUt;
@@ -205,7 +205,7 @@ namespace Zone
 
     void PlayerProcessor::HandleMailDel(const PlayerContext& context, const std::span<const byte> payload)
     {
-        ZoneUnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
+        UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailDel);
 
         uint32_t mailId{};
@@ -239,7 +239,7 @@ namespace Zone
         int64_t durationSec{};
         int64_t price{};
 
-        ZoneUnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
+        UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailBuy);
 
         if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec)
@@ -259,7 +259,7 @@ namespace Zone
         const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
 
-        Mail::MailInfo info{};
+        Mail::Info info{};
         info.title = std::move(title);
         info.body = std::move(body);
         info.sendUt = nowUt;
@@ -312,7 +312,7 @@ namespace Zone
         }
 
         // 존 레인이 발행해둔 불변 스냅샷을 집어간다 -- 로스터를 직접 순회하지 않으므로
-        // 존 레인과 동시에 돌아도 안전하다(ZoneInstance::BroadcastTargets 주석 참고).
+        // 존 레인과 동시에 돌아도 안전하다(Instance::BroadcastTargets 주석 참고).
         const auto targets = zoneWorkers_.GetZoneInstance(zoneId).BroadcastTargets();
         if (!targets || targets->empty())
         {

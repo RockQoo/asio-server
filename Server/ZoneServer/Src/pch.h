@@ -12,7 +12,7 @@
 // 예외 처리됨). 카테고리는 Core 것(Log::ELogCategory)이 아니라 ZoneServer(콘텐츠) 자신의
 // Zone::ELogCategory를 쓴다 — Shared/Core/Src/Log/LogCategory.h와 Server/ZoneServer/Src/Log/LogCategory.h의
 // 주석 참고.
-#include "Shared/Core/Src/Log/LogProxy.h"
+#include "Shared/Core/Src/Log/Proxy.h"
 #include "Server/ZoneServer/Src/Log/LogCategory.h"
 
 #include <array>

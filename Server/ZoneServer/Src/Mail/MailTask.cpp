@@ -13,7 +13,7 @@ namespace Mail
     {
         // 추가/삭제 태스크가 같은 포맷(원본 전체)을 쓴다 -- 삭제 태스크에 지워진 내용이 통째로
         // 들어 있어야 롤백(= 되살리기)이 가능하기 때문이다.
-        void WriteMail(Packet::BinaryWriter& writer, const MailInfo& info)
+        void WriteMail(Packet::BinaryWriter& writer, const Info& info)
         {
             writer.Write(info.mailId);
             writer.WriteString(info.title);
@@ -23,7 +23,7 @@ namespace Mail
         }
     }
 
-    AddMailTask::AddMailTask(std::shared_ptr<MailModel::Mutexed> mailBox, MailInfo info)
+    AddMailTask::AddMailTask(std::shared_ptr<Model::Mutexed> mailBox, Info info)
         : mailBox_(std::move(mailBox))
         , info_(std::move(info))
     {
@@ -60,7 +60,7 @@ namespace Mail
         }
     }
 
-    DelMailTask::DelMailTask(std::shared_ptr<MailModel::Mutexed> mailBox, MailInfo info)
+    DelMailTask::DelMailTask(std::shared_ptr<Model::Mutexed> mailBox, Info info)
         : mailBox_(std::move(mailBox))
         , info_(std::move(info))
     {

@@ -54,7 +54,7 @@ y: 0 └─────────┴─────────┘</code></pre
 "0번 존에 있다"와 "아직 아무 존에도 없다"가 같은 값이 되어 구분할 수 없다.
 <br><br>
 배치를 정하는 코드는 <code>ParseZoneList</code> <b>하나뿐</b>이고, 그 아래 계층은
-담당 사각형(<code>ZoneDef</code>)을 그대로 들고 다녀서 격자라는 것조차 모른다.
+담당 사각형(<code>Def</code>)을 그대로 들고 다녀서 격자라는 것조차 모른다.
 <br><br>
 <b>주의</b> — 클라이언트의 <code>ZoneLayout.cs</code>와 <code>StressClient</code>가 같은 값을
 복제한다. 한쪽만 고치면 화면 경계와 실제 핸드오프 지점이 어긋난다.
@@ -65,10 +65,10 @@ y: 0 └─────────┴─────────┘</code></pre
     <tr><th>타입</th><th>역할</th><th>보호</th></tr>
     <tr><td><code>Player</code></td><td>플레이어 한 명 + 그 사람의 모델들</td><td>모델마다 다름 (아래)</td></tr>
     <tr><td><code>PlayerRegistry</code></td><td>clientSessionId → Player</td><td>없음 — 레인 수만큼 샤딩</td></tr>
-    <tr><td><code>ZoneInstance</code></td><td>존 하나의 권위 상태(로스터·경계·틱)</td><td>없음 — ZoneSpace 레인 전용</td></tr>
-    <tr><td><code>MailModel</code></td><td>우편함</td><td><code>Mutexed</code> — 만료 스윕과 만난다</td></tr>
-    <tr><td><code>CurrencyModel</code></td><td>지갑. 값 변경 통로가 <code>SetTracked</code> 하나</td><td>없음 — Player 레인 전용</td></tr>
-    <tr><td><code>ZoneUnitOfWork</code></td><td>변경분을 모았다가 소멸자에서 결말을 낸다</td><td>—</td></tr>
+    <tr><td><code>Instance</code></td><td>존 하나의 권위 상태(로스터·경계·틱)</td><td>없음 — ZoneSpace 레인 전용</td></tr>
+    <tr><td><code>Model</code></td><td>우편함</td><td><code>Mutexed</code> — 만료 스윕과 만난다</td></tr>
+    <tr><td><code>Model</code></td><td>지갑. 값 변경 통로가 <code>SetTracked</code> 하나</td><td>없음 — Player 레인 전용</td></tr>
+    <tr><td><code>UnitOfWork</code></td><td>변경분을 모았다가 소멸자에서 결말을 낸다</td><td>—</td></tr>
 </table>
 
 <div class="callout">
@@ -82,7 +82,7 @@ y: 0 └─────────┴─────────┘</code></pre
 <div class="panel">
 상태를 바꾸는 요청은 전부 같은 모양이다:
 
-<pre><code>ZoneUnitOfWork uow(...);           // ① 먼저 연다 (파싱 실패도 같은 경로로 응답해야 하므로)
+<pre><code>UnitOfWork uow(...);           // ① 먼저 연다 (파싱 실패도 같은 경로로 응답해야 하므로)
 if (실패) { uow.SetError(...); return; }   // ② 에러만 심고 그냥 return
 model.Change(..., uow);            // ③ 바뀐 내용은 Task로 기록된다
                                    // ④ 스코프를 벗어나는 순간 소멸자가 결말을 낸다</code></pre>
@@ -98,7 +98,7 @@ model.Change(..., uow);            // ③ 바뀐 내용은 Task로 기록된다
 <div class="cards">
     <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>LB → Player 레인 → UoW 전 구간</span></a>
     <a class="card" href="sequences/zone-handoff.html"><b>존 핸드오프</b><span>ZoneSpace 레인의 틱이 경계를 판정한다</span></a>
-    <a class="card" href="design/processor-group.md"><b>ProcessorGroup 설계</b><span>레인 어피니티의 근거와 함정</span></a>
+    <a class="card" href="design/processor-group.md"><b>Group 설계</b><span>레인 어피니티의 근거와 함정</span></a>
 </div>
 
 <h2>코드 위치</h2>
@@ -107,9 +107,9 @@ model.Change(..., uow);            // ③ 바뀐 내용은 Task로 기록된다
 ├ Handler/WorldLinkHandler    World 연결, LB 레인
 ├ Handler/PlayerProcessor     패킷별 핸들러 (Move·Chat·Mail·MailBuy)
 ├ Game/Player · PlayerRegistry
-├ Game/ZoneInstance           로스터·경계·틱
+├ Game/Instance           로스터·경계·틱
 ├ Mail/ · Currency/           콘텐츠 모델 + Task
-└ Task/ZoneUnitOfWork         소멸자에서 전송 / 역순 롤백</code></pre>
+└ Task/UnitOfWork         소멸자에서 전송 / 역순 롤백</code></pre>
 
 <p class="foot">asio-server · 서버별 문서</p>
 </main>

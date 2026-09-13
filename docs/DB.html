@@ -106,7 +106,7 @@ DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에
 
 <div class="callout warn">
     <h4>지금 막혀 있는 곳 — mailId 타입</h4>
-    <code>MailModel</code>의 <code>nextMailId_</code>가 아직 <b>플레이어마다 1부터 세는
+    <code>Model</code>의 <code>nextMailId_</code>가 아직 <b>플레이어마다 1부터 세는
     <code>uint32_t</code></b>다. SP는 <code>@mail_id BIGINT</code>(UniqueId 전제)라,
     이 상태로 저장하면 <b>두 사람의 첫 우편이 둘 다 <code>mail_id = 1</code></b>이 되어 PK가 충돌한다.
     <br><br>

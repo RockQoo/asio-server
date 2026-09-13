@@ -4,7 +4,7 @@
 #include "Server/WorldServer/Src/Db/DbConnection.h"
 #include "Server/WorldServer/Src/Worker/ProcessorId.h"
 
-#include "Shared/Core/Src/Processor/ProcessorGroup.h"
+#include "Shared/Core/Src/Processor/Group.h"
 
 #include <cstdint>
 #include <functional>
@@ -30,14 +30,14 @@ namespace World
     // 순서는 어피니티가 보장한다. 그래서 순서를 맞추기 위한 별도 장치가 없다.
     //
     // **파생 없이 final인 이유**: 소멸자에서 일을 마무리하는 클래스는 파생되면 위험하다
-    // (기반 소멸자에서 가상 함수가 파생 구현으로 불리지 않는다). Zone::ZoneUnitOfWork가 같은
+    // (기반 소멸자에서 가상 함수가 파생 구현으로 불리지 않는다). Zone::UnitOfWork가 같은
     // 이유로 final이다.
     class AutoDbCommand final
     {
     public:
         // useTransaction: 쌓인 SP가 여러 개일 때 하나의 트랜잭션으로 묶을지. 읽기/쓰기와는
         //                 무관하다 -- 조회 하나만 보내면서 콜백을 받는 조합도 정상이다.
-        AutoDbCommand(DbConnectionPool& pool, Processor::ProcessorGroup<EProcessorId>& dbGroup,
+        AutoDbCommand(DbConnectionPool& pool, Processor::Group<EProcessorId>& dbGroup,
                       const uint64_t ownerId, const bool useTransaction, DbCallback callback = {});
         ~AutoDbCommand();
 
@@ -50,7 +50,7 @@ namespace World
 
     private:
         DbConnectionPool& pool_;
-        Processor::ProcessorGroup<EProcessorId>& dbGroup_;
+        Processor::Group<EProcessorId>& dbGroup_;
         const uint64_t ownerId_;
         const bool useTransaction_;
         DbCallback callback_;

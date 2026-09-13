@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Packet/PacketHeader.h"
+#include "Shared/Core/Src/Packet/Header.h"
 
 #include <cstddef>
 #include <memory>
@@ -25,7 +25,7 @@ namespace Network
         virtual void OnSessionOpened(const std::shared_ptr<Session>& session) = 0;
 
         virtual void OnPacket(const std::shared_ptr<Session>& session,
-                              const Packet::PacketHeader& header,
+                              const Packet::Header& header,
                               const std::span<const byte> payload) = 0;
 
         virtual void OnClosed(const std::shared_ptr<Session>& session, const std::error_code& reason) = 0;

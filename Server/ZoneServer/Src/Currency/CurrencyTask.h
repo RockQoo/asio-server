@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Server/ZoneServer/Src/Currency/CurrencyModel.h"
+#include "Server/ZoneServer/Src/Currency/Model.h"
 
 #include "Shared/Core/Src/Task/ITask.h"
 #include "Shared/Protocol/Src/CurrencyType.h"
@@ -22,7 +22,7 @@ namespace Currency
     class CurrencyTask final : public Task::ITask
     {
     public:
-        CurrencyTask(CurrencyModel& model, const Protocol::ECurrencyType type,
+        CurrencyTask(Model& model, const Protocol::ECurrencyType type,
                      const int64_t newValue, const int64_t oldValue);
 
         [[nodiscard]] uint16_t Kind() const noexcept override;
@@ -30,7 +30,7 @@ namespace Currency
         void Rollback(Task::UnitOfWork& sink) const override;
 
     private:
-        CurrencyModel& model_;
+        Model& model_;
         Protocol::ECurrencyType type_;
         int64_t newValue_;
         int64_t oldValue_;

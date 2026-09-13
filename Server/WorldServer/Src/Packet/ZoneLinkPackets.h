@@ -39,6 +39,6 @@ namespace World
     // UnitOfWorkStream(Z2W)의 바디는 가변 길이라 고정 구조체가 없다 -- BinaryWriter/Reader로
     // 직접 쓰고 읽는다. 바이트 순서와 taskKind 해석은 docs/design/wire-format.md.
     //
-    // Core는 kind/payload의 의미를 모른다. 쓰는 쪽은 MailModel.cpp + ZoneUnitOfWork.cpp,
+    // Core는 kind/payload의 의미를 모른다. 쓰는 쪽은 Model.cpp + UnitOfWork.cpp,
     // 읽는 쪽은 ZoneLinkHandler.cpp 다.
 }

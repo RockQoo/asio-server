@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
-#include "Shared/Core/Src/Packet/PacketBuffer.h"
+#include "Shared/Core/Src/Packet/Buffer.h"
 
 #include <asio.hpp>
 
@@ -66,7 +66,7 @@ namespace Network
 
         static constexpr size_t kReceiveBufferSize = 4096;
         std::array<byte, kReceiveBufferSize> receiveBuffer_{};
-        Packet::PacketBuffer packetBuffer_;
+        Packet::Buffer packetBuffer_;
 
         std::deque<std::vector<byte>> sendQueue_;
         bool writing_{false};

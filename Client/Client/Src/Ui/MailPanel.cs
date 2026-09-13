@@ -22,7 +22,7 @@ public readonly record struct MailRequest(
 ///
 /// <para>
 /// 목록은 <b>서버에서 조회해 온 게 아니다</b> — 우편 목록 조회 패킷이 프로토콜에 없다. 대신
-/// 입장 시점에 서버 우편함도 비어 있으므로(<c>MailRegistry::Add</c>가 빈 <c>MailModel</c>을
+/// 입장 시점에 서버 우편함도 비어 있으므로(<c>Registry::Add</c>가 빈 <c>Model</c>을
 /// 만든다), <c>Z2CTaskResult</c>로 내려오는 Added/Removed 태스크만 순서대로 적용하면 서버와
 /// 같은 상태가 유지된다 — 이게 Unit-of-Work 스트림을 클라이언트에도 그대로 흘려주는 이유다.
 /// </para>
@@ -54,7 +54,7 @@ public sealed class MailPanel
     public MailPanel()
     {
         // 만료 삭제가 도는 걸 짧은 시간에 확인할 수 있게 기본값을 짧게 잡는다. 서버는
-        // Mail::MailExpiryService가 1초 주기로 훑는다.
+        // Mail::ExpiryService가 1초 주기로 훑는다.
         duration_.SetValue("30");
     }
 

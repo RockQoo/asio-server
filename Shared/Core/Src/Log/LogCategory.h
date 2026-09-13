@@ -10,7 +10,7 @@ namespace Log
     // 콘텐츠(존/플레이어 등)는 전혀 모르는 순수 인프라 값들만 담는다 -- 콘텐츠에 종속적인
     // 카테고리(예: ZoneServer의 "Zone")는 Core가 아니라 그걸 쓰는 프로젝트가 스스로 자기
     // 네임스페이스에 정의해서 쓴다 (Server/ZoneServer/Src/Log/LogCategory.h의 Zone::ELogCategory 참고).
-    // Log::LogEntry<TCategory>는 이 타입을 특별 취급하지 않는다 -- 그냥 흔히 쓸 만한 기본
+    // Log::Entry<TCategory>는 이 타입을 특별 취급하지 않는다 -- 그냥 흔히 쓸 만한 기본
     // 카테고리 집합일 뿐, 어떤 scoped enum이든 ToString()만 있으면 동일하게 동작한다.
     enum class ELogCategory : uint8_t
     {
@@ -20,7 +20,7 @@ namespace Log
         Thread,
     };
 
-    // Log::LogEntry<TCategory>가 ADL로 찾아 호출한다 (LogCategoryType concept 참고).
+    // Log::Entry<TCategory>가 ADL로 찾아 호출한다 (LogCategoryType concept 참고).
     [[nodiscard]] inline std::string_view ToString(const ELogCategory category)
     {
         switch (category)

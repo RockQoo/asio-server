@@ -8,7 +8,7 @@ namespace Zone
 {
     // 이 프로세스의 프로세서 목록. **프로세서는 스레드가 아니다** -- 큐 그룹(스레드 N개) 위에
     // 얹히고, 어느 스레드에서 도는지는 메시지의 ownerId가 정한다
-    // (Shared/Core/Src/Processor/ProcessorGroup.h 주석 참고).
+    // (Shared/Core/Src/Processor/Group.h 주석 참고).
     //
     // Zone은 World와 달리 프로세서가 그룹마다 거의 하나씩인데, 그건 **owner가 다르기 때문**이다.
     // World는 Main/Tool이 둘 다 clientSessionId를 주인으로 삼아서 한 그룹을 공유할 수 있었지만,

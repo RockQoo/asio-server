@@ -54,6 +54,9 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
+           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;ASIO_STANDALONE;ASIO_NO_DEPRECATED;_WIN32_WINNT=0x0A00;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -75,6 +78,9 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
+           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -105,15 +111,15 @@
     <ClInclude Include="Src\Common\CoreException.h" />
     <ClInclude Include="Src\Log\LogLevel.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
-    <ClInclude Include="Src\Log\LogEntry.h" />
+    <ClInclude Include="Src\Log\Entry.h" />
     <ClInclude Include="Src\Log\Logger.h" />
-    <ClInclude Include="Src\Log\LogProxy.h" />
-    <ClInclude Include="Src\Packet\PacketHeader.h" />
-    <ClInclude Include="Src\Packet\PacketBuffer.h" />
+    <ClInclude Include="Src\Log\Proxy.h" />
+    <ClInclude Include="Src\Packet\Header.h" />
+    <ClInclude Include="Src\Packet\Buffer.h" />
     <ClInclude Include="Src\Packet\PacketFramer.h" />
     <ClInclude Include="Src\Packet\BinaryWriter.h" />
     <ClInclude Include="Src\Packet\BinaryReader.h" />
-    <ClInclude Include="Src\Packet\PacketDispatcher.h" />
+    <ClInclude Include="Src\Packet\Dispatcher.h" />
     <ClInclude Include="Src\Network\IPacketHandler.h" />
     <ClInclude Include="Src\Network\Session.h" />
     <ClInclude Include="Src\Network\Listener.h" />
@@ -125,7 +131,7 @@
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
     <ClInclude Include="Src\Thread\Mutexed.h" />
     <ClInclude Include="Src\Processor\ProcessorStats.h" />
-    <ClInclude Include="Src\Processor\ProcessorGroup.h" />
+    <ClInclude Include="Src\Processor\Group.h" />
     <ClInclude Include="Src\Task\ITask.h" />
     <ClInclude Include="Src\Task\UnitOfWork.h" />
   </ItemGroup>
@@ -135,7 +141,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Src\Log\Logger.cpp" />
-    <ClCompile Include="Src\Packet\PacketBuffer.cpp" />
+    <ClCompile Include="Src\Packet\Buffer.cpp" />
     <ClCompile Include="Src\Network\Session.cpp" />
     <ClCompile Include="Src\Network\Listener.cpp" />
     <ClCompile Include="Src\Network\Connector.cpp" />

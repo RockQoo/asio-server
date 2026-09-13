@@ -10,7 +10,7 @@ namespace Client.Protocol;
 /// <b>이쪽은 클라이언트 대면 대역만 선언한다</b> — C2Z(요청) / Z2C(존 응답·통지) / W2C(World
 /// 직접 브로드캐스트) 셋이 클라이언트가 볼 수 있는 전부다. 릴레이 봉투
 /// (<c>ClientEnvelopeHeader</c>)는 GatewayServer가 벗겨서 넘겨주므로 클라이언트에 도달하는
-/// 바이트는 항상 <c>PacketHeader</c> + 순수 페이로드다.
+/// 바이트는 항상 <c>Header</c> + 순수 페이로드다.
 /// </para>
 /// </summary>
 public enum PacketId : ushort

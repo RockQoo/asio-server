@@ -71,7 +71,7 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 
 ### 왜 대역을 자르는가
 
-`PacketHeader::id`는 `uint16_t` 하나뿐이라 어느 링크에서 온 값인지 헤더만 봐서는 모른다.
+`Header::id`는 `uint16_t` 하나뿐이라 어느 링크에서 온 값인지 헤더만 봐서는 모른다.
 대역을 나누기 전에는 네 개의 id 공간이 전부 1번부터 시작해서, 숫자 `3`이 링크마다 각각
 `G2WRelay` / `C2ZMove` / `W2ZLeaveZoneNotify` / `T2WNoticeRequest`를 뜻했다. 소켓이
 분리돼 있어 사고는 안 났지만, 잘못 흘러든 패킷이 **다른 뜻으로 조용히 해석될 수 있는**
@@ -79,7 +79,7 @@ id를 공유하고 있으면 그때 "같은 id인데 본문이 다른" 상태가
 
 부수 효과로 `ClientEnvelopeHeader::innerPacketId`는 항상 클라이언트 대역(1~3999)이어야
 한다는 불변식이 생겨서, 값 하나로 검증할 수 있다. 값에서 방향을 되뽑는 `constexpr` 함수를
-두고 `PacketDispatcher::Register`에서 assert하면 잘못된 방향의 핸들러 등록도 잡힌다.
+두고 `Dispatcher::Register`에서 assert하면 잘못된 방향의 핸들러 등록도 잡힌다.
 
 ## 현재 전체 목록
 
@@ -186,9 +186,9 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 `Session::SendPacket`과 `Packet::BuildFrame`이고, 둘 다 `std::is_enum_v` 제약만 걸어서
 **Core는 여전히 어떤 enum인지 모른다**(콘텐츠를 모르는 라이브러리라는 원칙 유지).
 
-콘텐츠를 아는 쪽(`ZoneInstance::SendToPlayer`/`BroadcastToZone`, `BroadcastDispatcher::Broadcast`,
-`ToolProcessor::InjectClientPacket`, `WorldServerApp::BroadcastToAll`,
-`ZoneInstance::HandleClientPacket`)은 아예 매개변수 타입을 `PacketId`로 바꿨다.
+콘텐츠를 아는 쪽(`Instance::SendToPlayer`/`BroadcastToZone`, `BroadcastDispatcher::Broadcast`,
+`ToolProcessor::InjectClientPacket`, `App::BroadcastToAll`,
+`Instance::HandleClientPacket`)은 아예 매개변수 타입을 `PacketId`로 바꿨다.
 남은 `static_cast`는 `ClientEnvelopeHeader::innerPacketId`(POD 필드가 `uint16_t`)에 넣는
 두 곳과 로그 출력 한 곳뿐이다.
 

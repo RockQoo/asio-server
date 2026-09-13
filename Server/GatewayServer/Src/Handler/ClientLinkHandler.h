@@ -22,7 +22,7 @@ namespace Gateway
 
         void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
         void OnPacket(const std::shared_ptr<Network::Session>& session,
-                      const Packet::PacketHeader& header,
+                      const Packet::Header& header,
                       const std::span<const byte> payload) override;
         void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
 

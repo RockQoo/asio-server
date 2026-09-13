@@ -47,7 +47,7 @@ REPL로는 잘 안 보이는 것을 화면이 대신 보여주는 게 목적이�
     소켓 콜백은 별도 스레드에서 온다. 거기서 게임 상태를 직접 고치면 렌더 중인 데이터를
     건드리게 된다. 큐에 넣고 <b>게임 스레드가 프레임 시작에 꺼내</b> 적용하면,
     <code>WorldModel</code>은 한 스레드만 만지므로 락이 필요 없다 —
-    서버의 <code>ZoneInstance</code>가 락이 없는 것과 정확히 같은 이유다.
+    서버의 <code>Instance</code>가 락이 없는 것과 정확히 같은 이유다.
 </div>
 
 <div class="callout warn">

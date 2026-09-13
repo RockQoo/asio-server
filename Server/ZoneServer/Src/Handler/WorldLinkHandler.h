@@ -2,9 +2,9 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Processor/ProcessorGroup.h"
+#include "Shared/Core/Src/Processor/Group.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/ZoneServer/Src/Game/ZoneDef.h"
+#include "Server/ZoneServer/Src/Game/Def.h"
 #include "Server/ZoneServer/Src/Worker/ProcessorId.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
@@ -34,13 +34,13 @@ namespace Zone
     {
     public:
         WorldLinkHandler(PlayerProcessor& playerProcessor,
-                         Processor::ProcessorGroup<EProcessorId>& lbGroup,
-                         Processor::ProcessorGroup<EProcessorId>& playerGroup,
-                         WorldLink& worldLink, std::vector<ZoneDef> zoneDefs);
+                         Processor::Group<EProcessorId>& lbGroup,
+                         Processor::Group<EProcessorId>& playerGroup,
+                         WorldLink& worldLink, std::vector<Def> zoneDefs);
 
         void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
         void OnPacket(const std::shared_ptr<Network::Session>& session,
-                      const Packet::PacketHeader& header,
+                      const Packet::Header& header,
                       const std::span<const byte> payload) override;
         void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
 
@@ -61,9 +61,9 @@ namespace Zone
         void ReplyEcho(const World::ClientEnvelopeHeader& header, const std::span<const byte> innerPayload) const;
 
         PlayerProcessor& playerProcessor_;
-        Processor::ProcessorGroup<EProcessorId>& lbGroup_;
-        Processor::ProcessorGroup<EProcessorId>& playerGroup_;
+        Processor::Group<EProcessorId>& lbGroup_;
+        Processor::Group<EProcessorId>& playerGroup_;
         WorldLink& worldLink_;
-        std::vector<ZoneDef> zoneDefs_;
+        std::vector<Def> zoneDefs_;
     };
 }

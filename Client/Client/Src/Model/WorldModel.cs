@@ -39,7 +39,7 @@ public sealed class RemotePlayer
     }
 }
 
-/// <summary>우편함의 우편 한 통. 서버 <c>Mail::MailInfo</c>와 필드가 1:1로 같다.</summary>
+/// <summary>우편함의 우편 한 통. 서버 <c>Mail::Info</c>와 필드가 1:1로 같다.</summary>
 public sealed record MailEntry(uint MailId, string Title, string Body, long SendUt, long EndUt);
 
 /// <summary>채팅/시스템 로그 한 줄.</summary>
@@ -63,7 +63,7 @@ public enum ChatLineKind
 /// <summary>
 /// 이 클라이언트가 보는 세계의 전부. <b>락이 하나도 없다</b> — 이 객체는 게임 스레드에서만
 /// 접근되고, 소켓 수신 스레드는 <c>GameLink</c>의 큐에 바이트를 넣기만 한다. 서버의
-/// <c>ZoneInstance</c>가 BASIC 스레드 전용이라 락이 없는 것과 같은 구조다.
+/// <c>Instance</c>가 BASIC 스레드 전용이라 락이 없는 것과 같은 구조다.
 /// </summary>
 public sealed class WorldModel
 {
@@ -208,7 +208,7 @@ public sealed class WorldModel
         if (isHandoff)
         {
             // 존 경계를 넘으면 서버가 이전 존의 우편함을 통째로 버린다
-            // (ZoneInstance::HandleMove의 mailRegistry_.Remove -> 새 존에서 빈 MailModel 재생성).
+            // (Instance::HandleMove의 mailRegistry_.Remove -> 새 존에서 빈 Model 재생성).
             // 클라이언트가 목록을 그대로 들고 있으면 서버에 없는 우편을 보여주게 되고,
             // 삭제를 눌러도 MailNotFound만 돌아온다 — 서버와 같은 상태로 맞춰 비운다.
             mails_.Clear();

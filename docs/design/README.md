@@ -23,11 +23,11 @@
 ## 파일명
 
 kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 쓰되 소문자로 푼다
-(`ProcessorGroup` → `processor-group.md`).
+(`Group` → `processor-group.md`).
 
 ## 목록
 
 | 문서 | 대상 |
 |------|------|
-| [processor-group.md](processor-group.md) | `Shared/Core/Src/Processor/ProcessorGroup.h` |
+| [processor-group.md](processor-group.md) | `Shared/Core/Src/Processor/Group.h` |
 | [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Game/Player.h` |

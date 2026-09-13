@@ -83,9 +83,9 @@ Mail Del 송신/Ack: ...
 
 | 파일 | 역할 |
 |---|---|
-| `Src/App/StressRunner.{h,cpp}` | 전체 조립: 램프업 접속, 워치독, 종료 판정, 요약 출력 |
-| `Src/Session/StressSession.{h,cpp}` | 세션 하나의 상태 기계(접속 → 사이클 반복 → 종료) |
-| `Src/Stats/StressStats.{h,cpp}` | 집계 지점. 카운터를 `std::atomic`으로 둬서 모든 세션이 락 없이 올린다 |
+| `Src/App/Runner.{h,cpp}` | 전체 조립: 램프업 접속, 워치독, 종료 판정, 요약 출력 |
+| `Src/Session/Session.{h,cpp}` | 세션 하나의 상태 기계(접속 → 사이클 반복 → 종료) |
+| `Src/Stats/Stats.{h,cpp}` | 집계 지점. 카운터를 `std::atomic`으로 둬서 모든 세션이 락 없이 올린다 |
 | `Src/Stats/LatencyHistogram.{h,cpp}` | 지연 히스토그램(백분위 계산용) |
 
 세션마다 스레드를 만들지 않는다. `Shared/Core`의 `IoContextPool`로 I/O 스레드를 코어 수만큼만

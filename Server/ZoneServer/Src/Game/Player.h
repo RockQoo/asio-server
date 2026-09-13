@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Server/ZoneServer/Src/Currency/CurrencyModel.h"
+#include "Server/ZoneServer/Src/Currency/Model.h"
 #include "Server/ZoneServer/Src/Game/MoveModel.h"
-#include "Server/ZoneServer/Src/Mail/MailModel.h"
+#include "Server/ZoneServer/Src/Mail/Model.h"
 
 #include "Shared/Core/Src/Common/Types.h"
 
@@ -27,7 +27,7 @@ namespace Zone
     public:
         Player(const Network::SessionId sessionId, const uint32_t playerId, const uint32_t zoneId,
                const float x, const float y,
-               std::shared_ptr<Mail::MailModel::Mutexed> mailBox)
+               std::shared_ptr<Mail::Model::Mutexed> mailBox)
             : sessionId_(sessionId)
             , playerId_(playerId)
             , zoneId_(zoneId)
@@ -53,14 +53,14 @@ namespace Zone
 
         // 우편함이 없을 수 있다(입장 처리가 누락된 경우) -- 호출부가 null을 확인하고
         // MailBoxNotFound로 끊는다.
-        [[nodiscard]] const std::shared_ptr<Mail::MailModel::Mutexed>& GetMailBox() const noexcept
+        [[nodiscard]] const std::shared_ptr<Mail::Model::Mutexed>& GetMailBox() const noexcept
         {
             return mailBox_;
         }
 
         // 가변 참조라 const를 못 붙인다(cpp-patterns.md "Get 계열은 const 필수"의 예외 항목).
-        [[nodiscard]] Currency::CurrencyModel& GetWallet() noexcept { return wallet_; }
-        [[nodiscard]] const Currency::CurrencyModel& GetWallet() const noexcept { return wallet_; }
+        [[nodiscard]] Currency::Model& GetWallet() noexcept { return wallet_; }
+        [[nodiscard]] const Currency::Model& GetWallet() const noexcept { return wallet_; }
 
     private:
         const Network::SessionId sessionId_;
@@ -68,7 +68,7 @@ namespace Zone
         uint32_t zoneId_;
 
         MoveModel::Mutexed move_;
-        std::shared_ptr<Mail::MailModel::Mutexed> mailBox_;
-        Currency::CurrencyModel wallet_;
+        std::shared_ptr<Mail::Model::Mutexed> mailBox_;
+        Currency::Model wallet_;
     };
 }

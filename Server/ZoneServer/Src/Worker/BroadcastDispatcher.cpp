@@ -9,7 +9,7 @@
 
 namespace Zone
 {
-    BroadcastDispatcher::BroadcastDispatcher(Processor::ProcessorGroup<EProcessorId>& broadcastGroup,
+    BroadcastDispatcher::BroadcastDispatcher(Processor::Group<EProcessorId>& broadcastGroup,
                                              WorldLink& worldLink)
         : broadcastGroup_(broadcastGroup)
         , worldLink_(worldLink)

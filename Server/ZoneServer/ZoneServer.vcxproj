@@ -54,6 +54,9 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
+           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;ASIO_STANDALONE;ASIO_NO_DEPRECATED;_WIN32_WINNT=0x0A00;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -75,6 +78,9 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
+           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -103,46 +109,46 @@
     <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ZonePackets.h" />
-    <ClInclude Include="Src\Currency\CurrencyModel.h" />
+    <ClInclude Include="Src\Currency\Model.h" />
     <ClInclude Include="Src\Currency\CurrencyTask.h" />
     <ClInclude Include="Src\Game\MoveModel.h" />
     <ClInclude Include="Src\Game\Player.h" />
     <ClInclude Include="Src\Game\PlayerRegistry.h" />
-    <ClInclude Include="Src\Game\ZoneDef.h" />
-    <ClInclude Include="Src\Game\ZoneInstance.h" />
+    <ClInclude Include="Src\Game\Def.h" />
+    <ClInclude Include="Src\Game\Instance.h" />
     <ClInclude Include="Src\World\WorldLink.h" />
-    <ClInclude Include="Src\Mail\MailModel.h" />
-    <ClInclude Include="Src\Mail\MailRegistry.h" />
+    <ClInclude Include="Src\Mail\Model.h" />
+    <ClInclude Include="Src\Mail\Registry.h" />
     <ClInclude Include="Src\Mail\MailTask.h" />
-    <ClInclude Include="Src\Task\ZoneUnitOfWork.h" />
-    <ClInclude Include="Src\Mail\MailExpiryService.h" />
+    <ClInclude Include="Src\Task\UnitOfWork.h" />
+    <ClInclude Include="Src\Mail\ExpiryService.h" />
     <ClInclude Include="Src\Worker\ProcessorId.h" />
     <ClInclude Include="Src\Handler\PlayerProcessor.h" />
     <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Worker\BroadcastDispatcher.h" />
-    <ClInclude Include="Src\Worker\ZoneWorkerManager.h" />
+    <ClInclude Include="Src\Worker\WorkerManager.h" />
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />
-    <ClInclude Include="Src\App\ZoneServerApp.h" />
+    <ClInclude Include="Src\App\App.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Src\Currency\CurrencyModel.cpp" />
+    <ClCompile Include="Src\Currency\Model.cpp" />
     <ClCompile Include="Src\Currency\CurrencyTask.cpp" />
-    <ClCompile Include="Src\Game\ZoneInstance.cpp" />
-    <ClCompile Include="Src\Mail\MailModel.cpp" />
-    <ClCompile Include="Src\Mail\MailRegistry.cpp" />
+    <ClCompile Include="Src\Game\Instance.cpp" />
+    <ClCompile Include="Src\Mail\Model.cpp" />
+    <ClCompile Include="Src\Mail\Registry.cpp" />
     <ClCompile Include="Src\Mail\MailTask.cpp" />
-    <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp" />
-    <ClCompile Include="Src\Mail\MailExpiryService.cpp" />
+    <ClCompile Include="Src\Task\UnitOfWork.cpp" />
+    <ClCompile Include="Src\Mail\ExpiryService.cpp" />
     <ClCompile Include="Src\Game\PlayerRegistry.cpp" />
     <ClCompile Include="Src\Handler\PlayerProcessor.cpp" />
     <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp" />
-    <ClCompile Include="Src\Worker\ZoneWorkerManager.cpp" />
+    <ClCompile Include="Src\Worker\WorkerManager.cpp" />
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp" />
-    <ClCompile Include="Src\App\ZoneServerApp.cpp" />
+    <ClCompile Include="Src\App\App.cpp" />
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>
   <ItemGroup>

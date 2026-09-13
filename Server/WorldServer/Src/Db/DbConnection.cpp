@@ -504,7 +504,7 @@ namespace World
 
     DbConnection& DbConnectionPool::ForCurrentThread()
     {
-        // 스레드가 끝날 때 소멸자가 돌아 커넥션이 닫힌다. ProcessorGroup::Stop()이 워커
+        // 스레드가 끝날 때 소멸자가 돌아 커넥션이 닫힌다. Group::Stop()이 워커
         // 스레드를 조인한 뒤에 앱이 내려가므로, 커넥션이 앱보다 오래 살아남는 경우는 없다.
         thread_local std::unique_ptr<DbConnection> connection;
         if (connection == nullptr)

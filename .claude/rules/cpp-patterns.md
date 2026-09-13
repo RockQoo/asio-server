@@ -30,7 +30,7 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 각자 자체 `Src/pch.h`/`pch.cpp`를 가진다(PCH는 프로젝트 단위라 공유 안 함). 새 `.cpp`는
 **첫 줄에 자기 프로젝트 pch include 필수**(빠지면 C1010으로 빌드 즉시 실패).
 `pch.h`엔 무거운 서드파티/표준 헤더만 넣는다 — 프로젝트 자체 헤더는 자주 바뀌어 PCH를
-무효화하므로 넣지 않는다(`BasicTypes.h`/`Log/LogProxy.h`류의 안정적 크로스커팅 인프라는
+무효화하므로 넣지 않는다(`BasicTypes.h`/`Log/Proxy.h`류의 안정적 크로스커팅 인프라는
 예외). **예외**: `ProtocolClient`처럼 `.cpp` 1개뿐인 프로젝트는 PCH 자체를 안 쓴다(`/utf-8`은 유지).
 
 ## 타입 캐스팅
@@ -41,7 +41,7 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 ## 값 매개변수에 `const` 붙이기 (Sink는 예외)
 
 **by-value 매개변수는, 본문에서 다시 `std::move()`해서 멤버/컨테이너로 넘기는 sink가 아니라면
-`const`를 붙인다.** Sink 패턴(`ZoneServerApp(ZoneServerConfig config)`,
+`const`를 붙인다.** Sink 패턴(`App(Config config)`,
 `WorkerThread(std::string name)`, `PostTask(Task task)`처럼 값으로 받아 본문에서 멤버로
 move)엔 **`const`를 붙이면 안 된다** — 붙이면 `std::move(param)`이 `const T&&`가 되어 이동이
 복사로 조용히 강등된다. 이런 sink는 별도 `T&&` 오버로드도 필요 없다(값 매개변수 자체가 양쪽
@@ -60,7 +60,7 @@ move로 넘겼어도) const 가능.
 ## Get 계열은 `const` 필수 (가변 참조 반환 접근자는 예외)
 
 읽기 전용 getter(`GetXxx`/`IsXxx`/`Xxx()`)는 예외 없이 `const`. **예외**: 호출자가 내부 상태를
-의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`ZoneWorkerManager::GetZoneInstance()`,
+의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`WorkerManager::GetZoneInstance()`,
 `AffinityWorkerPool::GetWorker()`, `IoContextPool::Next()`/`At()`, `Session::Socket()`)는
 `const`로 선언할 수 없다(컴파일 에러). 새 getter는 "호출자가 반환값으로 상태를 바꿔야
 하는가?"로 판단.
@@ -73,7 +73,7 @@ move로 넘겼어도) const 가능.
 변수(`socket_`)·POD public 필드(밑줄 없음)와 한눈에 갈린다.
 
 **`constexpr` 함수는 붙이지 않는다** — 값이 아니라 함수라 PascalCase 그대로다
-(`PacketHeader::MaxBodySize()`, `Common::HasFlag()`, `Protocol::MakeTaskKind()`).
+(`Header::MaxBodySize()`, `Common::HasFlag()`, `Protocol::MakeTaskKind()`).
 
 **`ALL_CAPS`(`TIME_STAMP_BITS`)는 쓰지 않는다.** C++에서 그 자리는 매크로 관례라, 매크로는
 네임스페이스·스코프를 무시하고 전처리에서 무조건 치환되므로 헤더가 같은 이름을 먼저
@@ -176,7 +176,7 @@ asio의 `std::error_code`/`std::system_error`(네트워크 계층)는 이미 코
 
 ```cpp
 // 모델 -- 실패면 아무 상태도 바꾸지 않고, 태스크도 기록하지 않는다
-[[nodiscard]] Protocol::EErrorCode MailModel::AddMail(MailInfo info, Task::UnitOfWork& unitOfWork)
+[[nodiscard]] Protocol::EErrorCode Model::AddMail(Info info, Task::UnitOfWork& unitOfWork)
 {
     if (mails_.contains(info.mailId))
     {
@@ -198,7 +198,7 @@ if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
 }
 ```
 
-**왜 `[[nodiscard]]`인가**: 커밋 지점(`ZoneUnitOfWork` 소멸자)이 `HasError()` 하나만 보고
+**왜 `[[nodiscard]]`인가**: 커밋 지점(`UnitOfWork` 소멸자)이 `HasError()` 하나만 보고
 "역순 롤백 + 클라에 에러 통지" / "World·클라로 전송"을 가른다. 호출부가 반환값을 무시하면
 그 앞까지 바뀐 메모리가 **성공으로 커밋되고 DB에도 나간다** -- 실패한 요청이 부분 반영된 채로
 남는 게 가장 되돌리기 어려운 상태다. `[[nodiscard]]`를 붙이면 그 실수를 사람이 아니라
@@ -234,13 +234,13 @@ if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
 
 ## 로그는 `std::cout`/`std::cerr` 대신 `LOG`
 
-최상위 `Log` 네임스페이스(`Core::Log` 아님 — 아래 참고)의 전역 `LOG`(`Log::LogProxy`)를 쓴다.
+최상위 `Log` 네임스페이스(`Core::Log` 아님 — 아래 참고)의 전역 `LOG`(`Log::Proxy`)를 쓴다.
 시작 시 한 번 `Log::Logger::Instance().Initialize("logs/xxx.log")` 호출(콘솔 코드페이지를
 `CP_UTF8`로 맞춰 한글 로그 깨짐도 방지 — 새 실행 파일 프로젝트는 `main()` 맨 앞에서 호출 필수).
 
 **형태**: `LOG.<Level>(category, "메시지").KV("Key", value).V(value2);`
 (`<Level>` = Debug/Info/Warning/Error, `.KV`=이름 있는 값, `.V`=이름 없는 값, 둘 다 생략하고
-`LOG.Info(category, "메시지");`만 써도 유효). `LOG.Error(...)`는 `Log::LogEntry<TCategory>`
+`LOG.Info(category, "메시지");`만 써도 유효). `LOG.Error(...)`는 `Log::Entry<TCategory>`
 임시객체를 반환하고 **문장이 끝나 소멸되는 시점에 한 줄을 커밋**하므로(`.KV`/`.V`는 `*this` 참조
 반환) 반환값을 discard해도 정상 동작 — 그래서 `Debug`/`Info`/`Warning`/`Error`엔 일부러
 `[[nodiscard]]`를 안 붙인다. 콘솔 색: Error=빨강, Warning=노랑(레거시 콘솔엔 주황이 없어 대체),
@@ -252,7 +252,7 @@ LOG.Info(ELogCategory::Zone, "플레이어 입장").KV("Zone", zoneId_).KV("Sess
 // [2026-01-01 12:00:00.000] [INFO ] [Zone] 플레이어 입장 . Zone : 0, SessionId : 1
 ```
 
-**`ELogCategory`는 프로젝트마다 따로 있다** — `Log::LogEntry<TCategory>`는 카테고리 값을
+**`ELogCategory`는 프로젝트마다 따로 있다** — `Log::Entry<TCategory>`는 카테고리 값을
 직접 갖지 않고 템플릿으로 받는다(scoped enum + 같은 네임스페이스의 ADL `ToString()`만 있으면
 됨 = `LogCategoryType` concept). Core가 게임 콘텐츠를 몰라야 하므로: `Shared/Core/Src/Log/
 LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용, 콘텐츠 없음)와
@@ -260,7 +260,7 @@ LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용
 `Zone`/`World`/`Gateway`/`Load` 네임스페이스의 `ELogCategory`(콘텐츠) — 이렇게 프로젝트 수만큼
 분리돼 있다. 전부 `using`으로 전역 노출돼 있어 어디서든 `ELogCategory::Xxx`로 쓰지만, 서로
 다른 프로젝트(PCH)에서만 보여 충돌 안 함. 새 프로젝트는 자기 폴더에 자기 `ELogCategory`+
-`ToString()`을 새로 정의하면 된다(Core에 추가 금지) — `LogEntry`/`LogProxy`는 손댈 필요 없음.
+`ToString()`을 새로 정의하면 된다(Core에 추가 금지) — `Entry`/`Proxy`는 손댈 필요 없음.
 
 **왜 `Core::` 접두사가 없는가** — `Core` 아래 네임스페이스(`Network`/`Packet`/`Thread`/
 `Timer`/`Common`/`Log`)는 전부 `Core::`를 안 붙인다(`namespace Core {...}`로 감싼 코드 없음).
@@ -274,10 +274,59 @@ LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용
 
 **본문에서 `std::move`로 실제로 소유권을 넘기는 게 아니라면 `std::string`/`std::vector<T>`를
 값으로 받지 않는다** — 읽기만 할 거면 `std::string_view`/`const T&`를 쓴다(by-value는 "이
-함수가 소유권을 가져간다"는 신호로만). 실제 사례: `Log::LogEntry` 생성자가 원래 `std::string
+함수가 소유권을 가져간다"는 신호로만). 실제 사례: `Log::Entry` 생성자가 원래 `std::string
 message`(값)였지만 생성자 안에서 즉시 `std::format`으로 소비되고 저장 안 되길래
-`std::string_view`로 바꿔 복사를 없앴다. `ZoneInstance::OnChat`도 같은 이유로 `const
+`std::string_view`로 바꿔 복사를 없앴다. `Instance::OnChat`도 같은 이유로 `const
 std::string_view message`로 바꾸고 호출부의 불필요한 `std::move`도 제거했다. **판단 기준**:
 "본문에서 이 매개변수를 다른 곳(멤버/컨테이너/다른 스레드로 가는 캡처)에 진짜 move하는가?" —
 그렇다면 sink라 by-value가 맞고(`CoreException(ECoreErrorCode, std::string message)`처럼),
 아니면 `string_view`/`const T&`/`span<const T>`를 쓴다.
+
+## 네임스페이스가 이미 말해주는 접두사는 타입 이름에서 뗀다
+
+`namespace Zone`의 `ZoneServerConfig`는 호출부에서 `Zone::ZoneServerConfig`가 되어 "Zone"을
+두 번 말한다. **타입 이름이 자기 네임스페이스 이름으로 시작하면 그만큼을 뗀다.**
+
+```cpp
+Zone::ZoneServerConfig  ->  Zone::Config
+Zone::ZoneInstance      ->  Zone::Instance
+Packet::PacketHeader    ->  Packet::Header
+Processor::ProcessorGroup -> Processor::Group
+Mail::MailModel         ->  Mail::Model
+```
+
+**파일 이름도 같이 바꾼다**(`Game/ZoneDef.h` → `Game/Def.h`) — 한 파일에 타입 하나, 파일
+이름은 그 타입 이름이라는 규칙을 유지한다.
+
+### 예외 — 뗐을 때 다른 것과 겹치면 그대로 둔다
+
+| 그대로 두는 것 | 왜 |
+|---|---|
+| `Currency::CurrencyTask` | `Task`는 이 코드베이스의 **네임스페이스**(`Task::ITask`/`Task::UnitOfWork`)다. `Currency::Task`를 만들면 `Currency` 안에서 `Task::`가 무엇을 가리키는지 흔들린다 |
+| `Log::Logger` | `Log` + `ger`이라 애초에 접두사가 아니다 |
+
+### 같이 확인할 것 — 게터 이름과 충돌한다
+
+떼고 나면 **같은 클래스의 멤버 함수 이름과 겹칠 수 있다.** 멤버 함수가 타입 이름을 가려서
+선언 자체가 깨지는데, 에러 메시지(`C3646 알 수 없는 재정의 지정자`)가 원인을 안 가리킨다.
+
+```cpp
+class Instance
+{
+    const Def& Def() const { return def_; }   // 이 이름이 타입 Def 를 가린다
+    Def def_;                                 // -> C3646
+};
+```
+
+이럴 때는 게터를 `GetXxx`로 바꾼다(`GetDef()`/`GetStats()`) — 이 프로젝트의 다른 게터와도
+일관된다. 타입 이름을 되돌리지 않는다.
+
+### 파일 이름이 같아지면 obj가 충돌한다
+
+`Mail/Model.cpp`와 `Currency/Model.cpp`처럼 이름만 같은 `.cpp`가 한 프로젝트에 생기면 MSVC가
+**같은 obj 파일에 덮어쓴다**(`MSB8027`, 잘못된 빌드 결과). 그래서 6개 vcxproj 전부
+`ItemDefinitionGroup`의 `ClCompile`에 아래를 둔다 — obj를 소스 폴더 구조 그대로 쌓는다.
+
+```xml
+<ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
+```

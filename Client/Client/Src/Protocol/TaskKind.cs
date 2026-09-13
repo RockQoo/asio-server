@@ -26,7 +26,7 @@ public enum MailTask : byte
 /// 서버(Zone)가 자기 메모리를 바꾼 내용을 그대로 이 태스크 목록으로 내려보내고, 클라이언트는
 /// 같은 목록을 자기 메모리에 적용해 동기화한다 — 응답 구조체를 콘텐츠마다 새로 만들지 않는
 /// 대신 이 2단 분기(<c>switch(카테고리)</c> → <c>switch(세부동작)</c>)를 쓰는 구조다.
-/// 서버 쪽 롤백(<c>Zone::ZoneUnitOfWork::OnRollback</c>)도 같은 모양의 분기를 쓴다.
+/// 서버 쪽 롤백(<c>Zone::UnitOfWork::OnRollback</c>)도 같은 모양의 분기를 쓴다.
 /// </para>
 /// </summary>
 public static class TaskKind

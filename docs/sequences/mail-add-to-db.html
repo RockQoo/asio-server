@@ -82,7 +82,7 @@
 
         <div class="act" style="grid-column: 9 / 11; grid-row: 8;">
             <b>⑤ HandleMailAdd</b>
-            <code>ZoneUnitOfWork</code>를 먼저 연다(파싱 실패도 같은 경로로 응답해야 하므로).<br>
+            <code>UnitOfWork</code>를 먼저 연다(파싱 실패도 같은 경로로 응답해야 하므로).<br>
             <code>mailBox-&gt;Write()-&gt;AddMail()</code> — 우편함은
             만료 스윕과 만나는 유일한 지점이라 <code>Mutexed</code>다.<br>
             결과는 <b>Task 1개</b>로 UoW에 기록만 된다.
@@ -177,7 +177,7 @@
     <tr><td>③</td><td><code>Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp</code></td></tr>
     <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code></td></tr>
     <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleMailAdd</code></td></tr>
-    <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp</code> — 소멸자</td></tr>
+    <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code> — 소멸자</td></tr>
     <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>PostUnitOfWorkStream</code></td></tr>
     <tr><td>⑬</td><td><code>Sql/mails.sql</code>, <code>Server/WorldServer/Src/Db/AutoDbCommand.h</code></td></tr>
 </table>

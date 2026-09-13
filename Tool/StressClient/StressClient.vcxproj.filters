@@ -22,13 +22,13 @@
     <ClInclude Include="Src\Stats\LatencyHistogram.h">
       <Filter>Stats</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Stats\StressStats.h">
+    <ClInclude Include="Src\Stats\Stats.h">
       <Filter>Stats</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Session\StressSession.h">
+    <ClInclude Include="Src\Session\Session.h">
       <Filter>Session</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\StressRunner.h">
+    <ClInclude Include="Src\App\Runner.h">
       <Filter>App</Filter>
     </ClInclude>
   </ItemGroup>
@@ -37,13 +37,13 @@
     <ClCompile Include="Src\Stats\LatencyHistogram.cpp">
       <Filter>Stats</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Stats\StressStats.cpp">
+    <ClCompile Include="Src\Stats\Stats.cpp">
       <Filter>Stats</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Session\StressSession.cpp">
+    <ClCompile Include="Src\Session\Session.cpp">
       <Filter>Session</Filter>
     </ClCompile>
-    <ClCompile Include="Src\App\StressRunner.cpp">
+    <ClCompile Include="Src\App\Runner.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />

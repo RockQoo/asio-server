@@ -9,7 +9,7 @@ namespace Common
         Success = 0,
 
         InvalidArgument,        // 생성자/함수에 전달된 인자가 유효 범위를 벗어남
-        PacketTooLarge,         // 패킷 본문 크기가 PacketHeader::MaxBodySize()를 초과함
+        PacketTooLarge,         // 패킷 본문 크기가 Header::MaxBodySize()를 초과함
         ProtocolError,          // 그 외 프레이밍/프로토콜 위반
     };
 }

@@ -107,7 +107,7 @@ public class BinaryPacketCodecTests
     [Fact]
     public void 프로토콜_상수가_Cpp쪽과_같은_값이다()
     {
-        // Packet::PacketHeader는 bodySize(2) + id(2) = 4바이트이고,
+        // Packet::Header는 bodySize(2) + id(2) = 4바이트이고,
         // MaxBodySize()는 8192다. 한쪽만 바뀌면 큰 패킷이 조용히 끊긴다.
         Assert.Equal(4, ToolLinkProtocol.HeaderSize);
         Assert.Equal(8192, ToolLinkProtocol.MaxBodySize);
@@ -118,7 +118,7 @@ public class BinaryPacketCodecTests
     public void 쿠폰_전송_청크가_패킷_본문_상한을_넘지_않는다()
     {
         // 쿠폰 코드 하나가 27바이트(길이 2 + 25자)이고, 앞에 requestId/캠페인/시퀀스/개수가
-        // 붙는다. 이 계산이 깨지면 받는 쪽 PacketBuffer가 PacketTooLarge로 연결을 끊는다.
+        // 붙는다. 이 계산이 깨지면 받는 쪽 Buffer가 PacketTooLarge로 연결을 끊는다.
         var writer = new BinaryPacketWriter();
         writer.WriteUInt32(1);
         writer.WriteString("X7Q4M");

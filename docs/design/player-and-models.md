@@ -21,7 +21,7 @@
 ## 왜 객체를 둘로 쪼개지 않았나
 
 이 객체는 **두 레인이 `shared_ptr`로 함께 들고 있다** — 플레이어 레인은 `PlayerRegistry`
-(샤딩된 맵)로, 존 레인은 `ZoneInstance`의 로스터로 도달한다.
+(샤딩된 맵)로, 존 레인은 `Instance`의 로스터로 도달한다.
 
 쪼개면 "이 사람의 것"이 두 군데로 흩어져, 콘텐츠가 늘 때마다 어느 쪽에 넣을지를 매번 다시
 정해야 한다. 그래서 객체는 하나로 두고 **모델 단위로 소유 레인을 명시**하는 쪽을 택했다.
@@ -39,4 +39,4 @@
 가변 참조를 반환하는 접근자라 const를 붙일 수 없다 — 호출부가 재화를 실제로 바꿔야 하기
 때문이다. `.claude/rules/cpp-patterns.md`의 "Get 계열은 const 필수"에 대한 예외 항목이다.
 
-관련: [ProcessorGroup과 레인 어피니티](processor-group.md)
+관련: [Group과 레인 어피니티](processor-group.md)

@@ -16,7 +16,7 @@
 namespace World
 {
     GatewayLinkHandler::GatewayLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                                            Processor::ProcessorGroup<EProcessorId>& basicGroup)
+                                            Processor::Group<EProcessorId>& basicGroup)
         : clientRegistry_(clientRegistry)
         , zoneLinkRegistry_(zoneLinkRegistry)
         , basicGroup_(basicGroup)
@@ -38,7 +38,7 @@ namespace World
     }
 
     void GatewayLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
-                                      const Packet::PacketHeader& header,
+                                      const Packet::Header& header,
                                       const std::span<const byte> payload)
     {
         // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 세 패킷 모두 페이로드 맨 앞이

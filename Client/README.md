@@ -26,7 +26,7 @@ bat\start_client.bat 2 Debug auto   :: 창 2개, 자동 순회 (방향을 서로
 | --- | --- |
 | `Client/Src/Protocol/` | 코덱(GmTool.Core에서 복사) + PacketId(C2Z/Z2C/W2C 대역만) + `ZoneLayout` |
 | `Client/Src/Net/` | `GameLink`(TCP+프레이밍, 수신은 큐에만 넣는다), `CouponClient`(GmTool.Web HTTP) |
-| `Client/Src/Model/WorldModel` | 게임 스레드 전용 상태라 락이 없다(`ZoneInstance`와 같은 이유) |
+| `Client/Src/Model/WorldModel` | 게임 스레드 전용 상태라 락이 없다(`Instance`와 같은 이유) |
 | `Client/Src/Text/GlyphAtlas` | 한글 글리프를 런타임에 GDI+로 굽는다(`.mgcb` 미사용) |
 | `Client/Src/Ui/` | Painter / Widgets / ZoneView / ChatPanel / MailPanel / CouponPanel / Hud |
 

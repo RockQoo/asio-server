@@ -30,7 +30,7 @@ namespace World
     // 같아야 하므로(둘 다 `% N`) 생성자가 그룹의 스레드 수를 그대로 받는다.
     //
     // **그래서 전체 순회를 한 스레드에서 할 수 없다** -- 샤드마다 그 샤드를 소유한 스레드로
-    // 메시지를 보내야 한다(ForEachInShard, WorldServerApp::BroadcastToAll 참고).
+    // 메시지를 보내야 한다(ForEachInShard, App::BroadcastToAll 참고).
     //
     // 설계 근거: docs/design/locking-strategy.md
     class ClientRegistry

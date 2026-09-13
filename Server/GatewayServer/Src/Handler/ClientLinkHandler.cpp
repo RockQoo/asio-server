@@ -37,7 +37,7 @@ namespace Gateway
     }
 
     void ClientLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
-                                         const Packet::PacketHeader& header,
+                                         const Packet::Header& header,
                                          const std::span<const byte> payload)
     {
         const auto worldSession = worldLink_.Get();

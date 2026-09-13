@@ -45,8 +45,8 @@ namespace World
     }
 
     ToolProcessor::ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                                 Processor::ProcessorGroup<EProcessorId>& basicGroup,
-                                 Processor::ProcessorGroup<EProcessorId>& dbGroup,
+                                 Processor::Group<EProcessorId>& basicGroup,
+                                 Processor::Group<EProcessorId>& dbGroup,
                                  std::string sharedSecret)
         : clientRegistry_(clientRegistry)
         , zoneLinkRegistry_(zoneLinkRegistry)
@@ -73,7 +73,7 @@ namespace World
         {
             // 샤드 인덱스를 그대로 ownerId로 쓴다 -- shardIndex < shardCount이고 그룹의 스레드
             // 선택도 `% shardCount`라, 정확히 그 샤드를 소유한 스레드로 간다(그래서 샤드 개수와
-            // BASIC 스레드 개수가 반드시 같아야 한다 -- WorldServerApp 생성자 참고).
+            // BASIC 스레드 개수가 반드시 같아야 한다 -- App 생성자 참고).
             basicGroup_.Post(EProcessorId::Tool, shardIndex,
                 [shardIndex, remaining, total, sharedPerShard, sharedOnComplete]
                 {
@@ -106,7 +106,7 @@ namespace World
     }
 
     void ToolProcessor::OnPacket(const std::shared_ptr<Network::Session>& session,
-                                 const Packet::PacketHeader& header,
+                                 const Packet::Header& header,
                                  const std::span<const byte> payload)
     {
         // 여기는 이 연결의 I/O 스레드다. 다른 두 링크 핸들러와 동일하게 바이트만 복사해서
@@ -319,7 +319,7 @@ namespace World
             return;
         }
 
-        // 존이 기대하는 MailAdd 본문(ZoneInstance::HandleMailAdd)과 정확히 같은 순서로 만든다:
+        // 존이 기대하는 MailAdd 본문(Instance::HandleMailAdd)과 정확히 같은 순서로 만든다:
         // String(title) + String(body) + durationSec(int64).
         Packet::BinaryWriter mailWriter;
         mailWriter.WriteString(title);
@@ -410,7 +410,7 @@ namespace World
             return;
         }
 
-        // 존이 기대하는 MailDel 본문은 mailId(uint32) 하나다(ZoneInstance::HandleMailDel).
+        // 존이 기대하는 MailDel 본문은 mailId(uint32) 하나다(Instance::HandleMailDel).
         Packet::BinaryWriter mailWriter;
         mailWriter.Write(request.mailId);
 
@@ -503,7 +503,7 @@ namespace World
                 clientRegistry_.ForEachInShard(shardIndex,
                     [&](const Network::SessionId clientSessionId, const ClientInfo& info)
                     {
-                        // MaxBodySize를 넘기면 받는 쪽 PacketBuffer가 예외를 던지므로 상한에서
+                        // MaxBodySize를 넘기면 받는 쪽 Buffer가 예외를 던지므로 상한에서
                         // 자른다. 이 목록은 우편 대상을 고르기 위한 것이라 전수 조회가 필수는
                         // 아니다.
                         auto writer = collected->Write();

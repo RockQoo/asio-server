@@ -31,7 +31,7 @@ mailId(uint32) + String(title) + String(body) + sendUt(int64) + endUt(int64)
 
 | 쪽 | 파일 |
 |----|------|
-| 쓰기 | `Server/ZoneServer/Src/Mail/MailModel.cpp` (payload) + `Task/ZoneUnitOfWork.cpp` (접두 + 전송) |
+| 쓰기 | `Server/ZoneServer/Src/Mail/Model.cpp` (payload) + `Task/UnitOfWork.cpp` (접두 + 전송) |
 | 읽기 | `Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp` |
 
 ## 운영툴 링크 (T2W / W2T)
@@ -71,7 +71,7 @@ requestId(uint32) + String(campaignCode) + chunkSeq(uint32) + couponCount(uint32
   + couponCount개의 String(couponCode)
 ```
 
-**주의**: `PacketHeader::MaxBodySize()`가 8192바이트라, 코드 하나가 27바이트(길이 2 + 25자)인
+**주의**: `Header::MaxBodySize()`가 8192바이트라, 코드 하나가 27바이트(길이 2 + 25자)인
 것을 감안하면 한 패킷에 **250개 정도가 상한**이다. 그래서 운영툴은 "DB 벌크 인서트
 청크"(수천~수만 건)와 "World 전송 청크"(200건)를 서로 다른 크기로 나눠 쓴다.
 

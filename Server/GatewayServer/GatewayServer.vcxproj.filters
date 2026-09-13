@@ -28,7 +28,7 @@
     <ClInclude Include="Src\Handler\WorldLinkHandler.h">
       <Filter>Handler</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\GatewayServerApp.h">
+    <ClInclude Include="Src\App\App.h">
       <Filter>App</Filter>
     </ClInclude>
   </ItemGroup>
@@ -40,7 +40,7 @@
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
-    <ClCompile Include="Src\App\GatewayServerApp.cpp">
+    <ClCompile Include="Src\App\App.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />

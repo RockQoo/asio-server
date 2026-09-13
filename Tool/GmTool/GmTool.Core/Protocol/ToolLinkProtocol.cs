@@ -13,11 +13,11 @@ public static class ToolLinkProtocol
     /// </summary>
     public const uint ProtocolVersion = 1;
 
-    /// <summary><c>Packet::PacketHeader</c>: bodySize(2) + id(2). 리틀엔디언 고정.</summary>
+    /// <summary><c>Packet::Header</c>: bodySize(2) + id(2). 리틀엔디언 고정.</summary>
     public const int HeaderSize = 4;
 
     /// <summary>
-    /// <c>Packet::PacketHeader::MaxBodySize()</c>와 동일. 넘기면 받는 쪽이 예외를 던지고 연결이
+    /// <c>Packet::Header::MaxBodySize()</c>와 동일. 넘기면 받는 쪽이 예외를 던지고 연결이
     /// 끊긴다.
     /// </summary>
     public const int MaxBodySize = 8192;

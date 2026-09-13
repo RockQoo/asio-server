@@ -17,7 +17,7 @@
     <span class="badge b-client">Client</span>
     <span class="badge b-world">Gateway / World 릴레이</span>
     <span class="badge b-player">Zone Player 레인</span>
-    <span class="badge b-zone">모델 (MailModel / CurrencyModel)</span>
+    <span class="badge b-zone">모델 (Model / Model)</span>
 </div>
 
 <div class="seq">
@@ -27,9 +27,9 @@
         <div class="actor a-client">Client<small>게임 스레드</small></div>
         <div class="actor a-world">Gateway → World<small>순수 릴레이 + 라우팅</small></div>
         <div class="actor a-player">PlayerProcessor<small>Player 레인</small></div>
-        <div class="actor a-zone">MailModel<small>우편함 (Mutexed)</small></div>
-        <div class="actor a-zone">CurrencyModel<small>지갑 (값)</small></div>
-        <div class="actor a-player">ZoneUnitOfWork<small>Task 목록</small></div>
+        <div class="actor a-zone">Model<small>우편함 (Mutexed)</small></div>
+        <div class="actor a-zone">Model<small>지갑 (값)</small></div>
+        <div class="actor a-player">UnitOfWork<small>Task 목록</small></div>
     </div>
 
     <div class="seq-body" style="grid-template-columns: repeat(12, 1fr);">
@@ -147,8 +147,8 @@
     <tr><th>단계</th><th>파일</th></tr>
     <tr><td>③~⑨</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleMailBuy</code></td></tr>
     <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Mail/MailTask.h</code></td></tr>
-    <tr><td>⑦</td><td><code>Server/ZoneServer/Src/Currency/CurrencyModel.cpp</code> — <code>SetTracked</code></td></tr>
-    <tr><td>⑩~⑫</td><td><code>Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp</code>, <code>Shared/Core/Src/Task/UnitOfWork.cpp</code></td></tr>
+    <tr><td>⑦</td><td><code>Server/ZoneServer/Src/Currency/Model.cpp</code> — <code>SetTracked</code></td></tr>
+    <tr><td>⑩~⑫</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code>, <code>Shared/Core/Src/Task/UnitOfWork.cpp</code></td></tr>
     <tr><td>DB</td><td><code>Server/WorldServer/Src/Db/AutoDbCommand.h</code>, <code>Sql/mails.sql</code></td></tr>
 </table>
 

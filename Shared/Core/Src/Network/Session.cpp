@@ -77,7 +77,7 @@ namespace Network
                     {
                         self->packetBuffer_.Append(std::span(self->receiveBuffer_.data(), bytesTransferred));
 
-                        Packet::PacketHeader header{};
+                        Packet::Header header{};
                         std::vector<byte> payload;
                         while (self->packetBuffer_.TryExtract(header, payload))
                         {

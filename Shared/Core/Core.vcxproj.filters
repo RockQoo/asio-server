@@ -54,19 +54,19 @@
     <ClInclude Include="Src\Log\LogCategory.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Log\LogEntry.h">
+    <ClInclude Include="Src\Log\Entry.h">
       <Filter>Log</Filter>
     </ClInclude>
     <ClInclude Include="Src\Log\Logger.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Log\LogProxy.h">
+    <ClInclude Include="Src\Log\Proxy.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\PacketHeader.h">
+    <ClInclude Include="Src\Packet\Header.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\PacketBuffer.h">
+    <ClInclude Include="Src\Packet\Buffer.h">
       <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="Src\Packet\PacketFramer.h">
@@ -78,7 +78,7 @@
     <ClInclude Include="Src\Packet\BinaryReader.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\PacketDispatcher.h">
+    <ClInclude Include="Src\Packet\Dispatcher.h">
       <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="Src\Network\IPacketHandler.h">
@@ -102,7 +102,7 @@
     <ClInclude Include="Src\Processor\ProcessorStats.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\ProcessorGroup.h">
+    <ClInclude Include="Src\Processor\Group.h">
       <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Thread\WorkerThread.h">
@@ -131,7 +131,7 @@
     <ClCompile Include="Src\Log\Logger.cpp">
       <Filter>Log</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Packet\PacketBuffer.cpp">
+    <ClCompile Include="Src\Packet\Buffer.cpp">
       <Filter>Packet</Filter>
     </ClCompile>
     <ClCompile Include="Src\Network\Session.cpp">

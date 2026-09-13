@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Packet/PacketHeader.h"
+#include "Shared/Core/Src/Packet/Header.h"
 
 #include <cstring>
 #include <span>
@@ -14,15 +14,15 @@ namespace Packet
     [[nodiscard]] inline std::vector<byte> BuildFrame(const uint16_t packetId,
                                                              const std::span<const byte> payload)
     {
-        PacketHeader header{};
+        Header header{};
         header.bodySize = static_cast<uint16_t>(payload.size());
         header.id = packetId;
 
-        std::vector<byte> frame(PacketHeader::HeaderSize() + payload.size());
-        std::memcpy(frame.data(), &header, PacketHeader::HeaderSize());
+        std::vector<byte> frame(Header::HeaderSize() + payload.size());
+        std::memcpy(frame.data(), &header, Header::HeaderSize());
         if (!payload.empty())
         {
-            std::memcpy(frame.data() + PacketHeader::HeaderSize(), payload.data(), payload.size());
+            std::memcpy(frame.data() + Header::HeaderSize(), payload.data(), payload.size());
         }
 
         return frame;

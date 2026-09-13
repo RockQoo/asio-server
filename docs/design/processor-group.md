@@ -1,6 +1,6 @@
-# ProcessorGroup — 메시지 큐 + 레인 어피니티
+# Group — 메시지 큐 + 레인 어피니티
 
-대상 코드: `Shared/Core/Src/Processor/ProcessorGroup.h`
+대상 코드: `Shared/Core/Src/Processor/Group.h`
 
 ## 한 줄 요약
 
@@ -18,7 +18,7 @@
 ## ownerId를 무엇으로 할지는 호출부가 정한다
 
 기준은 **"이 메시지가 건드릴 데이터의 주인"** 이다 — 세션 작업이면 `sessionId`, 존 공간
-상태를 만지면 `zoneId`, 길드 동기화면 `guildId`. 그래서 `ProcessorGroup`은 `ownerId`의
+상태를 만지면 `zoneId`, 길드 동기화면 `guildId`. 그래서 `Group`은 `ownerId`의
 의미를 모르고 `uint64_t`로만 받는다.
 
 ## 함정 — 어피니티는 만능이 아니다

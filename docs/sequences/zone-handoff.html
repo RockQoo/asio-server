@@ -149,7 +149,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
 
 <div class="callout warn">
     <h4>지금의 한계 — 존을 넘으면 우편함이 비워진다</h4>
-    우편함은 <b>존 로컬</b>이라 새 존에서 빈 <code>MailModel</code>로 다시 생긴다.
+    우편함은 <b>존 로컬</b>이라 새 존에서 빈 <code>Model</code>로 다시 생긴다.
     부하 도구(<code>StressClient</code>)가 일부러 자기 존 밖으로 안 나가는 이유가 이것이다 —
     넘어가면 mailId가 1부터 다시 시작해 "데이터 불일치"로 오탐된다.
     해결은 World 콘텐츠 캐시(로그인 시 DB에서 적재)이고, 아직 구현 전이다.
@@ -166,9 +166,9 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
 <table>
     <tr><th>단계</th><th>파일</th></tr>
     <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleMove</code></td></tr>
-    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Game/ZoneInstance.cpp</code> — <code>Tick</code> / <code>RequestZoneTransfer</code></td></tr>
+    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Game/Instance.cpp</code> — <code>Tick</code> / <code>RequestZoneTransfer</code></td></tr>
     <tr><td>⑦~⑨</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>HandleZoneTransferRequest</code></td></tr>
-    <tr><td>⑩~⑬</td><td><code>Server/ZoneServer/Src/Game/ZoneInstance.cpp</code> — <code>OnPlayerEnter</code> / <code>SendEnterZoneNotify</code></td></tr>
+    <tr><td>⑩~⑬</td><td><code>Server/ZoneServer/Src/Game/Instance.cpp</code> — <code>OnPlayerEnter</code> / <code>SendEnterZoneNotify</code></td></tr>
     <tr><td>격자 규칙</td><td><code>Server/ZoneServer/Src/main.cpp</code> — <code>ParseZoneList</code></td></tr>
 </table>
 

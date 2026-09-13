@@ -24,7 +24,7 @@ public enum LinkState
 /// <b>스레드 규약이 서버의 NETWORK/LB 분리와 같은 모양이다.</b> 수신은 별도 Task에서 돌면서
 /// 바이트를 프레이밍만 해 <see cref="ConcurrentQueue{T}"/>에 넣고, 게임 상태는 전혀 건드리지
 /// 않는다. 실제 상태 변경은 게임 스레드가 <see cref="Drain"/>으로 큐를 비우면서 한다 — 이렇게
-/// 하면 <c>WorldModel</c>은 락이 하나도 필요 없다(서버의 <c>ZoneInstance</c>가 BASIC 스레드
+/// 하면 <c>WorldModel</c>은 락이 하나도 필요 없다(서버의 <c>Instance</c>가 BASIC 스레드
 /// 전용이라 락이 없는 것과 같은 이유).
 /// </para>
 ///
@@ -36,10 +36,10 @@ public enum LinkState
 /// </summary>
 public sealed class GameLink : IDisposable
 {
-    /// <summary>C++ <c>Packet::PacketHeader</c>: bodySize(2) + id(2). 리틀엔디언 고정.</summary>
+    /// <summary>C++ <c>Packet::Header</c>: bodySize(2) + id(2). 리틀엔디언 고정.</summary>
     private const int HeaderSize = 4;
 
-    /// <summary>C++ <c>Packet::PacketHeader::MaxBodySize()</c>와 같아야 한다.</summary>
+    /// <summary>C++ <c>Packet::Header::MaxBodySize()</c>와 같아야 한다.</summary>
     private const int MaxBodySize = 8192;
 
     private readonly ConcurrentQueue<InboundPacket> inbound_ = new();
@@ -153,7 +153,7 @@ public sealed class GameLink : IDisposable
 
     private async Task ReceiveLoopAsync()
     {
-        // 서버 ProtocolClient의 PacketBuffer와 같은 역할. TCP는 경계를 보장하지 않으므로
+        // 서버 ProtocolClient의 Buffer와 같은 역할. TCP는 경계를 보장하지 않으므로
         // "헤더가 다 왔는지 → 본문이 다 왔는지"를 매번 확인하며 꺼낸다.
         var pending = new List<byte>(capacity: 8192);
         var chunk = new byte[8192];

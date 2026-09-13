@@ -26,11 +26,11 @@ public sealed class WorldLinkOptions
 
     public string Host { get; set; } = "127.0.0.1";
 
-    /// <summary>C++ <c>WorldServerConfig::toolPort</c>와 같아야 한다.</summary>
+    /// <summary>C++ <c>Config::toolPort</c>와 같아야 한다.</summary>
     public int Port { get; set; } = 9300;
 
     /// <summary>
-    /// C++ <c>WorldServerConfig::toolSharedSecret</c>와 같아야 한다. World 쪽은 환경 변수
+    /// C++ <c>Config::toolSharedSecret</c>와 같아야 한다. World 쪽은 환경 변수
     /// <c>ASIO_SERVER_TOOL_SECRET</c>로, 이쪽은 <c>WorldLink__SharedSecret</c>으로 덮어쓴다.
     /// </summary>
     public string SharedSecret { get; set; } = "dev-only-gmtool-secret";

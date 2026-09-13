@@ -52,7 +52,7 @@
     <ClInclude Include="Src\Packet\ZonePackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Currency\CurrencyModel.h">
+    <ClInclude Include="Src\Currency\Model.h">
       <Filter>Currency</Filter>
     </ClInclude>
     <ClInclude Include="Src\Currency\CurrencyTask.h">
@@ -61,10 +61,10 @@
     <ClInclude Include="Src\Game\Player.h">
       <Filter>Game</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Game\ZoneDef.h">
+    <ClInclude Include="Src\Game\Def.h">
       <Filter>Game</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Game\ZoneInstance.h">
+    <ClInclude Include="Src\Game\Instance.h">
       <Filter>Game</Filter>
     </ClInclude>
     <ClInclude Include="Src\World\WorldLink.h">
@@ -73,16 +73,16 @@
     <ClInclude Include="Src\Mail\MailTask.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\MailModel.h">
+    <ClInclude Include="Src\Mail\Model.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\MailRegistry.h">
+    <ClInclude Include="Src\Mail\Registry.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Task\ZoneUnitOfWork.h">
+    <ClInclude Include="Src\Task\UnitOfWork.h">
       <Filter>Task</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\MailExpiryService.h">
+    <ClInclude Include="Src\Mail\ExpiryService.h">
       <Filter>Mail</Filter>
     </ClInclude>
     <ClInclude Include="Src\Worker\ProcessorId.h">
@@ -103,40 +103,40 @@
     <ClInclude Include="Src\Worker\BroadcastDispatcher.h">
       <Filter>Worker</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Worker\ZoneWorkerManager.h">
+    <ClInclude Include="Src\Worker\WorkerManager.h">
       <Filter>Worker</Filter>
     </ClInclude>
     <ClInclude Include="Src\Handler\WorldLinkHandler.h">
       <Filter>Handler</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\ZoneServerApp.h">
+    <ClInclude Include="Src\App\App.h">
       <Filter>App</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
-    <ClCompile Include="Src\Currency\CurrencyModel.cpp">
+    <ClCompile Include="Src\Currency\Model.cpp">
       <Filter>Currency</Filter>
     </ClCompile>
     <ClCompile Include="Src\Currency\CurrencyTask.cpp">
       <Filter>Currency</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Game\ZoneInstance.cpp">
+    <ClCompile Include="Src\Game\Instance.cpp">
       <Filter>Game</Filter>
     </ClCompile>
     <ClCompile Include="Src\Mail\MailTask.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\MailModel.cpp">
+    <ClCompile Include="Src\Mail\Model.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\MailRegistry.cpp">
+    <ClCompile Include="Src\Mail\Registry.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp">
+    <ClCompile Include="Src\Task\UnitOfWork.cpp">
       <Filter>Task</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\MailExpiryService.cpp">
+    <ClCompile Include="Src\Mail\ExpiryService.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
     <ClCompile Include="Src\Game\PlayerRegistry.cpp">
@@ -148,13 +148,13 @@
     <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp">
       <Filter>Worker</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Worker\ZoneWorkerManager.cpp">
+    <ClCompile Include="Src\Worker\WorkerManager.cpp">
       <Filter>Worker</Filter>
     </ClCompile>
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
-    <ClCompile Include="Src\App\ZoneServerApp.cpp">
+    <ClCompile Include="Src\App\App.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />

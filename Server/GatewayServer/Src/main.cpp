@@ -1,5 +1,5 @@
 #include "Server/GatewayServer/Src/pch.h"
-#include "Server/GatewayServer/Src/App/GatewayServerApp.h"
+#include "Server/GatewayServer/Src/App/App.h"
 
 #include <cstdlib>
 #include <exception>
@@ -13,13 +13,13 @@ int main()
     {
         // 클라이언트 포트 9000(기존 ZoneServer가 쓰던 포트를 그대로 물려받음), World는
         // 기본적으로 같은 머신의 9100 포트에서 대기한다고 가정한다.
-        Gateway::GatewayServerConfig config{};
+        Gateway::Config config{};
         config.clientPort = 9000;
         config.worldHost = "127.0.0.1";
         config.worldPort = 9100;
         config.ioThreadCount = 2;
 
-        Gateway::GatewayServerApp app(std::move(config));
+        Gateway::App app(std::move(config));
         app.Run();
     }
     catch (const std::exception& ex)

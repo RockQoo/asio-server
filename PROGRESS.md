@@ -91,17 +91,17 @@
   **zoneId는 1부터 시작**하고 0은 "존 없음/미배정" 예약값이다 — 0을 유효 존으로 쓰면 "0번
   존에 있다"와 "아직 아무 존에도 없다"가 같은 값이 되어 구분할 수 없다.
   배치를 정하는 코드는 `ParseZoneList` 하나(`kZoneSize`/`kZonesPerRow`/`kZoneRows`)이고,
-  그 아래 계층은 `ZoneDef`(담당 사각형)를 그대로 들고 다니므로 배치 규칙을 모른다.
+  그 아래 계층은 `Def`(담당 사각형)를 그대로 들고 다니므로 배치 규칙을 모른다.
 - **WorldServer**: 단일 처리 스레드(`WorldWorker`)가 라우팅 상태(`ClientRegistry`/
   `ZoneLinkRegistry`)를 락 없이 소유. I/O 스레드는 `PostTask`로만 넘긴다. DB 워커 풀
   (`Db::DbWorker`, owner-hash)은 실제 쿼리 없이 로그만 남기는 스텁 상태.
-- **Mail 시스템**: `MailModel`/`MailRegistry`/`MailExpiryService`(만료 자동삭제, 별도
+- **Mail 시스템**: `Model`/`Registry`/`ExpiryService`(만료 자동삭제, 별도
   유지보수 타이머). `Thread::Mutexed`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
   BASIC 스레드와 유지보수 타이머가 만나는 유일한 지점만 락"을 보여준다. 상태 변경은
   `Task::UnitOfWork`(범용 Unit-of-Work)에 태스크로 기록했다가 **스코프를 벗어날 때**
   한 번에 내보낸다 — 성공하면 같은 태스크 목록이 World(DB)와 클라이언트(`Z2CTaskResult`)
   양쪽으로 가고, 실패하면 역순으로 되짚어 메모리를 롤백한 뒤 에러 코드만 클라이언트로 간다.
-- **재화 시스템**: `Currency::CurrencyModel`(골드). 값을 바꾸는 통로를 `SetTracked` 하나로
+- **재화 시스템**: `Currency::Model`(골드). 값을 바꾸는 통로를 `SetTracked` 하나로
   좁혀서 검증·이전값 포착·태스크 기록·대입이 한 자리에서 일어난다. `C2ZMailBuy`(우편 지급 +
   골드 차감)가 **모델 두 개에 걸친 트랜잭션**이라 롤백이 실제로 밟히는 경로다.
 - **부하 테스트 도구(`StressClient`)**: `Core::Network::Connector`/`Session`을 그대로
@@ -162,7 +162,7 @@
 - **UnitOfWork 트랜잭션화 + 클라이언트 동기화**(2026-09-08): 기록만 하고 스코프 끝에
   내보내던 `Task::UnitOfWork`에 **실패/롤백/대상 구분**을 넣었다.
   - `Task::UnitOfWork`는 기반 클래스가 되고, 콘텐츠가 아는 일(전송·역연산)은
-    `Zone::ZoneUnitOfWork`가 맡는다. 내보내기는 소멸자가 아니라 **명시적 `Commit()`**이다 —
+    `Zone::UnitOfWork`가 맡는다. 내보내기는 소멸자가 아니라 **명시적 `Commit()`**이다 —
     기반 소멸자 시점에는 파생이 이미 파괴돼 가상 함수가 파생 구현으로 불리지 않기 때문.
     소멸자는 "Commit 없이 소멸"을 잡는 안전망만 맡는다(예외 전파 중이면 죽이지 않는다).
   - 롤백은 기록해둔 태스크를 **역순으로 되짚어 역연산**(Added↔Removed)을 부르는 방식이라,
@@ -171,7 +171,7 @@
   - 태스크에 대상(`Db`/`Client`/`Both`)이 붙었다. 성공하면 같은 목록이 World와 클라이언트로
     나가고, 클라이언트는 `Z2CTaskResult`로 받아 자기 메모리에 적용한다 — 콘텐츠마다 Ack를
     새로 만들던 `Z2CMailAddAck`/`Z2CMailDelAck`은 폐기됐다(**와이어 포맷 변경**).
-  - `ZoneWorld` → `ZoneInstance` 리네임(WorldServer와 헷갈렸다), 콘텐츠 에러 코드는
+  - `ZoneWorld` → `Instance` 리네임(WorldServer와 헷갈렸다), 콘텐츠 에러 코드는
     `Protocol::EErrorCode`로 분리(Core의 것은 `Common::ECoreErrorCode`), taskKind는
     `Protocol::TaskKind.h`에서 **상위 8비트 카테고리 + 하위 8비트 세부 동작**으로 인코딩한다.
   - 검증: Debug 빌드 에러·경고 0, 서버 3종을 띄워 `ProtocolClient`로 mail add/del 왕복과
@@ -239,7 +239,7 @@
     않으면 그게 곧 불일치라 구분할 이유가 없었다(**와이어 포맷 변경**).
   - `PlayerState` → **`Zone::Player`**로 바꾸고 그 사람의 모델들을 여기 모았다. 우편함만
     `Mutexed` 핸들이고 재화는 값으로 직접 든다 — 모델마다 실제 접근 스레드 수에 맞춘다.
-    `MailRegistry`는 지우지 않고 **만료 스윕용 색인**으로 남겼다(지우면 `players_`에 락을
+    `Registry`는 지우지 않고 **만료 스윕용 색인**으로 남겼다(지우면 `players_`에 락을
     걸어 "존 상태는 락 없음"을 깨거나, 스윕을 BASIC으로 옮겨 `Mutexed`가 필요한 자리를
     없애야 했다).
   - **`Common::UniqueIdGenerator`**: 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 8 +
@@ -280,7 +280,7 @@
    3. EProcessorId::Login + LoginProcessor + C2WLogin / W2CLoginResult + EErrorCode
       - 자동 가입: 계정이 없으면 UniqueId로 playerId 발급 -> players_upsert -> 기존 흐름
       - 개발 전용 플래그로 묶을 것 (실서비스면 계정 열거 경로가 된다)
-   4. World 플레이어 콘텐츠 캐시 = { MailModel 미러, CurrencyModel 미러 }
+   4. World 플레이어 콘텐츠 캐시 = { Model 미러, Model 미러 }
       - 로그인 때 mails_select / currencies_select 로 적재, 로그아웃 때 폐기(유예 없음)
       - 이 캐시가 곧 위조 검증 대상이다 (Zone Task가 올라오면 대조)
    5. playerId -> clientSessionId Mutexed 색인 (중복 로그인, 검사+삽입이 원자적이어야 함)
@@ -289,7 +289,7 @@
    ```
 
    **7번이 규모가 크다**: `mail_id`/`player_id`가 `uint32_t` → `int64_t`가 되면서 와이어
-   포맷이 바뀐다. Zone `MailModel` → 프로토콜 → `Client`(C#) / `ProtocolClient` /
+   포맷이 바뀐다. Zone `Model` → 프로토콜 → `Client`(C#) / `ProtocolClient` /
    `StressClient`가 전부 딸려오고, 서버만 고치면 클라가 깨지므로 한 커밋에 같이 가야 한다.
 
    지금 `ZoneLinkHandler::HandleUnitOfWorkStream`은 BASIC을 건너뛰고 DB 레인에서 콘텐츠까지
@@ -304,7 +304,7 @@
 
    같이 정할 것: 게임 스키마와 공유 저장 프로시저는 `Shared/Sql/`에 둔다 — `Tool/` 아래
    두면 서버가 툴을 의존하는 역방향이 된다(`Core`를 `Shared/`에 둔 것과 같은 이유). 그리고
-   접속 중인 플레이어의 권위 상태는 메모리(`ZoneInstance`/`MailModel`)에 있으므로, 운영툴이
+   접속 중인 플레이어의 권위 상태는 메모리(`Instance`/`Model`)에 있으므로, 운영툴이
    게임 데이터를 **직접 UPDATE하는 경로는 두지 않는다**(오프라인 대상만 직접, 온라인 대상은
    9300 경유).
 3. **AOI/몬스터**: 존 내부를 그리드로 나눠 "가까운 플레이어에게만" 브로드캐스트하도록
@@ -318,12 +318,12 @@
    어차피 서버가 판단해야 하므로 그 작업과 한 세트다.
 
    **존 배치를 CSV 데이터로 빼기 — 같은 자리에서 정리할 후보.** 2차원 격자까지는 구현됐고
-   (`ZoneDef`가 담당 사각형을 갖고, `ZoneRegisterPacket`으로 World에 알리고, World는
+   (`Def`가 담당 사각형을 갖고, `ZoneRegisterPacket`으로 World에 알리고, World는
    `FindZoneContaining(x, y)`로 라우팅한다), 남은 것은 **좌표를 코드에서 데이터로 빼는 것**이다.
    지금은 `ParseZoneList`가 `kZoneSize`/`kZonesPerRow`/`kZoneRows`로 계산하므로 존이 전부
    같은 크기의 균일 격자여야 한다. CSV(`zoneId, xMin, xMax, yMin, yMax`)로 읽으면 크기·위치가
    불규칙한 배치도 되고, 프로세스에는 담당 zoneId만 주면 된다. **고칠 자리는 `ParseZoneList`
-   하나**다 — 아래 계층은 이미 `ZoneDef`를 그대로 들고 다녀서 배치 규칙을 모른다.
+   하나**다 — 아래 계층은 이미 `Def`를 그대로 들고 다녀서 배치 규칙을 모른다.
 
    같이 처리해야 하는 것:
    - **월드에 구멍이 생기는 경우.** 배치가 불규칙해지면 어느 존도 담당하지 않는 좌표가 나온다.

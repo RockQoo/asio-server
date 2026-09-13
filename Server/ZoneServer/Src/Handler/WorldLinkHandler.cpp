@@ -15,9 +15,9 @@
 namespace Zone
 {
     WorldLinkHandler::WorldLinkHandler(PlayerProcessor& playerProcessor,
-                                       Processor::ProcessorGroup<EProcessorId>& lbGroup,
-                                       Processor::ProcessorGroup<EProcessorId>& playerGroup,
-                                       WorldLink& worldLink, std::vector<ZoneDef> zoneDefs)
+                                       Processor::Group<EProcessorId>& lbGroup,
+                                       Processor::Group<EProcessorId>& playerGroup,
+                                       WorldLink& worldLink, std::vector<Def> zoneDefs)
         : playerProcessor_(playerProcessor)
         , lbGroup_(lbGroup)
         , playerGroup_(playerGroup)
@@ -72,7 +72,7 @@ namespace Zone
     }
 
     void WorldLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& /*session*/,
-                                    const Packet::PacketHeader& header,
+                                    const Packet::Header& header,
                                     const std::span<const byte> payload)
     {
         // 여기는 I/O 스레드(Session의 strand)다. ownerId만 훔쳐보고 바이트를 복사해 LB 레인에

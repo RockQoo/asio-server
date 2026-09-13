@@ -29,7 +29,7 @@ namespace Gateway
     }
 
     void WorldLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
-                                     const Packet::PacketHeader& header,
+                                     const Packet::Header& header,
                                      const std::span<const byte> payload)
     {
         dispatcher_.Dispatch(static_cast<PacketId>(header.id), session, payload);

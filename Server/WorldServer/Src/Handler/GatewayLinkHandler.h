@@ -2,8 +2,8 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Packet/PacketDispatcher.h"
-#include "Shared/Core/Src/Processor/ProcessorGroup.h"
+#include "Shared/Core/Src/Packet/Dispatcher.h"
+#include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/World/ZoneLinkRegistry.h"
 #include "Server/WorldServer/Src/Worker/ProcessorId.h"
@@ -27,11 +27,11 @@ namespace World
     {
     public:
         GatewayLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                           Processor::ProcessorGroup<EProcessorId>& basicGroup);
+                           Processor::Group<EProcessorId>& basicGroup);
 
         void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
         void OnPacket(const std::shared_ptr<Network::Session>& session,
-                      const Packet::PacketHeader& header,
+                      const Packet::Header& header,
                       const std::span<const byte> payload) override;
         void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
 
@@ -44,7 +44,7 @@ namespace World
 
         ClientRegistry& clientRegistry_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
-        Processor::ProcessorGroup<EProcessorId>& basicGroup_;
-        Packet::PacketDispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Processor::Group<EProcessorId>& basicGroup_;
+        Packet::Dispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

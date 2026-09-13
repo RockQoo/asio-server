@@ -57,8 +57,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
   변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
   콘텐츠를 몰라야 해서 Core/Gateway/World/Zone/Stress가 각자 따로 갖는다(같은 문서 참고).
-- **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `PacketHeader`/`MovePacket`/
-  `PlayerState`/`ZoneServerConfig` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
+- **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `Header`/`MovePacket`/
+  `PlayerState`/`Config` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
 - **include 경로는 솔루션 루트 기준**: `#include "Shared/Core/Src/Network/Session.h"`.
@@ -94,8 +94,8 @@ C:\Work\asio-server\
 │   │   └── Src/
 │   │       ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
 │   │       ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, CoreErrorCode.h, CoreException.h
-│   │       ├── Packet/               PacketHeader/Buffer/Framer, BinaryWriter/Reader,
-│   │       │                         PacketDispatcher<TId,TContext>
+│   │       ├── Packet/               Header/Buffer/Framer, BinaryWriter/Reader,
+│   │       │                         Dispatcher<TId,TContext>
 │   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
 │   │       │                         connect, Listener와 대칭), Session, SessionManager
 │   │       ├── Thread/               WorkerThread(SetThreadAffinityMask), AffinityWorkerPool<TWorker>
@@ -117,16 +117,16 @@ C:\Work\asio-server\
 │   │   └── Src/World/                ClientRegistry, ZoneLinkRegistry (WorldWorker 전용 접근)
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
-│           ├── Worker/               TaskWorker(범용 실행기), ZoneWorkerManager
+│           ├── Worker/               TaskWorker(범용 실행기), WorkerManager
 │           │                         (ZoneSpace/Broadcast 그룹 소유), BroadcastDispatcher
 │           ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
-│           ├── Currency/             CurrencyModel(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
+│           ├── Currency/             Model(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
 │           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
 │           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)
-│           ├── Game/ZoneInstance        존별 권위 상태(ZoneSpace 레인 전용 = 락 없음), PacketDispatcher로
+│           ├── Game/Instance        존별 권위 상태(ZoneSpace 레인 전용 = 락 없음), Dispatcher로
 │           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
-│           ├── Mail/                 MailModel/MailTask/MailRegistry(만료 스윕용 색인)/MailExpiryService
-│           └── Task/ZoneUnitOfWork   UnitOfWork 파생 — World(DB)/클라이언트 전송 + 역연산 롤백
+│           ├── Mail/                 Model/MailTask/Registry(만료 스윕용 색인)/ExpiryService
+│           └── Task/UnitOfWork   UnitOfWork 파생 — World(DB)/클라이언트 전송 + 역연산 롤백
 ├── Client/                           게임 클라이언트 — C#/MonoGame, 별도 솔루션
 │   ├── Client.slnx                   (GmTool과 같은 이유로 C++ 솔루션에 넣지 않는다)
 │   └── Client/Src/
@@ -134,7 +134,7 @@ C:\Work\asio-server\
 │       │                             + ZoneLayout(서버 ParseZoneList 규칙의 복제 — 짝을 맞춰야 함)
 │       ├── Net/                      GameLink(TCP+프레이밍, 수신은 큐에만 넣는다),
 │       │                             CouponClient(GmTool.Web HTTP)
-│       ├── Model/WorldModel          게임 스레드 전용 상태라 락이 없다(ZoneInstance와 같은 이유)
+│       ├── Model/WorldModel          게임 스레드 전용 상태라 락이 없다(Instance와 같은 이유)
 │       ├── Text/GlyphAtlas           한글 글리프를 런타임에 GDI+로 굽는다(.mgcb 미사용)
 │       └── Ui/                       Painter/Widgets/ZoneView/ChatPanel/MailPanel/CouponPanel/Hud
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아니다)
@@ -218,23 +218,23 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | `Core` | `IoContextPool` | io_context N개 + 전용 I/O 스레드 N개 |
 | | `Listener` / `Connector` | accept / outbound connect. 둘 다 성공 시 `IPacketHandler::OnSessionOpened` 호출 |
 | | `Session` | 소켓 1개, `strand_`로 보호 — `SendPacket()`은 어느 스레드에서든 호출 가능 |
-| | `PacketDispatcher<TId,TContext>` | 패킷 타입 → 핸들러 템플릿 라우터 (게임 무관) |
+| | `Dispatcher<TId,TContext>` | 패킷 타입 → 핸들러 템플릿 라우터 (게임 무관) |
 | | `WorkerThread` / `AffinityWorkerPool<TWorker>` | 작업 큐 1개 소비 스레드 / `key % N` 고정 라우팅 풀 |
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::UniqueIdGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
-| | `Processor::ProcessorGroup<TId>` | 큐 그룹 = 스레드 N개. `ownerId % N`으로 배정, 레인별 대기/처리 시간 계측 |
+| | `Processor::Group<TId>` | 큐 그룹 = 스레드 N개. `ownerId % N`으로 배정, 레인별 대기/처리 시간 계측 |
 | `WorldServer` | `ClientRegistry` / `ZoneLinkRegistry` | BASIC 레인 전용 접근 전제라 락 없음(레인 수만큼 샤딩) |
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
 | | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 실제 SP 호출 배선은 아직 TODO |
-| `ZoneServer` | `ZoneInstance` | 존 하나의 권위 상태. `PacketDispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
+| `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
 | | `PlayerProcessor` | 패킷별 핸들러(Move/Chat/Mail/MailBuy). Player 레인에서 돈다 |
 | | `PlayerRegistry` | clientSessionId → Player. 레인 수만큼 샤딩돼 락이 없다 |
-| | `ZoneWorkerManager` | ZoneSpace/Broadcast 그룹 + 존별 tick 타이머 소유 |
+| | `WorkerManager` | ZoneSpace/Broadcast 그룹 + 존별 tick 타이머 소유 |
 | | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 그룹 소유 |
 | | `Zone::Player` | 플레이어 한 명 + 그 사람의 모델들. 우편함만 `Mutexed` 핸들이고(만료 스윕이 다른 스레드) 재화는 값 — 모델마다 실제 접근 스레드 수에 맞춘다 |
-| | `Mail::MailModel` / `Currency::CurrencyModel` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
-| | `Zone::ZoneUnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 각 태스크가 자기 역연산으로 되돌리고(분기 switch 없음), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
+| | `Mail::Model` / `Currency::Model` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
+| | `Zone::UnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 각 태스크가 자기 역연산으로 되돌리고(분기 switch 없음), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
 | `GatewayServer` | `ClientLinkHandler`/`WorldLinkHandler` | 클라이언트↔World 양방향 릴레이만, 게임 로직 없음 |
 | `WorldServer` | `Tool::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
 
@@ -285,7 +285,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 - **개발 환경(Windows/NTFS)은 대소문자를 구분하지 않는다.** 새 폴더를 만들 때 기존 폴더와
   대소문자만 다른 이름(`core` vs `Core`처럼)을 쓰면 같은 폴더로 병합돼버린다. 실제로 이 문제로
   한 번 정리한 이력이 있음.
-- `ZoneWorkerManager::Start()`는 `ZoneInstance&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
+- `WorkerManager::Start()`는 `Instance&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
   `Stop()`은 반드시 **타이머를 먼저 취소한 뒤** 워커를 정지시키는 순서를 지켜야 안전하다
   (순서를 바꾸면 안 됨).
 - `PlatformToolset`은 `v145`(VS 2026 툴셋) + `/std:c++23`이다. 개발 환경이 VS 2026 Community라

@@ -136,7 +136,7 @@ bat\start_gmtool.bat      :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 - **영속화** — Task가 DB 레인까지 가지만 아직 SP를 호출하지 않습니다. 프로세스를 재시작하면
   우편이 소실됩니다 ([DB.html](docs/DB.html))
 - **인증/신원** — `playerId`를 `clientSessionId`에서 파생합니다. 로그인 계층이 없습니다
-- **핸드오프 시 우편함 초기화** — `MailModel`이 존 로컬이라 존을 넘으면 빈 우편함으로
+- **핸드오프 시 우편함 초기화** — `Model`이 존 로컬이라 존을 넘으면 빈 우편함으로
   시작합니다. 원래는 World 캐시가 소유해야 할 상태입니다 ([zone-handoff](docs/sequences/zone-handoff.html))
 - **존 입장 스냅샷 / 퇴장 통지 없음** — 클라이언트가 하트비트와 타임아웃으로 메우고 있습니다
   ([Client.html](docs/Client.html))

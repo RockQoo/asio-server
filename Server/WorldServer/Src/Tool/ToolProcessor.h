@@ -2,8 +2,8 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Packet/PacketDispatcher.h"
-#include "Shared/Core/Src/Processor/ProcessorGroup.h"
+#include "Shared/Core/Src/Packet/Dispatcher.h"
+#include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Server/WorldServer/Src/Packet/ToolResultCode.h"
@@ -36,13 +36,13 @@ namespace World
     {
     public:
         ToolProcessor(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                      Processor::ProcessorGroup<EProcessorId>& basicGroup,
-                      Processor::ProcessorGroup<EProcessorId>& dbGroup,
+                      Processor::Group<EProcessorId>& basicGroup,
+                      Processor::Group<EProcessorId>& dbGroup,
                       std::string sharedSecret);
 
         void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
         void OnPacket(const std::shared_ptr<Network::Session>& session,
-                      const Packet::PacketHeader& header,
+                      const Packet::Header& header,
                       const std::span<const byte> payload) override;
         void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
 
@@ -82,14 +82,14 @@ namespace World
         [[nodiscard]] bool InjectClientPacket(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                                               const std::span<const byte> innerPayload) const;
 
-        // ClientListReply 한 패킷에 담을 항목 수 상한. PacketHeader::MaxBodySize()가 8192이고
+        // ClientListReply 한 패킷에 담을 항목 수 상한. Header::MaxBodySize()가 8192이고
         // 항목 하나가 12바이트라 여유를 둬서 500개로 잡았다(8 + 500*12 = 6008바이트).
         static constexpr size_t kMaxClientListEntries = 500;
 
         ClientRegistry& clientRegistry_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
-        Processor::ProcessorGroup<EProcessorId>& basicGroup_;
-        Processor::ProcessorGroup<EProcessorId>& dbGroup_;
+        Processor::Group<EProcessorId>& basicGroup_;
+        Processor::Group<EProcessorId>& dbGroup_;
         std::string sharedSecret_;
 
         // **왜 여기만 락인가**: 운영툴 명령은 대상이 전역이라 ownerId를 하나로 고정할 수 없고
@@ -98,6 +98,6 @@ namespace World
         // 운영자가 손으로 누르는 명령이라 초당 수 건 수준이고, 샤딩까지 할 이유가 없다.
         Thread::Mutexed<std::unordered_set<Network::SessionId>> authenticatedSessions_;
 
-        Packet::PacketDispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::Dispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
     };
 }

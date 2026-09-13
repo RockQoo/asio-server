@@ -1,8 +1,8 @@
 #include "Shared/Core/Src/Common/BasicTypes.h"
-#include "Shared/Core/Src/Log/LogProxy.h"
+#include "Shared/Core/Src/Log/Proxy.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Core/Src/Packet/PacketBuffer.h"
+#include "Shared/Core/Src/Packet/Buffer.h"
 #include "Shared/Core/Src/Packet/PacketFramer.h"
 #include "Server/ZoneServer/Src/Log/LogCategory.h"
 #include "Shared/Protocol/Src/PacketId.h"
@@ -148,7 +148,7 @@ namespace
     // 막지 않기 위해서다 -- 실제 서버처럼 asio::async_read를 쓸 필요는 없는 더미 클라이언트다.
     void ReceiveLoop(asio::ip::tcp::socket& socket, std::atomic<bool>& running)
     {
-        Packet::PacketBuffer packetBuffer;
+        Packet::Buffer packetBuffer;
         std::array<byte, 4096> receiveBuffer{};
 
         while (running.load())
@@ -166,7 +166,7 @@ namespace
 
             packetBuffer.Append(std::span(receiveBuffer.data(), bytesTransferred));
 
-            Packet::PacketHeader header{};
+            Packet::Header header{};
             std::vector<byte> payload;
             while (packetBuffer.TryExtract(header, payload))
             {

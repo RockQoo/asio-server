@@ -7,7 +7,7 @@
 namespace World
 {
     AutoDbCommand::AutoDbCommand(DbConnectionPool& pool,
-                                 Processor::ProcessorGroup<EProcessorId>& dbGroup,
+                                 Processor::Group<EProcessorId>& dbGroup,
                                  const uint64_t ownerId, const bool useTransaction,
                                  DbCallback callback)
         : pool_(pool)
