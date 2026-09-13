@@ -118,6 +118,7 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
+    <ClInclude Include="Src\Packet\EnterZoneBody.h" />
     <ClInclude Include="Src\Packet\RelayEnvelope.h" />
     <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
     <ClInclude Include="Src\Packet\ToolResultCode.h" />

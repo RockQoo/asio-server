@@ -7,6 +7,7 @@
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
+#include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 
 namespace Zone
@@ -129,11 +130,63 @@ namespace Zone
         World::PlayerZoneStatePacket state{};
         std::memcpy(&state, payload.data(), sizeof(World::PlayerZoneStatePacket));
 
-        playerGroup_.Post(EProcessorId::Player, state.clientSessionId, [this, state]
+        // 고정 머리 뒤의 콘텐츠를 읽는다. 포맷은 World 의 Packet/ZoneLinkPackets.h 표가
+        // 유일한 계약이고, 쓰는 쪽은 Packet/EnterZoneBody.h 다.
+        Packet::BinaryReader reader(payload.subspan(sizeof(World::PlayerZoneStatePacket)));
+
+        uint16_t mailCount{};
+        if (!reader.Read(mailCount))
         {
-            playerProcessor_.OnPlayerEnter(state.clientSessionId, state.playerId, state.zoneId,
-                                            state.x, state.y);
-        });
+            LOG.Warning(ELogCategory::Zone, "EnterZone 본문에 우편 개수가 없다")
+                .KV("ClientSessionId", state.clientSessionId);
+            return;
+        }
+
+        std::vector<Mail::Info> mails;
+        mails.reserve(mailCount);
+        for (uint16_t i = 0; i < mailCount; ++i)
+        {
+            Mail::Info info{};
+            if (!reader.Read(info.mailId) || !reader.ReadString(info.title)
+                || !reader.ReadString(info.body) || !reader.Read(info.sendUt)
+                || !reader.Read(info.endUt))
+            {
+                LOG.Warning(ELogCategory::Zone, "EnterZone 본문의 우편이 잘렸다")
+                    .KV("ClientSessionId", state.clientSessionId).KV("Index", i);
+                return;
+            }
+            mails.push_back(std::move(info));
+        }
+
+        uint16_t currencyCount{};
+        if (!reader.Read(currencyCount))
+        {
+            LOG.Warning(ELogCategory::Zone, "EnterZone 본문에 재화 개수가 없다")
+                .KV("ClientSessionId", state.clientSessionId);
+            return;
+        }
+
+        std::vector<std::pair<uint8_t, int64_t>> currencies;
+        currencies.reserve(currencyCount);
+        for (uint16_t i = 0; i < currencyCount; ++i)
+        {
+            uint8_t type{};
+            int64_t amount{};
+            if (!reader.Read(type) || !reader.Read(amount))
+            {
+                LOG.Warning(ELogCategory::Zone, "EnterZone 본문의 재화가 잘렸다")
+                    .KV("ClientSessionId", state.clientSessionId).KV("Index", i);
+                return;
+            }
+            currencies.emplace_back(type, amount);
+        }
+
+        playerGroup_.Post(EProcessorId::Player, state.clientSessionId,
+            [this, state, mails = std::move(mails), currencies = std::move(currencies)]() mutable
+            {
+                playerProcessor_.OnPlayerEnter(state.clientSessionId, state.playerId, state.zoneId,
+                                               state.x, state.y, std::move(mails), std::move(currencies));
+            });
     }
 
     void WorldLinkHandler::HandleLeaveZoneNotify(const std::span<const byte> payload)

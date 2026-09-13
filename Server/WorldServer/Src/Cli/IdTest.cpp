@@ -52,7 +52,8 @@ namespace World
                 connection.Execute({DbCommand{"dbo.usp_unique_keys_count_by_node",
                                                      {static_cast<int64_t>(nodeId)}}},
                                    false, &result);
-                return result.empty() ? std::nullopt : GetInt64(result.front(), 0);
+                const auto* const row = FirstRow(result);
+                return row != nullptr ? GetInt64(*row, 0) : std::nullopt;
             }
             catch (const DbException& ex)
             {

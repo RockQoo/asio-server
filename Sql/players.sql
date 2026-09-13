@@ -131,3 +131,69 @@ ErrorHandler:
     RETURN @ret_val;
 END
 GO
+
+-- -----------------------------------------------------------------------------
+-- 로그인 성공 직후 World 가 캐시에 적재할 콘텐츠 전부를 **한 번의 왕복으로** 가져온다.
+--
+-- 결과 집합 두 개를 순서대로 낸다:
+--   ① 우편  mail_id, title, body, send_ut, end_ut
+--   ② 재화  currency_type, amount
+--
+-- 이 순서가 곧 계약이다 -- World 의 LoginProcessor 가 인덱스 0/1 로 꺼낸다. 집합을
+-- 추가할 일이 생기면 **뒤에 붙인다.** 중간에 끼우면 읽는 쪽이 조용히 밀린다.
+--
+-- **왜 usp_mails_select / usp_currencies_select 둘을 부르지 않고 SP 를 새로 만들었나**:
+-- 로그인은 사람이 기다리는 경로라 왕복 수가 그대로 체감 지연이 된다. 둘을 따로 부르면
+-- 커넥션 왕복이 두 번이고, 그 사이에 다른 작업이 끼어들어 두 조회가 서로 다른 시점을
+-- 보게 된다(우편은 적재됐는데 재화는 그 뒤 상태).
+--
+-- **재화 조회에만 WITH(NOLOCK) 이 없다.** sql-patterns.md 의 조회 기본값은 NOLOCK 이지만
+-- 같은 문서가 "한 행도 놓치면 안 되는 집계"를 예외로 둔다. 이 SP 가 정확히 그 자리다 --
+-- 여기서 읽은 잔액이 World 의 권위 캐시가 되고, 짝이 되는 usp_currencies_upsert 가
+-- 증감이 아니라 **절대값**을 쓰기 때문에 읽기 한 번의 오차가 다음 쓰기에서 확정된다
+-- (행을 놓치면 0 으로 캐시돼 잔액이 소멸한다). 우편은 놓쳐도 다시 받으면 되므로 그대로 둔다.
+--
+-- 조회라 0행이 정상이므로 @@ROWCOUNT 검사(⑤)만 없다. 나머지 골격은 쓰기 SP 와 같다.
+-- -----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE [dbo].[usp_players_load]
+    @is_trans_outside TINYINT,
+    @player_id        BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    DECLARE @ret_val INT = 0;
+
+    IF @is_trans_outside = 0 AND XACT_STATE() = -1
+    BEGIN SET @ret_val = 0xA0000001; GOTO ErrorHandler; END;
+
+    BEGIN TRY
+        IF @is_trans_outside = 0 BEGIN TRANSACTION;
+
+        -- ① 우편. delete_ut 가 0 이 아닌 것은 이미 지워진 것이라 제외한다.
+        SELECT mail_id, title, body, send_ut, end_ut
+          FROM dbo.mails WITH(NOLOCK)
+         WHERE player_id = @player_id
+           AND delete_ut = 0
+         ORDER BY mail_id;
+
+        -- ② 재화. 위 주석대로 여기만 NOLOCK 을 빼둔다.
+        SELECT currency_type, amount
+          FROM dbo.currencies
+         WHERE player_id = @player_id
+         ORDER BY currency_type;
+
+        IF @is_trans_outside = 0 COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        SET @ret_val = 0xA0000000 + ERROR_NUMBER();
+        GOTO ErrorHandler;
+    END CATCH
+
+ErrorHandler:
+    IF @is_trans_outside = 0 AND XACT_STATE() <> 0
+        ROLLBACK TRANSACTION;
+
+    RETURN @ret_val;
+END
+GO

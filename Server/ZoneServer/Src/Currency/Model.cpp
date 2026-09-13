@@ -59,6 +59,14 @@ namespace Currency
         return SetTracked(type, value, unitOfWork);
     }
 
+    void Model::Seed(const Protocol::ECurrencyType type, const int64_t value) noexcept
+    {
+        if (auto* const field = Field(type); field != nullptr)
+        {
+            *field = value;
+        }
+    }
+
     int64_t* Model::Field(const Protocol::ECurrencyType type) noexcept
     {
         switch (type)

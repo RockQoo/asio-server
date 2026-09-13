@@ -2,6 +2,7 @@
 #include "Handler/ZoneLinkHandler.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
+#include "Packet/EnterZoneBody.h"
 #include "Packet/OwnerIdPeek.h"
 #include "Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
@@ -234,13 +235,30 @@ namespace World
         }
 
         playerManager_.Write()->SetZone(state.clientSessionId, *targetZoneId);
-        state.zoneId = *targetZoneId;  // 목표 존으로 덮어써서 그대로 EnterZoneRequest에 재사용
-        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone,
-                                                 std::as_bytes(std::span(&state, 1)));
+        state.zoneId = *targetZoneId;  // 목표 존으로 덮어써서 그대로 W2ZEnterZone에 재사용
+
+        // **캐시의 콘텐츠를 다시 실어 보낸다.** 이게 없으면 전입한 존이 빈 우편함·빈 지갑으로
+        // 시작해서, 존 경계를 넘을 때마다 그 사람의 우편이 사라진다(예전 동작).
+        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(state));
 
         LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트 재접속 없음)")
             .KV("ClientSessionId", state.clientSessionId).KV("ToZoneId", *targetZoneId)
             .KV("X", state.x).KV("Y", state.y);
+    }
+
+    std::vector<byte> ZoneLinkHandler::EnterZoneBodyFor(const PlayerZoneStatePacket& state) const
+    {
+        const auto info = playerManager_->Find(state.clientSessionId);
+        if (!info)
+        {
+            // 캐시가 없다 = 그 사이 접속이 끊겼다. 존이 빈 모델로 시작하지만 곧 퇴장 통지가
+            // 뒤따르므로, 여기서 끊는 것보다 형식을 맞춰 보내는 편이 존 쪽 분기가 단순하다.
+            LOG.Warning(ELogCategory::Zone, "핸드오프 대상의 캐시가 없다")
+                .KV("ClientSessionId", state.clientSessionId);
+            return BuildEnterZoneBody(state, {}, {});
+        }
+
+        return BuildEnterZoneBody(state, info->mails, info->currencies);
     }
 
     void ZoneLinkHandler::ReturnToSourceZone(PlayerZoneStatePacket state) const
@@ -264,8 +282,7 @@ namespace World
         state.y = std::clamp(state.y, sourceZoneLink->yMin, sourceZoneLink->yMax - Epsilon);
 
         playerManager_.Write()->SetZone(state.clientSessionId, state.zoneId);
-        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone,
-                                                 std::as_bytes(std::span(&state, 1)));
+        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(state));
 
         LOG.Warning(ELogCategory::Zone, "이동 대상 존이 없어 원래 존으로 되돌림(월드 경계 밖)")
             .KV("ClientSessionId", state.clientSessionId).KV("ZoneId", state.zoneId)

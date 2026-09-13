@@ -53,6 +53,10 @@ namespace World
         void HandleForwardToWorld(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
         void HandleZoneTransfer(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
 
+        // W2ZEnterZone 본문을 캐시의 콘텐츠와 함께 만든다(포맷: Packet/ZoneLinkPackets.h).
+        // 핸드오프와 되돌림이 같은 바이트를 보내야 존 쪽 파서가 하나로 끝난다.
+        [[nodiscard]] std::vector<byte> EnterZoneBodyFor(const PlayerZoneStatePacket& state) const;
+
         // I/O 스레드에서 스트림 앞부분(playerId/requestId/ownerId)만 읽어 DB 그룹으로 넘긴다.
         // 같은 ownerId의 스트림은 항상 같은 DB 스레드로 가므로, 한 플레이어의 변경이 도착
         // 순서대로 적재되고 락이 필요 없다.

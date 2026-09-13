@@ -4,6 +4,7 @@
 #include "Db/AutoDbCommand.h"
 #include "Db/DbConnection.h"
 #include "Db/PasswordHash.h"
+#include "Packet/EnterZoneBody.h"
 #include "Packet/RelayEnvelope.h"
 #include "Packet/ZoneLinkPackets.h"
 #include "World/PlayerManager.h"
@@ -102,10 +103,10 @@ namespace World
 
         // 계정이 있다 -- 비밀번호를 **서버에서** 비교한다. SP에서 하면 평문이 와이어와 DB 로그에
         // 남는다(Sql/players.sql의 usp_players_select 주석).
-        if (!result.empty())
+        if (const auto* const row = FirstRow(result); row != nullptr)
         {
-            const auto playerId = GetInt64(result[0], 0);
-            const auto storedHash = GetString(result[0], 2);
+            const auto playerId = GetInt64(*row, 0);
+            const auto storedHash = GetString(*row, 2);
             if (!playerId || !storedHash)
             {
                 LOG.Error(ELogCategory::Db, "usp_players_select의 결과 컬럼 형태가 예상과 다르다")
@@ -120,7 +121,7 @@ namespace World
                 return;
             }
 
-            PostSuccess(gatewaySession, clientSessionId, playerName, *playerId);
+            LoadPlayerContent(gatewaySession, clientSessionId, playerName, *playerId);
             return;
         }
 
@@ -163,7 +164,8 @@ namespace World
 
         // **SP가 돌려준 값을 쓴다.** 동시 첫 로그인에서 진 쪽은 자기가 발급한 id가 들어가지
         // 않았으므로, 제안값을 그대로 쓰면 존재하지 않는 playerId로 게임을 시작하게 된다.
-        const auto confirmedPlayerId = result.empty() ? std::nullopt : GetInt64(result[0], 0);
+        const auto* const row = FirstRow(result);
+        const auto confirmedPlayerId = row != nullptr ? GetInt64(*row, 0) : std::nullopt;
         if (!confirmedPlayerId)
         {
             LOG.Error(ELogCategory::Db, "usp_players_upsert가 player_id를 돌려주지 않았다")
@@ -176,7 +178,87 @@ namespace World
             .KV("PlayerName", playerName).KV("PlayerId", *confirmedPlayerId)
             .KV("RequestedPlayerId", requestedPlayerId);
 
-        PostSuccess(gatewaySession, clientSessionId, playerName, *confirmedPlayerId);
+        // 방금 만든 계정이라 우편도 재화도 없다. 그래도 같은 경로를 타게 두는 이유는, 시드로
+        // 미리 넣어둔 계정이나 나중에 지급 로직이 생겼을 때 여기서만 예외가 생기지 않게 하려는
+        // 것이다 -- "새 계정은 적재를 건너뛴다"가 한 번 들어가면 그 가정이 언젠가 깨진다.
+        LoadPlayerContent(gatewaySession, clientSessionId, playerName, *confirmedPlayerId);
+    }
+
+    void LoginProcessor::LoadPlayerContent(const std::shared_ptr<Network::Session>& gatewaySession,
+                                            const Network::SessionId clientSessionId,
+                                            const std::string& playerName, const Common::RUID playerId)
+    {
+        // **여기서부터 owner가 playerId다.** 계정이 확정됐으므로 이제 영속 키를 쓸 수 있고,
+        // 이 사람의 이후 DB 작업(UnitOfWork)과 같은 레인으로 묶인다.
+        AutoDbCommand load(dbPool_, dbGroup_, static_cast<uint64_t>(playerId), false,
+            [this, gatewaySession, clientSessionId, playerName, playerId]
+            (const bool succeeded, const DbResult& result)
+            {
+                OnPlayerLoaded(gatewaySession, clientSessionId, playerName, playerId, succeeded, result);
+            });
+
+        load.Add(DbCommand{"dbo.usp_players_load", {playerId}});
+    }
+
+    void LoginProcessor::OnPlayerLoaded(const std::shared_ptr<Network::Session>& gatewaySession,
+                                         const Network::SessionId clientSessionId,
+                                         const std::string& playerName, const Common::RUID playerId,
+                                         const bool succeeded, const DbResult& result)
+    {
+        if (!succeeded)
+        {
+            // **적재 실패는 로그인 실패로 끊는다.** 빈 캐시로 들여보내면 그 사람의 우편과 재화가
+            // 없는 것으로 보이고, 그 상태에서 뭔가를 쓰면(재화는 절대값 UPDATE다) DB의 실제
+            // 값을 덮어써 잔액이 사라진다.
+            PostFailure(gatewaySession, clientSessionId, EErrorCode::LoginDbFailure);
+            return;
+        }
+
+        // 결과 집합 순서는 usp_players_load의 SELECT 순서와 같은 계약이다(그 SP 주석 참고).
+        std::unordered_map<uint32_t, MailInfo> mails;
+        for (const auto& row : SetAt(result, 0))
+        {
+            const auto mailId = GetInt64(row, 0);
+            const auto title = GetString(row, 1);
+            const auto body = GetString(row, 2);
+            const auto sendUt = GetInt64(row, 3);
+            const auto endUt = GetInt64(row, 4);
+            if (!mailId || !title || !body || !sendUt || !endUt)
+            {
+                LOG.Error(ELogCategory::Db, "usp_players_load의 우편 컬럼 형태가 예상과 다르다")
+                    .KV("PlayerId", playerId);
+                PostFailure(gatewaySession, clientSessionId, EErrorCode::LoginDbFailure);
+                return;
+            }
+
+            // mail_id는 DB가 BIGINT인데 와이어와 Zone의 Mail::Info는 아직 uint32다
+            // (PROGRESS.md 1-B의 7번에서 같이 넓힐 대상).
+            const auto narrowId = static_cast<uint32_t>(*mailId);
+            mails.emplace(narrowId, MailInfo{narrowId, *title, *body, *sendUt, *endUt});
+        }
+
+        std::unordered_map<uint8_t, int64_t> currencies;
+        for (const auto& row : SetAt(result, 1))
+        {
+            const auto type = GetInt64(row, 0);
+            const auto amount = GetInt64(row, 1);
+            if (!type || !amount)
+            {
+                LOG.Error(ELogCategory::Db, "usp_players_load의 재화 컬럼 형태가 예상과 다르다")
+                    .KV("PlayerId", playerId);
+                PostFailure(gatewaySession, clientSessionId, EErrorCode::LoginDbFailure);
+                return;
+            }
+
+            currencies.emplace(static_cast<uint8_t>(*type), *amount);
+        }
+
+        LOG.Info(ELogCategory::Db, "플레이어 콘텐츠 적재")
+            .KV("PlayerName", playerName).KV("PlayerId", playerId)
+            .KV("Mails", mails.size()).KV("Currencies", currencies.size());
+
+        PostSuccess(gatewaySession, clientSessionId, playerName, playerId,
+                    std::move(mails), std::move(currencies));
     }
 
     void LoginProcessor::PostFailure(const std::shared_ptr<Network::Session>& gatewaySession,
@@ -193,18 +275,24 @@ namespace World
 
     void LoginProcessor::PostSuccess(const std::shared_ptr<Network::Session>& gatewaySession,
                                       const Network::SessionId clientSessionId, const std::string& playerName,
-                                      const Common::RUID playerId)
+                                      const Common::RUID playerId,
+                                      std::unordered_map<uint32_t, MailInfo> mails,
+                                      std::unordered_map<uint8_t, int64_t> currencies)
     {
         basicGroup_.Post(EProcessorId::Login, clientSessionId,
-            [this, gatewaySession, clientSessionId, playerName, playerId]
+            [this, gatewaySession, clientSessionId, playerName, playerId,
+             mails = std::move(mails), currencies = std::move(currencies)]() mutable
             {
-                CompleteLogin(gatewaySession, clientSessionId, playerName, playerId);
+                CompleteLogin(gatewaySession, clientSessionId, playerName, playerId,
+                              std::move(mails), std::move(currencies));
             });
     }
 
     void LoginProcessor::CompleteLogin(const std::shared_ptr<Network::Session>& gatewaySession,
                                         const Network::SessionId clientSessionId, const std::string& playerName,
-                                        const Common::RUID playerId)
+                                        const Common::RUID playerId,
+                                        std::unordered_map<uint32_t, MailInfo> mails,
+                                        std::unordered_map<uint8_t, int64_t> currencies)
     {
         // DB를 다녀오는 동안 접속이 끊겼을 수 있다. 그러면 등록이 이미 지워져 있다.
         if (!playerManager_->Find(clientSessionId))
@@ -225,18 +313,6 @@ namespace World
             return;
         }
 
-        // 콘텐츠 캐시(우편/재화)는 아직 비어 있다 -- usp_players_load로 채우는 단계가 다음이다.
-        // 쓰기 락을 두 번 잡지 않도록 한 번에 묶는다.
-        {
-            auto writer = playerManager_.Write();
-            writer->SetAuthenticated(clientSessionId, playerId, playerName, {}, {});
-            writer->SetZone(clientSessionId, entry->zoneId);
-        }
-
-        // 결과를 먼저 보낸다 -- 클라이언트가 로딩 화면으로 넘어간 뒤에 존 입장 통지를 받는
-        // 순서가 되어야 "로그인은 됐는데 화면이 안 넘어간다"가 안 생긴다.
-        SendResult(gatewaySession, clientSessionId, EErrorCode::Success, playerId, playerName);
-
         PlayerZoneStatePacket enterState{};
         enterState.zoneId = entry->zoneId;
         enterState.clientSessionId = clientSessionId;
@@ -244,13 +320,29 @@ namespace World
         enterState.playerId = static_cast<uint32_t>(clientSessionId);
         enterState.x = entry->x;
         enterState.y = entry->y;
-        zoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone,
-                                          std::as_bytes(std::span(&enterState, 1)));
+
+        // **캐시에 넣기 전에 보낼 바이트를 먼저 만든다** -- 아래에서 맵을 move로 넘겨버리므로,
+        // 순서를 바꾸면 빈 맵을 실어 보내게 된다.
+        const auto enterBody = BuildEnterZoneBody(enterState, mails, currencies);
+
+        // 캐시를 채우고 인증을 확정한다. 쓰기 락을 두 번 잡지 않도록 한 번에 묶는다.
+        {
+            auto writer = playerManager_.Write();
+            writer->SetAuthenticated(clientSessionId, playerId, playerName,
+                                     std::move(mails), std::move(currencies));
+            writer->SetZone(clientSessionId, entry->zoneId);
+        }
+
+        // 결과를 먼저 보낸다 -- 클라이언트가 로딩 화면으로 넘어간 뒤에 존 입장 통지를 받는
+        // 순서가 되어야 "로그인은 됐는데 화면이 안 넘어간다"가 안 생긴다.
+        SendResult(gatewaySession, clientSessionId, EErrorCode::Success, playerId, playerName);
+
+        zoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, enterBody);
 
         LOG.Info(ELogCategory::Gateway, "로그인 성공, 입장 존 배정")
             .KV("ClientSessionId", clientSessionId).KV("PlayerName", playerName)
             .KV("PlayerId", playerId).KV("ZoneId", entry->zoneId)
-            .KV("X", entry->x).KV("Y", entry->y);
+            .KV("X", entry->x).KV("Y", entry->y).KV("BodyBytes", enterBody.size());
     }
 
     void LoginProcessor::SendResult(const std::shared_ptr<Network::Session>& gatewaySession,

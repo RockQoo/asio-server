@@ -24,7 +24,29 @@ namespace World
 
     // 조회 결과. 컬럼 순서는 SP의 SELECT 절 순서 그대로다.
     using DbRow = std::vector<DbValue>;
-    using DbResult = std::vector<DbRow>;
+
+    // 결과 집합 하나 = 행 목록. SELECT 한 번의 결과다.
+    using DbResultSet = std::vector<DbRow>;
+
+    // **SP 하나가 SELECT를 여러 번 하면 결과 집합도 여러 개다.** usp_players_load가 우편과
+    // 재화를 한 번의 왕복으로 가져오는 것이 그 경우라, 결과를 집합 단위로 담는다.
+    // Execute에 커맨드를 여러 개 넘기면 그것들이 낸 집합이 **실행 순서대로 이어 붙는다.**
+    using DbResult = std::vector<DbResultSet>;
+
+    // 결과 집합 하나를 꺼낸다. 없으면 비어 있는 것을 돌려주므로 호출부가 인덱스 검사를
+    // 반복하지 않아도 된다 -- SP를 고쳐 집합이 줄어들면 "빈 결과"로 흐르지 크래시하지 않는다.
+    [[nodiscard]] inline const DbResultSet& SetAt(const DbResult& result, const size_t index)
+    {
+        static const DbResultSet kEmpty;
+        return index < result.size() ? result[index] : kEmpty;
+    }
+
+    // 결과 집합의 첫 행. 한 행만 나오는 조회(계정 조회 등)를 위한 편의 함수.
+    [[nodiscard]] inline const DbRow* FirstRow(const DbResult& result, const size_t index = 0)
+    {
+        const auto& set = SetAt(result, index);
+        return set.empty() ? nullptr : &set.front();
+    }
 
     // 결과 읽기 헬퍼. 컬럼 개수/타입이 어긋나면 nullopt를 주고, 호출부가 그걸 "이 빌드가 아는
     // SP 형태가 아니다"로 처리한다 -- 인덱스로 직접 꺼내면 SP를 고쳤을 때 조용히 깨진다.

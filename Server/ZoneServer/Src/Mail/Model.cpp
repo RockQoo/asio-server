@@ -89,6 +89,21 @@ namespace Mail
         return expired;
     }
 
+    void Model::Seed(std::vector<Info> initial)
+    {
+        for (auto& info : initial)
+        {
+            // 새로 발급할 id가 실린 것들보다 항상 뒤에 오게 밀어둔다(헤더 주석 참고).
+            if (info.mailId >= nextMailId_)
+            {
+                nextMailId_ = info.mailId + 1;
+            }
+
+            const auto mailId = info.mailId;
+            mails_.insert_or_assign(mailId, std::move(info));
+        }
+    }
+
     std::shared_ptr<Model::Mutexed> Model::LockSelf() const
     {
         // BindSelf를 빼먹었으면 여기서 빈 핸들이 나가고, 그 태스크는 롤백 때 아무것도 못 한다.

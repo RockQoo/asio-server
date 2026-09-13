@@ -31,10 +31,19 @@ namespace Currency
         [[nodiscard]] EErrorCode DecCurrency(const Protocol::ECurrencyType type, const int64_t amount,
                                              Task::UnitOfWork& unitOfWork);
 
-        // 증감이 아니라 절대값을 넣는다. 롤백(CurrencyTask::Rollback)이 이전 값을 되돌릴 때
-        // 쓰고, 나중에 DB에서 잔액을 불러올 때도 이 경로를 쓴다.
+        // 증감이 아니라 절대값을 넣는다. 롤백(CurrencyTask::Rollback)이 이전 값을 되돌릴 때 쓴다.
         [[nodiscard]] EErrorCode SetCurrency(const Protocol::ECurrencyType type, const int64_t value,
                                              Task::UnitOfWork& unitOfWork);
+
+        // World가 DB에서 읽어 실어 보낸 잔액으로 **시작 상태를 채운다**(W2ZEnterZone).
+        //
+        // **SetCurrency가 아니라 별도 경로인 이유**: SetCurrency는 UnitOfWork에 태스크를 남긴다.
+        // 적재는 "변경"이 아니라 시작 상태라, 그 경로로 넣으면 방금 DB에서 읽은 값을 도로 DB에
+        // 쓰고 클라이언트에도 "잔액이 바뀌었다"고 통지하게 된다.
+        //
+        // 모르는 종류는 조용히 버린다 -- 이 빌드가 아직 모르는 재화가 DB에 있을 수 있고,
+        // 그것 때문에 로그인을 막을 이유는 없다.
+        void Seed(const Protocol::ECurrencyType type, const int64_t value) noexcept;
 
     private:
         [[nodiscard]] int64_t* Field(const Protocol::ECurrencyType type) noexcept;
@@ -44,8 +53,8 @@ namespace Currency
         [[nodiscard]] EErrorCode SetTracked(const Protocol::ECurrencyType type, const int64_t newValue,
                                             Task::UnitOfWork& unitOfWork);
 
-        // 실제 DB 연동 전까지의 임시 시작 잔액. DB에서 불러오게 되면 0으로 두고 SetCurrency로
-        // 채우는 경로만 남는다.
-        int64_t gold_{1000};
+        // **0에서 시작한다.** 잔액은 World가 DB에서 읽어 W2ZEnterZone으로 실어 보내고
+        // Seed가 채운다 -- 존이 임의의 값을 만들어내면 그게 DB와 갈리는 첫 지점이 된다.
+        int64_t gold_{0};
     };
 }

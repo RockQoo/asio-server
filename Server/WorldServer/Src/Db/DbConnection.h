@@ -77,9 +77,9 @@ namespace World
         // useTransaction이면 전체를 **하나의 트랜잭션**으로 묶는다 -- UnitOfWork 하나가 곧
         // 트랜잭션 하나라는 경계가 여기서 구현된다. 중간에 실패하면 앞의 것까지 전부 롤백된다.
         //
-        // 결과 집합이 있으면 outResult에 담는다(nullptr이면 버린다). 커맨드가 여러 개면
-        // **마지막으로 결과를 낸 커맨드**의 것만 남는다 -- 쓰기 배치에는 결과가 없고, 조회는
-        // 커맨드 하나로만 부르기 때문이다.
+        // 결과 집합이 있으면 outResult에 담는다(nullptr이면 버린다). **SP 하나가 SELECT를
+        // 여러 번 하면 집합도 여러 개**이고, 커맨드가 여러 개면 그것들이 낸 집합이 실행 순서대로
+        // 이어 붙는다. 호출부는 DbCommand.h의 SetAt/FirstRow로 꺼낸다.
         //
         // 실패 시 DbException을 던진다. 커넥션이 끊긴 상태였다면 먼저 재연결을 시도한다.
         void Execute(const std::vector<DbCommand>& commands, const bool useTransaction,

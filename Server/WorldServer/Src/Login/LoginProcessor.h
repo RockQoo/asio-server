@@ -29,7 +29,11 @@ namespace World
     //   BASIC(Login, owner=clientSessionId)   패킷 파싱 / 중복 로그인 거절
     //     -> DB(Db, owner=hash(playerName))   usp_players_select + 비밀번호 검증
     //                                         없으면 RUID 발급 + usp_players_upsert (자동 가입)
+    //     -> DB(Db, owner=playerId)           usp_players_load -- 우편/재화 적재
     //     -> BASIC(Login, owner=clientSessionId)  PlayerManager 갱신 + 존 입장 + 결과 전송
+    //
+    // **적재 단계의 owner가 playerId인 이유**: 이 시점에는 playerId를 알고, 그게 이 플레이어의
+    // 영속 키다. 이후 그 사람의 DB 작업(UnitOfWork)과 같은 레인으로 묶여 순서가 보장된다.
     //
     // DB 왕복이 **반드시 DB 그룹**이어야 하는 이유: 쿼리 한 번이 BASIC 레인에 걸리면 그 레인에
     // 배정된 모든 플레이어의 패킷이 그동안 멈춘다(config/world.cfg의 db_threads 주석).
@@ -55,8 +59,8 @@ namespace World
         void HandleLogin(const std::shared_ptr<Network::Session>& gatewaySession,
                          const Network::SessionId clientSessionId, const std::span<const byte> payload);
 
-        // 아래 둘은 **DB 레인**에서 불린다(AutoDbCommand의 콜백). BASIC 상태를 만지지 않고,
-        // 결과만 PostResult/PostSuccess로 BASIC에 되던진다.
+        // 아래 넷은 **DB 레인**에서 불린다(AutoDbCommand의 콜백). BASIC 상태를 만지지 않고,
+        // 결과만 PostFailure/PostSuccess로 BASIC에 되던진다.
         void OnAccountSelected(const std::shared_ptr<Network::Session>& gatewaySession,
                                const Network::SessionId clientSessionId, const std::string& playerName,
                                const std::string& password, const bool succeeded, const DbResult& result);
@@ -64,17 +68,29 @@ namespace World
                               const Network::SessionId clientSessionId, const std::string& playerName,
                               const Common::RUID requestedPlayerId, const bool succeeded, const DbResult& result);
 
+        // 계정이 확정된 뒤 우편/재화를 적재한다. 여기서부터 owner가 playerId로 바뀐다.
+        void LoadPlayerContent(const std::shared_ptr<Network::Session>& gatewaySession,
+                               const Network::SessionId clientSessionId, const std::string& playerName,
+                               const Common::RUID playerId);
+        void OnPlayerLoaded(const std::shared_ptr<Network::Session>& gatewaySession,
+                            const Network::SessionId clientSessionId, const std::string& playerName,
+                            const Common::RUID playerId, const bool succeeded, const DbResult& result);
+
         // DB 레인 -> BASIC 레인으로 결말을 넘긴다.
         void PostFailure(const std::shared_ptr<Network::Session>& gatewaySession,
                          const Network::SessionId clientSessionId, const EErrorCode errorCode);
         void PostSuccess(const std::shared_ptr<Network::Session>& gatewaySession,
                          const Network::SessionId clientSessionId, const std::string& playerName,
-                         const Common::RUID playerId);
+                         const Common::RUID playerId,
+                         std::unordered_map<uint32_t, MailInfo> mails,
+                         std::unordered_map<uint8_t, int64_t> currencies);
 
-        // BASIC 레인. 인증을 확정하고 존에 입장시킨 뒤 결과를 보낸다.
+        // BASIC 레인. 캐시를 채우고 인증을 확정한 뒤, 콘텐츠를 실어 존에 입장시킨다.
         void CompleteLogin(const std::shared_ptr<Network::Session>& gatewaySession,
                            const Network::SessionId clientSessionId, const std::string& playerName,
-                           const Common::RUID playerId);
+                           const Common::RUID playerId,
+                           std::unordered_map<uint32_t, MailInfo> mails,
+                           std::unordered_map<uint8_t, int64_t> currencies);
 
         void SendResult(const std::shared_ptr<Network::Session>& gatewaySession,
                         const Network::SessionId clientSessionId, const EErrorCode errorCode,

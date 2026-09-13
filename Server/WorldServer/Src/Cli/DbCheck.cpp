@@ -24,14 +24,15 @@ namespace World
             connection.Execute({DbCommand{"dbo.usp_players_select", {std::string("tester1")}}},
                                false, &result);
 
-            if (result.empty())
+            const auto* const row = FirstRow(result);
+            if (row == nullptr)
             {
                 std::cout << "[dbcheck] FAIL: tester1 계정이 없습니다. bat\\setup_game_db.bat 을 먼저 실행하세요.\n";
                 return EXIT_FAILURE;
             }
 
-            const auto playerId = GetInt64(result[0], 0);
-            const auto storedHash = GetString(result[0], 2);
+            const auto playerId = GetInt64(*row, 0);
+            const auto storedHash = GetString(*row, 2);
             if (!playerId || !storedHash)
             {
                 std::cout << "[dbcheck] FAIL: usp_players_select의 결과 컬럼 형태가 예상과 다릅니다.\n";

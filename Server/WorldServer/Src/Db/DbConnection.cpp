@@ -182,6 +182,13 @@ namespace World
             return;
         }
 
+        // 넘겨받은 그릇을 비우고 시작한다. ExecuteOne이 집합을 push_back으로 이어 붙이므로,
+        // 재사용된 그릇에 앞 호출의 결과가 남아 있으면 인덱스가 통째로 밀린다.
+        if (outResult != nullptr)
+        {
+            outResult->clear();
+        }
+
         // 커넥션이 없거나 이전 작업에서 끊긴 상태면 여기서 다시 연결한다. 재연결 전용 스레드를
         // 두지 않는 이유는 이 레인이 어차피 자기 커넥션만 쓰기 때문이다 -- 다음 작업이 오면
         // 그 작업이 재연결하고, 실패하면 그 작업만 버려진다(Fire-and-Forget).
@@ -316,9 +323,9 @@ namespace World
                           "SP 실행 실패(" + command.procedure + ")");
         }
 
-        // 어느 경로로 빠져나가든 반드시 지나야 하는 마무리. 결과 집합을 끝까지 넘겨야 출력
-        // 파라미터(RETURN 값)가 채워지고, 그 값이 0이 아니면 SP가 실패를 알린 것이다.
-        const auto finish = [&]()
+        // 남은 결과 집합을 끝까지 넘긴다. **끝까지 가야 출력 파라미터(RETURN 값)가 채워진다**
+        // (ODBC 규약). 읽을 것을 다 읽은 뒤에도 반드시 지나야 하는 자리다.
+        const auto drain = [&]()
         {
             for (;;)
             {
@@ -339,69 +346,83 @@ namespace World
 
         if (outResult == nullptr)
         {
-            finish();
+            drain();
             return;
         }
 
-        SQLSMALLINT columnCount = 0;
-        ThrowIfFailed(SQLNumResultCols(statement, &columnCount),
-                      SQL_HANDLE_STMT, statement, "결과 컬럼 수 조회 실패");
-        if (columnCount <= 0)
+        // **결과 집합을 하나씩 끝까지 읽는다.** SP가 SELECT를 여러 번 하면 집합도 여러 개이고
+        // (usp_players_load가 우편·재화를 한 왕복으로 가져오는 경우), 예전처럼 첫 집합만 읽고
+        // 나머지를 버리면 두 번째 SELECT의 행이 조용히 사라진다.
+        for (;;)
         {
-            finish();
-            return;
-        }
+            SQLSMALLINT columnCount = 0;
+            ThrowIfFailed(SQLNumResultCols(statement, &columnCount),
+                          SQL_HANDLE_STMT, statement, "결과 컬럼 수 조회 실패");
 
-        // 컬럼 타입을 미리 한 번만 확인한다. 행마다 확인하면 조회 1건에 컬럼 수만큼 왕복이 늘어난다.
-        std::vector<bool> isTextColumn(static_cast<size_t>(columnCount), false);
-        for (SQLSMALLINT column = 1; column <= columnCount; ++column)
-        {
-            SQLSMALLINT dataType = 0;
-            ThrowIfFailed(SQLDescribeColW(statement, column, nullptr, 0, nullptr,
-                                          &dataType, nullptr, nullptr, nullptr),
-                          SQL_HANDLE_STMT, statement, "결과 컬럼 정보 조회 실패");
-
-            isTextColumn[static_cast<size_t>(column - 1)] =
-                (dataType != SQL_BIGINT && dataType != SQL_INTEGER &&
-                 dataType != SQL_SMALLINT && dataType != SQL_TINYINT);
-        }
-
-        DbResult rows;
-        while (SQLFetch(statement) != SQL_NO_DATA)
-        {
-            DbRow row;
-            row.reserve(static_cast<size_t>(columnCount));
-
-            for (SQLSMALLINT column = 1; column <= columnCount; ++column)
+            // 컬럼이 없는 집합(INSERT/UPDATE가 낸 것)은 건너뛴다 -- 빈 집합을 끼워 넣으면
+            // 호출부의 인덱스가 SP의 SELECT 순서와 어긋난다.
+            if (columnCount > 0)
             {
-                SQLLEN indicator = 0;
-                if (isTextColumn[static_cast<size_t>(column - 1)])
+                // 컬럼 타입을 집합마다 한 번만 확인한다. 행마다 확인하면 컬럼 수만큼 왕복이 는다.
+                std::vector<bool> isTextColumn(static_cast<size_t>(columnCount), false);
+                for (SQLSMALLINT column = 1; column <= columnCount; ++column)
                 {
-                    wchar_t buffer[1024]{};
-                    ThrowIfFailed(SQLGetData(statement, column, SQL_C_WCHAR, buffer,
-                                             sizeof(buffer), &indicator),
-                                  SQL_HANDLE_STMT, statement, "문자열 컬럼 읽기 실패");
-                    row.push_back(indicator == SQL_NULL_DATA
-                                      ? std::string{}
-                                      : WideToUtf8(buffer, std::wcslen(buffer)));
+                    SQLSMALLINT dataType = 0;
+                    ThrowIfFailed(SQLDescribeColW(statement, column, nullptr, 0, nullptr,
+                                                  &dataType, nullptr, nullptr, nullptr),
+                                  SQL_HANDLE_STMT, statement, "결과 컬럼 정보 조회 실패");
+
+                    isTextColumn[static_cast<size_t>(column - 1)] =
+                        (dataType != SQL_BIGINT && dataType != SQL_INTEGER &&
+                         dataType != SQL_SMALLINT && dataType != SQL_TINYINT);
                 }
-                else
+
+                DbResultSet rows;
+                while (SQLFetch(statement) != SQL_NO_DATA)
                 {
-                    SQLBIGINT value = 0;
-                    ThrowIfFailed(SQLGetData(statement, column, SQL_C_SBIGINT, &value,
-                                             sizeof(value), &indicator),
-                                  SQL_HANDLE_STMT, statement, "정수 컬럼 읽기 실패");
-                    row.push_back(indicator == SQL_NULL_DATA
-                                      ? int64_t{0}
-                                      : static_cast<int64_t>(value));
+                    DbRow row;
+                    row.reserve(static_cast<size_t>(columnCount));
+
+                    for (SQLSMALLINT column = 1; column <= columnCount; ++column)
+                    {
+                        SQLLEN indicator = 0;
+                        if (isTextColumn[static_cast<size_t>(column - 1)])
+                        {
+                            wchar_t buffer[1024]{};
+                            ThrowIfFailed(SQLGetData(statement, column, SQL_C_WCHAR, buffer,
+                                                     sizeof(buffer), &indicator),
+                                          SQL_HANDLE_STMT, statement, "문자열 컬럼 읽기 실패");
+                            row.push_back(indicator == SQL_NULL_DATA
+                                              ? std::string{}
+                                              : WideToUtf8(buffer, std::wcslen(buffer)));
+                        }
+                        else
+                        {
+                            SQLBIGINT value = 0;
+                            ThrowIfFailed(SQLGetData(statement, column, SQL_C_SBIGINT, &value,
+                                                     sizeof(value), &indicator),
+                                          SQL_HANDLE_STMT, statement, "정수 컬럼 읽기 실패");
+                            row.push_back(indicator == SQL_NULL_DATA
+                                              ? int64_t{0}
+                                              : static_cast<int64_t>(value));
+                        }
+                    }
+
+                    rows.push_back(std::move(row));
                 }
+
+                // **커맨드가 여러 개면 이어 붙는다.** outResult를 덮어쓰지 않는 이유가 그것이다.
+                outResult->push_back(std::move(rows));
             }
 
-            rows.push_back(std::move(row));
+            const SQLRETURN more = SQLMoreResults(statement);
+            if (more == SQL_NO_DATA || !SQL_SUCCEEDED(more))
+            {
+                break;
+            }
         }
 
-        *outResult = std::move(rows);
-        finish();
+        drain();
     }
 
     void DbConnection::ExecuteMany(const std::string& procedure, const std::span<const int64_t> values)

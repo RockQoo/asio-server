@@ -55,6 +55,16 @@ namespace Mail
         // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.
         [[nodiscard]] std::vector<uint32_t> TakeExpiredMailIds(const int64_t nowUt) const;
 
+        // World가 DB에서 읽어 실어 보낸 우편으로 **시작 상태를 채운다**(W2ZEnterZone).
+        //
+        // **InsertMail이 아니라 별도 경로인 이유**: InsertMail은 UnitOfWork에 태스크를 남긴다.
+        // 적재는 "변경"이 아니라 시작 상태라, 그 경로로 넣으면 방금 DB에서 읽은 것을 도로
+        // DB에 쓰고 클라이언트에도 "우편이 추가됐다"고 통지하게 된다.
+        //
+        // **nextMailId_를 실린 것들보다 뒤로 밀어둔다** -- 안 그러면 이 존에서 새로 만드는
+        // 우편이 이미 있는 id와 겹쳐 AddMail이 MailAlreadyExists로 튕긴다.
+        void Seed(std::vector<Info> initial);
+
     private:
         [[nodiscard]] std::shared_ptr<Mutexed> LockSelf() const;
 

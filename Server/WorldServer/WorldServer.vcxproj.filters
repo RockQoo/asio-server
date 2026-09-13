@@ -31,6 +31,9 @@
     <ClInclude Include="Src\Log\LogCategory.h">
       <Filter>Log</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Packet\EnterZoneBody.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Packet\RelayEnvelope.h">
       <Filter>Packet</Filter>
     </ClInclude>
