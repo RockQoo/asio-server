@@ -3,9 +3,6 @@
 
 #include "Shared/Core/Src/Common/CoreException.h"
 
-#include <algorithm>
-#include <cstring>
-
 namespace Packet
 {
     void Buffer::Append(const std::span<const byte> data)

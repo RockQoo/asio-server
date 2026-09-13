@@ -2,8 +2,6 @@
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
-#include <cstdint>
-
 namespace Packet
 {
     class BinaryWriter;

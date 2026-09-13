@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string>
-
 namespace World
 {
     // 비밀번호 검증. DB의 players.password_hash와 클라이언트가 보낸 평문을 비교한다.

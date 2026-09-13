@@ -3,12 +3,6 @@
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
 
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
 namespace Task
 {
     class UnitOfWork;

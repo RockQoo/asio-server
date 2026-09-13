@@ -1,8 +1,5 @@
 #pragma once
 
-#include <atomic>
-#include <cstdint>
-
 namespace Processor
 {
     // 프로세서 하나(정확히는 "스레드 하나 × 프로세서 하나" 칸)의 누적 통계.

@@ -1,10 +1,5 @@
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include <shared_mutex>
-#include <utility>
-
 namespace Thread
 {
     inline constexpr int32_t kMaxLockDepth = 32;

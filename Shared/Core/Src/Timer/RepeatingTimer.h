@@ -2,10 +2,6 @@
 
 #include <asio.hpp>
 
-#include <atomic>
-#include <chrono>
-#include <functional>
-
 namespace Timer
 {
     // 드리프트를 보정하는 고정 간격 타이머 (매번 "지금 + interval"이 아니라 다음 "절대 시각"을

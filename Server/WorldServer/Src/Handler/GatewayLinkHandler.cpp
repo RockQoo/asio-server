@@ -10,9 +10,6 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 
-#include <cstring>
-#include <vector>
-
 namespace World
 {
     GatewayLinkHandler::GatewayLinkHandler(ClientRegistry& clientRegistry, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,

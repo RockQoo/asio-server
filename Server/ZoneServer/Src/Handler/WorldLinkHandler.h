@@ -8,10 +8,6 @@
 #include "Worker/ProcessorId.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
-#include <cstdint>
-#include <optional>
-#include <vector>
-
 namespace Zone
 {
     class WorldLink;

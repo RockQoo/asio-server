@@ -1,11 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <optional>
-#include <string>
-#include <variant>
-#include <vector>
-
 namespace World
 {
     // SP 파라미터 / 조회 결과 값 하나.

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 namespace World
 {
     // ToolCommandAckPacket::resultCode 값. 운영툴은 내부 도구라서(공격자에게 노출되는

@@ -1,9 +1,6 @@
 #include "pch.h"
 #include "App/App.h"
 
-#include <csignal>
-#include <utility>
-
 namespace Gateway
 {
     App::App(Config config)

@@ -3,8 +3,6 @@
 #include "Shared/Protocol/Src/CurrencyType.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
 
-#include <cstdint>
-
 namespace Task
 {
     class UnitOfWork;

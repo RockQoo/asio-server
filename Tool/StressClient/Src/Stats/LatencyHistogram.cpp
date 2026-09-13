@@ -1,9 +1,6 @@
 #include "pch.h"
 #include "Stats/LatencyHistogram.h"
 
-#include <algorithm>
-#include <cmath>
-
 namespace Stress
 {
     double LatencyHistogram::AverageUs() const noexcept

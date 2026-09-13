@@ -2,8 +2,6 @@
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
-#include <string_view>
-
 namespace Zone
 {
     // 이 프로세스의 프로세서 목록. **프로세서는 스레드가 아니다** -- 큐 그룹(스레드 N개) 위에

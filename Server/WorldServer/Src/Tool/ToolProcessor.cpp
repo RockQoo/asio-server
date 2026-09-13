@@ -14,9 +14,6 @@
 // 그대로 재사용한다(ToolProcessor.h 클래스 주석 참고). main.cpp도 notice REPL 때문에 같은
 // 헤더를 include하고 있다.
 
-#include <algorithm>
-#include <string_view>
-
 namespace World
 {
     namespace

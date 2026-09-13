@@ -2,11 +2,6 @@
 
 #include "Shared/Core/Src/Log/LogLevel.h"
 
-#include <filesystem>
-#include <fstream>
-#include <mutex>
-#include <string_view>
-
 namespace Log
 {
     // 프로세스 전역 싱글턴. 콘솔(레벨별 색상)과 파일에 동시에 기록한다. I/O 스레드/존 워커

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 namespace Zone
 {
     // 이 존 서버 프로세스가 호스팅하는 존 하나의 정의(config로 조절).

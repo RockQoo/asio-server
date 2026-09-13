@@ -3,8 +3,6 @@
 
 #include "Shared/Core/Src/Common/ConfigFile.h"
 
-#include <utility>
-
 namespace Zone
 {
     Config LoadConfig(const std::string& path, std::vector<Def> zones)

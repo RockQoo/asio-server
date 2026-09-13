@@ -12,11 +12,6 @@
 
 #include <asio.hpp>
 
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string>
-
 namespace Gateway
 {
     // 전체를 조립하는 곳: 클라이언트 accept용 Listener 하나 + World로 나가는 Connector 하나.

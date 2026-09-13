@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 namespace World
 {
     // 운영툴 링크의 고정 레이아웃 페이로드들. 가변 길이(문자열이 섞인) 패킷은 구조체를 두지

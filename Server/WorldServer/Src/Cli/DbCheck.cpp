@@ -4,9 +4,6 @@
 #include "Db/DbConnection.h"
 #include "Db/PasswordHash.h"
 
-#include <cstdlib>
-#include <iostream>
-
 namespace World
 {
 

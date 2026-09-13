@@ -8,13 +8,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
 #include <bcrypt.h>
-
-#include <array>
-#include <charconv>
-#include <string_view>
-#include <vector>
 
 namespace World
 {

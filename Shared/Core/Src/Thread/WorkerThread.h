@@ -1,16 +1,5 @@
 #pragma once
 
-#include <atomic>
-#include <condition_variable>
-#include <cstddef>
-#include <functional>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <string>
-#include <thread>
-#include <utility>
-
 namespace Thread
 {
     // FIFO 작업 큐를 소비하는 전용 스레드 하나. 이게 바로 "로직 스레드" 기본 단위다:

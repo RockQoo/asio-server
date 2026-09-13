@@ -3,10 +3,6 @@
 
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
 
-#include <chrono>
-#include <csignal>
-#include <utility>
-
 namespace Zone
 {
     App::App(Config config)

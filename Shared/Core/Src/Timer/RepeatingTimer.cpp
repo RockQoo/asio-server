@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
 
-#include <system_error>
-
 namespace Timer
 {
     RepeatingTimer::RepeatingTimer(asio::io_context& ioContext)

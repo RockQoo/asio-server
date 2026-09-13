@@ -5,8 +5,6 @@
 #include "Shared/Core/Src/Task/UnitOfWork.h"
 #include "Shared/Protocol/Src/TaskKind.h"
 
-#include <utility>
-
 namespace Mail
 {
     namespace

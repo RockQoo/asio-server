@@ -8,8 +8,6 @@
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
 
-#include <cstdint>
-
 namespace World
 {
     class ClientRegistry;

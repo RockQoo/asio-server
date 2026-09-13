@@ -1,8 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-
 namespace Packet
 {
     // 모든 패킷 앞에 붙는 고정 크기 헤더: [bodySize:2바이트][id:2바이트][본문...]

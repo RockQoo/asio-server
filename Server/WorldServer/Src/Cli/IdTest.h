@@ -1,9 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <string>
-
 namespace World
 {
     // `WorldServer.exe --idtest <노드번호> <스레드수> <스레드당개수> [random]` 진입점.

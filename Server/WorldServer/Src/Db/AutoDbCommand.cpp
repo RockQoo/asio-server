@@ -2,8 +2,6 @@
 
 #include "Db/AutoDbCommand.h"
 
-#include <utility>
-
 namespace World
 {
     AutoDbCommand::AutoDbCommand(DbConnectionPool& pool,

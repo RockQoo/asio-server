@@ -4,8 +4,6 @@
 #include "Shared/Core/Src/Packet/PacketFramer.h"
 #include "Shared/Core/Src/Common/CoreException.h"
 
-#include <cstring>
-
 namespace Network
 {
     Session::Session(asio::io_context& ioContext, const SessionId id, IPacketHandler& handler)

@@ -6,8 +6,6 @@
 #include "Shared/Core/Src/Network/SessionManager.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 
-#include <cstring>
-
 namespace Gateway
 {
     WorldLinkHandler::WorldLinkHandler(Network::SessionManager& sessionManager, WorldLink& worldLink)

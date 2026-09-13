@@ -3,11 +3,6 @@
 
 #include "App/Config.h"
 
-#include <cstdlib>
-#include <exception>
-#include <string>
-#include <utility>
-
 int main(const int argc, char** argv)
 {
     Log::Logger::Instance().Initialize("logs/gateway_server.log");

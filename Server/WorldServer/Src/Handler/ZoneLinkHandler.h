@@ -9,8 +9,6 @@
 #include "Worker/ProcessorId.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
-#include <optional>
-
 namespace World
 {
     class ClientRegistry;

@@ -4,9 +4,6 @@
 
 #include "Shared/Core/Src/Task/UnitOfWork.h"
 
-#include <memory>
-#include <utility>
-
 namespace Mail
 {
     void Model::BindSelf(const std::shared_ptr<Mutexed>& self)

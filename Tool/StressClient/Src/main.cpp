@@ -1,11 +1,6 @@
 #include "pch.h"
 #include "App/Runner.h"
 
-#include <cstdlib>
-#include <exception>
-#include <string>
-#include <utility>
-
 int main(const int argc, char** argv)
 {
     Log::Logger::Instance().Initialize("logs/stress_client.log", Log::ELogLevel::Info);

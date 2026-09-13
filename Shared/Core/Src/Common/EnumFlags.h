@@ -1,7 +1,5 @@
 #pragma once
 
-#include <type_traits>
-
 namespace Common
 {
     // scoped enum을 비트 플래그로 쓸 때 매크로 대신 쓰는 헬퍼. `enum class`는 정수로 암묵

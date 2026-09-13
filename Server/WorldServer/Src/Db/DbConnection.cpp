@@ -8,7 +8,6 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
 #include <sql.h>
 #include <sqlext.h>
 

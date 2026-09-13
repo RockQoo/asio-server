@@ -2,8 +2,6 @@
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
-#include <string_view>
-
 namespace Zone
 {
     // ZoneServer(콘텐츠)만의 로그 카테고리. Core::Log는 게임 콘텐츠를 몰라야 하므로(Shared/Core/Src/Log/

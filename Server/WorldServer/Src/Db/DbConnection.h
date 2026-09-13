@@ -2,11 +2,6 @@
 
 #include "Db/DbCommand.h"
 
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
 namespace World
 {
     // ODBC 수준의 실패를 알리는 예외(연결 끊김, 문법 오류, 제약 위반 등).

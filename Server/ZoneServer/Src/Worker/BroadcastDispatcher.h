@@ -5,9 +5,6 @@
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Worker/ProcessorId.h"
 
-#include <cstdint>
-#include <vector>
-
 namespace Zone
 {
     class WorldLink;

@@ -6,11 +6,6 @@
 
 #include "Shared/Core/Src/Processor/Group.h"
 
-#include <cstdint>
-#include <functional>
-#include <string>
-#include <vector>
-
 namespace World
 {
     // DB 작업 결과 콜백. **DB 레인 스레드에서 불린다** -- BASIC 상태를 만져야 하면 여기서

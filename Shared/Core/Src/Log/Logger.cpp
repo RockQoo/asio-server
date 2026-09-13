@@ -1,10 +1,6 @@
 #include "pch.h"
 #include "Shared/Core/Src/Log/Logger.h"
 
-#include <ctime>
-#include <format>
-#include <iostream>
-
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -12,7 +8,6 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
 #endif
 
 namespace

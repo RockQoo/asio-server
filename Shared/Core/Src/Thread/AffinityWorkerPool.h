@@ -1,9 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <memory>
-#include <vector>
-
 namespace Thread
 {
     // 상속이 아니라 구조적 제약(concept)이라서, Start()/Stop()만 노출하면 어떤 워커 타입이든

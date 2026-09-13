@@ -2,8 +2,6 @@
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
-#include <string_view>
-
 namespace Stress
 {
     // StressClient(부하 테스트 도구)만의 로그 카테고리 -- 다른 프로젝트와 동일한 이유로

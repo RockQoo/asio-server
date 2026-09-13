@@ -1,12 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <functional>
-#include <span>
-#include <type_traits>
-#include <unordered_map>
-#include <utility>
-
 namespace Packet
 {
     // 패킷 타입 -> 핸들러를 연결해주는 범용 라우터.

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 namespace Zone
 {
     // 고정 레이아웃 페이로드들.

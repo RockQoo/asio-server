@@ -1,11 +1,6 @@
 #include "pch.h"
 #include "App/Runner.h"
 
-#include <algorithm>
-#include <format>
-#include <iostream>
-#include <thread>
-
 namespace Stress
 {
     namespace

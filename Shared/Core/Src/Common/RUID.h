@@ -2,8 +2,6 @@
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
-#include <atomic>
-
 namespace Common
 {
     // 요청 하나를 전 서버에서 유일하게 가리키는 식별자. Zone -> World -> DB 로그를 한 줄로

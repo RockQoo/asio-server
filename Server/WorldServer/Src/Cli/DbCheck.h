@@ -1,8 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-
 namespace World
 {
     // `WorldServer.exe --dbcheck` 진입점. 서버를 띄우지 않고 DB 연결만 확인하고 끝낸다.

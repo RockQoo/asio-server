@@ -5,8 +5,6 @@
 #include "Shared/Core/Src/Task/ITask.h"
 #include "Shared/Protocol/Src/CurrencyType.h"
 
-#include <cstdint>
-
 namespace Currency
 {
     // 재화 변경 기록 하나. **새 값과 이전 값을 둘 다** 싣는다:

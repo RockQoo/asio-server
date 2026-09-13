@@ -3,9 +3,6 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Network/Session.h"
 
-#include <exception>
-#include <utility>
-
 namespace Network
 {
     Connector::Connector(asio::io_context& ioContext, std::string host, const uint16_t port, IPacketHandler& handler)

@@ -4,9 +4,6 @@
 
 #include "Shared/Core/Src/Task/ITask.h"
 
-#include <cstdint>
-#include <memory>
-
 namespace Mail
 {
     // 우편 추가/삭제 변경 기록. 둘 다 Info 원본을 통째로 들고 있다 -- 삭제를 되돌릴 때

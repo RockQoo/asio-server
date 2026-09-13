@@ -2,8 +2,6 @@
 
 #include "Shared/Core/Src/Common/BasicTypes.h"
 
-#include <string_view>
-
 namespace Log
 {
     // Core 자신의 로그 계층 구분(Network/Packet/Thread 폴더와 대응). 게임

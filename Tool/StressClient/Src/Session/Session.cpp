@@ -8,9 +8,6 @@
 #include "Shared/Protocol/Src/TaskKind.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
-#include <optional>
-#include <utility>
-
 namespace Stress
 {
     namespace

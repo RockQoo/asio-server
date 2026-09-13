@@ -8,8 +8,6 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
 
-#include <exception>
-
 namespace Zone
 {
     UnitOfWork::UnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,

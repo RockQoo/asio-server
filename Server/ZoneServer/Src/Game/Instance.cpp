@@ -9,8 +9,6 @@
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
-#include <utility>
-
 namespace Zone
 {
     Instance::Instance(const Def& def, WorldLink& worldLink)

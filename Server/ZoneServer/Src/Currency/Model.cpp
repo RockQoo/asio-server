@@ -4,8 +4,6 @@
 
 #include "Shared/Core/Src/Task/UnitOfWork.h"
 
-#include <memory>
-
 namespace Currency
 {
     int64_t Model::Get(const Protocol::ECurrencyType type) const noexcept
