@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <!-- Core 는 Shared/ 에 있지만 서버가 프로젝트 참조로 물고 있어 같이 연다.
+       도구 솔루션(Tool/TestClient.slnx)도 같은 vcxproj 를 가리킨다. 사본이 아니다. -->
+  <Project Path="../Shared/Core/Core.vcxproj" Id="7f5eacff-89b1-4967-8e20-b0a2de4a0ff5" />
+  <Project Path="WorldServer/WorldServer.vcxproj" Id="9a1b2c3d-4e5f-4a6b-8c7d-1e2f3a4b5c6d" />
+  <Project Path="GatewayServer/GatewayServer.vcxproj" Id="5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a" />
+  <Project Path="ZoneServer/ZoneServer.vcxproj" Id="829b2bd7-6135-4479-b304-808be97abf04" />
+</Solution>

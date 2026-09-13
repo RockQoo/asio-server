@@ -9,7 +9,7 @@ This is a C++23, x64-only Visual Studio solution. `Shared/Core/Src/` contains re
 Run commands from a Visual Studio Developer PowerShell (2026 or newer) with the v145 toolset installed. The solution targets `PlatformToolset=v145` and `/std:c++23`, so VS 2026 is the minimum. To check a build against an older toolset without editing the project files, override it on the command line: `-p:PlatformToolset=v143 -p:LanguageStandard=stdcpp20`.
 
 ```powershell
-MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -m
+MSBuild.exe Server/Server.slnx -p:Configuration=Debug -p:Platform=x64 -m
 bat\start_server_all.bat
 bat\start_protocol_client.bat
 bat\stop_server_all.bat

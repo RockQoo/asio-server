@@ -32,7 +32,8 @@ Git Bash는 `/p:Configuration=Debug` 같은 인자를 파일 경로로 오인해
 ```bash
 export MSYS_NO_PATHCONV=1
 cd /c/Work/asio-server
-"$MSBUILD" asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -m -nologo -v:minimal
+"$MSBUILD" Server/Server.slnx     -p:Configuration=Debug -p:Platform=x64 -m -nologo -v:minimal
+"$MSBUILD" Tool/TestClient.slnx -p:Configuration=Debug -p:Platform=x64 -m -nologo -v:minimal
 ```
 
 - `Platform`은 항상 `x64`만 지원한다 (`PlatformToolset=v145`, x64 전용).

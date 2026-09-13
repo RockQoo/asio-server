@@ -8,7 +8,7 @@
 
 ## 빌드 / 실행
 
-솔루션(`asio-server.slnx`) 빌드에 포함된다. 산출물은 `bin/x64/Debug/ProtocolClient.exe`.
+솔루션(`Tool/TestClient.slnx`) 빌드에 포함된다. 산출물은 `bin/x64/Debug/ProtocolClient.exe`.
 
 ```
 bat\start_server_all.bat     서버 3종(World -> Zone -> Gateway) 먼저 기동

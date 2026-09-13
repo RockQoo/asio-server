@@ -30,7 +30,7 @@ REM bat\..\ 를 남기지 않도록 절대 경로로 정규화한다.
 for %%I in ("%~dp0..\bin\x64\%CONFIG%") do set "BIN=%%~fI"
 
 if not exist "%BIN%\WorldServer.exe" (
-    echo [start_server_all] "%BIN%" 에 실행 파일이 없습니다. asio-server.slnx 를 먼저 빌드하세요.
+    echo [start_server_all] "%BIN%" 에 실행 파일이 없습니다. Server\Server.slnx 를 먼저 빌드하세요.
     echo [start_server_all] 참고: start_server_all.bat Release  로 최적화 빌드를 띄울 수 있습니다.
     pause
     exit /b 1

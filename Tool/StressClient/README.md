@@ -8,7 +8,7 @@
 
 ## 빌드 / 실행
 
-솔루션(`asio-server.slnx`) 빌드에 포함된다. 산출물은 `bin/x64/Debug/StressClient.exe`.
+솔루션(`Tool/TestClient.slnx`) 빌드에 포함된다. 산출물은 `bin/x64/Debug/StressClient.exe`.
 **측정할 때는 Release로 빌드할 것** — Debug 빌드의 클라이언트 자체 오버헤드가 서버 측정값을
 가린다.
 

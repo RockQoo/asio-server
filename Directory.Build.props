@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  이 폴더 아래 모든 MSBuild 프로젝트가 자동으로 가져가는 공통 속성.
+
+  **왜 필요한가**: vcxproj 가 출력 경로와 include 경로를 $(SolutionDir) 로 잡고 있었는데,
+  솔루션이 루트 하나에서 Server/Server.slnx 와 Tool/TestClient.slnx 로 갈리면서
+  $(SolutionDir) 가 솔루션마다 달라졌다. 그러면 같은 프로젝트가 어느 솔루션에서 열렸느냐에
+  따라 bin/obj 위치와 include 루트가 달라진다.
+
+  $(MSBuildThisFileDirectory) 는 **이 파일의 위치**(= 저장소 루트)라 솔루션과 무관하다.
+  vcxproj 를 단독으로 MSBuild 해도 같은 값이 나온다.
+-->
+<Project>
+  <PropertyGroup>
+    <RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RepoRoot>
+  </PropertyGroup>
+</Project>

@@ -88,7 +88,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 C:\Work\asio-server\
-├── asio-server.slnx                  솔루션 (더블클릭으로 VS에서 바로 열림)
+├── Directory.Build.props             $(RepoRoot) 정의 -- 솔루션이 둘이라 $(SolutionDir)를 쓸 수 없다
+├── Server/Server.slnx                서버 솔루션 (Core + Gateway/World/Zone)
+├── Tool/TestClient.slnx              테스트 클라이언트 솔루션 (Core + ProtocolClient/StressClient)
 ├── Shared/                           서버·툴이 공유하는 모듈 (Client가 Server를 의존하지 않게 하는 층)
 │   ├── Core/                         게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
 │   │   └── Src/
@@ -242,7 +244,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 
 ## 빌드 / 실행
 
-1. `asio-server.slnx`를 Visual Studio 2026 **이상**으로 연다 (`PlatformToolset=v145`,
+1. `Server/Server.slnx`(서버) 또는 `Tool/TestClient.slnx`(테스트 클라이언트)를 Visual Studio 2026 **이상**으로 연다 (`PlatformToolset=v145`,
    `/std:c++23`, `x64`만 지원).
 2. 실행 파일이 5개(`GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient`)라
    개별 F5보다 **`bat/start_server_all.bat`**(World→Zone(1,2)→Zone(3,4)→Gateway, 탭 4개)로 한 번에
@@ -294,7 +296,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
   바로 빌드할 수 있게 v143을 유지했지만, 이 저장소는 코드와 구조를 읽히는 것이 목적이라
   개발 편의를 택했다.
   옛 툴셋으로 확인만 하고 싶을 때는 vcxproj를 고치지 말고 빌드 인자로 덮어쓴다:
-  `MSBuild.exe asio-server.slnx -p:Configuration=Debug -p:Platform=x64 -p:PlatformToolset=v143 -p:LanguageStandard=stdcpp20 -m`
+  `MSBuild.exe Server/Server.slnx -p:Configuration=Debug -p:Platform=x64 -p:PlatformToolset=v143 -p:LanguageStandard=stdcpp20 -m`
 - `3rd/asio` 수정 금지는 `.claude/settings.json`의 PreToolUse 훅으로도 강제된다(Edit/Write가
   해당 경로를 건드리면 자동 차단).
 

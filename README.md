@@ -49,11 +49,13 @@ Client ──▶ GatewayServer ──▶ WorldServer ──▶ ZoneServer ──
 
 ## 빌드
 
-`asio-server.slnx` 열기 → `Ctrl+F5`. `PlatformToolset=v145`, `/std:c++23`, x64 전용이라
+`Server/Server.slnx` 열기 → `Ctrl+F5`. 테스트 클라이언트는 `Tool/TestClient.slnx`.
+`PlatformToolset=v145`, `/std:c++23`, x64 전용이라
 **VS 2026 이상**이 필요합니다.
 
 ```bash
-MSBuild.exe asio-server.slnx -p:Configuration=Release -p:Platform=x64 -m
+MSBuild.exe Server/Server.slnx     -p:Configuration=Release -p:Platform=x64 -m
+MSBuild.exe Tool/TestClient.slnx -p:Configuration=Release -p:Platform=x64 -m
 ```
 
 모든 실행 파일이 `Core.vcxproj`를 프로젝트 참조로 물고 있어 `Core` → 나머지 순서로 자동

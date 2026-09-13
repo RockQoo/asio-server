@@ -17,7 +17,7 @@ for %%A in (%*) do (
 for %%I in ("%~dp0..\bin\x64\%CONFIG%") do set "BIN=%%~fI"
 
 if not exist "%BIN%\ProtocolClient.exe" (
-    echo [start_protocol_client] "%BIN%" 에 ProtocolClient.exe 가 없습니다. asio-server.slnx 를 먼저 빌드하세요.
+    echo [start_protocol_client] "%BIN%" 에 ProtocolClient.exe 가 없습니다. Tool\TestClient.slnx 를 먼저 빌드하세요.
     pause
     exit /b 1
 )
