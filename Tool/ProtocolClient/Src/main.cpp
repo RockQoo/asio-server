@@ -250,7 +250,7 @@ namespace
 
 int main(const int argc, char** argv)
 {
-    Log::Logger::Instance().Initialize("logs/protocolclient.log");
+    Log::Logger::Instance().Initialize("logs/protocol_client.log");
 
     try
     {

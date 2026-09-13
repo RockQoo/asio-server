@@ -23,6 +23,7 @@
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000008}</UniqueIdentifier>
     </Filter>
     <Filter Include="Db" />
+    <Filter Include="Cli" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -89,6 +90,18 @@
     <ClInclude Include="Src\Db\PasswordHash.h">
       <Filter>Db</Filter>
     </ClInclude>
+    <ClInclude Include="Src\App\Config.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Cli\ConsoleLoop.h">
+      <Filter>Cli</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Cli\DbCheck.h">
+      <Filter>Cli</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Cli\IdTest.h">
+      <Filter>Cli</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
@@ -118,6 +131,18 @@
     </ClCompile>
     <ClCompile Include="Src\Db\PasswordHash.cpp">
       <Filter>Db</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\App\Config.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Cli\ConsoleLoop.cpp">
+      <Filter>Cli</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Cli\DbCheck.cpp">
+      <Filter>Cli</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Cli\IdTest.cpp">
+      <Filter>Cli</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>

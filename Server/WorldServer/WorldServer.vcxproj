@@ -138,6 +138,10 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Handler\GatewayLinkHandler.h" />
     <ClInclude Include="Src\Handler\ZoneLinkHandler.h" />
     <ClInclude Include="Src\App\App.h" />
+    <ClInclude Include="Src\App\Config.h" />
+    <ClInclude Include="Src\Cli\ConsoleLoop.h" />
+    <ClInclude Include="Src\Cli\DbCheck.h" />
+    <ClInclude Include="Src\Cli\IdTest.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -154,6 +158,10 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClCompile Include="Src\Tool\ToolProcessor.cpp" />
     <ClCompile Include="Src\App\App.cpp" />
     <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\App\Config.cpp" />
+    <ClCompile Include="Src\Cli\ConsoleLoop.cpp" />
+    <ClCompile Include="Src\Cli\DbCheck.cpp" />
+    <ClCompile Include="Src\Cli\IdTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Core\Core.vcxproj">

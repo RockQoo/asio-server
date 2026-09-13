@@ -112,6 +112,9 @@
     <ClInclude Include="Src\App\App.h">
       <Filter>App</Filter>
     </ClInclude>
+    <ClInclude Include="Src\App\Config.h">
+      <Filter>App</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
@@ -155,6 +158,9 @@
       <Filter>Handler</Filter>
     </ClCompile>
     <ClCompile Include="Src\App\App.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\App\Config.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />

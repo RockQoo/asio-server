@@ -48,12 +48,48 @@ intervals.tick_ms = 100
 ## 기본값은 구조체에만 적는다
 
 ```cpp
-Zone::Config config{};                                    // 구조체의 기본값
+Config config{};                                          // 구조체의 기본값
 config.lbThreadCount = file.GetSize("lb_threads", config.lbThreadCount);   // 그 값을 fallback 으로
 ```
 
-기본값이 구조체와 `main.cpp` 두 군데에 적히면 한쪽만 고쳤을 때 갈린다. 그래서 **읽는 쪽이
+기본값이 구조체와 읽는 쪽 두 군데에 적히면 한쪽만 고쳤을 때 갈린다. 그래서 **읽는 쪽이
 구조체의 현재 값을 그대로 fallback 으로 넘긴다.**
+
+## 어디에 있나 — `main.cpp`가 아니라 `App/Config.{h,cpp}`
+
+서버마다 `Src/App/Config.h`가 `Config` 구조체와 `LoadConfig` 선언을 함께 갖는다.
+
+```cpp
+namespace Zone
+{
+    struct Config { ... };
+    [[nodiscard]] Config LoadConfig(const std::string& path, std::vector<Def> zones);
+}
+```
+
+`main`은 한 줄로 끝난다 — 값을 받아 그대로 `App`에 넘기고, 반환은 RVO로 복사가 없다.
+
+```cpp
+auto config = Zone::LoadConfig(argc > 2 ? argv[2] : "config/zone.cfg", zones);
+Zone::App app(std::move(config));
+```
+
+### 왜 싱글턴이 아닌가
+
+`Config`는 **기동 때 한 번 읽고 `App`이 소유하는 데이터**이고, 지금 `App` 밖에서 이 타입을
+참조하는 코드가 없다. 전역 접근이 필요 없는데 싱글턴으로 만들면 잃는 것만 있다:
+
+- **의존성이 숨는다.** 지금은 생성자 시그니처만 봐도 그 컴포넌트가 무엇을 받는지 보인다.
+- **이 프로젝트의 주제와 어긋난다.** "무엇을 누가 소유하는가"(레인 소유권, 모델별 소유 레인)를
+  명시하는 것이 설계의 핵심인데, 설정만 전역으로 빼면 그 일관성이 깨진다.
+- **수명과 스레드 규약이 흐려진다.** 언제 초기화되고 누가 바꿀 수 있는지가 타입에서 안 보인다.
+
+이 저장소에도 싱글턴이 둘 있다(`Log::Logger`, `Common::RUIDGenerator`). 둘 다 **프로세스에
+하나뿐이어야 의미가 성립하는 서비스**다 — 로그 파일 핸들 하나, 노드 번호 하나. 설정은
+그런 종류가 아니라 그냥 값이다.
+
+나중에 `App` 밖에서 설정이 필요해지면, 전체를 전역으로 열기보다 **필요한 값만 그 컴포넌트
+생성자로 넘기는** 쪽이 맞다(지금 `ProcessorGroup`이 스레드 수만 받는 것처럼).
 
 ## 인자로 남긴 것 — 프로세스마다 달라야 하는 값
 

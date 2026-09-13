@@ -14,13 +14,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 컴파일러 옵션 | MSVC, `PlatformToolset=v145`, `x64` 전용, `/std:c++23 /utf-8`, `ASIO_STANDALONE`/`ASIO_NO_DEPRECATED` |
 | 실행 파일 5개 | `GatewayServer`/`WorldServer`/`ZoneServer`/`ProtocolClient`/`StressClient` (`Core`는 정적 라이브러리라 실행 파일 없음) |
 | 운영툴 | `Tool/GmTool` — C#/.NET 10 + SQL Server. **별도 솔루션**(`Tool/GmTool/GmTool.slnx`)이며 C++ 솔루션에 넣지 않는다. WorldServer의 전용 포트(9300)로만 붙는다. **서버 기능 검증용 도구이고 기능 개발은 현재 중단** — 지금은 코드 정리/문서 정합성만 손댄다(역할 검사·비밀 관리 미비는 지금 범위 밖이지 미완성이 아니다). 영구 동결은 아니므로 사용자가 요청하면 기능 추가는 정상 진행 |
+| 로그 파일 | `logs/` 아래 snake_case(`world_server.log`, `zone_server_1_2.log`) -- 존 서버는 담당 zoneId를 파일명에 넣어 프로세스를 가른다 |
 | 기동 순서 | `bat/start_server_all.bat`(World→Zone(1,2)→Zone(3,4)→Gateway, Windows Terminal 탭 4개) 또는 개별 실행, 자세한 건 README "빌드 & 실행" |
 | 존 배치 | **2×2 격자**(`1 2` / `3 4`, 각 존 10×10, 월드 x:[0,20) y:[0,20)). 규칙은 `ParseZoneList`의 `kZoneSize`/`kZonesPerRow`/`kZoneRows`뿐이고 클라이언트 `ZoneLayout.cs`가 같은 값을 복제한다 — **한쪽만 고치면 화면 경계와 실제 핸드오프 지점이 어긋난다** |
 | 존 번호 | **zoneId는 1부터.** 0은 "존 없음/미배정" 예약값이고 `ParseZoneList`가 거부한다 |
 | 핸드오프 경로 | 가로(1↔2, 3↔4)는 같은 프로세스의 레인 간, **세로(1↔3, 2↔4)는 프로세스(TCP 링크)를 넘는다**(`docs/sequences/zone-handoff.html`) |
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Client`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Client` — C#/MonoGame, 별도 솔루션(`Client/Client.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
-| 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽는다. **기본값은 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). 담당 존 목록만 실행 인자 -- 프로세스마다 달라야 하는 유일한 값 |
+| 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽고, 로딩은 각 서버의 `Src/App/Config.{h,cpp}`의 `LoadConfig`가 맡는다(`main`은 호출만). **기본값은 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). **싱글턴으로 만들지 않는다** -- 근거는 `docs/design/config-file.md`. 담당 존 목록만 실행 인자 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일), `docs/load-test-fix-plan.md`(진행 중인 부하 병목 수정 계획) |
 
 ---
@@ -119,8 +120,11 @@ C:\Work\asio-server\
 │       └── CurrencyType.h        재화 종류(0은 '종류 없음' 예약값)
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
-│   ├── WorldServer/                  WorldWorker(단일 처리 스레드) 라우팅 + DB 워커 풀 (실행 파일)
-│   │   └── Src/World/                ClientRegistry, ZoneLinkRegistry (WorldWorker 전용 접근)
+│   ├── WorldServer/                  라우팅(BASIC 레인) + DB 레인 (실행 파일)
+│   │   ├── Src/App/Config.{h,cpp}    Config 구조체 + LoadConfig -- main은 한 줄로 받아 App에 넘긴다
+│   │   ├── Src/Cli/                  실행 인자 모드: ConsoleLoop(notice REPL) / DbCheck / IdTest
+│   │   │                             main에 있던 것을 뺐다(403 -> 86줄). 세 서버 모두 App/Config.{h,cpp} 구조가 같다
+│   │   └── Src/World/                ClientRegistry, ZoneLinkRegistry (BASIC 레인 전용 접근)
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
 │           ├── Worker/               TaskWorker(범용 실행기), WorkerManager
