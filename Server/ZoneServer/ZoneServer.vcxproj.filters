@@ -52,6 +52,9 @@
     <ClInclude Include="Src\Packet\ZonePackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Packet\ClientPackets.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Currency\Model.h">
       <Filter>Currency</Filter>
     </ClInclude>
@@ -95,6 +98,12 @@
       <Filter>Game</Filter>
     </ClInclude>
     <ClInclude Include="Src\Handler\PlayerProcessor.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\PlayerContext.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\PlayerMail.h">
       <Filter>Handler</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h">
@@ -146,6 +155,9 @@
       <Filter>Game</Filter>
     </ClCompile>
     <ClCompile Include="Src\Handler\PlayerProcessor.cpp">
+      <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Handler\PlayerMail.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
     <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp">

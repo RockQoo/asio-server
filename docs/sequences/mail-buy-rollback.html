@@ -26,7 +26,7 @@
     <div class="seq-head" style="grid-template-columns: repeat(6, 1fr);">
         <div class="actor a-client">Client<small>게임 스레드</small></div>
         <div class="actor a-world">Gateway → World<small>순수 릴레이 + 라우팅</small></div>
-        <div class="actor a-player">PlayerProcessor<small>Player 레인</small></div>
+        <div class="actor a-player">PlayerMail<small>Player 레인</small></div>
         <div class="actor a-zone">Model<small>우편함 (Mutexed)</small></div>
         <div class="actor a-zone">Model<small>지갑 (값)</small></div>
         <div class="actor a-player">UnitOfWork<small>Task 목록</small></div>
@@ -145,7 +145,7 @@
 <h2>관련 코드</h2>
 <table>
     <tr><th>단계</th><th>파일</th></tr>
-    <tr><td>③~⑨</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleMailBuy</code></td></tr>
+    <tr><td>③~⑨</td><td><code>Server/ZoneServer/Src/Handler/PlayerMail.cpp</code> — <code>HandleMailBuy</code></td></tr>
     <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Mail/MailTask.h</code></td></tr>
     <tr><td>⑦</td><td><code>Server/ZoneServer/Src/Currency/Model.cpp</code> — <code>SetTracked</code></td></tr>
     <tr><td>⑩~⑫</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code>, <code>Shared/Core/Src/Task/UnitOfWork.cpp</code></td></tr>

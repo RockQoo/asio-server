@@ -89,10 +89,11 @@ y: 0 └─────────┴─────────┘</code></pre
 <div class="panel">
 상태를 바꾸는 요청은 전부 같은 모양이다:
 
-<pre><code>UnitOfWork uow(...);           // ① 먼저 연다 (파싱 실패도 같은 경로로 응답해야 하므로)
-if (실패) { uow.SetError(...); return; }   // ② 에러만 심고 그냥 return
-model.Change(..., uow);            // ③ 바뀐 내용은 Task로 기록된다
-                                   // ④ 스코프를 벗어나는 순간 소멸자가 결말을 낸다</code></pre>
+<pre><code>// ① 핸들러가 받는 packet 은 이미 파싱이 끝나 있다 (디스패치 앞에서)
+UnitOfWork unitOfWork(...);            // ② 열기가 곧 트랜잭션 시작
+if (실패) { unitOfWork.SetError(...); return; }  // ③ 에러만 심고 그냥 return
+model.Change(..., unitOfWork);          // ④ 바뀐 내용은 Task로 기록된다
+                                       // ⑤ 스코프를 벗어나는 순간 소멸자가 결말을 낸다</code></pre>
 
 성공이면 <b>한 번만</b> 직렬화해서 World(DB)와 클라이언트로 같은 바이트를 보내고,
 실패면 Task 목록을 <b>역순으로</b> 훑어 각자의 역연산으로 되돌린다.
@@ -112,7 +113,9 @@ model.Change(..., uow);            // ③ 바뀐 내용은 Task로 기록된다
 <pre><code>Server/ZoneServer/Src/
 ├ Worker/ProcessorId.h        Lb / Player / ZoneSpace / Broadcast
 ├ Handler/WorldLinkHandler    World 연결, LB 레인
-├ Handler/PlayerProcessor     패킷별 핸들러 (Move·Chat·Mail·MailBuy)
+├ Handler/PlayerProcessor     입장/퇴장 + 패킷 라우팅 (Move·Chat만 직접)
+├ Handler/PlayerMail        우편 요청 처리 (Add·Del·Buy) — 콘텐츠 큰 분류마다 파일 하나
+├ Packet/ClientPackets      C2Z 요청 구조체 + Parse (디스패치 앞에서)
 ├ Game/Player · PlayerRegistry
 ├ Game/Instance           로스터·경계·틱
 ├ Mail/ · Currency/           콘텐츠 모델 + Task

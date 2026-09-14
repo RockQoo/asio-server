@@ -123,6 +123,7 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h" />
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ZonePackets.h" />
+    <ClInclude Include="Src\Packet\ClientPackets.h" />
     <ClInclude Include="Src\Currency\Model.h" />
     <ClInclude Include="Src\Currency\CurrencyTask.h" />
     <ClInclude Include="Src\Game\MoveModel.h" />
@@ -138,6 +139,8 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="Src\Mail\ExpiryService.h" />
     <ClInclude Include="Src\Worker\ProcessorId.h" />
     <ClInclude Include="Src\Handler\PlayerProcessor.h" />
+    <ClInclude Include="Src\Handler\PlayerContext.h" />
+    <ClInclude Include="Src\Handler\PlayerMail.h" />
     <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Worker\BroadcastDispatcher.h" />
     <ClInclude Include="Src\Worker\WorkerManager.h" />
@@ -160,6 +163,7 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClCompile Include="Src\Mail\ExpiryService.cpp" />
     <ClCompile Include="Src\Game\PlayerRegistry.cpp" />
     <ClCompile Include="Src\Handler\PlayerProcessor.cpp" />
+    <ClCompile Include="Src\Handler\PlayerMail.cpp" />
     <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp" />
     <ClCompile Include="Src\Worker\WorkerManager.cpp" />
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp" />

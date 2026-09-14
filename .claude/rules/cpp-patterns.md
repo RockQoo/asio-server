@@ -363,8 +363,12 @@ if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
   목록이 곧 "실제로 적용된 변경"이 되고, 역순 롤백이 정확해진다.
 - **첫 에러를 유지한다**: `SetError`는 이미 값이 있으면 덮어쓰지 않는다. 처음 난 실패가 진짜
   원인이고 그 뒤는 연쇄 실패일 가능성이 높다.
-- **파싱 실패도 같은 경로**: 페이로드 파싱 실패(`InvalidPayload`)도 "이 요청의 결말"이라
-  UoW를 먼저 열어두고 같은 경로로 내려보낸다. 클라가 성공/실패를 한 경로로만 받게 하려는 것.
+- **파싱 실패는 핸들러까지 오지 않는다**: 페이로드 해석은 디스패치 **앞**에서 끝난다
+  (`Zone::RegisterPacketHandler`). 형식이 깨졌으면 로그만 남기고 버리고, UoW를 열지 않는다 --
+  정상 클라이언트는 자기가 만든 구조체를 그대로 보내므로 실패할 수 없고, 실패했다면 조작이거나
+  프로토콜 버전이 어긋난 것이라 콘텐츠가 답할 내용이 아니다. 그래서 핸들러가 받는 값은 이미
+  해석이 끝난 요청 구조체(`C2ZMailBuy` 등, `Packet/ClientPackets.h`)이고, 핸들러에 남는 판단은
+  **내용이 타당한가**(잔액 부족, 우편함 없음)뿐이다.
 - **롤백은 전송 기능이 없는 임시 UoW를 넘겨 정상 함수를 재사용한다**: 롤백 전용 함수를 모델마다
   따로 만들지 않는다(`AddMail`을 되돌릴 때 `DelMail`을 그대로 쓴다). 그때 넘기는
   `Task::RollbackUnitOfWork`는 소멸자가 아무것도 전송하지 않아서, 롤백 중 쌓인 태스크가 조용히
@@ -376,6 +380,39 @@ if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
   실패해도 할 수 있는 일이 없으니 복구를 시도하지 말고 드러내기만 한다. 이 전제를 지키려면
   롤백 경로가 새 검증을 추가하지 않아야 한다(예: 되돌려 넣을 자리가 없어질 수 있는 상한을
   롤백에서 다시 검사하지 않는다).
+
+## 존 콘텐츠는 큰 분류마다 파일 하나 (`PlayerMail`)
+
+존 서버의 클라이언트 요청 처리는 **콘텐츠 큰 분류 = 파일 한 쌍**이다. `PlayerProcessor`는
+입장/퇴장과 라우팅만 맡고, 우편이면 `Handler/PlayerMail.{h,cpp}`, 인벤토리면
+`Handler/PlayerInventory.{h,cpp}`가 자기 패킷 등록과 핸들러를 전부 들고 있다.
+
+```cpp
+class PlayerMail final
+{
+public:
+    PlayerMail() = delete;                                  // 전부 static -- 상태가 없다
+    static void Register(PlayerPacketDispatcher& packetDispatcher);
+private:
+    static void HandleMailAdd(const PlayerContext& context, const C2ZMailAdd& packet);
+};
+```
+
+지켜야 할 것:
+
+- **등록은 콘텐츠가 스스로 한다**(`PlayerMail::Register`). 우편 패킷을 하나 늘릴 때
+  `PlayerProcessor`를 고쳐야 한다면 파일을 나눈 의미가 없다.
+- **핸들러는 전부 `static`**이다. 필요한 것은 전부 `PlayerContext`(플레이어, zoneId,
+  WorldLink)로 들어온다. 멤버를 두면 플레이어 레인의 여러 스레드가 공유하는 변수가 된다.
+- **모델은 나누지 않는다.** `Mail::Model`/`Currency::Model`은 그대로고, 나뉘는 것은 요청
+  처리 쪽이다. 재화처럼 요청이 몇 개 없는 것은 자기 파일을 만들지 않고, 그 재화를 쓰는
+  콘텐츠(`C2ZMailBuy`의 골드 차감)에 붙는다.
+- **UoW는 핸들러가 연다.** 콘텐츠 하나의 트랜잭션 경계는 그 콘텐츠가 정한다.
+- **롤백 함수를 콘텐츠에 만들지 않는다.** 실패하면 `UnitOfWork` 소멸자가 기록된 태스크를
+  역순으로 훑으며 각 태스크의 역연산을 부른다 -- 콘텐츠마다 "무엇을 되돌리나"를 다시 적으면
+  추가한 곳과 되돌리는 곳이 갈린다.
+- **모델 변경도 DB 저장도 없는 것은 옮기지 않는다.** Move/Chat은 브로드캐스트가 전부라
+  UoW를 열지 않고, 그래서 `PlayerProcessor`에 남는다.
 
 ## 로그는 `std::cout`/`std::cerr` 대신 `LOG`
 

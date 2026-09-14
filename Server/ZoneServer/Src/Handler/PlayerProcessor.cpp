@@ -1,20 +1,18 @@
-#include "Shared/Protocol/Src/Ids.h"
 #include "pch.h"
 #include "Handler/PlayerProcessor.h"
 #include "Game/Instance.h"
+#include "Handler/PlayerMail.h"
 #include "Mail/Model.h"
 #include "Mail/Registry.h"
 #include "Packet/ZonePackets.h"
-#include "Task/UnitOfWork.h"
 #include "World/WorldLink.h"
 #include "Worker/BroadcastDispatcher.h"
 #include "Worker/WorkerManager.h"
 
 #include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Shared/Protocol/Src/ErrorCode.h"
+#include "Shared/Protocol/Src/CurrencyType.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
@@ -33,11 +31,14 @@ namespace Zone
 
     void PlayerProcessor::RegisterPacketHandlers()
     {
-        packetDispatcher_.Register(PacketId::C2ZMove, this, &PlayerProcessor::HandleMove);
-        packetDispatcher_.Register(PacketId::C2ZChat, this, &PlayerProcessor::HandleChat);
-        packetDispatcher_.Register(PacketId::C2ZMailAdd, this, &PlayerProcessor::HandleMailAdd);
-        packetDispatcher_.Register(PacketId::C2ZMailDel, this, &PlayerProcessor::HandleMailDel);
-        packetDispatcher_.Register(PacketId::C2ZMailBuy, this, &PlayerProcessor::HandleMailBuy);
+        RegisterPacketHandler<C2ZMove>(packetDispatcher_, PacketId::C2ZMove,
+            [this](const PlayerContext& context, const C2ZMove& packet) { HandleMove(context, packet); });
+        RegisterPacketHandler<C2ZChat>(packetDispatcher_, PacketId::C2ZChat,
+            [this](const PlayerContext& context, const C2ZChat& packet) { HandleChat(context, packet); });
+
+        // 콘텐츠 패킷은 콘텐츠가 스스로 등록한다 -- 우편 패킷을 하나 늘릴 때 이 파일을 고칠
+        // 일이 없어야 콘텐츠마다 파일을 나눈 의미가 있다.
+        PlayerMail::Register(packetDispatcher_);
     }
 
     void PlayerProcessor::OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
@@ -132,173 +133,36 @@ namespace Zone
             return;
         }
 
-        // zoneId를 멤버가 아니라 스택 컨텍스트로 들고 간다 -- 이 객체는 플레이어 레인의 모든
+        // 컨텍스트를 멤버가 아니라 스택으로 들고 간다 -- 이 객체는 플레이어 레인의 모든
         // 스레드가 공유하므로 멤버에 담으면 서로 덮어쓴다(PlayerContext 주석 참고).
-        const PlayerContext context{*player, player->GetZoneId()};
+        const PlayerContext context{*player, player->GetZoneId(), worldLink_};
         packetDispatcher_.Dispatch(packetId, context, payload);
     }
 
-    void PlayerProcessor::HandleMove(const PlayerContext& context, const std::span<const byte> payload)
+    void PlayerProcessor::HandleMove(const PlayerContext& context, const C2ZMove& packet)
     {
-        if (payload.size() < sizeof(MovePacket))
-        {
-            return;
-        }
-        MovePacket move{};
-        std::memcpy(&move, payload.data(), sizeof(MovePacket));
-
-        // ① 검증. 지금은 형식 검사뿐이고, 속도 클램프·어뷰즈 검사·사망/이동금지 상태 확인이
-        //    붙을 자리가 여기다 -- 직전 위치를 읽어야 하는데 그게 이 레인에서 안전한 이유가
-        //    MoveModel을 플레이어 소유로 둔 이유다(MoveModel.h 주석 참고).
+        // ① 검증. 지금은 형식 검사뿐이고(디스패치 앞에서 끝난다), 속도 클램프·어뷰즈 검사·
+        //    사망/이동금지 상태 확인이 붙을 자리가 여기다 -- 직전 위치를 읽어야 하는데 그게
+        //    이 레인에서 안전한 이유가 MoveModel을 플레이어 소유로 둔 이유다(MoveModel.h 주석).
         // ② 요청만 기록한다. 실제 위치 확정과 경계 판정은 존 레인이 다음 틱에 한다.
-        context.player.Move().Write()->RequestMove(move.x, move.y);
+        context.player.Move().Write()->RequestMove(packet.move.x, packet.move.y);
 
         // ③ 브로드캐스트는 틱을 기다리지 않고 즉시. 요청(C2ZMove)과 통지(Z2CMoveNotify)는
         //    id도 본문도 다르다 -- 받는 쪽은 "누가" 움직였는지 알아야 하므로 sessionId를
         //    앞에 붙인다.
         Packet::BinaryWriter binaryWriter;
         binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
-        binaryWriter.Write(move);
+        binaryWriter.Write(packet.move);
         BroadcastToZone(context.zoneId, PacketId::Z2CMoveNotify, binaryWriter.GetBuffer());
     }
 
-    void PlayerProcessor::HandleChat(const PlayerContext& context, const std::span<const byte> payload)
+    void PlayerProcessor::HandleChat(const PlayerContext& context, const C2ZChat& packet)
     {
-        Packet::BinaryReader binaryReader(payload);
-        std::string message;
-        if (!binaryReader.ReadString(message))
-        {
-            return;
-        }
-
         Packet::BinaryWriter binaryWriter;
         binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
-        binaryWriter.WriteString(message);
+        binaryWriter.WriteString(packet.message);
 
         BroadcastToZone(context.zoneId, PacketId::Z2CChatNotify, binaryWriter.GetBuffer());
-    }
-
-    void PlayerProcessor::HandleMailAdd(const PlayerContext& context, const std::span<const byte> payload)
-    {
-        Packet::BinaryReader binaryReader(payload);
-        std::string title;
-        std::string body;
-        int64_t durationSec{};
-
-        // UnitOfWork를 먼저 열어두는 이유: 파싱 실패도 "이 요청의 결말"이라 클라이언트에는
-        // 같은 경로(Z2CTaskResult)로 에러가 돌아가야 한다. 스코프를 벗어나는 순간 소멸자가
-        // 성공이면 전송, 실패면 역순 롤백까지 끝낸다 -- 별도의 커밋 호출이 없다.
-        UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
-                                  PacketId::C2ZMailAdd);
-
-        if (!binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec))
-        {
-            unitOfWork.SetError(EErrorCode::InvalidPayload);
-            return;
-        }
-
-        const auto& mailBox = context.player.GetMailBox();
-        if (!mailBox)
-        {
-            unitOfWork.SetError(EErrorCode::MailBoxNotFound);
-            return;
-        }
-
-        const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-
-        Mail::Info info{};
-        info.title = std::move(title);
-        info.body = std::move(body);
-        info.sendUt = nowUt;
-        info.endUt = nowUt + durationSec;
-
-        if (const auto errorCode = mailBox->Write()->AddMail(std::move(info), unitOfWork);
-            errorCode != EErrorCode::Success)
-        {
-            unitOfWork.SetError(errorCode);
-            return;
-        }
-    }
-
-    void PlayerProcessor::HandleMailDel(const PlayerContext& context, const std::span<const byte> payload)
-    {
-        UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
-                                  PacketId::C2ZMailDel);
-
-        Protocol::MailId mailId{};
-        if (payload.size() < sizeof(mailId))
-        {
-            unitOfWork.SetError(EErrorCode::InvalidPayload);
-            return;
-        }
-        std::memcpy(&mailId, payload.data(), sizeof(mailId));
-
-        const auto& mailBox = context.player.GetMailBox();
-        if (!mailBox)
-        {
-            unitOfWork.SetError(EErrorCode::MailBoxNotFound);
-            return;
-        }
-
-        if (const auto errorCode = mailBox->Write()->DelMail(mailId, unitOfWork, false);
-            errorCode != EErrorCode::Success)
-        {
-            unitOfWork.SetError(errorCode);
-            return;
-        }
-    }
-
-    void PlayerProcessor::HandleMailBuy(const PlayerContext& context, const std::span<const byte> payload)
-    {
-        Packet::BinaryReader binaryReader(payload);
-        std::string title;
-        std::string body;
-        int64_t durationSec{};
-        int64_t price{};
-
-        UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
-                                  PacketId::C2ZMailBuy);
-
-        if (!binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec)
-            || !binaryReader.Read(price))
-        {
-            unitOfWork.SetError(EErrorCode::InvalidPayload);
-            return;
-        }
-
-        const auto& mailBox = context.player.GetMailBox();
-        if (!mailBox)
-        {
-            unitOfWork.SetError(EErrorCode::MailBoxNotFound);
-            return;
-        }
-
-        const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-
-        Mail::Info info{};
-        info.title = std::move(title);
-        info.body = std::move(body);
-        info.sendUt = nowUt;
-        info.endUt = nowUt + durationSec;
-
-        // 우편을 **먼저** 넣고 골드를 나중에 깎는 순서가 중요하다 -- 잔액이 부족하면 이미
-        // 들어간 우편을 되돌려야 하고, 그게 이 프로젝트에서 역순 롤백이 실제로 밟히는
-        // 유일한 경로다(단일 모델 요청은 실패 시점에 되돌릴 것이 없다).
-        if (const auto errorCode = mailBox->Write()->AddMail(std::move(info), unitOfWork);
-            errorCode != EErrorCode::Success)
-        {
-            unitOfWork.SetError(errorCode);
-            return;
-        }
-
-        if (const auto errorCode = context.player.GetWallet().DecCurrency(ECurrencyType::Gold, price, unitOfWork);
-            errorCode != EErrorCode::Success)
-        {
-            unitOfWork.SetError(errorCode);
-            return;
-        }
     }
 
     void PlayerProcessor::SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,

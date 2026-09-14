@@ -140,7 +140,12 @@ C:\Work\asio-server\
 │       └── Src/
 │           ├── Worker/               TaskWorker(범용 실행기), WorkerManager
 │           │                         (ZoneSpace/Broadcast 그룹 소유), BroadcastDispatcher
-│           ├── Handler/WorldLinkHandler  World와의 연결의 IPacketHandler, 내부에 LB 풀
+│           ├── Handler/              WorldLinkHandler(World 연결의 IPacketHandler, 내부에 LB 풀),
+│           │                         PlayerProcessor(입장/퇴장 + 패킷 라우팅),
+│           │                         PlayerMail(우편 요청 처리 -- 콘텐츠 큰 분류마다 파일 하나),
+│           │                         PlayerContext(핸들러가 받는 스택 컨텍스트 + 등록 도우미)
+│           ├── Packet/               ZonePackets(고정 레이아웃 와이어 구조체 -- 도구도 쓴다),
+│           │                         ClientPackets(C2Z 요청 구조체 + Parse. 디스패치 앞에서 파싱)
 │           ├── Currency/             Model(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
 │           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
 │           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)
@@ -271,7 +276,8 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
 | | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기** 경로는 실제로 돌고, UoW의 **쓰기** 배선은 아직 TODO |
 | `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
-| | `PlayerProcessor` | 패킷별 핸들러(Move/Chat/Mail/MailBuy). Player 레인에서 돈다 |
+| | `PlayerProcessor` | 플레이어 레인의 진입점 — 입장/퇴장 + 패킷 라우팅. Move/Chat만 직접 처리한다(모델 변경도 DB 저장도 없어 UoW를 열지 않는다) |
+| | `PlayerMail` | 우편 요청 처리(Add/Del/Buy). **콘텐츠 큰 분류 = 파일 한 쌍**이고 자기 패킷을 스스로 등록한다. 전부 static — 필요한 것은 `PlayerContext`로 들어온다 |
 | | `PlayerRegistry` | clientSessionId → Player. 레인 수만큼 샤딩돼 락이 없다 |
 | | `WorkerManager` | ZoneSpace/Broadcast 그룹 + 존별 tick 타이머 소유 |
 | | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 그룹 소유 |
