@@ -25,6 +25,8 @@ namespace Protocol
         MailNotFound = 100,       // 대상 mailId가 우편함에 없음
         MailAlreadyExists = 101,  // 배정하려는 mailId가 이미 우편함에 있음(id 발급 버그 신호)
         MailBoxNotFound = 102,    // 이 세션의 우편함 자체가 없음(입장 처리 누락 신호)
+        MailBoxFull = 103,        // 우편함이 상한(Protocol::kMaxMailCount)에 도달함
+        MailTextTooLong = 104,    // 제목/본문이 상한을 넘음(ContentLimit.h -- DB 컬럼과 짝)
 
         // ---- Currency (200 ~ 299) ----
         NotEnoughCurrency = 200,      // 잔액 부족. 부분 차감을 하지 않으므로 아무것도 안 바뀐다

@@ -3,6 +3,7 @@
 #include "Packet/ZonePackets.h"
 
 #include "Shared/Core/Src/Packet/BinaryReader.h"
+#include "Shared/Protocol/Src/ContentLimit.h"
 #include "Shared/Protocol/Src/Ids.h"
 
 namespace Zone
@@ -41,10 +42,22 @@ namespace Zone
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
         {
             Packet::BinaryReader binaryReader(payload);
-            return binaryReader.ReadString(message);
+            if (!binaryReader.ReadString(message))
+            {
+                return false;
+            }
+
+            // **길이 상한은 여기서 막는다.** 채팅은 UnitOfWork를 열지 않아 에러를 돌려줄 통로가
+            // 없고, 그대로 통과시키면 Z2CChatNotify가 프레임 상한을 넘어 **그 링크에 붙은 전원의
+            // 연결이 끊긴다**(Protocol/ContentLimit.h 주석). 정상 클라이언트는 입력창에서 이미
+            // 자르므로, 넘겨 보냈다면 조작이다.
+            return message.size() <= Protocol::kMaxChatBytes;
         }
     };
 
+        // **길이 상한은 여기서 보지 않는다.** 형식은 맞고 내용이 과한 것이라, 에러를
+        // 돌려줄 통로(UnitOfWork)가 있는 핸들러가 판단한다 -- PlayerMail이 MailTextTooLong으로
+        // 끊는다. 채팅과 다른 이유: 채팅은 UnitOfWork가 없어 돌려줄 길이 없다.
     struct C2ZMailAdd
     {
         std::string title;

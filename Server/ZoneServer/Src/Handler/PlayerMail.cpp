@@ -4,10 +4,21 @@
 #include "Mail/Model.h"
 #include "Task/UnitOfWork.h"
 
+#include "Shared/Protocol/Src/ContentLimit.h"
+
 namespace Zone
 {
     namespace
     {
+        // 제목/본문 길이. **DB 컬럼(NVARCHAR)과 짝이고**, 넘기면 SP가 "String or binary data
+        // would be truncated"로 실패한다 -- 메모리에는 들어갔는데 DB에는 없는 상태가 된다.
+        // 그래서 모델에 넣기 전에 여기서 끊는다.
+        [[nodiscard]] bool IsMailTextTooLong(const std::string& title, const std::string& body)
+        {
+            return title.size() > Protocol::kMaxMailTitleBytes
+                || body.size() > Protocol::kMaxMailBodyBytes;
+        }
+
         // 우편 하나를 만든다. Add와 Buy가 같은 본문을 쓰므로 한 곳에 모았다 -- 만료 시각
         // 계산이 갈리면 "산 우편만 안 사라진다" 같은 증상이 된다.
         [[nodiscard]] Mail::Info MakeMailInfo(std::string title, std::string body, const int64_t durationSec)
@@ -42,6 +53,12 @@ namespace Zone
         if (!mailBox)
         {
             unitOfWork.SetError(EErrorCode::MailBoxNotFound);
+            return;
+        }
+
+        if (IsMailTextTooLong(packet.title, packet.body))
+        {
+            unitOfWork.SetError(EErrorCode::MailTextTooLong);
             return;
         }
 
@@ -83,6 +100,12 @@ namespace Zone
         if (!mailBox)
         {
             unitOfWork.SetError(EErrorCode::MailBoxNotFound);
+            return;
+        }
+
+        if (IsMailTextTooLong(packet.title, packet.body))
+        {
+            unitOfWork.SetError(EErrorCode::MailTextTooLong);
             return;
         }
 

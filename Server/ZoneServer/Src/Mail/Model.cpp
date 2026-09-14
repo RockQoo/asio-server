@@ -1,8 +1,10 @@
 #include "pch.h"
 #include "Mail/Model.h"
+
 #include "Mail/MailTask.h"
 
 #include "Shared/Core/Src/Task/UnitOfWork.h"
+#include "Shared/Protocol/Src/ContentLimit.h"
 
 namespace Mail
 {
@@ -22,6 +24,14 @@ namespace Mail
 
     EErrorCode Model::AddMail(Info info, Task::UnitOfWork& unitOfWork)
     {
+        // **상한은 AddMail 에만 있다.** InsertMail(롤백/복원 경로)에 같은 검사를 넣으면
+        // 상한에 걸린 상태에서 삭제를 되돌릴 때 "되돌려 넣을 자리가 없다"가 되어 롤백이
+        // 실패한다 -- 롤백은 실패할 수 없다는 게 전제다(cpp-patterns.md).
+        if (mails_.size() >= Protocol::kMaxMailCount)
+        {
+            return EErrorCode::MailBoxFull;
+        }
+
         // 전역 유일이라 이미 있는 id가 나올 수 없다. 그래도 확인하는 건 **여기서 걸리면
         // 발급기가 고장 났다는 신호**이기 때문이다 -- 조용히 덮어쓰면 남의 우편이 사라진다.
         // 실패한 요청이 id를 하나 태우는 건 신경 쓰지 않는다(RUID는 ms당 4,096개다).

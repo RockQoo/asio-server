@@ -43,7 +43,23 @@ namespace Network
             return;
         }
 
-        auto frame = Packet::BuildFrame(packetId, payload);
+        // BuildFrame이 상한 초과를 예외로 알린다. **여기서 잡아야 한다** -- SendPacket은
+        // I/O 스레드에서도 불리고, 새어나간 예외는 그 스레드를 잡아줄 곳 없이 죽여서
+        // 프로세스가 std::terminate로 끝난다(cpp-patterns.md "asio 비동기 핸들러의 예외 안전").
+        // 그 패킷 하나만 버리고 연결은 살린다 -- 어차피 보냈어도 받는 쪽이 끊었을 것이고,
+        // 이렇게 하면 **보낸 쪽 로그에 원인이 남는다.**
+        std::vector<byte> frame;
+        try
+        {
+            frame = Packet::BuildFrame(packetId, payload);
+        }
+        catch (const Common::CoreException& ex)
+        {
+            LOG.Error(ELogCategory::Packet, "패킷이 너무 커서 보내지 않는다")
+                .KV("SessionId", id_).KV("PacketId", packetId)
+                .KV("PayloadBytes", payload.size()).KV("Message", ex.what());
+            return;
+        }
 
         // 큐에 넣는 작업(그리고 sendQueue_/writing_ 접근)은 항상 strand 위에서 일어난다.
         // SendPacket을 어느 스레드에서 호출했든 상관없이, 이 덕분에 크로스 스레드 전송이 안전해진다.

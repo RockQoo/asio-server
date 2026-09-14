@@ -414,6 +414,61 @@ private:
 - **모델 변경도 DB 저장도 없는 것은 옮기지 않는다.** Move/Chat은 브로드캐스트가 전부라
   UoW를 열지 않고, 그래서 `PlayerProcessor`에 남는다.
 
+## 가변 길이 본문에는 반드시 상한이 있어야 한다
+
+**문자열이나 목록을 이어 붙여 패킷 본문을 만드는 코드에는 예외 없이 상한을 둔다.**
+상한값은 `Shared/Protocol/Src/ContentLimit.h`에 모아둔다 -- Zone/World/클라이언트가 함께
+지켜야 하는 계약이기 때문이다.
+
+**왜 이게 치명적인가**: 프레임 헤더의 `bodySize`가 `uint16`이고, 받는 쪽 `Packet::Buffer`는
+`Header::MaxBodySize()`(8192)를 넘는 본문을 만나면 **예외를 던지고 연결을 끊는다.** 그런데
+서버 간 링크(Gateway↔World, Zone↔World)는 **재연결이 없다.** 즉 본문 하나가 상한을 넘으면
+**그 링크에 붙은 전원이 끊기고 프로세스를 재시작해야 복구된다.** 실제로 둘 다 재현했다:
+
+- 채팅 8,188자 한 줄 → Gateway↔World 링크 사망(그 게이트웨이의 **모든 클라이언트**)
+- 우편 250통 보유자가 로그인 → `W2ZEnterZone` 본문 10,028바이트 → Zone↔World 링크 사망
+
+65,536을 넘으면 더 나쁘다 -- `bodySize`가 랩어라운드해서 받는 쪽이 **나머지를 헤더로 해석**한다.
+끊기지도 않고 스트림이 조용히 어긋난다.
+
+### 세 겹으로 막는다
+
+| 층 | 무엇 | 어디 |
+|---|---|---|
+| 콘텐츠 | 채팅 길이, 우편 제목/본문 길이, 우편함 통 수 | `ContentLimit.h` + 각 `Parse`/핸들러 |
+| 조립 | 목록을 실을 때 **바이트 예산으로 잘라낸다** | `BuildEnterZoneBody` |
+| 최후 | `BuildFrame`이 초과를 예외로 거부 | `Packet::BuildFrame` |
+
+마지막 층이 backstop이다. 콘텐츠 상한을 빠뜨려도 **조용히 어긋나는 대신 보내는 쪽 로그에
+원인이 남는다**(`Session::SendPacket`이 잡아서 그 패킷만 버리고 연결은 살린다).
+
+### 어디서 거르나 -- 에러를 돌려줄 통로가 있는지로 가른다
+
+```cpp
+// 채팅: UnitOfWork가 없어 돌려줄 길이 없다 -> Parse에서 버린다
+return message.size() <= Protocol::kMaxChatBytes;
+
+// 우편: UnitOfWork가 있다 -> 핸들러가 에러 코드로 끊는다
+if (IsMailTextTooLong(packet.title, packet.body))
+{
+    unitOfWork.SetError(EErrorCode::MailTextTooLong);
+    return;
+}
+```
+
+### DB 컬럼과 짝을 맞춘다
+
+우편 제목/본문 상한은 `Sql/mails.sql`의 `NVARCHAR(128)`/`NVARCHAR(1024)`와 짝이다. 넘기면
+SP가 "String or binary data would be truncated"로 실패해서 **메모리에는 들어갔는데 DB에는
+없는** 상태가 된다. `NVARCHAR`는 바이트가 아니라 문자 수이므로, ASCII만 들어와도 넘지 않도록
+**컬럼 크기를 그대로 바이트 상한으로** 쓴다.
+
+### 상한 검사를 롤백 경로에 넣지 않는다
+
+`Mail::Model::AddMail`에는 통 수 상한이 있고 `InsertMail`(롤백/복원)에는 없다. 넣으면 상한에
+걸린 상태에서 삭제를 되돌릴 때 "되돌려 넣을 자리가 없다"가 되어 롤백이 실패한다 --
+같은 문서의 "롤백은 실패할 수 없다는 게 전제다" 항목과 짝이다.
+
 ## 로그는 `std::cout`/`std::cerr` 대신 `LOG`
 
 최상위 `Log` 네임스페이스(`Core::Log` 아님 — 아래 참고)의 전역 `LOG`(`Log::Proxy`)를 쓴다.
