@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Handler/WorldLinkHandler.h"
 #include "Handler/PlayerProcessor.h"
+#include "Packet/WorldPackets.h"
 #include "World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
@@ -122,70 +123,21 @@ namespace Zone
 
     void WorldLinkHandler::HandleEnterZoneRequest(const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(World::PlayerZoneStatePacket))
+        // 파싱은 여기(LB 레인)서 끝낸다 -- 플레이어 레인에 넘어가는 것은 이미 해석된 구조체다.
+        // 포맷의 유일한 계약은 World의 Packet/ZoneLinkPackets.h 표이고, 쓰는 쪽은
+        // Packet/EnterZoneBody.h다.
+        W2ZEnterZone packet;
+        if (!packet.Parse(payload))
         {
+            LOG.Warning(ELogCategory::Zone, "EnterZone 본문이 잘렸거나 형식이 맞지 않아 버린다")
+                .KV("PayloadBytes", payload.size());
             return;
         }
 
-        World::PlayerZoneStatePacket state{};
-        std::memcpy(&state, payload.data(), sizeof(World::PlayerZoneStatePacket));
-
-        // 고정 머리 뒤의 콘텐츠를 읽는다. 포맷은 World 의 Packet/ZoneLinkPackets.h 표가
-        // 유일한 계약이고, 쓰는 쪽은 Packet/EnterZoneBody.h 다.
-        Packet::BinaryReader binaryReader(payload.subspan(sizeof(World::PlayerZoneStatePacket)));
-
-        uint16_t mailCount{};
-        if (!binaryReader.Read(mailCount))
-        {
-            LOG.Warning(ELogCategory::Zone, "EnterZone 본문에 우편 개수가 없다")
-                .KV("ClientSessionId", state.clientSessionId);
-            return;
-        }
-
-        std::vector<Mail::Info> mails;
-        mails.reserve(mailCount);
-        for (uint16_t i = 0; i < mailCount; ++i)
-        {
-            Mail::Info info{};
-            if (!binaryReader.Read(info.mailId) || !binaryReader.ReadString(info.title)
-                || !binaryReader.ReadString(info.body) || !binaryReader.Read(info.sendUt)
-                || !binaryReader.Read(info.endUt))
+        playerGroup_.Post(EProcessorId::Player, packet.state.clientSessionId,
+            [this, packet = std::move(packet)]() mutable
             {
-                LOG.Warning(ELogCategory::Zone, "EnterZone 본문의 우편이 잘렸다")
-                    .KV("ClientSessionId", state.clientSessionId).KV("Index", i);
-                return;
-            }
-            mails.push_back(std::move(info));
-        }
-
-        uint16_t currencyCount{};
-        if (!binaryReader.Read(currencyCount))
-        {
-            LOG.Warning(ELogCategory::Zone, "EnterZone 본문에 재화 개수가 없다")
-                .KV("ClientSessionId", state.clientSessionId);
-            return;
-        }
-
-        std::vector<std::pair<uint8_t, int64_t>> currencies;
-        currencies.reserve(currencyCount);
-        for (uint16_t i = 0; i < currencyCount; ++i)
-        {
-            uint8_t type{};
-            int64_t amount{};
-            if (!binaryReader.Read(type) || !binaryReader.Read(amount))
-            {
-                LOG.Warning(ELogCategory::Zone, "EnterZone 본문의 재화가 잘렸다")
-                    .KV("ClientSessionId", state.clientSessionId).KV("Index", i);
-                return;
-            }
-            currencies.emplace_back(type, amount);
-        }
-
-        playerGroup_.Post(EProcessorId::Player, state.clientSessionId,
-            [this, state, mails = std::move(mails), currencies = std::move(currencies)]() mutable
-            {
-                playerProcessor_.OnPlayerEnter(state.clientSessionId, state.playerId, state.zoneId,
-                                               state.x, state.y, std::move(mails), std::move(currencies));
+                playerProcessor_.OnPlayerEnter(std::move(packet));
             });
     }
 

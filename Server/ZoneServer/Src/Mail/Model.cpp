@@ -6,6 +6,15 @@
 
 namespace Mail
 {
+    Model::Model(std::vector<Info> initial)
+    {
+        for (auto& info : initial)
+        {
+            const auto mailId = info.mailId;
+            mails_.insert_or_assign(mailId, std::move(info));
+        }
+    }
+
     void Model::BindSelf(const std::shared_ptr<Mutexed>& self)
     {
         self_ = self;
@@ -82,14 +91,6 @@ namespace Mail
         return expired;
     }
 
-    void Model::Seed(std::vector<Info> initial)
-    {
-        for (auto& info : initial)
-        {
-            const auto mailId = info.mailId;
-            mails_.insert_or_assign(mailId, std::move(info));
-        }
-    }
 
     std::shared_ptr<Model::Mutexed> Model::LockSelf() const
     {

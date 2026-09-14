@@ -124,6 +124,7 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h" />
     <ClInclude Include="Src\Packet\ZonePackets.h" />
     <ClInclude Include="Src\Packet\ClientPackets.h" />
+    <ClInclude Include="Src\Packet\WorldPackets.h" />
     <ClInclude Include="Src\Currency\Model.h" />
     <ClInclude Include="Src\Currency\CurrencyTask.h" />
     <ClInclude Include="Src\Game\MoveModel.h" />

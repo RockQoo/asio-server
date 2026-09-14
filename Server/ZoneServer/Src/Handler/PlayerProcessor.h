@@ -5,6 +5,7 @@
 #include "Game/PlayerRegistry.h"
 #include "Handler/PlayerContext.h"
 #include "Packet/ClientPackets.h"
+#include "Packet/WorldPackets.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
@@ -41,14 +42,12 @@ namespace Zone
                         BroadcastDispatcher& broadcastDispatcher, WorldLink& worldLink,
                         Mail::Registry& mailRegistry);
 
-        // 아래 셋은 전부 그 clientSessionId를 담당하는 플레이어 레인 스레드에서 호출된다.
+        // 아래 둘은 전부 그 clientSessionId를 담당하는 플레이어 레인 스레드에서 호출된다.
         //
-        // mails/currencies는 World가 DB에서 읽어 W2ZEnterZone에 실어 보낸 시작 상태다. 존이
-        // DB를 직접 읽지 않는 이유는 ZoneLinkPackets.h의 표 주석 참고.
-        void OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
-                           const uint32_t zoneId, const float x, const float y,
-                           std::vector<Mail::Info> mails,
-                           std::vector<std::pair<uint8_t, int64_t>> currencies);
+        // 패킷은 LB 레인에서 이미 파싱돼 들어온다. 그 안의 콘텐츠(mails/currencies)는 World가
+        // DB에서 읽어 캐시해둔 시작 상태이고, 존이 DB를 직접 읽지 않는 이유는
+        // ZoneLinkPackets.h의 표 주석 참고.
+        void OnPlayerEnter(W2ZEnterZone packet);
         void OnPlayerLeave(const Network::SessionId clientSessionId);
 
         // 콘텐츠 패킷 진입점. 어느 존인지는 Player가 들고 있으므로 LB가 알려줄 필요가 없다.

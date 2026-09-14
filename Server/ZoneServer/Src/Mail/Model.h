@@ -37,6 +37,17 @@ namespace Mail
     public:
         using Mutexed = Thread::Mutexed<Model>;
 
+        // **시작 상태는 생성자로만 들어온다.** W2ZEnterZone이 실어 보낸(= World 캐시의) 우편을
+        // 그대로 받는다. 존은 DB를 직접 읽지 않으므로 이 경로가 우편함의 유일한 시작점이다.
+        //
+        // 예전에는 빈 모델을 만든 뒤 Seed()로 채웠는데, 그러면 "아직 안 채워진 우편함"이 잠깐
+        // 존재하고 그 사이에 만료 스윕이 돌면 빈 것으로 보인다. 생성자로 받으면 그 틈이 없다.
+        //
+        // **InsertMail이 아니라 생성자인 이유**: InsertMail은 UnitOfWork에 태스크를 남긴다.
+        // 적재는 "변경"이 아니라 시작 상태라, 그 경로로 넣으면 방금 받은 것을 도로 DB에 쓰고
+        // 클라이언트에도 "우편이 추가됐다"고 통지하게 된다.
+        explicit Model(std::vector<Info> initial);
+
         // 자기를 감싼 Mutexed 핸들. 롤백은 이 우편함을 **다시 잠그고** 되돌려야 하는데,
         // 모델 자신은 자기를 감싼 래퍼를 알 수 없어서 만든 쪽(Registry)이 넣어준다.
         // weak_ptr로 두는 이유: 이걸 shared_ptr로 들면 래퍼 <-> 모델이 서로를 붙잡아 절대
@@ -58,13 +69,6 @@ namespace Mail
 
         // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.
         [[nodiscard]] std::vector<Protocol::MailId> TakeExpiredMailIds(const int64_t nowUt) const;
-
-        // World가 DB에서 읽어 실어 보낸 우편으로 **시작 상태를 채운다**(W2ZEnterZone).
-        //
-        // **InsertMail이 아니라 별도 경로인 이유**: InsertMail은 UnitOfWork에 태스크를 남긴다.
-        // 적재는 "변경"이 아니라 시작 상태라, 그 경로로 넣으면 방금 DB에서 읽은 것을 도로
-        // DB에 쓰고 클라이언트에도 "우편이 추가됐다"고 통지하게 된다.
-        void Seed(std::vector<Info> initial);
 
     private:
         [[nodiscard]] std::shared_ptr<Mutexed> LockSelf() const;

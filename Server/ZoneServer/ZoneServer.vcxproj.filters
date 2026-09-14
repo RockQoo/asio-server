@@ -55,6 +55,9 @@
     <ClInclude Include="Src\Packet\ClientPackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Packet\WorldPackets.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Currency\Model.h">
       <Filter>Currency</Filter>
     </ClInclude>

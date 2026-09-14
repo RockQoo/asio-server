@@ -21,14 +21,20 @@ namespace Zone
     class Player
     {
     public:
+        // **모델의 시작 상태는 전부 여기로 들어온다.** 값은 W2ZEnterZone이 실어 온 것이고
+        // (Packet/WorldPackets.h), 각 모델이 자기 생성자에서 그것만 받는다.
+        // 콘텐츠가 늘면 인자가 하나 늘고 멤버가 하나 는다 -- 빈 모델을 만들어 두고 나중에
+        // 채우는 경로는 두지 않는다(그 사이에 읽으면 없는 것으로 보인다).
         Player(const Network::SessionId sessionId, const uint32_t playerId, const uint32_t zoneId,
                const float x, const float y,
-               std::shared_ptr<Mail::Model::Mutexed> mailBox)
+               std::shared_ptr<Mail::Model::Mutexed> mailBox,
+               const std::vector<Currency::Info>& currencies)
             : sessionId_(sessionId)
             , playerId_(playerId)
             , zoneId_(zoneId)
             , move_(x, y)
             , mailBox_(std::move(mailBox))
+            , wallet_(currencies)
         {
         }
 

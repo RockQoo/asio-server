@@ -6,6 +6,19 @@
 
 namespace Currency
 {
+    Model::Model(const std::vector<Info>& initial) noexcept
+    {
+        for (const auto& info : initial)
+        {
+            // 모르는 종류는 조용히 버린다 -- 이 빌드가 아직 모르는 재화가 DB에 있을 수 있고,
+            // 그것 때문에 입장을 막을 이유는 없다(Field가 nullptr을 돌려준다).
+            if (auto* const field = Field(static_cast<Protocol::ECurrencyType>(info.type)); field != nullptr)
+            {
+                *field = info.amount;
+            }
+        }
+    }
+
     int64_t Model::Get(const Protocol::ECurrencyType type) const noexcept
     {
         switch (type)
@@ -59,13 +72,6 @@ namespace Currency
         return SetTracked(type, value, unitOfWork);
     }
 
-    void Model::Seed(const Protocol::ECurrencyType type, const int64_t value) noexcept
-    {
-        if (auto* const field = Field(type); field != nullptr)
-        {
-            *field = value;
-        }
-    }
 
     int64_t* Model::Field(const Protocol::ECurrencyType type) noexcept
     {

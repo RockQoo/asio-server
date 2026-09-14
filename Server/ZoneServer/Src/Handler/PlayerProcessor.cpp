@@ -41,18 +41,21 @@ namespace Zone
         PlayerMail::Register(packetDispatcher_);
     }
 
-    void PlayerProcessor::OnPlayerEnter(const Network::SessionId clientSessionId, const uint32_t playerId,
-                                        const uint32_t zoneId, const float x, const float y,
-                                        std::vector<Mail::Info> mails,
-                                        std::vector<std::pair<uint8_t, int64_t>> currencies)
+    void PlayerProcessor::OnPlayerEnter(W2ZEnterZone packet)
     {
+        const auto clientSessionId = packet.state.clientSessionId;
+        const auto zoneId = packet.state.zoneId;
+
         // 핸드오프로 다시 들어온 경우 이미 이 프로세스에 Player가 있을 수 있다. 그때는 우편함을
         // 새로 만들지 않고 위치만 옮긴다 -- 우편함을 다시 만들면 그 사람의 우편이 사라진다.
         auto player = playerRegistry_.Find(clientSessionId);
         if (player)
         {
-            // 같은 프로세스 안에서의 핸드오프(가로 이동)다. 우편함을 새로 만들면 그 사람의
-            // 우편이 사라지므로, 이전 존의 로스터에서 빼고 위치와 소속만 옮긴다.
+            // **같은 프로세스 안에서의 핸드오프(가로 이동)다.** 살아 있는 Player가 권위이므로
+            // 패킷에 실려 온 콘텐츠(packet.mails/currencies)는 쓰지 않는다 -- 그것은 World
+            // 캐시의 사본이고, 아직 World에 도달하지 않은 변경이 있으면 오히려 과거로 되돌린다.
+            // 프로세스를 넘는 이동에서는 World가 W2ZLeaveZone으로 이쪽 Player를 먼저 지우므로
+            // 여기로 오지 않는다.
             const auto previousZoneId = player->GetZoneId();
             if (previousZoneId != zoneId)
             {
@@ -66,32 +69,18 @@ namespace Zone
             }
 
             player->SetZoneId(zoneId);
-            player->Move().Write()->Teleport(x, y);
+            player->Move().Write()->Teleport(packet.state.x, packet.state.y);
         }
         else
         {
             // 신규 입장이거나 **프로세스를 넘는 핸드오프**(세로 이동)다. 둘 다 이 프로세스에는
-            // 그 사람이 없으므로 모델을 새로 만들고, World가 실어 보낸 값으로 채운다 --
-            // 예전에는 무조건 빈 모델(+ 공짜 골드 1000)로 시작했다.
-            //
-            // 주의: World 캐시가 아직 로그인 시점의 DB 스냅샷에서 멈춰 있어서, 존에서 새로
-            // 만든 우편은 프로세스를 넘을 때 여전히 사라진다(ZoneLinkPackets.h 주석 참고).
-            mailRegistry_.Add(clientSessionId);
-            const auto mailBox = mailRegistry_.Find(clientSessionId);
-            if (mailBox && !mails.empty())
-            {
-                mailBox->Write()->Seed(std::move(mails));
-            }
+            // 그 사람이 없으므로 모델을 새로 만든다 -- **시작 상태는 전부 생성자로 들어간다.**
+            // 존은 DB를 직접 읽지 않으므로 이 패킷(=World 캐시)이 유일한 출처다.
+            auto mailBox = mailRegistry_.Add(clientSessionId, std::move(packet.mails));
 
-            player = std::make_shared<Player>(clientSessionId, playerId, zoneId, x, y, mailBox);
-
-            // 재화는 값이라 락 없이 만진다(Player.h의 접근 규칙 참고) -- 아직 이 레인
-            // 바깥으로 나가지 않은 객체다.
-            for (const auto& [type, amount] : currencies)
-            {
-                player->GetWallet().Seed(static_cast<Protocol::ECurrencyType>(type), amount);
-            }
-
+            player = std::make_shared<Player>(clientSessionId, packet.state.playerId, zoneId,
+                                              packet.state.x, packet.state.y,
+                                              std::move(mailBox), packet.currencies);
             playerRegistry_.Add(player);
         }
 

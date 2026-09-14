@@ -13,7 +13,12 @@ namespace Mail
     class Registry
     {
     public:
-        void Add(const Network::SessionId clientSessionId);
+        // 우편함을 만들어 **채워진 상태로** 돌려준다. 만든 뒤 Find로 다시 찾지 않아도 되고,
+        // 무엇보다 "빈 우편함이 레지스트리에 먼저 등록되는" 틈이 없다 -- 그 틈에 만료 스윕이
+        // 돌면 그 사람의 우편이 없는 것으로 보인다.
+        [[nodiscard]] std::shared_ptr<Model::Mutexed> Add(const Network::SessionId clientSessionId,
+                                                          std::vector<Info> initial);
+
         void Remove(const Network::SessionId clientSessionId);
 
         [[nodiscard]] std::shared_ptr<Model::Mutexed> Find(const Network::SessionId clientSessionId) const;
