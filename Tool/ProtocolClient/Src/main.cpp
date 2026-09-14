@@ -18,6 +18,8 @@ namespace
     {
         std::cout <<
             "명령어:\n"
+            "  login <아이디> <비밀번호>  - C2WLogin 전송. **이걸 통과해야 아래 게임 패킷이 존으로 간다**\n"
+            "                    (계정이 없으면 서버가 그 자리에서 만든다. 시드 계정: tester1~4 / 0000)\n"
             "  echo <문자열>   - Echo 패킷 전송, 그대로 되돌아오는지 확인\n"
             "  move <x> <y>    - Move 패킷 전송, 같은 존에 브로드캐스트됨(본인도 수신).\n"
             "                    x가 10 이상/미만 경계를 넘으면 서버가 조용히 다른 존으로 핸드오프한다\n"
@@ -35,6 +37,19 @@ namespace
     {
         const auto frame = Packet::BuildFrame(packetId, payload);
         asio::write(socket, asio::buffer(frame));
+    }
+
+    // C2WLogin은 **이 대역만 World가 끝점**이라 존으로 넘어가지 않는다(PacketId.h 참고).
+    // 통과하기 전에 보낸 게임 패킷은 World가 버리므로, 접속 직후 가장 먼저 보내야 한다.
+    void SendLogin(asio::ip::tcp::socket& socket, const std::string_view playerName,
+                   const std::string_view password)
+    {
+        Packet::BinaryWriter writer;
+        writer.WriteString(playerName);
+        writer.WriteString(password);
+        SendPacket(socket, PacketId::C2WLogin, writer.GetBuffer());
+
+        std::cout << "[send] Login id=" << playerName << '\n';
     }
 
     // Z2CTaskResult 하나를 사람이 읽을 수 있게 풀어 찍는다. 실제 게임 클라이언트라면 여기서
@@ -200,6 +215,23 @@ namespace
                     }
                     break;
                 }
+                case PacketId::W2CLogin:
+                {
+                    Packet::BinaryReader reader(payload);
+                    int32_t errorCode{};
+                    int64_t playerId{};
+                    std::string playerName;
+                    if (reader.Read(errorCode) && reader.Read(playerId) && reader.ReadString(playerName))
+                    {
+                        // 실패면 playerId=0에 이름이 비어 온다. 성공이면 곧이어
+                        // Z2CEnterZoneNotify가 따라온다(World가 존 입장까지 진행한다).
+                        std::cout << "[recv] Login " << (errorCode == 0 ? "성공" : "실패")
+                                  << " error=" << errorCode
+                                  << " playerId=" << playerId
+                                  << " name=" << playerName << '\n';
+                    }
+                    break;
+                }
                 case PacketId::W2CNotice:
                 {
                     Packet::BinaryReader reader(payload);
@@ -241,8 +273,32 @@ int main(const int argc, char** argv)
 
     try
     {
-        const std::string host = argc > 1 ? argv[1] : "127.0.0.1";
-        const std::string port = argc > 2 ? argv[2] : "9000";
+        // -- 로 시작하는 옵션은 위치 인자(host/port)와 섞이지 않게 먼저 걷어낸다.
+        //   ProtocolClient.exe [host] [port] [--id=tester1] [--pw=0000]
+        // --id 를 주면 접속 직후 자동으로 로그인까지 보낸다 -- 로그인을 통과해야 존으로
+        // 패킷이 가므로, 스크립트로 굴릴 때 사람이 한 줄 더 치지 않아도 되게 한다.
+        std::vector<std::string> positional;
+        std::string loginName;
+        std::string loginPassword = "0000";
+        for (int32_t index = 1; index < argc; ++index)
+        {
+            const std::string_view arg = argv[index];
+            if (arg.starts_with("--id="))
+            {
+                loginName = arg.substr(5);
+            }
+            else if (arg.starts_with("--pw="))
+            {
+                loginPassword = arg.substr(5);
+            }
+            else if (!arg.starts_with("--"))
+            {
+                positional.emplace_back(arg);
+            }
+        }
+
+        const std::string host = !positional.empty() ? positional[0] : "127.0.0.1";
+        const std::string port = positional.size() > 1 ? positional[1] : "9000";
 
         asio::io_context ioContext;
         asio::ip::tcp::socket socket(ioContext);
@@ -254,6 +310,11 @@ int main(const int argc, char** argv)
 
         std::atomic<bool> running{true};
         std::thread receiveThread([&socket, &running] { ReceiveLoop(socket, running); });
+
+        if (!loginName.empty())
+        {
+            SendLogin(socket, loginName, loginPassword);
+        }
 
         std::string line;
         while (running.load() && std::getline(std::cin, line))
@@ -269,6 +330,20 @@ int main(const int argc, char** argv)
             if (command == "help")
             {
                 PrintHelp();
+            }
+            else if (command == "login")
+            {
+                std::string name;
+                std::string password;
+                iss >> name >> password;
+                if (name.empty() || password.empty())
+                {
+                    std::cout << "사용법: login <아이디> <비밀번호>\n";
+                }
+                else
+                {
+                    SendLogin(socket, name, password);
+                }
             }
             else if (command == "echo")
             {

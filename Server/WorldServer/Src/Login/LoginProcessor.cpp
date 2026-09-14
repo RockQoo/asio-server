@@ -81,7 +81,11 @@ namespace World
         }
 
         // 스코프를 벗어나는 순간 DB 그룹으로 나간다(AutoDbCommand는 소멸자에서 Post한다).
-        AutoDbCommand select(dbPool_, dbGroup_, std::hash<std::string>{}(playerName), false,
+        //
+        // **로그인 경로의 주인은 처음부터 끝까지 clientSessionId다.** 계정을 조회하는 지금은
+        // 아직 playerId를 모르고, 알게 된 뒤에도 바꾸지 않는다 -- 중간에 갈아타면 그 지점부터
+        // 앞 구간과 직렬화가 끊겨서, 같은 세션의 로그인 단계들이 서로 다른 strand에서 겹친다.
+        AutoDbCommand select(dbPool_, dbGroup_, clientSessionId, false,
             [this, gatewaySession, clientSessionId, playerName, password]
             (const bool succeeded, const DbResult& result)
             {
@@ -140,7 +144,7 @@ namespace World
         // SP가 돌려주므로 이 값은 "제안"일 뿐이다.
         const auto requestedPlayerId = Common::Ruid::Create();
 
-        AutoDbCommand upsert(dbPool_, dbGroup_, std::hash<std::string>{}(playerName), true,
+        AutoDbCommand upsert(dbPool_, dbGroup_, clientSessionId, true,
             [this, gatewaySession, clientSessionId, playerName, requestedPlayerId]
             (const bool upsertSucceeded, const DbResult& upsertResult)
             {
@@ -188,9 +192,13 @@ namespace World
                                             const Network::SessionId clientSessionId,
                                             const std::string& playerName, const Common::RUID playerId)
     {
-        // **여기서부터 owner가 playerId다.** 계정이 확정됐으므로 이제 영속 키를 쓸 수 있고,
-        // 이 사람의 이후 DB 작업(UnitOfWork)과 같은 레인으로 묶인다.
-        AutoDbCommand load(dbPool_, dbGroup_, static_cast<uint64_t>(playerId), false,
+        // **여기서도 주인은 clientSessionId다.** playerId를 알게 됐다고 갈아타지 않는다 --
+        // 앞의 조회/가입과 같은 strand에 남아야 로그인 한 건이 한 줄로 처리된다.
+        //
+        // 존 입장 뒤의 DB 작업(UnitOfWork)은 반대로 playerId가 주인이다(ZoneLinkHandler).
+        // 세션이 아니라 계정에 묶이는 일이라 재접속해도 같은 레인을 유지해야 하기 때문이고,
+        // 로그인은 그 세션 안에서만 의미가 있어 기준이 다르다.
+        AutoDbCommand load(dbPool_, dbGroup_, clientSessionId, false,
             [this, gatewaySession, clientSessionId, playerName, playerId]
             (const bool succeeded, const DbResult& result)
             {
