@@ -518,6 +518,13 @@ std::string_view message`로 바꾸고 호출부의 불필요한 `std::move`도 
 그렇다면 sink라 by-value가 맞고(`CoreException(ECoreErrorCode, std::string message)`처럼),
 아니면 `string_view`/`const T&`/`span<const T>`를 쓴다.
 
+**반대 방향도 규칙이다 — 작고 trivially copyable한 타입은 `const T&`가 아니라 `const T` 값으로
+받는다.** `StrongId` 계열 id(`Protocol::PlayerId`/`MailId`/`ZoneId`), enum, `std::span`, 산술
+타입이 여기 해당한다. x64 ABI가 이런 값을 **레지스터로** 넘기므로 복사 비용이 `int64_t`와 같고
+(실측상 명령어가 동일), 참조로 받으면 역참조가 붙는 데다 컴파일러가 aliasing을 배제하지 못해
+값을 다시 읽는다. "클래스니까 `const&`가 싸다"는 **힙을 들고 있거나 사용자 정의 복사 생성자가
+있는 타입**에만 해당한다. 어셈블리 근거: `docs/design/parameter-passing.md`
+
 ## 네임스페이스가 이미 말해주는 접두사는 타입 이름에서 뗀다
 
 `namespace Zone`의 `ZoneServerConfig`는 호출부에서 `Zone::ZoneServerConfig`가 되어 "Zone"을

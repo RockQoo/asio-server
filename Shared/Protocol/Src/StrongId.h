@@ -6,20 +6,13 @@
 
 namespace Protocol
 {
-    // id 하나를 **자기만의 타입**으로 만드는 래퍼. `int64` 별칭을 여러 종류의 id가 나눠 쓰면
-    // 컴파일러가 섞이는 것을 못 막는다 -- 실제로 `enterState.playerId =
-    // static_cast<uint32_t>(clientSessionId)` 같은 코드가 조용히 통과하고 있었다.
+    // id 하나를 **자기만의 타입**으로 만드는 래퍼. 다른 종류의 id 대입/비교와 raw 정수와의
+    // 암묵 변환을 컴파일 에러로 막는다.
     //
-    //   using MailId = StrongId<struct MailIdTag, int64_t>;
-    //   using ZoneId = StrongId<struct ZoneIdTag, uint32_t>;
+    // **복사 생성자·소멸자를 선언하지 말 것**(정의를 클래스 밖에 두는 `= default`도 포함).
+    // trivially copyable이 깨지면 id 전달이 조용히 메모리 경유로 바뀌고 와이어 포맷도 흔들린다.
     //
-    // 태그는 정의하지 않는다(선언만). 실체가 필요 없고, 타입을 가르는 역할만 한다.
-    //
-    // **막는 것**: 다른 종류의 id 대입/비교, raw 정수와의 대입/비교, 암묵 변환.
-    // **여는 것**: 같은 종류끼리 ==/!=/<=>, 해시(맵 키), 생성자, Value()(와이어·DB 경계용).
-    //
-    // `Shared/Core`가 아니라 여기 있는 이유: 이 id들은 Zone/World/클라이언트가 함께 읽고 쓰는
-    // 계약이고, Core는 콘텐츠를 몰라야 하는 라이브러리다(PacketId/TaskKind와 같은 근거).
+    // 설계 근거: docs/design/strong-id.md, docs/design/parameter-passing.md
     template <typename TTag, typename TValue, TValue kInvalidValue = TValue{}>
     class StrongId final
     {
