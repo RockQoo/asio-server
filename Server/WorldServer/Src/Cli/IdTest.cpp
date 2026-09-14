@@ -10,7 +10,7 @@ namespace World
 
     // `WorldServer.exe --idtest <노드번호> <스레드수> <스레드당개수> [random]`
     //
-    // RUIDGenerator가 다중 스레드 경합에서도 중복 없는 id를 만드는지, 그리고 그 id가
+    // RuidGenerator가 다중 스레드 경합에서도 중복 없는 id를 만드는지, 그리고 그 id가
     // 클러스터 인덱스에 순차 삽입되는지 확인한다.
     //
     // **프로세스를 여러 개 띄워 쓴다.** 한 프로세스에서 노드 번호를 바꿔가며 흉내 내지 않는
@@ -21,7 +21,7 @@ namespace World
                                     const size_t threadCount, const size_t perThread,
                                     const bool randomMode)
     {
-        Common::RUIDGenerator::Instance().Initialize(nodeId);
+        Common::Ruid::Init(nodeId);
 
         const size_t total = threadCount * perThread;
         std::cout << "[idtest] node=" << nodeId << " threads=" << threadCount
@@ -101,7 +101,7 @@ namespace World
                         {
                             bucket.push_back(randomMode
                                 ? distribution(randomEngine)
-                                : Common::RUIDGenerator::Instance().Next());
+                                : Common::Ruid::Create());
                         }
                     });
                 }
@@ -183,6 +183,15 @@ namespace World
                   << (hasDuplicate ? "  메모리 중복검사 FAIL" : "  메모리 중복검사 PASS") << "\n";
         std::cout << "[idtest] DB 삽입 " << insertUs / 1000 << "ms ("
                   << perSecond(total, insertUs) << "/초)\n";
+
+        // 생성기의 건강 지표. **부하를 몰아주면 여기가 0이 아닌 게 정상이다** -- 이 테스트는
+        // 최대 속도로 뽑는 합성 부하라 시퀀스 상한(ms당 4,096개)에 닿는다. 실제 서버는 로그인
+        // 1회와 UnitOfWork 1건당 1개라 두 자릿수 배수만큼 아래에서 논다.
+        // clockRollback 이 0이 아니면 그건 부하와 무관하고 시스템 시계를 의심해야 한다.
+        const auto health = Common::Ruid::GetHealth();
+        std::cout << "[idtest] Health 시퀀스소진 " << health.sequenceExhaustedCount
+                  << ", 시계역행 " << health.clockRollbackCount
+                  << " (최대 " << health.maxRollbackMs << "ms)\n";
 
         return (hasDuplicate || !rowCountMatched) ? EXIT_FAILURE : EXIT_SUCCESS;
     }

@@ -131,7 +131,7 @@ int main(const int argc, char* argv[])
         {
             minZoneId = def.zoneId < minZoneId ? def.zoneId : minZoneId;
         }
-        Common::RUIDGenerator::Instance().Initialize(Common::kNodeIdZoneBegin + minZoneId);
+        Common::Ruid::Init(Common::kNodeIdZoneBegin + minZoneId);
     }
 
     if (zones.empty())

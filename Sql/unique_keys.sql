@@ -126,7 +126,7 @@ GO
 -- 직접 확인한다(이 파일 헤더의 확인 항목 1번이 원래 그 방법이다).
 --
 -- 노드 번호로 거르는 이유는 여러 프로세스가 같은 테이블에 동시에 넣기 때문이다 -- 전체 행 수로는
--- 어느 프로세스 몫인지 가릴 수 없다. 비트 배치(시퀀스 14비트 / 노드 8비트)를 SQL 이 복제하는
+-- 어느 프로세스 몫인지 가릴 수 없다. 비트 배치(시퀀스 12비트 / 노드 10비트)를 SQL 이 복제하는
 -- 셈이라, C++ 쪽 RUID 비트를 바꾸면 여기도 같이 고쳐야 한다.
 -- -----------------------------------------------------------------------------
 CREATE OR ALTER PROCEDURE [dbo].[usp_unique_keys_count_by_node]
@@ -146,7 +146,7 @@ BEGIN
 
         SELECT COUNT_BIG(*) AS row_count
           FROM dbo.id_tests WITH(NOLOCK)
-         WHERE (id / 16384) % 256 = @node_id;
+         WHERE (id / 4096) % 1024 = @node_id;
 
         IF @is_trans_outside = 0 COMMIT TRANSACTION;
     END TRY

@@ -7,17 +7,17 @@
 -- -----------------------------------------------------------------------------
 -- player_id 를 T-SQL 에서 만드는 방법과 그게 안전한 이유
 -- -----------------------------------------------------------------------------
--- 스키마상 player_id 는 IDENTITY 가 아니라 Common::RUIDGenerator 가 발급하는 값이다.
+-- 스키마상 player_id 는 IDENTITY 가 아니라 Common::Ruid 가 발급하는 값이다.
 -- 시드는 서버를 거치지 않으므로 여기서 같은 비트 배치를 직접 조립한다.
 --
---   [시각 41비트][노드 8비트][시퀀스 14비트]   ->  (ms << 22) | (node << 14) | seq
+--   [시각 41비트][노드 10비트][시퀀스 12비트]  ->  (ms << 22) | (node << 12) | seq
 --
 -- **노드 번호 254 를 쓴다.** 254 는 시드/도구 전용으로 예약돼 있어서(RUID.h 대역표)
 -- 실행 중인 어느 프로세스도 쓰지 않는다. 그래서 시드가 만든 id 와 서버가 실제로 발급한 id 는
 -- **시각이 겹쳐도 충돌하지 않는다** -- 노드 칸이 다르기 때문이다.
 --
--- 시퀀스는 14비트(16,384)라 한 밀리초에 그 이상은 못 담는다. 그래서 16,384개마다 밀리초를
--- 1 올린다(아래 n / 16384).
+-- 시퀀스는 12비트(4,096)라 한 밀리초에 그 이상은 못 담는다. 그래서 4,096개마다 밀리초를
+-- 1 올린다(아래 n / 4096).
 --
 -- -----------------------------------------------------------------------------
 -- 비밀번호는 전부 0000 (개발 전용)
@@ -33,10 +33,10 @@
 SET NOCOUNT ON;
 GO
 
--- RUID 비트 배치 상수. 2^22 = 4194304 (노드 8비트 + 시퀀스 14비트), 2^14 = 16384.
+-- RUID 비트 배치 상수. 2^22 = 4194304 (노드 10비트 + 시퀀스 12비트), 2^12 = 4096.
 DECLARE @hash      NVARCHAR(255) =
     N'1000.Bw4VHCMqMTg/Rk1UW2JpcA==.blkrC5KZy5okhw2ctnjQq3O1De5yzdJWA06yzeMPvFI=';
-DECLARE @nodeShift BIGINT = 16384;
+DECLARE @nodeShift BIGINT = 4096;
 DECLARE @timeShift BIGINT = 4194304;
 DECLARE @seedNode  BIGINT = 254;
 DECLARE @baseMs    BIGINT = DATEDIFF_BIG(millisecond, '2026-01-01T00:00:00', SYSUTCDATETIME());
@@ -47,7 +47,7 @@ DECLARE @baseMs    BIGINT = DATEDIFF_BIG(millisecond, '2026-01-01T00:00:00', SYS
 -- Client(MonoGame)는 창을 여러 개 띄워 브로드캐스트와 핸드오프를 보므로 최소 2개가 필요하다.
 -- 4개면 존 2x2 격자에 하나씩 배치해 볼 수 있다.
 INSERT INTO dbo.players (player_id, player_name, password_hash)
-SELECT ((@baseMs + (v.n / 16384)) * @timeShift) + (@seedNode * @nodeShift) + (v.n % 16384),
+SELECT ((@baseMs + (v.n / 4096)) * @timeShift) + (@seedNode * @nodeShift) + (v.n % 4096),
        v.name, @hash
   FROM (VALUES (0, N'tester1'), (1, N'tester2'), (2, N'tester3'), (3, N'tester4')) AS v(n, name)
  WHERE NOT EXISTS (SELECT 1 FROM dbo.players p WITH(NOLOCK) WHERE p.player_name = v.name);
@@ -62,7 +62,7 @@ GO
 -- 재귀 CTE 로 행을 만든다. MAXRECURSION 0 은 재귀 깊이 제한(기본 100)을 푸는 것이라 필수다.
 DECLARE @seedHash  NVARCHAR(255) =
     N'1000.Bw4VHCMqMTg/Rk1UW2JpcA==.blkrC5KZy5okhw2ctnjQq3O1De5yzdJWA06yzeMPvFI=';
-DECLARE @nodeShift2 BIGINT = 16384;
+DECLARE @nodeShift2 BIGINT = 4096;
 DECLARE @timeShift2 BIGINT = 4194304;
 DECLARE @seedNode2  BIGINT = 254;
 -- 위 tester 계정과 겹치지 않도록 밀리초를 넉넉히 띄운다.
@@ -75,7 +75,7 @@ WITH numbers AS
     SELECT n + 1 FROM numbers WHERE n < 20000
 )
 INSERT INTO dbo.players (player_id, player_name, password_hash)
-SELECT ((@baseMs2 + (v.n / 16384)) * @timeShift2) + (@seedNode2 * @nodeShift2) + (v.n % 16384),
+SELECT ((@baseMs2 + (v.n / 4096)) * @timeShift2) + (@seedNode2 * @nodeShift2) + (v.n % 4096),
        v.name, @seedHash
   FROM (SELECT n, N'stress_' + RIGHT(N'00000' + CAST(n AS NVARCHAR(10)), 5) AS name
           FROM numbers) AS v
@@ -103,5 +103,5 @@ UNION ALL
 SELECT 'currencies', CAST(COUNT(*) AS NVARCHAR(20)) FROM dbo.currencies WITH(NOLOCK)
 UNION ALL
 SELECT 'non_seed_node', CAST(COUNT(*) AS NVARCHAR(20)) FROM dbo.players WITH(NOLOCK)
- WHERE (player_id / 16384) % 256 <> 254;
+ WHERE (player_id / 4096) % 1024 <> 254;
 GO

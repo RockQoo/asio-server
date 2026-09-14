@@ -138,7 +138,7 @@ namespace World
         // playerId는 DB의 IDENTITY가 아니라 여기서 발급한다(cpp-patterns.md의 RUID 절).
         // 같은 이름으로 동시에 첫 로그인이 들어오면 한쪽만 INSERT되고, 그때 실제로 확정된 값은
         // SP가 돌려주므로 이 값은 "제안"일 뿐이다.
-        const auto requestedPlayerId = Common::RUIDGenerator::Instance().Next();
+        const auto requestedPlayerId = Common::Ruid::Create();
 
         AutoDbCommand upsert(dbPool_, dbGroup_, std::hash<std::string>{}(playerName), true,
             [this, gatewaySession, clientSessionId, playerName, requestedPlayerId]

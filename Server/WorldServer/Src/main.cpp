@@ -15,13 +15,6 @@ int main(const int argc, char* argv[])
     // 봐야 할 때만 ELogLevel::Debug로 바꿔서 실행할 것.
     Log::Logger::Instance().Initialize("logs/world_server.log", Log::ELogLevel::Info);
 
-    // 노드 번호는 World 대역(1~99)의 첫 번호를 쓴다. World를 여러 대로 늘리면 2, 3...으로
-    // 주면 되고, Zone 대역(100~)과 겹치지 않는다(RUID.h의 대역표 참고).
-    //
-    // 지금 World가 발급하는 id는 로그인 때 만드는 playerId 정도지만, 존이 실어 보낸 값을
-    // 그대로 쓰는 경로(UnitOfWork)와 섞이므로 노드 번호는 처음부터 제대로 잡아둔다.
-    Common::RUIDGenerator::Instance().Initialize(Common::kNodeIdWorldBegin);
-
     try
     {
         // argv[1] 이 --dbcheck/--idtest 같은 모드 스위치일 수 있으므로 -- 로 시작하면 건너뛴다.
@@ -56,6 +49,16 @@ int main(const int argc, char* argv[])
 
             return World::RunIdTest(config.dbConnectionString, nodeId, threadCount, perThread, randomMode);
         }
+
+        // 노드 번호는 World 대역(1~99)의 첫 번호를 쓴다. World를 여러 대로 늘리면 2, 3...으로
+        // 주면 되고, Zone 대역(100~)과 겹치지 않는다(RUID.h의 대역표 참고).
+        //
+        // 지금 World가 발급하는 id는 로그인 때 만드는 playerId 정도지만, 존이 실어 보낸 값을
+        // 그대로 쓰는 경로(UnitOfWork)와 섞이므로 노드 번호는 처음부터 제대로 잡아둔다.
+        //
+        // **--idtest 분기보다 뒤에 있어야 한다.** 그 모드는 인자로 받은 노드 번호로 자기가
+        // 초기화하는데, 여기서 먼저 잡아버리면 두 번째 호출이 되어 Ruid::Init이 중단시킨다.
+        Common::Ruid::Init(Common::kNodeIdWorldBegin);
 
         World::App app(std::move(config));
 

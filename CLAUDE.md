@@ -265,7 +265,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Processor::Group<TId>` | 큐 그룹 = asio `io_context` + 스레드 N개 + `strand` N개. `Post(id, work)`는 남는 스레드, `Post(id, ownerId, work)`는 `ownerId % N` strand로 직렬화 |
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
-| | `Common::RUIDGenerator` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 8 + 시퀀스 14비트). 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
+| | `Common::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
 | `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 로그인 때 읽은 우편·재화 캐시도 들고 있다 |
 | | `Login::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **레인을 네 번 갈아타고 도중에 주인이 바뀐다**(이름 해시 → `playerId`) |
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |

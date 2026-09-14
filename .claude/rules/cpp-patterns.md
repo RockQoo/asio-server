@@ -179,10 +179,17 @@ template <typename E> requires std::is_enum_v<E>
 `main(const int argc, ...)`, asio 콜백처럼 언어/라이브러리가 정확히 `int`를 강제하는 자리는
 그대로 둔다.
 
-## 식별자는 무조건 `Common::RUIDGenerator`로 발급한다
+## 식별자는 무조건 `Common::Ruid`로 발급한다
 
-**새로 만드는 id는 예외 없이 `Common::RUIDGenerator::Instance().Next()`로 받는다.**
+**새로 만드는 id는 예외 없이 `Common::Ruid::Create()`로 받는다.**
 `playerId`, `mailId`처럼 DB에 영구히 남는 것은 물론이고, 새 콘텐츠의 id도 마찬가지다.
+
+프로세스 기동 시 `Common::Ruid::Init(nodeId)`를 **정확히 한 번** 부른다 — 예약값(0)이거나
+비트 폭을 넘거나 **두 번째 호출이면 그 자리에서 중단한다**(재초기화는 시퀀스를 0으로 되돌려
+이미 나간 id를 다시 내준다). `--idtest`처럼 자기 노드 번호로 초기화하는 모드가 있으면
+기동 경로의 `Init`이 그 분기보다 **뒤에** 있어야 한다.
+
+한 프로세스에서 여러 노드를 흉내 내야 하는 테스트만 `Common::RuidGenerator`를 직접 만든다.
 
 금지하는 것들과 이유:
 
@@ -193,7 +200,7 @@ template <typename E> requires std::is_enum_v<E>
 | `GUID`/무작위 | 클러스터드 인덱스 키로 쓰면 삽입이 인덱스 중간에 꽂혀 페이지 분할과 단편화가 난다 |
 | 시각만 쓰기 | 같은 밀리초에 두 개가 나오면 겹친다 |
 
-`RUID`는 **시각(41비트) + 노드(8비트) + 시퀀스(14비트)** 라 위 네 가지를 한 번에 푼다 —
+`RUID`는 **시각(41비트) + 노드(10비트) + 시퀀스(12비트)** 라 위 네 가지를 한 번에 푼다 —
 프로세스가 재시작해도 시각이 앞으로만 가고, 노드 번호가 프로세스를 가르고, 시퀀스가 같은
 밀리초 안을 가른다. 그리고 시각이 상위 비트라 **id가 시간순으로 커져서** 클러스터드 인덱스에
 append-only로 쌓인다.
@@ -395,13 +402,13 @@ class Instance
 
 ```cpp
 UniqueId           ->  RUID
-UniqueIdGenerator  ->  RUIDGenerator
+UniqueIdGenerator  ->  RuidGenerator (프로세스 전역 진입점은 Ruid)
 kInvalidUniqueId   ->  kInvalidRUID
 ```
 
 **언제 붙이나**: 직접 설계한 기반 타입이고, 이름만 보면 표준 라이브러리나 남의 것으로
 오해할 수 있을 때. `RUID`가 그런 경우다 — GUID/UUID와 쓰임은 비슷하지만 구조도 보장도
-전혀 다른(시각 41 + 노드 8 + 시퀀스 14비트) **이 프로젝트 고유의 것**이라, 이름이
+전혀 다른(시각 41 + 노드 10 + 시퀀스 12비트) **이 프로젝트 고유의 것**이라, 이름이
 `UniqueId`면 "어디서 가져온 표준 유틸"로 읽힌다.
 
 **언제 안 붙이나**: 콘텐츠 타입(`Mail::Model`, `Zone::Instance`)과 인프라 타입

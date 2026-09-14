@@ -6,8 +6,8 @@
 --
 -- 노드 번호와 시퀀스는 **컬럼이 아니라 id 비트에서 역산**한다. 별도 컬럼으로 받아 두면
 -- "그 컬럼에 넣은 값"을 검증하는 셈이 되어, 정작 id 안에 제대로 들어갔는지를 확인하지 못한다.
---   node     = (id / 16384) % 256      -- 시퀀스 14비트를 버리고 노드 8비트만
---   sequence = id % 16384
+--   node     = (id / 4096) % 1024     -- 시퀀스 12비트를 버리고 노드 10비트만
+--   sequence = id % 4096
 -- =============================================================================
 
 SET NOCOUNT ON;
@@ -18,9 +18,9 @@ SELECT COUNT(*) AS total_rows, COUNT(DISTINCT id) AS distinct_ids
 
 PRINT '';
 PRINT '--- 2) 노드별 분배 (프로세스가 실제로 다른 노드 번호를 썼는가) ---';
-SELECT (id / 16384) % 256 AS node_id, COUNT(*) AS cnt
+SELECT (id / 4096) % 1024 AS node_id, COUNT(*) AS cnt
   FROM dbo.id_tests WITH(NOLOCK)
- GROUP BY (id / 16384) % 256
+ GROUP BY (id / 4096) % 1024
  ORDER BY node_id;
 
 PRINT '';

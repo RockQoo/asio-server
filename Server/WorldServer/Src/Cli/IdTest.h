@@ -4,7 +4,7 @@ namespace World
 {
     // `WorldServer.exe --idtest <노드번호> <스레드수> <스레드당개수> [random]` 진입점.
     //
-    // RUIDGenerator 가 다중 스레드 경합에서도 중복 없는 id를 만드는지, 그리고 그 id가
+    // RuidGenerator 가 다중 스레드 경합에서도 중복 없는 id를 만드는지, 그리고 그 id가
     // 클러스터 인덱스에 순차 삽입되는지 확인한다. 측정 결과는 docs/design/unique-id.md.
     //
     // **프로세스를 여러 개 띄워 쓴다.** 한 프로세스에서 노드 번호를 바꿔가며 흉내 내지 않는

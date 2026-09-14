@@ -91,12 +91,12 @@ RETURN 코드</code></pre>
     적용 순서는 FK 때문에 <code>players</code>가 먼저다.
 </div>
 
-<h2>모든 id는 RUIDGenerator가 발급한다</h2>
+<h2>모든 id는 Ruid가 발급한다</h2>
 <div class="panel">
 <code>IDENTITY</code>를 쓰지 않는다. 서버가 메모리에서 먼저 확정하고 클라이언트에 응답한 뒤
 DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에 담을 id가 없다</b>.
 
-<pre><code>RUID = [ 시각 41비트 ][ 노드 8비트 ][ 시퀀스 14비트 ]  (int64)</code></pre>
+<pre><code>RUID = [ 시각 41비트 ][ 노드 10비트 ][ 시퀀스 12비트 ]  (int64)</code></pre>
 
 전역 유일이라 <code>mail_id</code> 하나로 PK가 서고, 시간순으로 커져서 클러스터 인덱스
 뒤쪽에 쌓인다. 다만 실측해보니 <b>"재배치가 없다"는 발급 노드가 하나일 때만</b> 성립한다 —

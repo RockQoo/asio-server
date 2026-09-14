@@ -12,7 +12,7 @@ namespace Zone
 {
     UnitOfWork::UnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
                                    const uint32_t playerId, const PacketId requestPacketId)
-        : Task::UnitOfWork(clientSessionId, Common::RUIDGenerator::Instance().Next())
+        : Task::UnitOfWork(clientSessionId, Common::Ruid::Create())
         , worldLink_(worldLink)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
@@ -22,7 +22,7 @@ namespace Zone
 
     UnitOfWork::UnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
                                    const uint32_t playerId)
-        : Task::UnitOfWork(clientSessionId, Common::RUIDGenerator::Instance().Next())
+        : Task::UnitOfWork(clientSessionId, Common::Ruid::Create())
         , worldLink_(worldLink)
         , clientSessionId_(clientSessionId)
         , playerId_(playerId)
