@@ -48,18 +48,22 @@ namespace World
             switch (subTask)
             {
             case Protocol::EMailTask::Added:
-                playerManager.Write()->AddMail(clientSessionId,
-                                               MailInfo{mailId, title, body, sendUt, endUt});
-                // mailId는 존이 이미 확정한 RUID다 -- DB의 IDENTITY를 기다리지 않으므로
-                // 클라이언트는 벌써 이 id로 우편을 들고 있다(cpp-patterns.md의 RUID 절).
-                autoDbCommand.Add(DbCommand{"dbo.usp_mails_upsert",
-                    {mailId.Value(), playerId.Value(), std::move(title), std::move(body), sendUt, endUt}});
+                {
+                    playerManager.Write()->AddMail(clientSessionId,
+                                                   MailInfo{mailId, title, body, sendUt, endUt});
+                    // mailId는 존이 이미 확정한 RUID다 -- DB의 IDENTITY를 기다리지 않으므로
+                    // 클라이언트는 벌써 이 id로 우편을 들고 있다(cpp-patterns.md의 RUID 절).
+                    autoDbCommand.Add(DbCommand{"dbo.usp_mails_upsert",
+                        {mailId.Value(), playerId.Value(), std::move(title), std::move(body), sendUt, endUt}});
+                }
                 break;
 
             case Protocol::EMailTask::Removed:
-                playerManager.Write()->RemoveMail(clientSessionId, mailId);
-                // 행을 지우지 않고 삭제 시각만 남긴다(Sql/mails.sql의 규칙 5).
-                autoDbCommand.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
+                {
+                    playerManager.Write()->RemoveMail(clientSessionId, mailId);
+                    // 행을 지우지 않고 삭제 시각만 남긴다(Sql/mails.sql의 규칙 5).
+                    autoDbCommand.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
+                }
                 break;
 
             default:

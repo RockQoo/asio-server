@@ -254,6 +254,56 @@ template <typename E> requires std::is_enum_v<E>
 일반 enum 금지. **원소 적은 enum은 `uint8_t`가 기본**(`Log::ELogLevel`), **에러 코드처럼 계속
 늘어나는 enum은 `int32_t`**(`Common::ECoreErrorCode`/`Protocol::EErrorCode`, `uint8_t`는 256개로 부족).
 
+## `switch` 케이스는 스코프로 감싸고 `break`를 중괄호에 맞춘다
+
+**본문이 두 문장 이상이거나 변수를 선언하면 `{ }`로 감싸고, `break;`는 여는 중괄호와 같은
+열에 둔다.**
+
+```cpp
+switch (subTask)
+{
+case Protocol::EMailTask::Added:
+    {
+        playerManager.Write()->AddMail(clientSessionId, MailInfo{mailId, title, body, sendUt, endUt});
+        autoDbCommand.Add(DbCommand{"dbo.usp_mails_upsert", {mailId.Value(), ...}});
+    }
+    break;
+
+case Protocol::EMailTask::Removed:
+    {
+        playerManager.Write()->RemoveMail(clientSessionId, mailId);
+        autoDbCommand.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
+    }
+    break;
+}
+```
+
+### 예외 -- 한 문장이면 감싸지 않는다
+
+`ToString()`류 매핑 switch가 대표적이다. 감싸면 오히려 한 줄짜리 대응표가 안 보인다.
+
+```cpp
+switch (category)
+{
+case ELogCategory::General: return "General";
+case ELogCategory::Client:  return "Client";
+case ELogCategory::World:   return "World";
+}
+return "Unknown";
+```
+
+여러 줄에 걸치더라도 **문장이 하나면** 그대로 둔다(줄 수가 아니라 문장 수로 판단한다) --
+`LOG.Warning(...).KV(...).KV(...);` 한 줄짜리 체인이 두 줄로 접힌 경우가 그렇다.
+
+### 왜
+
+- **`case` 라벨은 스코프를 만들지 않는다.** 감싸지 않으면 한 case에서 선언한 변수가 뒤 case까지
+  살아 있고, 초기화를 건너뛰는 경로가 생기면 `C2360`으로 막힌다. 미리 감싸두면 이 부류의
+  에러가 아예 생기지 않는다.
+- **`break;`를 중괄호 밖에 두면 case의 끝이 보인다.** 안에 넣으면 `}` 바로 위에 묻혀서, case가
+  길어졌을 때 fallthrough인지 아닌지를 눈으로 확인하기 어렵다. 밖에 두면 `}`와 `break;`가
+  같은 열에 서서 블록의 끝과 case의 끝이 한눈에 갈린다.
+
 ## `int` 대신 `int32_t`/`int64_t`
 
 크기 불명확한 `int`/`long` 대신 고정폭 정수(네트워크/직렬화 값은 특히). **예외**: `int main()`,

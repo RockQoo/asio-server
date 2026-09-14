@@ -177,77 +177,85 @@ namespace
                 switch (static_cast<PacketId>(header.id))
                 {
                 case PacketId::Z2CEnterZoneNotify:
-                {
-                    Zone::EnterZoneNotifyPacket notify{};
-                    if (payload.size() >= sizeof(notify))
                     {
-                        std::memcpy(&notify, payload.data(), sizeof(notify));
-                        std::cout << "[recv] EnterZoneNotify playerId=" << notify.playerId.Value()
-                                  << " sessionId=" << notify.clientSessionId
-                                  << " zoneId=" << notify.zoneId.Value() << '\n';
+                        Zone::EnterZoneNotifyPacket notify{};
+                        if (payload.size() >= sizeof(notify))
+                        {
+                            std::memcpy(&notify, payload.data(), sizeof(notify));
+                            std::cout << "[recv] EnterZoneNotify playerId=" << notify.playerId.Value()
+                                      << " sessionId=" << notify.clientSessionId
+                                      << " zoneId=" << notify.zoneId.Value() << '\n';
+                        }
                     }
                     break;
-                }
+
                 case PacketId::Z2CEchoAck:
-                {
-                    const std::string text(reinterpret_cast<const char*>(payload.data()), payload.size());
-                    std::cout << "[recv] EchoAck: " << text << '\n';
+                    {
+                        const std::string text(reinterpret_cast<const char*>(payload.data()), payload.size());
+                        std::cout << "[recv] EchoAck: " << text << '\n';
+                    }
                     break;
-                }
+
                 case PacketId::Z2CMoveNotify:
-                {
-                    // 요청(C2ZMove)과 달리 브로드캐스트에는 sessionId가 앞에 붙는다.
-                    Packet::BinaryReader binaryReader(payload);
-                    uint32_t moverId{};
-                    Zone::MovePacket move{};
-                    if (binaryReader.Read(moverId) && binaryReader.Read(move))
                     {
-                        std::cout << "[recv] MoveNotify from " << moverId
-                                  << " x=" << move.x << " y=" << move.y << '\n';
+                        // 요청(C2ZMove)과 달리 브로드캐스트에는 sessionId가 앞에 붙는다.
+                        Packet::BinaryReader binaryReader(payload);
+                        uint32_t moverId{};
+                        Zone::MovePacket move{};
+                        if (binaryReader.Read(moverId) && binaryReader.Read(move))
+                        {
+                            std::cout << "[recv] MoveNotify from " << moverId
+                                      << " x=" << move.x << " y=" << move.y << '\n';
+                        }
                     }
                     break;
-                }
+
                 case PacketId::Z2CChatNotify:
-                {
-                    Packet::BinaryReader binaryReader(payload);
-                    uint32_t senderId{};
-                    std::string message;
-                    if (binaryReader.Read(senderId) && binaryReader.ReadString(message))
                     {
-                        std::cout << "[recv] Chat from " << senderId << ": " << message << '\n';
+                        Packet::BinaryReader binaryReader(payload);
+                        uint32_t senderId{};
+                        std::string message;
+                        if (binaryReader.Read(senderId) && binaryReader.ReadString(message))
+                        {
+                            std::cout << "[recv] Chat from " << senderId << ": " << message << '\n';
+                        }
                     }
                     break;
-                }
+
                 case PacketId::W2CLogin:
-                {
-                    Packet::BinaryReader binaryReader(payload);
-                    int32_t errorCode{};
-                    int64_t playerId{};
-                    std::string playerName;
-                    if (binaryReader.Read(errorCode) && binaryReader.Read(playerId) && binaryReader.ReadString(playerName))
                     {
-                        // 실패면 playerId=0에 이름이 비어 온다. 성공이면 곧이어
-                        // Z2CEnterZoneNotify가 따라온다(World가 존 입장까지 진행한다).
-                        std::cout << "[recv] Login " << (errorCode == 0 ? "성공" : "실패")
-                                  << " error=" << errorCode
-                                  << " playerId=" << playerId
-                                  << " name=" << playerName << '\n';
+                        Packet::BinaryReader binaryReader(payload);
+                        int32_t errorCode{};
+                        int64_t playerId{};
+                        std::string playerName;
+                        if (binaryReader.Read(errorCode) && binaryReader.Read(playerId)
+                            && binaryReader.ReadString(playerName))
+                        {
+                            // 실패면 playerId=0에 이름이 비어 온다. 성공이면 곧이어
+                            // Z2CEnterZoneNotify가 따라온다(World가 존 입장까지 진행한다).
+                            std::cout << "[recv] Login " << (errorCode == 0 ? "성공" : "실패")
+                                      << " error=" << errorCode
+                                      << " playerId=" << playerId
+                                      << " name=" << playerName << '\n';
+                        }
                     }
                     break;
-                }
+
                 case PacketId::W2CNotice:
-                {
-                    Packet::BinaryReader binaryReader(payload);
-                    std::string message;
-                    if (binaryReader.ReadString(message))
                     {
-                        std::cout << "[recv] Notice(WorldServer 직접 브로드캐스트): " << message << '\n';
+                        Packet::BinaryReader binaryReader(payload);
+                        std::string message;
+                        if (binaryReader.ReadString(message))
+                        {
+                            std::cout << "[recv] Notice(WorldServer 직접 브로드캐스트): " << message << '\n';
+                        }
                     }
                     break;
-                }
+
                 case PacketId::Z2CTaskResult:
                     PrintTaskResult(payload);
                     break;
+
                 default:
                     std::cout << "[recv] 알 수 없는 패킷 id=" << header.id
                               << " size=" << payload.size() << '\n';
