@@ -26,7 +26,7 @@ namespace World
 
     void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, const int64_t playerId,
                                          std::string playerName,
-                                         std::unordered_map<uint32_t, MailInfo> mails,
+                                         std::unordered_map<Common::RUID, MailInfo> mails,
                                          std::unordered_map<uint8_t, int64_t> currencies)
     {
         const auto it = players_.find(clientSessionId);

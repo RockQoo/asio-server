@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
 
@@ -12,7 +13,10 @@ namespace Mail
 {
     struct Info
     {
-        uint32_t mailId{};
+        // **전역 유일한 RUID다.** 예전에는 우편함마다 1부터 세는 지역 카운터였는데, 그러면
+        // 플레이어끼리 같은 값이 나오고 프로세스를 넘는 핸드오프에서 1부터 다시 시작한다 --
+        // DB의 mail_id가 단독 PK(Sql/mails.sql)라 그대로는 쓸 수 없었다.
+        Common::RUID mailId{};
         std::string title;
         std::string body;
         int64_t sendUt{};
@@ -49,27 +53,23 @@ namespace Mail
         // AddMail은 id를 새로 배정해버려서 원래 id를 복원할 수 없다.
         [[nodiscard]] EErrorCode InsertMail(Info info, Task::UnitOfWork& unitOfWork);
 
-        [[nodiscard]] EErrorCode DelMail(const uint32_t mailId, Task::UnitOfWork& unitOfWork,
+        [[nodiscard]] EErrorCode DelMail(const Common::RUID mailId, Task::UnitOfWork& unitOfWork,
                                          const bool isTimeout);
 
         // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.
-        [[nodiscard]] std::vector<uint32_t> TakeExpiredMailIds(const int64_t nowUt) const;
+        [[nodiscard]] std::vector<Common::RUID> TakeExpiredMailIds(const int64_t nowUt) const;
 
         // World가 DB에서 읽어 실어 보낸 우편으로 **시작 상태를 채운다**(W2ZEnterZone).
         //
         // **InsertMail이 아니라 별도 경로인 이유**: InsertMail은 UnitOfWork에 태스크를 남긴다.
         // 적재는 "변경"이 아니라 시작 상태라, 그 경로로 넣으면 방금 DB에서 읽은 것을 도로
         // DB에 쓰고 클라이언트에도 "우편이 추가됐다"고 통지하게 된다.
-        //
-        // **nextMailId_를 실린 것들보다 뒤로 밀어둔다** -- 안 그러면 이 존에서 새로 만드는
-        // 우편이 이미 있는 id와 겹쳐 AddMail이 MailAlreadyExists로 튕긴다.
         void Seed(std::vector<Info> initial);
 
     private:
         [[nodiscard]] std::shared_ptr<Mutexed> LockSelf() const;
 
         std::weak_ptr<Mutexed> self_;
-        uint32_t nextMailId_{1};
-        std::unordered_map<uint32_t, Info> mails_;
+        std::unordered_map<Common::RUID, Info> mails_;
     };
 }

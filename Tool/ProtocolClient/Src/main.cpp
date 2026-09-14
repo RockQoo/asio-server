@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Core/Src/Packet/Buffer.h"
@@ -128,7 +129,7 @@ namespace
             }
 
             Packet::BinaryReader mailReader(*taskPayload);
-            uint32_t mailId{};
+            Common::RUID mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};
@@ -398,7 +399,7 @@ int main(const int argc, char** argv)
                 }
                 else if (sub == "del")
                 {
-                    uint32_t mailId{};
+                    Common::RUID mailId{};
                     iss >> mailId;
                     SendPacket(socket, PacketId::C2ZMailDel,
                                std::as_bytes(std::span(&mailId, 1)));

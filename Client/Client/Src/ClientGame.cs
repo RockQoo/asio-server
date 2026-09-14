@@ -671,7 +671,7 @@ public sealed class ClientGame : Game
             case MailAction.Delete:
             {
                 var writer = new BinaryPacketWriter();
-                writer.WriteUInt32(request.MailId);
+                writer.WriteInt64(request.MailId);
                 link_.Send(PacketId.C2ZMailDel, writer);
                 break;
             }

@@ -27,7 +27,7 @@ public enum PacketId : ushort
     /// <summary>C2Z: title/body/durationSec. 결과는 <see cref="Z2CTaskResult"/>로 돌아온다.</summary>
     C2ZMailAdd = 4,
 
-    /// <summary>C2Z: mailId(uint32). 결과는 <see cref="Z2CTaskResult"/>로 돌아온다.</summary>
+    /// <summary>C2Z: mailId(int64 RUID). 결과는 <see cref="Z2CTaskResult"/>로 돌아온다.</summary>
     C2ZMailDel = 5,
 
     /// <summary>Z2C: <see cref="C2ZEcho"/>의 응답. 본문은 보낸 바이트 그대로(길이 접두 없음).</summary>

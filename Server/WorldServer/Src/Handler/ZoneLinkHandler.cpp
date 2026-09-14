@@ -24,7 +24,7 @@ namespace World
                            const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader reader(taskPayload);
-            uint32_t mailId{};
+            Common::RUID mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};

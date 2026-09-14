@@ -40,7 +40,7 @@ namespace World
     // 이어진다. 존은 이걸 받아 Mail/Currency 모델을 채운 상태로 Player 를 만든다.
     //
     //   uint16  mailCount
-    //     반복: uint32 mailId, string title, string body, int64 sendUt, int64 endUt
+    //     반복: int64 mailId(RUID), string title, string body, int64 sendUt, int64 endUt
     //   uint16  currencyCount
     //     반복: uint8 currencyType, int64 amount
     //

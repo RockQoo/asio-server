@@ -40,7 +40,7 @@ public sealed class RemotePlayer
 }
 
 /// <summary>우편함의 우편 한 통. 서버 <c>Mail::Info</c>와 필드가 1:1로 같다.</summary>
-public sealed record MailEntry(uint MailId, string Title, string Body, long SendUt, long EndUt);
+public sealed record MailEntry(long MailId, string Title, string Body, long SendUt, long EndUt);
 
 /// <summary>채팅/시스템 로그 한 줄.</summary>
 public sealed record ChatLine(string Text, ChatLineKind Kind);
@@ -443,7 +443,7 @@ public sealed class WorldModel
         // Mail 태스크 페이로드는 추가/삭제가 같은 포맷이다(원본 전체) — 서버가 삭제 태스크에도
         // 지워진 내용을 통째로 싣는 이유는 실패 시 되살리기(롤백)에 그게 필요하기 때문이다.
         var reader = new BinaryPacketReader(taskPayload);
-        if (!reader.TryReadUInt32(out var mailId)
+        if (!reader.TryReadInt64(out var mailId)
             || !reader.TryReadString(out var title)
             || !reader.TryReadString(out var body)
             || !reader.TryReadInt64(out var sendUt)

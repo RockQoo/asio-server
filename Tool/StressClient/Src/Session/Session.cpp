@@ -15,7 +15,7 @@ namespace Stress
         // Z2CTaskResult에 실려 온 UnitOfWork 태스크 스트림에서 원하는 Mail 태스크의 mailId를
         // 꺼낸다. 스트림 포맷은 Shared/Core/Src/Task/UnitOfWork.h 주석 참고 --
         // 부하 도구라 첫 번째로 맞는 태스크 하나만 보면 충분하다.
-        [[nodiscard]] std::optional<uint32_t> FindMailTaskId(const std::span<const byte> stream,
+        [[nodiscard]] std::optional<Common::RUID> FindMailTaskId(const std::span<const byte> stream,
                                                              const Protocol::EMailTask subTask)
         {
             Packet::BinaryReader reader(stream);
@@ -48,7 +48,7 @@ namespace Stress
                 }
 
                 Packet::BinaryReader mailReader(*taskPayload);
-                uint32_t mailId{};
+                Common::RUID mailId{};
                 if (!mailReader.Read(mailId))
                 {
                     return std::nullopt;
@@ -284,7 +284,7 @@ namespace Stress
         MarkProgress();
     }
 
-    void Session::SendMailDel(const uint32_t mailId)
+    void Session::SendMailDel(const Common::RUID mailId)
     {
         if (!session_)
         {

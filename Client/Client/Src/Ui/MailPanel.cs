@@ -12,7 +12,7 @@ public enum MailAction
 
 /// <summary>이번 프레임에 사용자가 요청한 우편 동작. 실제 전송은 소켓을 든 쪽이 한다.</summary>
 public readonly record struct MailRequest(
-    MailAction Action, string Title, string Body, long DurationSec, uint MailId)
+    MailAction Action, string Title, string Body, long DurationSec, long MailId)
 {
     public static readonly MailRequest None = new(MailAction.None, string.Empty, string.Empty, 0, 0);
 }
@@ -154,7 +154,7 @@ public sealed class MailPanel
     }
 
     /// <summary>목록을 그리고, 삭제 버튼이 눌린 mailId를 돌려준다(없으면 0).</summary>
-    private uint DrawList(Painter painter, InputState input, WorldModel world, Rectangle listRect,
+    private long DrawList(Painter painter, InputState input, WorldModel world, Rectangle listRect,
                           long nowUt)
     {
         painter.FillRect(listRect, new Color(8, 10, 16, 200));
@@ -179,7 +179,7 @@ public sealed class MailPanel
             return 0;
         }
 
-        uint deleteId = 0;
+        long deleteId = 0;
         for (var slot = 0; slot < visibleRows; ++slot)
         {
             var index = slot + scrollOffset_;

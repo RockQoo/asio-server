@@ -223,7 +223,7 @@ namespace World
         }
 
         // 결과 집합 순서는 usp_players_load의 SELECT 순서와 같은 계약이다(그 SP 주석 참고).
-        std::unordered_map<uint32_t, MailInfo> mails;
+        std::unordered_map<Common::RUID, MailInfo> mails;
         for (const auto& row : SetAt(result, 0))
         {
             const auto mailId = GetInt64(row, 0);
@@ -239,10 +239,7 @@ namespace World
                 return;
             }
 
-            // mail_id는 DB가 BIGINT인데 와이어와 Zone의 Mail::Info는 아직 uint32다
-            // (PROGRESS.md 1-B의 7번에서 같이 넓힐 대상).
-            const auto narrowId = static_cast<uint32_t>(*mailId);
-            mails.emplace(narrowId, MailInfo{narrowId, *title, *body, *sendUt, *endUt});
+            mails.emplace(*mailId, MailInfo{*mailId, *title, *body, *sendUt, *endUt});
         }
 
         std::unordered_map<uint8_t, int64_t> currencies;
@@ -284,7 +281,7 @@ namespace World
     void LoginProcessor::PostSuccess(const std::shared_ptr<Network::Session>& gatewaySession,
                                       const Network::SessionId clientSessionId, const std::string& playerName,
                                       const Common::RUID playerId,
-                                      std::unordered_map<uint32_t, MailInfo> mails,
+                                      std::unordered_map<Common::RUID, MailInfo> mails,
                                       std::unordered_map<uint8_t, int64_t> currencies)
     {
         basicGroup_.Post(EProcessorId::Login, clientSessionId,
@@ -299,7 +296,7 @@ namespace World
     void LoginProcessor::CompleteLogin(const std::shared_ptr<Network::Session>& gatewaySession,
                                         const Network::SessionId clientSessionId, const std::string& playerName,
                                         const Common::RUID playerId,
-                                        std::unordered_map<uint32_t, MailInfo> mails,
+                                        std::unordered_map<Common::RUID, MailInfo> mails,
                                         std::unordered_map<uint8_t, int64_t> currencies)
     {
         // DB를 다녀오는 동안 접속이 끊겼을 수 있다. 그러면 등록이 이미 지워져 있다.

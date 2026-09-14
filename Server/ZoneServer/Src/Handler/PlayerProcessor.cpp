@@ -225,7 +225,7 @@ namespace Zone
         UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailDel);
 
-        uint32_t mailId{};
+        Common::RUID mailId{};
         if (payload.size() < sizeof(mailId))
         {
             unitOfWork.SetError(EErrorCode::InvalidPayload);

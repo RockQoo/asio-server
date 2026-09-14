@@ -365,7 +365,7 @@ namespace World
             return;
         }
 
-        // 존이 기대하는 MailDel 본문은 mailId(uint32) 하나다(Instance::HandleMailDel).
+        // 존이 기대하는 MailDel 본문은 mailId(int64 RUID) 하나다(Instance::HandleMailDel).
         Packet::BinaryWriter mailWriter;
         mailWriter.Write(request.mailId);
 

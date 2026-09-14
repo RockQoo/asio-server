@@ -81,7 +81,7 @@ public sealed class GmCommandLogEntry
     public string CommandKind { get; init; } = string.Empty;
     public byte TargetKind { get; init; }
     public ulong ClientSessionId { get; init; }
-    public uint MailId { get; init; }
+    public long MailId { get; init; }
     public string Title { get; init; } = string.Empty;
     public string Body { get; init; } = string.Empty;
     public long DurationSec { get; init; }

@@ -307,7 +307,7 @@ public sealed record NoticeRequest(string Message);
 
 public sealed record MailSendRequest(ulong? ClientSessionId, string Title, string? Body, long DurationSec);
 
-public sealed record MailDeleteRequest(ulong ClientSessionId, uint MailId);
+public sealed record MailDeleteRequest(ulong ClientSessionId, long MailId);
 
 public sealed record CampaignCreateRequest(
     string? CampaignCode,

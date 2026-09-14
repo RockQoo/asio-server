@@ -77,7 +77,7 @@ public sealed class GameCommandService
     }
 
     public async Task<ToolCommandResult> DeleteMailAsync(
-        ulong operatorId, ulong clientSessionId, uint mailId, CancellationToken cancellationToken = default)
+        ulong operatorId, ulong clientSessionId, long mailId, CancellationToken cancellationToken = default)
     {
         var result = await worldLink_.DeleteMailAsync(clientSessionId, mailId, cancellationToken)
             .ConfigureAwait(false);

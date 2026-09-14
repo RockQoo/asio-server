@@ -1,4 +1,5 @@
 #pragma once
+#include "Shared/Core/Src/Common/RUID.h"
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Stats/LatencyHistogram.h"
@@ -11,8 +12,8 @@ namespace Stress
     {
         Network::SessionId sessionId{};
         uint32_t cycleIndex{};
-        uint32_t expectedMailId{};
-        uint32_t actualMailId{};
+        Common::RUID expectedMailId{};
+        Common::RUID actualMailId{};
         std::string reason;
     };
 
@@ -53,7 +54,7 @@ namespace Stress
         void RecordCycleLatency(const uint64_t latencyUs) noexcept { cycleRtt_.Record(latencyUs); }
 
         void RecordMismatch(const Network::SessionId sessionId, const uint32_t cycleIndex,
-                             const uint32_t expectedMailId, const uint32_t actualMailId, std::string reason);
+                             const Common::RUID expectedMailId, const Common::RUID actualMailId, std::string reason);
         void RecordStalled(const Network::SessionId sessionId);
         void ClearStalled(const Network::SessionId sessionId);
 

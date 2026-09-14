@@ -103,14 +103,14 @@ public sealed class WorldLinkClient : BackgroundService
 
     /// <summary>특정 클라이언트의 우편 1건을 삭제한다.</summary>
     public Task<ToolCommandResult> DeleteMailAsync(
-        ulong clientSessionId, uint mailId, CancellationToken cancellationToken = default)
+        ulong clientSessionId, long mailId, CancellationToken cancellationToken = default)
     {
         return SendCommandAsync(PacketId.T2WMailDelete, (writer, requestId) =>
         {
-            // ToolMailDeleteRequestPacket: requestId(u32) + clientSessionId(u64) + mailId(u32)
+            // ToolMailDeleteRequestPacket: requestId(u32) + clientSessionId(u64) + mailId(i64 RUID)
             writer.WriteUInt32(requestId);
             writer.WriteUInt64(clientSessionId);
-            writer.WriteUInt32(mailId);
+            writer.WriteInt64(mailId);
         }, cancellationToken);
     }
 

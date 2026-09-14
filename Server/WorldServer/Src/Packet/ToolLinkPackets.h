@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Core/Src/Common/RUID.h"
+
 namespace World
 {
     // 운영툴 링크의 고정 레이아웃 페이로드들. 가변 길이(문자열이 섞인) 패킷은 구조체를 두지
@@ -24,7 +26,7 @@ namespace World
     {
         uint32_t requestId;
         uint64_t clientSessionId;
-        uint32_t mailId;
+        Common::RUID mailId;
     };
 
     struct ToolClientListPacket

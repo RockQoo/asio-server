@@ -13,9 +13,10 @@ namespace Mail
 
     EErrorCode Model::AddMail(Info info, Task::UnitOfWork& unitOfWork)
     {
-        // id를 먼저 소비하지 않고 후보만 본다 -- 실패로 끝나는 요청이 id를 하나씩 태우면
-        // 롤백해도 그 구멍은 되돌아오지 않는다.
-        const auto mailId = nextMailId_;
+        // 전역 유일이라 이미 있는 id가 나올 수 없다. 그래도 확인하는 건 **여기서 걸리면
+        // 발급기가 고장 났다는 신호**이기 때문이다 -- 조용히 덮어쓰면 남의 우편이 사라진다.
+        // 실패한 요청이 id를 하나 태우는 건 신경 쓰지 않는다(RUID는 ms당 4,096개다).
+        const auto mailId = Common::Ruid::Create();
         if (mails_.contains(mailId))
         {
             return EErrorCode::MailAlreadyExists;
@@ -25,7 +26,6 @@ namespace Mail
 
         auto task = std::make_unique<AddMailTask>(LockSelf(), info);
 
-        ++nextMailId_;
         mails_[mailId] = std::move(info);
 
         // 상태를 바꾼 뒤에만 기록한다 -- 태스크 목록이 곧 "실제로 적용된 변경"이어야 역순
@@ -45,20 +45,13 @@ namespace Mail
 
         auto task = std::make_unique<AddMailTask>(LockSelf(), info);
 
-        // nextMailId_를 되살린 id 뒤로 밀어둔다 -- 롤백으로 되살아난 우편의 id를 나중에 AddMail이
-        // 다시 배정해버리면 같은 id가 두 번 존재하게 된다.
-        if (mailId >= nextMailId_)
-        {
-            nextMailId_ = mailId + 1;
-        }
-
         mails_[mailId] = std::move(info);
         unitOfWork.AddTask(std::move(task));
 
         return EErrorCode::Success;
     }
 
-    EErrorCode Model::DelMail(const uint32_t mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
+    EErrorCode Model::DelMail(const Common::RUID mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
     {
         const auto it = mails_.find(mailId);
         if (it == mails_.end())
@@ -76,9 +69,9 @@ namespace Mail
         return EErrorCode::Success;
     }
 
-    std::vector<uint32_t> Model::TakeExpiredMailIds(const int64_t nowUt) const
+    std::vector<Common::RUID> Model::TakeExpiredMailIds(const int64_t nowUt) const
     {
-        std::vector<uint32_t> expired;
+        std::vector<Common::RUID> expired;
         for (const auto& [mailId, info] : mails_)
         {
             if (info.endUt <= nowUt)
@@ -93,12 +86,6 @@ namespace Mail
     {
         for (auto& info : initial)
         {
-            // 새로 발급할 id가 실린 것들보다 항상 뒤에 오게 밀어둔다(헤더 주석 참고).
-            if (info.mailId >= nextMailId_)
-            {
-                nextMailId_ = info.mailId + 1;
-            }
-
             const auto mailId = info.mailId;
             mails_.insert_or_assign(mailId, std::move(info));
         }
