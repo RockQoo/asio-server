@@ -79,11 +79,11 @@ namespace Zone
             return;
         }
 
-        Packet::BinaryWriter writer;
-        writer.Write(playerId_);
-        writer.Write(GetRequestId());
-        writer.WriteBytes(stream);
-        worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(playerId_);
+        binaryWriter.Write(GetRequestId());
+        binaryWriter.WriteBytes(stream);
+        worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, binaryWriter.GetBuffer());
     }
 
     void UnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<const byte> stream) const
@@ -94,14 +94,14 @@ namespace Zone
             return;
         }
 
-        Packet::BinaryWriter inner;
-        inner.Write(errorCode);
-        inner.Write(requestPacketId_);
+        Packet::BinaryWriter innerBinaryWriter;
+        innerBinaryWriter.Write(errorCode);
+        innerBinaryWriter.Write(requestPacketId_);
 
         // requestId를 태스크 스트림 밖에 두는 이유: 실패하면 스트림이 비어서 안에 넣으면
         // 클라이언트가 실패한 요청을 짝지을 수 없다. 성공/실패 어느 쪽이든 여기 실린다.
-        inner.Write(GetRequestId());
-        inner.WriteBytes(stream);
+        innerBinaryWriter.Write(GetRequestId());
+        innerBinaryWriter.WriteBytes(stream);
 
         // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다
         // (Instance::SendToPlayer와 같은 경로).
@@ -109,9 +109,9 @@ namespace Zone
         header.clientSessionId = clientSessionId_;
         header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CTaskResult);
 
-        Packet::BinaryWriter writer;
-        writer.Write(header);
-        writer.WriteBytes(inner.GetBuffer());
-        worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(header);
+        binaryWriter.WriteBytes(innerBinaryWriter.GetBuffer());
+        worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 }

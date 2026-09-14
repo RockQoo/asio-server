@@ -48,10 +48,10 @@ namespace World
     void LoginProcessor::HandleLogin(const std::shared_ptr<Network::Session>& gatewaySession,
                                      const Network::SessionId clientSessionId, const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         std::string playerName;
         std::string password;
-        if (!reader.ReadString(playerName) || !reader.ReadString(password))
+        if (!binaryReader.ReadString(playerName) || !binaryReader.ReadString(password))
         {
             SendResult(gatewaySession, clientSessionId, EErrorCode::InvalidPayload, 0, {});
             return;
@@ -85,19 +85,19 @@ namespace World
         // **로그인 경로의 주인은 처음부터 끝까지 clientSessionId다.** 계정을 조회하는 지금은
         // 아직 playerId를 모르고, 알게 된 뒤에도 바꾸지 않는다 -- 중간에 갈아타면 그 지점부터
         // 앞 구간과 직렬화가 끊겨서, 같은 세션의 로그인 단계들이 서로 다른 strand에서 겹친다.
-        AutoDbCommand select(dbPool_, dbGroup_, clientSessionId, false,
+        AutoDbCommand autoDbCommand(dbPool_, dbGroup_, clientSessionId, false,
             [this, gatewaySession, clientSessionId, playerName, password]
-            (const bool succeeded, const DbResult& result)
+            (const bool succeeded, const DbResult& dbResult)
             {
-                OnAccountSelected(gatewaySession, clientSessionId, playerName, password, succeeded, result);
+                OnAccountSelected(gatewaySession, clientSessionId, playerName, password, succeeded, dbResult);
             });
 
-        select.Add(DbCommand{"dbo.usp_players_select", {playerName}});
+        autoDbCommand.Add(DbCommand{"dbo.usp_players_select", {playerName}});
     }
 
     void LoginProcessor::OnAccountSelected(const std::shared_ptr<Network::Session>& gatewaySession,
                                            const Network::SessionId clientSessionId, const std::string& playerName,
-                                           const std::string& password, const bool succeeded, const DbResult& result)
+                                           const std::string& password, const bool succeeded, const DbResult& dbResult)
     {
         if (!succeeded)
         {
@@ -107,7 +107,7 @@ namespace World
 
         // 계정이 있다 -- 비밀번호를 **서버에서** 비교한다. SP에서 하면 평문이 와이어와 DB 로그에
         // 남는다(Sql/players.sql의 usp_players_select 주석).
-        if (const auto* const row = FirstRow(result); row != nullptr)
+        if (const auto* const row = FirstRow(dbResult); row != nullptr)
         {
             const auto playerId = GetInt64(*row, 0);
             const auto storedHash = GetString(*row, 2);
@@ -144,7 +144,7 @@ namespace World
         // SP가 돌려주므로 이 값은 "제안"일 뿐이다.
         const auto requestedPlayerId = Common::Ruid::Create();
 
-        AutoDbCommand upsert(dbPool_, dbGroup_, clientSessionId, true,
+        AutoDbCommand autoDbCommand(dbPool_, dbGroup_, clientSessionId, true,
             [this, gatewaySession, clientSessionId, playerName, requestedPlayerId]
             (const bool upsertSucceeded, const DbResult& upsertResult)
             {
@@ -152,13 +152,13 @@ namespace World
                                  upsertSucceeded, upsertResult);
             });
 
-        upsert.Add(DbCommand{"dbo.usp_players_upsert", {requestedPlayerId, playerName, storedHash}});
+        autoDbCommand.Add(DbCommand{"dbo.usp_players_upsert", {requestedPlayerId, playerName, storedHash}});
     }
 
     void LoginProcessor::OnAccountCreated(const std::shared_ptr<Network::Session>& gatewaySession,
                                            const Network::SessionId clientSessionId, const std::string& playerName,
                                            const Common::RUID requestedPlayerId, const bool succeeded,
-                                           const DbResult& result)
+                                           const DbResult& dbResult)
     {
         if (!succeeded)
         {
@@ -168,7 +168,7 @@ namespace World
 
         // **SP가 돌려준 값을 쓴다.** 동시 첫 로그인에서 진 쪽은 자기가 발급한 id가 들어가지
         // 않았으므로, 제안값을 그대로 쓰면 존재하지 않는 playerId로 게임을 시작하게 된다.
-        const auto* const row = FirstRow(result);
+        const auto* const row = FirstRow(dbResult);
         const auto confirmedPlayerId = row != nullptr ? GetInt64(*row, 0) : std::nullopt;
         if (!confirmedPlayerId)
         {
@@ -198,20 +198,20 @@ namespace World
         // 존 입장 뒤의 DB 작업(UnitOfWork)은 반대로 playerId가 주인이다(ZoneLinkHandler).
         // 세션이 아니라 계정에 묶이는 일이라 재접속해도 같은 레인을 유지해야 하기 때문이고,
         // 로그인은 그 세션 안에서만 의미가 있어 기준이 다르다.
-        AutoDbCommand load(dbPool_, dbGroup_, clientSessionId, false,
+        AutoDbCommand autoDbCommand(dbPool_, dbGroup_, clientSessionId, false,
             [this, gatewaySession, clientSessionId, playerName, playerId]
-            (const bool succeeded, const DbResult& result)
+            (const bool succeeded, const DbResult& dbResult)
             {
-                OnPlayerLoaded(gatewaySession, clientSessionId, playerName, playerId, succeeded, result);
+                OnPlayerLoaded(gatewaySession, clientSessionId, playerName, playerId, succeeded, dbResult);
             });
 
-        load.Add(DbCommand{"dbo.usp_players_load", {playerId}});
+        autoDbCommand.Add(DbCommand{"dbo.usp_players_load", {playerId}});
     }
 
     void LoginProcessor::OnPlayerLoaded(const std::shared_ptr<Network::Session>& gatewaySession,
                                          const Network::SessionId clientSessionId,
                                          const std::string& playerName, const Common::RUID playerId,
-                                         const bool succeeded, const DbResult& result)
+                                         const bool succeeded, const DbResult& dbResult)
     {
         if (!succeeded)
         {
@@ -224,7 +224,7 @@ namespace World
 
         // 결과 집합 순서는 usp_players_load의 SELECT 순서와 같은 계약이다(그 SP 주석 참고).
         std::unordered_map<Common::RUID, MailInfo> mails;
-        for (const auto& row : SetAt(result, 0))
+        for (const auto& row : SetAt(dbResult, 0))
         {
             const auto mailId = GetInt64(row, 0);
             const auto title = GetString(row, 1);
@@ -243,7 +243,7 @@ namespace World
         }
 
         std::unordered_map<uint8_t, int64_t> currencies;
-        for (const auto& row : SetAt(result, 1))
+        for (const auto& row : SetAt(dbResult, 1))
         {
             const auto type = GetInt64(row, 0);
             const auto amount = GetInt64(row, 1);
@@ -332,10 +332,10 @@ namespace World
 
         // 캐시를 채우고 인증을 확정한다. 쓰기 락을 두 번 잡지 않도록 한 번에 묶는다.
         {
-            auto writer = playerManager_.Write();
-            writer->SetAuthenticated(clientSessionId, playerId, playerName,
+            auto writeProxy = playerManager_.Write();
+            writeProxy->SetAuthenticated(clientSessionId, playerId, playerName,
                                      std::move(mails), std::move(currencies));
-            writer->SetZone(clientSessionId, entry->zoneId);
+            writeProxy->SetZone(clientSessionId, entry->zoneId);
         }
 
         // 결과를 먼저 보낸다 -- 클라이언트가 로딩 화면으로 넘어간 뒤에 존 입장 통지를 받는
@@ -358,12 +358,12 @@ namespace World
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(PacketId::W2CLogin);
 
-        Packet::BinaryWriter writer;
-        writer.Write(header);
-        writer.Write(static_cast<int32_t>(errorCode));
-        writer.Write(playerId);
-        writer.WriteString(playerName);
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(header);
+        binaryWriter.Write(static_cast<int32_t>(errorCode));
+        binaryWriter.Write(playerId);
+        binaryWriter.WriteString(playerName);
 
-        gatewaySession->SendPacket(PacketId::W2GRelay, writer.GetBuffer());
+        gatewaySession->SendPacket(PacketId::W2GRelay, binaryWriter.GetBuffer());
     }
 }

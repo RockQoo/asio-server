@@ -50,10 +50,10 @@ namespace Gateway
         envelopeHeader.clientSessionId = session->Id();
         envelopeHeader.innerPacketId = header.id;
 
-        Packet::BinaryWriter writer;
-        writer.Write(envelopeHeader);
-        writer.WriteBytes(payload);
-        worldSession->SendPacket(PacketId::G2WRelay, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(envelopeHeader);
+        binaryWriter.WriteBytes(payload);
+        worldSession->SendPacket(PacketId::G2WRelay, binaryWriter.GetBuffer());
     }
 
     void ClientLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)

@@ -119,10 +119,10 @@ namespace Zone
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEnterZoneNotify);
 
-        Packet::BinaryWriter writer;
-        writer.Write(header);
-        writer.Write(notify);
-        worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(header);
+        binaryWriter.Write(notify);
+        worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
     void Instance::RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,

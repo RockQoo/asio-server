@@ -29,9 +29,9 @@ namespace World
                     message.erase(0, 1);
                 }
 
-                Packet::BinaryWriter writer;
-                writer.WriteString(message);
-                app.BroadcastToAll(PacketId::W2CNotice, writer.GetBuffer());
+                Packet::BinaryWriter binaryWriter;
+                binaryWriter.WriteString(message);
+                app.BroadcastToAll(PacketId::W2CNotice, binaryWriter.GetBuffer());
                 std::cout << "[notice 전송] " << message << "\n";
             }
             else if (command == "quit" || command == "exit")

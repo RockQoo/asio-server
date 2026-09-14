@@ -35,7 +35,7 @@ namespace Task
         [[nodiscard]] virtual uint16_t Kind() const noexcept = 0;
 
         // 성공했을 때만 불린다 -- 여기 쓴 바이트가 그대로 World와 클라이언트로 나간다.
-        virtual void Serialize(Packet::BinaryWriter& writer) const = 0;
+        virtual void Serialize(Packet::BinaryWriter& binaryWriter) const = 0;
 
         // 실패했을 때 기록의 역순으로 불린다. sink는 전송 기능이 없는 UnitOfWork라 되돌리는
         // 과정에서 쌓인 태스크가 조용히 버려진다 -- 그래서 롤백 전용 함수를 따로 만들지 않고

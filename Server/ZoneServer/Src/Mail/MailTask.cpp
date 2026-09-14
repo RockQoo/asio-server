@@ -11,13 +11,13 @@ namespace Mail
     {
         // 추가/삭제 태스크가 같은 포맷(원본 전체)을 쓴다 -- 삭제 태스크에 지워진 내용이 통째로
         // 들어 있어야 롤백(= 되살리기)이 가능하기 때문이다.
-        void WriteMail(Packet::BinaryWriter& writer, const Info& info)
+        void WriteMail(Packet::BinaryWriter& binaryWriter, const Info& info)
         {
-            writer.Write(info.mailId);
-            writer.WriteString(info.title);
-            writer.WriteString(info.body);
-            writer.Write(info.sendUt);
-            writer.Write(info.endUt);
+            binaryWriter.Write(info.mailId);
+            binaryWriter.WriteString(info.title);
+            binaryWriter.WriteString(info.body);
+            binaryWriter.Write(info.sendUt);
+            binaryWriter.Write(info.endUt);
         }
     }
 
@@ -32,9 +32,9 @@ namespace Mail
         return Protocol::MakeTaskKind(Protocol::ETaskCategory::Mail, Protocol::EMailTask::Added);
     }
 
-    void AddMailTask::Serialize(Packet::BinaryWriter& writer) const
+    void AddMailTask::Serialize(Packet::BinaryWriter& binaryWriter) const
     {
-        WriteMail(writer, info_);
+        WriteMail(binaryWriter, info_);
     }
 
     void AddMailTask::Rollback(Task::UnitOfWork& sink) const
@@ -69,9 +69,9 @@ namespace Mail
         return Protocol::MakeTaskKind(Protocol::ETaskCategory::Mail, Protocol::EMailTask::Removed);
     }
 
-    void DelMailTask::Serialize(Packet::BinaryWriter& writer) const
+    void DelMailTask::Serialize(Packet::BinaryWriter& binaryWriter) const
     {
-        WriteMail(writer, info_);
+        WriteMail(binaryWriter, info_);
     }
 
     void DelMailTask::Rollback(Task::UnitOfWork& sink) const

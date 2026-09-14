@@ -13,7 +13,7 @@ namespace World
     //
     // succeeded가 false면 result는 비어 있다. 장애를 콘텐츠가 분기로 처리할 일은 거의 없지만,
     // 로그인처럼 **클라이언트에게 실패를 알려야 하는** 경로가 있어 성공 여부를 넘긴다.
-    using DbCallback = std::function<void(const bool succeeded, const DbResult& result)>;
+    using DbCallback = std::function<void(const bool succeeded, const DbResult& dbResult)>;
 
     // 변경 목록을 모았다가 **스코프를 벗어날 때 한 번에** DB 큐 그룹으로 보내는 RAII 홀더.
     //

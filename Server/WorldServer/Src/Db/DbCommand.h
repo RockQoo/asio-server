@@ -35,16 +35,16 @@ namespace World
 
     // 결과 집합 하나를 꺼낸다. 없으면 비어 있는 것을 돌려주므로 호출부가 인덱스 검사를
     // 반복하지 않아도 된다 -- SP를 고쳐 집합이 줄어들면 "빈 결과"로 흐르지 크래시하지 않는다.
-    [[nodiscard]] inline const DbResultSet& SetAt(const DbResult& result, const size_t index)
+    [[nodiscard]] inline const DbResultSet& SetAt(const DbResult& dbResult, const size_t index)
     {
         static const DbResultSet kEmpty;
-        return index < result.size() ? result[index] : kEmpty;
+        return index < dbResult.size() ? dbResult[index] : kEmpty;
     }
 
     // 결과 집합의 첫 행. 한 행만 나오는 조회(계정 조회 등)를 위한 편의 함수.
-    [[nodiscard]] inline const DbRow* FirstRow(const DbResult& result, const size_t index = 0)
+    [[nodiscard]] inline const DbRow* FirstRow(const DbResult& dbResult, const size_t index = 0)
     {
-        const auto& set = SetAt(result, index);
+        const auto& set = SetAt(dbResult, index);
         return set.empty() ? nullptr : &set.front();
     }
 

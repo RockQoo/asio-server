@@ -109,8 +109,8 @@ namespace World
             if (packetId != PacketId::T2WHello && !IsAuthenticated(session->Id()))
             {
                 uint32_t requestId = 0;
-                Packet::BinaryReader reader(payloadCopy);
-                (void)reader.Read(requestId);
+                Packet::BinaryReader binaryReader(payloadCopy);
+                (void)binaryReader.Read(requestId);
 
                 LOG.Warning(ELogCategory::Tool, "인증 전 운영툴 요청 거절")
                     .KV("SessionId", session->Id()).KV("PacketId", static_cast<uint16_t>(packetId));
@@ -170,23 +170,23 @@ namespace World
         envelopeHeader.clientSessionId = clientSessionId;
         envelopeHeader.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
-        Packet::BinaryWriter writer;
-        writer.Write(envelopeHeader);
-        writer.WriteBytes(innerPayload);
-        zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(envelopeHeader);
+        binaryWriter.WriteBytes(innerPayload);
+        zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, binaryWriter.GetBuffer());
         return true;
     }
 
     void ToolProcessor::HandleHello(const std::shared_ptr<Network::Session>& toolSession,
                                          const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         uint32_t requestId{};
         uint32_t protocolVersion{};
         std::string sharedSecret;
         std::string operatorName;
-        if (!reader.Read(requestId) || !reader.Read(protocolVersion)
-            || !reader.ReadString(sharedSecret) || !reader.ReadString(operatorName))
+        if (!binaryReader.Read(requestId) || !binaryReader.Read(protocolVersion)
+            || !binaryReader.ReadString(sharedSecret) || !binaryReader.ReadString(operatorName))
         {
             LOG.Warning(ELogCategory::Tool, "ToolHello 파싱 실패").KV("SessionId", toolSession->Id());
             SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
@@ -229,18 +229,18 @@ namespace World
     void ToolProcessor::HandleNotice(const std::shared_ptr<Network::Session>& toolSession,
                                              const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         uint32_t requestId{};
         std::string message;
-        if (!reader.Read(requestId) || !reader.ReadString(message) || message.empty())
+        if (!binaryReader.Read(requestId) || !binaryReader.ReadString(message) || message.empty())
         {
             SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
         }
 
-        Packet::BinaryWriter noticeWriter;
-        noticeWriter.WriteString(message);
-        const auto noticePayload = noticeWriter.GetBuffer();
+        Packet::BinaryWriter noticeBinaryWriter;
+        noticeBinaryWriter.WriteString(message);
+        const auto noticePayload = noticeBinaryWriter.GetBuffer();
 
         // **읽기 락 한 번으로 끝난다.** 매니저가 샤딩이던 시절에는 전부 순회할 수 있는
         // 스레드가 없어서 샤드마다 메시지를 던지고 합계를 취합해야 했다(ScatterToShards).
@@ -257,10 +257,10 @@ namespace World
                 envelopeHeader.clientSessionId = clientSessionId;
                 envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
 
-                Packet::BinaryWriter envelopeWriter;
-                envelopeWriter.Write(envelopeHeader);
-                envelopeWriter.WriteBytes(noticePayload);
-                info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeWriter.GetBuffer());
+                Packet::BinaryWriter envelopeBinaryWriter;
+                envelopeBinaryWriter.Write(envelopeHeader);
+                envelopeBinaryWriter.WriteBytes(noticePayload);
+                info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeBinaryWriter.GetBuffer());
                 ++sentCount;
             });
 
@@ -272,15 +272,15 @@ namespace World
     void ToolProcessor::HandleMailSend(const std::shared_ptr<Network::Session>& toolSession,
                                                const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         uint32_t requestId{};
         uint8_t targetKind{};
         uint64_t clientSessionId{};
         std::string title;
         std::string body;
         int64_t durationSec{};
-        if (!reader.Read(requestId) || !reader.Read(targetKind) || !reader.Read(clientSessionId)
-            || !reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
+        if (!binaryReader.Read(requestId) || !binaryReader.Read(targetKind) || !binaryReader.Read(clientSessionId)
+            || !binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec))
         {
             SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
@@ -294,11 +294,11 @@ namespace World
 
         // 존이 기대하는 MailAdd 본문(Instance::HandleMailAdd)과 정확히 같은 순서로 만든다:
         // String(title) + String(body) + durationSec(int64).
-        Packet::BinaryWriter mailWriter;
-        mailWriter.WriteString(title);
-        mailWriter.WriteString(body);
-        mailWriter.Write(durationSec);
-        const auto mailPayload = mailWriter.GetBuffer();
+        Packet::BinaryWriter mailBinaryWriter;
+        mailBinaryWriter.WriteString(title);
+        mailBinaryWriter.WriteString(body);
+        mailBinaryWriter.Write(durationSec);
+        const auto mailPayload = mailBinaryWriter.GetBuffer();
 
         if (targetKind == kMailTargetAllOnline)
         {
@@ -366,11 +366,11 @@ namespace World
         }
 
         // 존이 기대하는 MailDel 본문은 mailId(int64 RUID) 하나다(Instance::HandleMailDel).
-        Packet::BinaryWriter mailWriter;
-        mailWriter.Write(request.mailId);
+        Packet::BinaryWriter mailBinaryWriter;
+        mailBinaryWriter.Write(request.mailId);
 
         if (!InjectClientPacket(request.clientSessionId, PacketId::C2ZMailDel,
-                                mailWriter.GetBuffer()))
+                                mailBinaryWriter.GetBuffer()))
         {
             SendCommandResult(toolSession, request.requestId, EToolResultCode::ZoneUnavailable, 0);
             return;
@@ -388,13 +388,13 @@ namespace World
     void ToolProcessor::HandleCouponChunkPush(const std::shared_ptr<Network::Session>& toolSession,
                                                const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         uint32_t requestId{};
         std::string campaignCode;
         uint32_t chunkSeq{};
         uint32_t couponCount{};
-        if (!reader.Read(requestId) || !reader.ReadString(campaignCode)
-            || !reader.Read(chunkSeq) || !reader.Read(couponCount))
+        if (!binaryReader.Read(requestId) || !binaryReader.ReadString(campaignCode)
+            || !binaryReader.Read(chunkSeq) || !binaryReader.Read(couponCount))
         {
             SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
             return;
@@ -405,7 +405,7 @@ namespace World
         for (uint32_t i = 0; i < couponCount; ++i)
         {
             std::string code;
-            if (!reader.ReadString(code))
+            if (!binaryReader.ReadString(code))
             {
                 SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
                 return;
@@ -469,15 +469,15 @@ namespace World
                 collected.push_back(entry);
             });
 
-        Packet::BinaryWriter writer;
-        writer.Write(request.requestId);
-        writer.Write(static_cast<uint32_t>(collected.size()));
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(request.requestId);
+        binaryWriter.Write(static_cast<uint32_t>(collected.size()));
         for (const auto& entry : collected)
         {
-            writer.Write(entry);
+            binaryWriter.Write(entry);
         }
 
-        toolSession->SendPacket(PacketId::W2TClientList, writer.GetBuffer());
+        toolSession->SendPacket(PacketId::W2TClientList, binaryWriter.GetBuffer());
 
         LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
             .KV("RequestId", request.requestId).KV("Total", totalCount)

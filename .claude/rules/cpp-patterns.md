@@ -138,6 +138,68 @@ move로 넘겼어도) const 가능.
 ODBC `sql.h`의 `SQL_*`/`MAX_*` 수백 개를 더 본다. 충돌하면 치환된 뒤의 코드로 에러가 나서
 메시지가 원인을 안 가리킨다.
 
+## 지역 변수 이름은 타입 이름을 따른다 (역할 이름을 붙이지 않는다)
+
+**클래스 타입의 지역 변수는 그 클래스 이름을 camelCase로 쓴다.** 그 객체가 "무엇에 쓰이는가"를
+이름에 넣지 않는다 — 쓰임은 바로 다음 줄들이 말해준다.
+
+```cpp
+Player player;                         // OK
+UnitOfWork unitOfWork(...);            // OK
+
+AutoDbCommand select(...);             // X -- select 는 SQL 동작이지 이 객체가 아니다
+AutoDbCommand autoDbCommand(...);      // O
+```
+
+**왜**: 역할로 이름을 지으면 같은 타입이 함수마다 다른 이름으로 불린다(`select`/`upsert`/`load`가
+전부 `AutoDbCommand`였다). 그러면 "이 파일에서 AutoDbCommand 를 어디서 쓰나"를 이름으로 찾을 수
+없고, 소멸자에서 일이 끝나는 타입(`AutoDbCommand`/`UnitOfWork`)은 **그 변수가 무엇인지 모르면
+스코프의 끝이 무슨 의미인지도 모른다.**
+
+### 같은 타입이 한 스코프에 여럿이면 구분어를 앞에 붙인다
+
+```cpp
+Packet::BinaryReader reader(payload);          // 그 함수의 기본 대상
+Packet::BinaryReader mailReader(*taskPayload); // 두 번째부터는 무엇을 읽는지 붙인다
+```
+
+접미사가 아니라 **접두사**다 — 정렬했을 때 같은 타입끼리 흩어지지 않는다.
+
+### 예외 — 타입 이름이 문맥에서 무의미할 때
+
+`std::vector<byte> payloadCopy` 처럼 컨테이너/표준 타입은 **담긴 내용**으로 이름 짓는다. 이
+규칙은 이 프로젝트가 정의한 클래스에만 적용한다.
+
+### 예외 — `Common::RUID` (한시적)
+
+`RUID`는 `int64_t` 별칭 하나로 **여러 역할**을 겸한다(`playerId`/`mailId`/`requestId`). 타입이
+역할을 구분해주지 못하므로 여기서는 **역할 이름을 쓴다** — 전부 `ruid`로 부르면 무엇의 id인지
+알 수 없다.
+
+```cpp
+Common::RUID mailId{};      // O -- 타입이 말 못 하는 것을 이름이 말한다
+Common::RUID ruid{};        // X
+```
+
+**이 예외는 한시적이다.** `StrongId<Tag>`(가칭)로 `PlayerId` / `MailId` / `ItemId`를 각각 **다른
+타입**으로 만들 계획이고, 그러면 `MailId mailId;`가 되어 일반 규칙으로 돌아온다. 그 타입의 성질:
+
+- 내부 표현은 `int64`지만 **생성할 때만 값을 넣을 수 있다**(`Ruid::Create()`가 그 자리다)
+- 같은 타입끼리 `==`/`!=` 비교 가능, `std::unordered_map`의 키로 쓸 수 있게 `std::hash` 특수화
+- **`MailId == 100`처럼 raw 정수와는 비교도 대입도 안 된다** — `MailId`에 `PlayerId`를 넣는
+  사고를 컴파일 단계에서 막는 것이 목적이다
+
+### 예외 — 매개변수 타입이 기반 클래스라 실체를 안 말해줄 때
+
+```cpp
+virtual void Rollback(UnitOfWork& sink) const = 0;   // 이름을 unitOfWork 로 바꾸지 않는다
+```
+
+여기 실제로 넘어오는 것은 항상 `RollbackUnitOfWork`(전송 기능이 없는 통)인데 **선언 타입은
+기반 클래스**라 그 사실이 시그니처에 안 드러난다. 이름이 타입보다 많은 것을 말하고 있으므로
+그대로 둔다 — 이 규칙이 막으려는 건 "타입이 이미 말한 것을 이름이 되풀이하지 않는 것"이지,
+타입이 못 말하는 것까지 지우는 게 아니다.
+
 ## 수치 한계값
 
 C 매크로(`UINT32_MAX` 등) 대신 `std::numeric_limits<T>::max()`.

@@ -24,7 +24,7 @@ namespace Currency
                      const int64_t newValue, const int64_t oldValue);
 
         [[nodiscard]] uint16_t Kind() const noexcept override;
-        void Serialize(Packet::BinaryWriter& writer) const override;
+        void Serialize(Packet::BinaryWriter& binaryWriter) const override;
         void Rollback(Task::UnitOfWork& sink) const override;
 
     private:

@@ -34,10 +34,10 @@ namespace Zone
                     header.clientSessionId = clientSessionId;
                     header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
-                    Packet::BinaryWriter writer;
-                    writer.Write(header);
-                    writer.WriteBytes(payload);
-                    worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
+                    Packet::BinaryWriter binaryWriter;
+                    binaryWriter.Write(header);
+                    binaryWriter.WriteBytes(payload);
+                    worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
                 }
             });
     }

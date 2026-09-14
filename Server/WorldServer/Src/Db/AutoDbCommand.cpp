@@ -35,12 +35,12 @@ namespace World
             [&pool = pool_, ownerId = ownerId_, useTransaction = useTransaction_,
              callback = std::move(callback_), commands = std::move(commands_)]
             {
-                DbResult result;
+                DbResult dbResult;
                 bool succeeded = true;
 
                 try
                 {
-                    pool.ForCurrentThread().Execute(commands, useTransaction, &result);
+                    pool.ForCurrentThread().Execute(commands, useTransaction, &dbResult);
                 }
                 catch (const DbException& ex)
                 {
@@ -57,7 +57,7 @@ namespace World
 
                 if (callback)
                 {
-                    callback(succeeded, result);
+                    callback(succeeded, dbResult);
                 }
             });
     }

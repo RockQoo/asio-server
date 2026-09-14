@@ -28,24 +28,24 @@ namespace Task
             return {};
         }
 
-        Packet::BinaryWriter writer;
-        writer.Write(ownerId_);
-        writer.Write(static_cast<uint16_t>(tasks_.size()));
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(ownerId_);
+        binaryWriter.Write(static_cast<uint16_t>(tasks_.size()));
 
         for (const auto& task : tasks_)
         {
             // 태스크마다 따로 직렬화한 뒤 그 길이를 앞에 붙인다 -- 길이를 미리 알 수 없어서
             // 한 버퍼에 이어 쓸 수 없다(BinaryWriter는 되돌아가 덮어쓰지 않는다).
-            Packet::BinaryWriter taskWriter;
-            task->Serialize(taskWriter);
-            const auto& payload = taskWriter.GetBuffer();
+            Packet::BinaryWriter taskBinaryWriter;
+            task->Serialize(taskBinaryWriter);
+            const auto& payload = taskBinaryWriter.GetBuffer();
 
-            writer.Write(task->Kind());
-            writer.Write(static_cast<uint32_t>(payload.size()));
-            writer.WriteBytes(payload);
+            binaryWriter.Write(task->Kind());
+            binaryWriter.Write(static_cast<uint32_t>(payload.size()));
+            binaryWriter.WriteBytes(payload);
         }
 
-        const auto& buffer = writer.GetBuffer();
+        const auto& buffer = binaryWriter.GetBuffer();
         return std::vector<byte>(buffer.begin(), buffer.end());
     }
 
@@ -55,11 +55,11 @@ namespace Task
         {
             // 되돌리는 과정에서 쌓이는 태스크를 받아 버리는 통. 이게 없으면 정상 함수를
             // 재사용할 수 없다(ITask::Rollback 주석 참고).
-            RollbackUnitOfWork sink;
+            RollbackUnitOfWork rollbackUnitOfWork;
 
             for (auto it = tasks_.rbegin(); it != tasks_.rend(); ++it)
             {
-                (*it)->Rollback(sink);
+                (*it)->Rollback(rollbackUnitOfWork);
             }
         }
         catch (const std::exception& ex)

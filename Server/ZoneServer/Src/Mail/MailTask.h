@@ -18,7 +18,7 @@ namespace Mail
         AddMailTask(std::shared_ptr<Model::Mutexed> mailBox, Info info);
 
         [[nodiscard]] uint16_t Kind() const noexcept override;
-        void Serialize(Packet::BinaryWriter& writer) const override;
+        void Serialize(Packet::BinaryWriter& binaryWriter) const override;
         void Rollback(Task::UnitOfWork& sink) const override;
 
     private:
@@ -32,7 +32,7 @@ namespace Mail
         DelMailTask(std::shared_ptr<Model::Mutexed> mailBox, Info info);
 
         [[nodiscard]] uint16_t Kind() const noexcept override;
-        void Serialize(Packet::BinaryWriter& writer) const override;
+        void Serialize(Packet::BinaryWriter& binaryWriter) const override;
         void Rollback(Task::UnitOfWork& sink) const override;
 
     private:

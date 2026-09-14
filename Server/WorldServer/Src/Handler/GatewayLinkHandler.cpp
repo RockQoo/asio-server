@@ -72,9 +72,9 @@ namespace World
     void GatewayLinkHandler::HandleClientConnected(const std::shared_ptr<Network::Session>& gatewaySession,
                                                     const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         Network::SessionId clientSessionId{};
-        if (!reader.Read(clientSessionId))
+        if (!binaryReader.Read(clientSessionId))
         {
             return;
         }
@@ -91,9 +91,9 @@ namespace World
     void GatewayLinkHandler::HandleClientDisconnected(const std::shared_ptr<Network::Session>& /*gatewaySession*/,
                                                        const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         Network::SessionId clientSessionId{};
-        if (!reader.Read(clientSessionId))
+        if (!binaryReader.Read(clientSessionId))
         {
             return;
         }

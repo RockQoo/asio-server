@@ -45,10 +45,10 @@ namespace
     void SendLogin(asio::ip::tcp::socket& socket, const std::string_view playerName,
                    const std::string_view password)
     {
-        Packet::BinaryWriter writer;
-        writer.WriteString(playerName);
-        writer.WriteString(password);
-        SendPacket(socket, PacketId::C2WLogin, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.WriteString(playerName);
+        binaryWriter.WriteString(password);
+        SendPacket(socket, PacketId::C2WLogin, binaryWriter.GetBuffer());
 
         std::cout << "[send] Login id=" << playerName << '\n';
     }
@@ -58,11 +58,11 @@ namespace
     // -- 콘텐츠마다 Ack 패킷을 따로 만들지 않는 이유가 이것이다.
     void PrintTaskResult(const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         int32_t errorCode{};
         uint16_t requestPacketId{};
         int64_t requestId{};
-        if (!reader.Read(errorCode) || !reader.Read(requestPacketId) || !reader.Read(requestId))
+        if (!binaryReader.Read(errorCode) || !binaryReader.Read(requestPacketId) || !binaryReader.Read(requestId))
         {
             return;
         }
@@ -79,7 +79,7 @@ namespace
 
         uint64_t ownerId{};
         uint16_t taskCount{};
-        if (!reader.Read(ownerId) || !reader.Read(taskCount))
+        if (!binaryReader.Read(ownerId) || !binaryReader.Read(taskCount))
         {
             return;
         }
@@ -92,12 +92,12 @@ namespace
         {
             uint16_t kind{};
             uint32_t payloadLen{};
-            if (!reader.Read(kind) || !reader.Read(payloadLen))
+            if (!binaryReader.Read(kind) || !binaryReader.Read(payloadLen))
             {
                 return;
             }
 
-            const auto taskPayload = reader.ReadBytes(payloadLen);
+            const auto taskPayload = binaryReader.ReadBytes(payloadLen);
             if (!taskPayload)
             {
                 return;
@@ -105,12 +105,12 @@ namespace
 
             if (Protocol::CategoryOf(kind) == Protocol::ETaskCategory::Currency)
             {
-                Packet::BinaryReader currencyReader(*taskPayload);
+                Packet::BinaryReader currencyBinaryReader(*taskPayload);
                 uint8_t currencyType{};
                 int64_t newValue{};
                 int64_t oldValue{};
-                if (!currencyReader.Read(currencyType) || !currencyReader.Read(newValue)
-                    || !currencyReader.Read(oldValue))
+                if (!currencyBinaryReader.Read(currencyType) || !currencyBinaryReader.Read(newValue)
+                    || !currencyBinaryReader.Read(oldValue))
                 {
                     continue;
                 }
@@ -128,14 +128,14 @@ namespace
                 continue;
             }
 
-            Packet::BinaryReader mailReader(*taskPayload);
+            Packet::BinaryReader mailBinaryReader(*taskPayload);
             Common::RUID mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};
             int64_t endUt{};
-            if (!mailReader.Read(mailId) || !mailReader.ReadString(title) || !mailReader.ReadString(body)
-                || !mailReader.Read(sendUt) || !mailReader.Read(endUt))
+            if (!mailBinaryReader.Read(mailId) || !mailBinaryReader.ReadString(title) || !mailBinaryReader.ReadString(body)
+                || !mailBinaryReader.Read(sendUt) || !mailBinaryReader.Read(endUt))
             {
                 continue;
             }
@@ -195,10 +195,10 @@ namespace
                 case PacketId::Z2CMoveNotify:
                 {
                     // 요청(C2ZMove)과 달리 브로드캐스트에는 sessionId가 앞에 붙는다.
-                    Packet::BinaryReader reader(payload);
+                    Packet::BinaryReader binaryReader(payload);
                     uint32_t moverId{};
                     Zone::MovePacket move{};
-                    if (reader.Read(moverId) && reader.Read(move))
+                    if (binaryReader.Read(moverId) && binaryReader.Read(move))
                     {
                         std::cout << "[recv] MoveNotify from " << moverId
                                   << " x=" << move.x << " y=" << move.y << '\n';
@@ -207,10 +207,10 @@ namespace
                 }
                 case PacketId::Z2CChatNotify:
                 {
-                    Packet::BinaryReader reader(payload);
+                    Packet::BinaryReader binaryReader(payload);
                     uint32_t senderId{};
                     std::string message;
-                    if (reader.Read(senderId) && reader.ReadString(message))
+                    if (binaryReader.Read(senderId) && binaryReader.ReadString(message))
                     {
                         std::cout << "[recv] Chat from " << senderId << ": " << message << '\n';
                     }
@@ -218,11 +218,11 @@ namespace
                 }
                 case PacketId::W2CLogin:
                 {
-                    Packet::BinaryReader reader(payload);
+                    Packet::BinaryReader binaryReader(payload);
                     int32_t errorCode{};
                     int64_t playerId{};
                     std::string playerName;
-                    if (reader.Read(errorCode) && reader.Read(playerId) && reader.ReadString(playerName))
+                    if (binaryReader.Read(errorCode) && binaryReader.Read(playerId) && binaryReader.ReadString(playerName))
                     {
                         // 실패면 playerId=0에 이름이 비어 온다. 성공이면 곧이어
                         // Z2CEnterZoneNotify가 따라온다(World가 존 입장까지 진행한다).
@@ -235,9 +235,9 @@ namespace
                 }
                 case PacketId::W2CNotice:
                 {
-                    Packet::BinaryReader reader(payload);
+                    Packet::BinaryReader binaryReader(payload);
                     std::string message;
-                    if (reader.ReadString(message))
+                    if (binaryReader.ReadString(message))
                     {
                         std::cout << "[recv] Notice(WorldServer 직접 브로드캐스트): " << message << '\n';
                     }
@@ -361,9 +361,9 @@ int main(const int argc, char** argv)
             }
             else if (command == "chat")
             {
-                Packet::BinaryWriter writer;
-                writer.WriteString(RestOfLine(iss));
-                SendPacket(socket, PacketId::C2ZChat, writer.GetBuffer());
+                Packet::BinaryWriter binaryWriter;
+                binaryWriter.WriteString(RestOfLine(iss));
+                SendPacket(socket, PacketId::C2ZChat, binaryWriter.GetBuffer());
             }
             else if (command == "mail")
             {
@@ -376,11 +376,11 @@ int main(const int argc, char** argv)
                     int64_t durationSec{};
                     iss >> title >> body >> durationSec;
 
-                    Packet::BinaryWriter writer;
-                    writer.WriteString(title);
-                    writer.WriteString(body);
-                    writer.Write(durationSec);
-                    SendPacket(socket, PacketId::C2ZMailAdd, writer.GetBuffer());
+                    Packet::BinaryWriter binaryWriter;
+                    binaryWriter.WriteString(title);
+                    binaryWriter.WriteString(body);
+                    binaryWriter.Write(durationSec);
+                    SendPacket(socket, PacketId::C2ZMailAdd, binaryWriter.GetBuffer());
                 }
                 else if (sub == "buy")
                 {
@@ -390,12 +390,12 @@ int main(const int argc, char** argv)
                     int64_t price{};
                     iss >> title >> body >> durationSec >> price;
 
-                    Packet::BinaryWriter writer;
-                    writer.WriteString(title);
-                    writer.WriteString(body);
-                    writer.Write(durationSec);
-                    writer.Write(price);
-                    SendPacket(socket, PacketId::C2ZMailBuy, writer.GetBuffer());
+                    Packet::BinaryWriter binaryWriter;
+                    binaryWriter.WriteString(title);
+                    binaryWriter.WriteString(body);
+                    binaryWriter.Write(durationSec);
+                    binaryWriter.Write(price);
+                    SendPacket(socket, PacketId::C2ZMailBuy, binaryWriter.GetBuffer());
                 }
                 else if (sub == "del")
                 {

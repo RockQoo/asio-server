@@ -18,10 +18,10 @@ namespace Stress
         [[nodiscard]] std::optional<Common::RUID> FindMailTaskId(const std::span<const byte> stream,
                                                              const Protocol::EMailTask subTask)
         {
-            Packet::BinaryReader reader(stream);
+            Packet::BinaryReader binaryReader(stream);
             uint64_t ownerId{};
             uint16_t taskCount{};
-            if (!reader.Read(ownerId) || !reader.Read(taskCount))
+            if (!binaryReader.Read(ownerId) || !binaryReader.Read(taskCount))
             {
                 return std::nullopt;
             }
@@ -30,12 +30,12 @@ namespace Stress
             {
                 uint16_t kind{};
                 uint32_t payloadLen{};
-                if (!reader.Read(kind) || !reader.Read(payloadLen))
+                if (!binaryReader.Read(kind) || !binaryReader.Read(payloadLen))
                 {
                     return std::nullopt;
                 }
 
-                const auto taskPayload = reader.ReadBytes(payloadLen);
+                const auto taskPayload = binaryReader.ReadBytes(payloadLen);
                 if (!taskPayload)
                 {
                     return std::nullopt;
@@ -47,9 +47,9 @@ namespace Stress
                     continue;
                 }
 
-                Packet::BinaryReader mailReader(*taskPayload);
+                Packet::BinaryReader mailBinaryReader(*taskPayload);
                 Common::RUID mailId{};
-                if (!mailReader.Read(mailId))
+                if (!mailBinaryReader.Read(mailId))
                 {
                     return std::nullopt;
                 }
@@ -156,7 +156,7 @@ namespace Stress
 
     void Session::HandleTaskResult(const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         int32_t errorCode{};
         uint16_t requestPacketId{};
 
@@ -164,13 +164,13 @@ namespace Stress
         // 읽어서 넘겨야 그 뒤 스트림 오프셋이 맞는다. 부하 도구는 값 자체를 쓰지 않지만,
         // 건너뛰지 않으면 스트림을 8바이트 밀려서 파싱해 mailId를 못 찾는다.
         Common::RUID requestId{};
-        if (!reader.Read(errorCode) || !reader.Read(requestPacketId) || !reader.Read(requestId))
+        if (!binaryReader.Read(errorCode) || !binaryReader.Read(requestPacketId) || !binaryReader.Read(requestId))
         {
             return;
         }
 
         // 남은 바이트가 UnitOfWork 태스크 스트림이다(실패면 비어 있다).
-        const auto stream = reader.RemainingBytes();
+        const auto stream = binaryReader.RemainingBytes();
         switch (static_cast<PacketId>(requestPacketId))
         {
         case PacketId::C2ZMailAdd:
@@ -270,11 +270,11 @@ namespace Stress
             return;
         }
 
-        Packet::BinaryWriter writer;
-        writer.WriteString("lt-mail");
-        writer.WriteString("stress-body");
-        writer.Write(static_cast<int64_t>(3600));  // 테스트 도중 자동 만료로 뒤섞이지 않게 충분히 길게
-        session_->SendPacket(PacketId::C2ZMailAdd, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.WriteString("lt-mail");
+        binaryWriter.WriteString("stress-body");
+        binaryWriter.Write(static_cast<int64_t>(3600));  // 테스트 도중 자동 만료로 뒤섞이지 않게 충분히 길게
+        session_->SendPacket(PacketId::C2ZMailAdd, binaryWriter.GetBuffer());
 
         // 사이클(Add->AddAck->Del->DelAck)의 시작점도 여기다 -- Add 송신이 곧 사이클 시작.
         mailAddSentAt_ = std::chrono::steady_clock::now();

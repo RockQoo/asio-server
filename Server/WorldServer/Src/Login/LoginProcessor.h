@@ -63,10 +63,10 @@ namespace World
         // 결과만 PostFailure/PostSuccess로 BASIC에 되던진다.
         void OnAccountSelected(const std::shared_ptr<Network::Session>& gatewaySession,
                                const Network::SessionId clientSessionId, const std::string& playerName,
-                               const std::string& password, const bool succeeded, const DbResult& result);
+                               const std::string& password, const bool succeeded, const DbResult& dbResult);
         void OnAccountCreated(const std::shared_ptr<Network::Session>& gatewaySession,
                               const Network::SessionId clientSessionId, const std::string& playerName,
-                              const Common::RUID requestedPlayerId, const bool succeeded, const DbResult& result);
+                              const Common::RUID requestedPlayerId, const bool succeeded, const DbResult& dbResult);
 
         // 계정이 확정된 뒤 우편/재화를 적재한다. 여기서부터 owner가 playerId로 바뀐다.
         void LoadPlayerContent(const std::shared_ptr<Network::Session>& gatewaySession,
@@ -74,7 +74,7 @@ namespace World
                                const Common::RUID playerId);
         void OnPlayerLoaded(const std::shared_ptr<Network::Session>& gatewaySession,
                             const Network::SessionId clientSessionId, const std::string& playerName,
-                            const Common::RUID playerId, const bool succeeded, const DbResult& result);
+                            const Common::RUID playerId, const bool succeeded, const DbResult& dbResult);
 
         // DB 레인 -> BASIC 레인으로 결말을 넘긴다.
         void PostFailure(const std::shared_ptr<Network::Session>& gatewaySession,

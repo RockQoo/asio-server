@@ -155,31 +155,31 @@ namespace Zone
         // ③ 브로드캐스트는 틱을 기다리지 않고 즉시. 요청(C2ZMove)과 통지(Z2CMoveNotify)는
         //    id도 본문도 다르다 -- 받는 쪽은 "누가" 움직였는지 알아야 하므로 sessionId를
         //    앞에 붙인다.
-        Packet::BinaryWriter writer;
-        writer.Write(static_cast<uint32_t>(context.player.GetSessionId()));
-        writer.Write(move);
-        BroadcastToZone(context.zoneId, PacketId::Z2CMoveNotify, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
+        binaryWriter.Write(move);
+        BroadcastToZone(context.zoneId, PacketId::Z2CMoveNotify, binaryWriter.GetBuffer());
     }
 
     void PlayerProcessor::HandleChat(const PlayerContext& context, const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         std::string message;
-        if (!reader.ReadString(message))
+        if (!binaryReader.ReadString(message))
         {
             return;
         }
 
-        Packet::BinaryWriter writer;
-        writer.Write(static_cast<uint32_t>(context.player.GetSessionId()));
-        writer.WriteString(message);
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
+        binaryWriter.WriteString(message);
 
-        BroadcastToZone(context.zoneId, PacketId::Z2CChatNotify, writer.GetBuffer());
+        BroadcastToZone(context.zoneId, PacketId::Z2CChatNotify, binaryWriter.GetBuffer());
     }
 
     void PlayerProcessor::HandleMailAdd(const PlayerContext& context, const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         std::string title;
         std::string body;
         int64_t durationSec{};
@@ -190,7 +190,7 @@ namespace Zone
         UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailAdd);
 
-        if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec))
+        if (!binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec))
         {
             unitOfWork.SetError(EErrorCode::InvalidPayload);
             return;
@@ -250,7 +250,7 @@ namespace Zone
 
     void PlayerProcessor::HandleMailBuy(const PlayerContext& context, const std::span<const byte> payload)
     {
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         std::string title;
         std::string body;
         int64_t durationSec{};
@@ -259,8 +259,8 @@ namespace Zone
         UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailBuy);
 
-        if (!reader.ReadString(title) || !reader.ReadString(body) || !reader.Read(durationSec)
-            || !reader.Read(price))
+        if (!binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec)
+            || !binaryReader.Read(price))
         {
             unitOfWork.SetError(EErrorCode::InvalidPayload);
             return;
@@ -313,10 +313,10 @@ namespace Zone
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
-        Packet::BinaryWriter writer;
-        writer.Write(header);
-        writer.WriteBytes(payload);
-        worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(header);
+        binaryWriter.WriteBytes(payload);
+        worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
     void PlayerProcessor::BroadcastToZone(const uint32_t zoneId, const PacketId innerPacketId,

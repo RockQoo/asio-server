@@ -21,11 +21,11 @@ namespace Currency
         return Protocol::MakeTaskKind(Protocol::ETaskCategory::Currency, Protocol::ECurrencyTask::Updated);
     }
 
-    void CurrencyTask::Serialize(Packet::BinaryWriter& writer) const
+    void CurrencyTask::Serialize(Packet::BinaryWriter& binaryWriter) const
     {
-        writer.Write(static_cast<uint8_t>(type_));
-        writer.Write(newValue_);
-        writer.Write(oldValue_);
+        binaryWriter.Write(static_cast<uint8_t>(type_));
+        binaryWriter.Write(newValue_);
+        binaryWriter.Write(oldValue_);
     }
 
     void CurrencyTask::Rollback(Task::UnitOfWork& sink) const

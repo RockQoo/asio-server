@@ -23,14 +23,14 @@ namespace World
         void ApplyMailTask(const Protocol::EMailTask subTask, const uint64_t ownerId, const uint32_t playerId,
                            const std::span<const byte> taskPayload)
         {
-            Packet::BinaryReader reader(taskPayload);
+            Packet::BinaryReader binaryReader(taskPayload);
             Common::RUID mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};
             int64_t endUt{};
-            if (!reader.Read(mailId) || !reader.ReadString(title) || !reader.ReadString(body)
-                || !reader.Read(sendUt) || !reader.Read(endUt))
+            if (!binaryReader.Read(mailId) || !binaryReader.ReadString(title) || !binaryReader.ReadString(body)
+                || !binaryReader.Read(sendUt) || !binaryReader.Read(endUt))
             {
                 return;
             }
@@ -51,11 +51,11 @@ namespace World
         void ApplyCurrencyTask(const uint64_t ownerId, const uint32_t playerId,
                                const std::span<const byte> taskPayload)
         {
-            Packet::BinaryReader reader(taskPayload);
+            Packet::BinaryReader binaryReader(taskPayload);
             uint8_t currencyType{};
             int64_t newValue{};
             int64_t oldValue{};
-            if (!reader.Read(currencyType) || !reader.Read(newValue) || !reader.Read(oldValue))
+            if (!binaryReader.Read(currencyType) || !binaryReader.Read(newValue) || !binaryReader.Read(oldValue))
             {
                 return;
             }
@@ -292,10 +292,10 @@ namespace World
     void ZoneLinkHandler::PostUnitOfWorkStream(const std::span<const byte> payload)
     {
         // 여기는 아직 I/O 스레드다 -- 라우팅에 필요한 만큼만 읽는다.
-        Packet::BinaryReader reader(payload);
+        Packet::BinaryReader binaryReader(payload);
         uint32_t playerId{};
         Common::RUID requestId{};
-        if (!reader.Read(playerId) || !reader.Read(requestId))
+        if (!binaryReader.Read(playerId) || !binaryReader.Read(requestId))
         {
             return;
         }
@@ -303,14 +303,14 @@ namespace World
         // 남은 바이트(Core::Task::UnitOfWork가 직렬화한 제너릭 태스크 목록)는 DB 그룹
         // 스레드에서 처리할 것이므로, payload(I/O 스레드가 곧 재사용할 버퍼)에서 복사해
         // 소유권을 옮긴다. 와이어 포맷 상세는 ZoneLinkPackets.h 주석 참고.
-        const auto remaining = reader.RemainingBytes();
+        const auto remaining = binaryReader.RemainingBytes();
         std::vector<byte> taskBytes(remaining.begin(), remaining.end());
 
         // 스트림 맨 앞의 ownerId(=clientSessionId)가 곧 이 메시지의 주인이다 -- UnitOfWork가
         // 직렬화할 때 이미 넣어둔 값이라 따로 실어 보낼 필요가 없다.
-        Packet::BinaryReader ownerPeek(taskBytes);
+        Packet::BinaryReader ownerBinaryReader(taskBytes);
         uint64_t ownerId{};
-        if (!ownerPeek.Read(ownerId))
+        if (!ownerBinaryReader.Read(ownerId))
         {
             return;
         }
@@ -320,10 +320,10 @@ namespace World
         dbGroup_.Post(EProcessorId::Db, ownerId,
             [playerId, requestId, taskBytes = std::move(taskBytes)]
             {
-                Packet::BinaryReader taskReader(taskBytes);
+                Packet::BinaryReader taskBinaryReader(taskBytes);
                 uint64_t ownerId{};
                 uint16_t taskCount{};
-                if (!taskReader.Read(ownerId) || !taskReader.Read(taskCount))
+                if (!taskBinaryReader.Read(ownerId) || !taskBinaryReader.Read(taskCount))
                 {
                     return;
                 }
@@ -332,12 +332,12 @@ namespace World
                 {
                     uint16_t kind{};
                     uint32_t payloadLen{};
-                    if (!taskReader.Read(kind) || !taskReader.Read(payloadLen))
+                    if (!taskBinaryReader.Read(kind) || !taskBinaryReader.Read(payloadLen))
                     {
                         break;
                     }
 
-                    const auto taskPayload = taskReader.ReadBytes(payloadLen);
+                    const auto taskPayload = taskBinaryReader.ReadBytes(payloadLen);
                     if (!taskPayload)
                     {
                         break;

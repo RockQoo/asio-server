@@ -17,28 +17,28 @@ namespace World
         const std::unordered_map<Common::RUID, MailInfo>& mails,
         const std::unordered_map<uint8_t, int64_t>& currencies)
     {
-        Packet::BinaryWriter writer;
-        writer.Write(state);
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(state);
 
         // 개수를 uint16으로 두는 이유: Header::MaxBodySize()가 8192라 그 안에 들어갈 수 있는
         // 우편 수가 애초에 수백 단위다. 넘치는 상황은 아래에서 잘라낸다.
-        writer.Write(static_cast<uint16_t>(mails.size()));
+        binaryWriter.Write(static_cast<uint16_t>(mails.size()));
         for (const auto& [mailId, info] : mails)
         {
-            writer.Write(info.mailId);
-            writer.WriteString(info.title);
-            writer.WriteString(info.body);
-            writer.Write(info.sendUt);
-            writer.Write(info.endUt);
+            binaryWriter.Write(info.mailId);
+            binaryWriter.WriteString(info.title);
+            binaryWriter.WriteString(info.body);
+            binaryWriter.Write(info.sendUt);
+            binaryWriter.Write(info.endUt);
         }
 
-        writer.Write(static_cast<uint16_t>(currencies.size()));
+        binaryWriter.Write(static_cast<uint16_t>(currencies.size()));
         for (const auto& [type, amount] : currencies)
         {
-            writer.Write(type);
-            writer.Write(amount);
+            binaryWriter.Write(type);
+            binaryWriter.Write(amount);
         }
 
-        return writer.MoveBuffer();
+        return binaryWriter.MoveBuffer();
     }
 }

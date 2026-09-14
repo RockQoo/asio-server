@@ -18,13 +18,13 @@ namespace World
 
         try
         {
-            DbConnection connection(connectionString);
+            DbConnection dbConnection(connectionString);
 
-            DbResult result;
-            connection.Execute({DbCommand{"dbo.usp_players_select", {std::string("tester1")}}},
-                               false, &result);
+            DbResult dbResult;
+            dbConnection.Execute({DbCommand{"dbo.usp_players_select", {std::string("tester1")}}},
+                               false, &dbResult);
 
-            const auto* const row = FirstRow(result);
+            const auto* const row = FirstRow(dbResult);
             if (row == nullptr)
             {
                 std::cout << "[dbcheck] FAIL: tester1 계정이 없습니다. bat\\setup_game_db.bat 을 먼저 실행하세요.\n";

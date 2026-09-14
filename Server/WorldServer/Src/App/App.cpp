@@ -117,10 +117,10 @@ namespace World
                         }
 
                         header.clientSessionId = clientSessionId;
-                        Packet::BinaryWriter envelopeWriter;
-                        envelopeWriter.Write(header);
-                        envelopeWriter.WriteBytes(payloadCopy);
-                        info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeWriter.GetBuffer());
+                        Packet::BinaryWriter envelopeBinaryWriter;
+                        envelopeBinaryWriter.Write(header);
+                        envelopeBinaryWriter.WriteBytes(payloadCopy);
+                        info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeBinaryWriter.GetBuffer());
                         ++sentCount;
                     });
 

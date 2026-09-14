@@ -132,10 +132,10 @@ namespace Zone
 
         // 고정 머리 뒤의 콘텐츠를 읽는다. 포맷은 World 의 Packet/ZoneLinkPackets.h 표가
         // 유일한 계약이고, 쓰는 쪽은 Packet/EnterZoneBody.h 다.
-        Packet::BinaryReader reader(payload.subspan(sizeof(World::PlayerZoneStatePacket)));
+        Packet::BinaryReader binaryReader(payload.subspan(sizeof(World::PlayerZoneStatePacket)));
 
         uint16_t mailCount{};
-        if (!reader.Read(mailCount))
+        if (!binaryReader.Read(mailCount))
         {
             LOG.Warning(ELogCategory::Zone, "EnterZone 본문에 우편 개수가 없다")
                 .KV("ClientSessionId", state.clientSessionId);
@@ -147,9 +147,9 @@ namespace Zone
         for (uint16_t i = 0; i < mailCount; ++i)
         {
             Mail::Info info{};
-            if (!reader.Read(info.mailId) || !reader.ReadString(info.title)
-                || !reader.ReadString(info.body) || !reader.Read(info.sendUt)
-                || !reader.Read(info.endUt))
+            if (!binaryReader.Read(info.mailId) || !binaryReader.ReadString(info.title)
+                || !binaryReader.ReadString(info.body) || !binaryReader.Read(info.sendUt)
+                || !binaryReader.Read(info.endUt))
             {
                 LOG.Warning(ELogCategory::Zone, "EnterZone 본문의 우편이 잘렸다")
                     .KV("ClientSessionId", state.clientSessionId).KV("Index", i);
@@ -159,7 +159,7 @@ namespace Zone
         }
 
         uint16_t currencyCount{};
-        if (!reader.Read(currencyCount))
+        if (!binaryReader.Read(currencyCount))
         {
             LOG.Warning(ELogCategory::Zone, "EnterZone 본문에 재화 개수가 없다")
                 .KV("ClientSessionId", state.clientSessionId);
@@ -172,7 +172,7 @@ namespace Zone
         {
             uint8_t type{};
             int64_t amount{};
-            if (!reader.Read(type) || !reader.Read(amount))
+            if (!binaryReader.Read(type) || !binaryReader.Read(amount))
             {
                 LOG.Warning(ELogCategory::Zone, "EnterZone 본문의 재화가 잘렸다")
                     .KV("ClientSessionId", state.clientSessionId).KV("Index", i);
@@ -248,9 +248,9 @@ namespace Zone
         World::ClientEnvelopeHeader replyHeader = header;
         replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
 
-        Packet::BinaryWriter writer;
-        writer.Write(replyHeader);
-        writer.WriteBytes(innerPayload);
-        worldSession->SendPacket(PacketId::Z2WRelay, writer.GetBuffer());
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(replyHeader);
+        binaryWriter.WriteBytes(innerPayload);
+        worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 }

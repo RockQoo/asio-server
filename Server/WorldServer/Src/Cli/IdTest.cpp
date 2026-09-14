@@ -47,12 +47,12 @@ namespace World
         {
             try
             {
-                DbConnection connection(connectionString);
-                DbResult result;
-                connection.Execute({DbCommand{"dbo.usp_unique_keys_count_by_node",
+                DbConnection dbConnection(connectionString);
+                DbResult dbResult;
+                dbConnection.Execute({DbCommand{"dbo.usp_unique_keys_count_by_node",
                                                      {static_cast<int64_t>(nodeId)}}},
-                                   false, &result);
-                const auto* const row = FirstRow(result);
+                                   false, &dbResult);
+                const auto* const row = FirstRow(dbResult);
                 return row != nullptr ? GetInt64(*row, 0) : std::nullopt;
             }
             catch (const DbException& ex)
@@ -66,7 +66,7 @@ namespace World
 
         try
         {
-            DbConnection connection(connectionString);
+            DbConnection dbConnection(connectionString);
             std::vector<std::vector<int64_t>> chunks(threadCount);
 
             for (size_t done = 0; done < perThread; done += kChunkPerThread)
@@ -128,7 +128,7 @@ namespace World
                 }
                 std::sort(round.begin(), round.end());
 
-                connection.ExecuteMany(randomMode ? "dbo.usp_unique_keys_random_insert" : "dbo.usp_unique_keys_insert",
+                dbConnection.ExecuteMany(randomMode ? "dbo.usp_unique_keys_random_insert" : "dbo.usp_unique_keys_insert",
                                        round);
                 all.insert(all.end(), round.begin(), round.end());
 
