@@ -9,6 +9,7 @@
 #include "Shared/Protocol/Src/CurrencyType.h"
 #include "Shared/Protocol/Src/TaskKind.h"
 #include "Packet/ZoneLinkPackets.h"
+#include "Db/AutoDbCommand.h"
 
 #include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Network/Session.h"
@@ -18,10 +19,19 @@ namespace World
 {
     namespace
     {
-        // Mail 카테고리 태스크 하나를 DB에 반영한다. DbWorker 스레드에서 불린다 --
-        // owner-hash로 같은 플레이어는 항상 같은 스레드라 순서가 보장되고 락이 없다.
-        void ApplyMailTask(const Protocol::EMailTask subTask, const uint64_t ownerId, const uint32_t playerId,
-                           const std::span<const byte> taskPayload)
+        // 현재 시각(유닉스 초). 우편 삭제 시각처럼 DB에 남기는 값에 쓴다.
+        [[nodiscard]] int64_t NowUt()
+        {
+            return std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+        }
+
+        // Mail 카테고리 태스크 하나를 **World 캐시와 DB 양쪽에** 반영한다.
+        // BASIC 레인(owner = clientSessionId)에서 불린다 -- DB로 나가는 것은 autoDbCommand가
+        // 모았다가 스코프 끝에서 한 번에 DB 레인으로 넘긴다.
+        void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoDbCommand& autoDbCommand,
+                           const Protocol::EMailTask subTask, const Network::SessionId clientSessionId,
+                           const int64_t playerId, const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
             Protocol::MailId mailId{};
@@ -35,20 +45,32 @@ namespace World
                 return;
             }
 
-            // TODO: 실제로는 여기서 DB에 INSERT/DELETE 쿼리(SP)를 실행한다(DB 연동 후
-            // 구현 예정). 지금은 DB 워커 스레드가 owner-hash로 순서대로 태스크를 처리한다는
-            // 구조만 보여준다.
-            // Debug 레벨 -- 부하 테스트처럼 세션/사이클 수가 많으면 태스크 1건마다 Info로 찍을
-            // 경우 로그 I/O 자체가 병목이 되어 "락 경합으로 인한 정체"와 구분이 안 된다. 기본
-            // 실행(main.cpp의 Logger::Initialize)은 Info 레벨이라 평소엔 파일에 안 쌓이고,
-            // 필요할 때만 Debug로 켜서 본다.
-            LOG.Debug(ELogCategory::Db, "Mail 태스크 처리 (DB 반영은 TODO)")
-                .KV("OwnerId", ownerId).KV("PlayerId", playerId)
-                .KV("SubTask", subTask == Protocol::EMailTask::Added ? "Added" : "Removed")
-                .KV("MailId", mailId).KV("Title", title);
+            switch (subTask)
+            {
+            case Protocol::EMailTask::Added:
+                playerManager.Write()->AddMail(clientSessionId,
+                                               MailInfo{mailId, title, body, sendUt, endUt});
+                // mailId는 존이 이미 확정한 RUID다 -- DB의 IDENTITY를 기다리지 않으므로
+                // 클라이언트는 벌써 이 id로 우편을 들고 있다(cpp-patterns.md의 RUID 절).
+                autoDbCommand.Add(DbCommand{"dbo.usp_mails_upsert",
+                    {mailId.Value(), playerId, std::move(title), std::move(body), sendUt, endUt}});
+                break;
+
+            case Protocol::EMailTask::Removed:
+                playerManager.Write()->RemoveMail(clientSessionId, mailId);
+                // 행을 지우지 않고 삭제 시각만 남긴다(Sql/mails.sql의 규칙 5).
+                autoDbCommand.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
+                break;
+
+            default:
+                LOG.Warning(ELogCategory::Db, "알 수 없는 Mail 세부 태스크")
+                    .KV("ClientSessionId", clientSessionId).KV("SubTask", static_cast<uint32_t>(subTask));
+                break;
+            }
         }
 
-        void ApplyCurrencyTask(const uint64_t ownerId, const uint32_t playerId,
+        void ApplyCurrencyTask(PlayerManager::Mutexed& playerManager, AutoDbCommand& autoDbCommand,
+                               const Network::SessionId clientSessionId, const int64_t playerId,
                                const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
@@ -60,11 +82,16 @@ namespace World
                 return;
             }
 
+            playerManager.Write()->SetCurrency(clientSessionId, currencyType, newValue);
+
             // 새 값과 이전 값이 둘 다 실려 오는 이유(ZoneServer의 Currency::CurrencyTask 주석):
             // DB는 새 값으로 UPDATE하면 되고, 이전 값은 감사/추적용이다 -- "누가 언제 얼마에서
-            // 얼마로 바뀌었는지"가 한 행에 남으면 재화 사고를 추적할 수 있다.
-            LOG.Debug(ELogCategory::Db, "Currency 태스크 처리 (DB 반영은 TODO)")
-                .KV("OwnerId", ownerId).KV("PlayerId", playerId)
+            // 얼마로 바뀌었는지"가 한 행에 남으면 재화 사고를 추적할 수 있다. 지금 SP는 새 값만
+            // 받으므로 이전 값은 로그로만 남긴다.
+            autoDbCommand.Add(DbCommand{"dbo.usp_currencies_upsert", {playerId, currencyType, newValue}});
+
+            LOG.Debug(ELogCategory::Db, "Currency 태스크 반영")
+                .KV("ClientSessionId", clientSessionId).KV("PlayerId", playerId)
                 .KV("CurrencyType", static_cast<uint32_t>(currencyType))
                 .KV("OldValue", oldValue).KV("NewValue", newValue);
         }
@@ -72,22 +99,21 @@ namespace World
 
     ZoneLinkHandler::ZoneLinkHandler(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                                       Processor::Group<EProcessorId>& basicGroup,
-                                      Processor::Group<EProcessorId>& dbGroup)
+                                      Processor::Group<EProcessorId>& dbGroup, DbConnectionPool& dbPool)
         : playerManager_(playerManager)
         , zoneLinkRegistry_(zoneLinkRegistry)
         , basicGroup_(basicGroup)
         , dbGroup_(dbGroup)
+        , dbPool_(dbPool)
     {
         RegisterHandlers();
     }
-
     void ZoneLinkHandler::RegisterHandlers()
     {
-        // UnitOfWorkStream은 여기 등록하지 않는다 -- BASIC을 거치지 않고 OnPacket에서 곧바로
-        // DB 그룹으로 가기 때문이다(헤더 주석 참고).
         dispatcher_.Register(PacketId::Z2WZoneRegister, this, &ZoneLinkHandler::HandleZoneRegister);
         dispatcher_.Register(PacketId::Z2WRelay, this, &ZoneLinkHandler::HandleForwardToWorld);
         dispatcher_.Register(PacketId::Z2WZoneTransfer, this, &ZoneLinkHandler::HandleZoneTransfer);
+        dispatcher_.Register(PacketId::Z2WUnitOfWorkStream, this, &ZoneLinkHandler::HandleUnitOfWorkStream);
     }
 
     std::optional<uint64_t> ZoneLinkHandler::OwnerIdOf(const PacketId packetId, const std::span<const byte> payload)
@@ -107,6 +133,11 @@ namespace World
             // 구조체가 #pragma pack(1)이라 패딩이 없다는 것에 기대고 있다.
             return PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
 
+        case PacketId::Z2WUnitOfWorkStream:
+            // Task::UnitOfWork::Serialize가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
+            // 그 앞에 Zone이 붙인 playerId(uint32) + requestId(int64)가 있어 offset 12다.
+            return PeekOwnerId<uint64_t>(payload, sizeof(uint32_t) + sizeof(Common::RUID));
+
         default:
             return std::nullopt;
         }
@@ -125,12 +156,6 @@ namespace World
         // 여기는 이 연결의 I/O 스레드(Session의 strand)다. 라우팅에 필요한 정수 하나만 읽고
         // 바이트를 복사해 넘긴다.
         const auto packetId = static_cast<PacketId>(header.id);
-
-        if (packetId == PacketId::Z2WUnitOfWorkStream)
-        {
-            PostUnitOfWorkStream(payload);
-            return;
-        }
 
         const auto ownerId = OwnerIdOf(packetId, payload);
         if (!ownerId)
@@ -234,11 +259,34 @@ namespace World
             return;
         }
 
+        // **프로세스를 넘는 이동이면 떠난 쪽에 퇴장을 알린다.** 이게 없으면 보낸 프로세스에
+        // 그 사람의 Player와 우편함이 유령으로 남아, 만료 스윕이 같은 우편을 한 번 더 지우고
+        // 클라이언트도 삭제 통지를 두 번 받는다(RUID의 노드 번호가 서로 다른 두 프로세스를
+        // 가리키는 것으로 확인했다). 접속이 끝날 때까지 안 지워지므로 메모리도 샌다.
+        //
+        // **같은 프로세스 안의 이동(가로)에는 보내지 않는다.** 그쪽은 PlayerProcessor가
+        // 살아 있는 Player를 그대로 옮기는데, 여기서 퇴장을 보내면 우편함째 지워버린다.
+        // 판정 기준은 zoneId가 아니라 **링크 세션**이다 -- 한 Zone 프로세스가 존 여러 개를
+        // 호스팅하므로 존이 다르다고 프로세스가 다른 게 아니다.
+        const auto sourceZoneLink = zoneLinkRegistry_->Find(state.zoneId);
+        if (sourceZoneLink && sourceZoneLink->zoneSession != targetZoneLink->zoneSession)
+        {
+            LeaveZoneNotifyPacket leaveZoneNotifyPacket{};
+            leaveZoneNotifyPacket.clientSessionId = state.clientSessionId;
+            sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
+                                                    std::as_bytes(std::span(&leaveZoneNotifyPacket, 1)));
+        }
+
         playerManager_.Write()->SetZone(state.clientSessionId, *targetZoneId);
         state.zoneId = *targetZoneId;  // 목표 존으로 덮어써서 그대로 W2ZEnterZone에 재사용
 
         // **캐시의 콘텐츠를 다시 실어 보낸다.** 이게 없으면 전입한 존이 빈 우편함·빈 지갑으로
-        // 시작해서, 존 경계를 넘을 때마다 그 사람의 우편이 사라진다(예전 동작).
+        // 시작해서, 존 경계를 넘을 때마다 그 사람의 우편이 사라진다.
+        //
+        // 이 캐시가 최신이라는 보장은 **UnitOfWork 스트림도 같은 BASIC 레인, 같은 주인**으로
+        // 오는 데서 나온다. 존이 "우편 추가" 스트림을 보낸 뒤 핸드오프를 요청하면, 같은 TCP
+        // 링크라 도착 순서가 유지되고 같은 strand에서 순서대로 처리되므로 여기서 읽는 캐시에
+        // 그 우편이 이미 들어 있다.
         targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(state));
 
         LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트 재접속 없음)")
@@ -289,81 +337,86 @@ namespace World
             .KV("X", state.x).KV("Y", state.y);
     }
 
-    void ZoneLinkHandler::PostUnitOfWorkStream(const std::span<const byte> payload)
+    void ZoneLinkHandler::HandleUnitOfWorkStream(const std::shared_ptr<Network::Session>& /*zoneSession*/,
+                                                 const std::span<const byte> payload)
     {
-        // 여기는 아직 I/O 스레드다 -- 라우팅에 필요한 만큼만 읽는다.
+        // **여기는 BASIC 레인이고 주인은 clientSessionId다.** 그래서 이 클라이언트의 접속 종료
+        // (GatewayLinkHandler::HandleClientDisconnected)와 같은 strand에 들어가고, "이미 지워진
+        // 사람의 캐시를 되살리는" 순서 역전이 생기지 않는다. 예전에는 이 스트림만 BASIC을
+        // 건너뛰고 DB 그룹으로 직행해서, **World 캐시가 로그인 시점 스냅샷에 멈춰 있었다** --
+        // 존에서 만든 우편이 프로세스를 넘는 핸드오프에서 사라지던 원인이 그것이다.
         Packet::BinaryReader binaryReader(payload);
-        uint32_t playerId{};
+        uint32_t zonePlayerId{};
         Common::RUID requestId{};
-        if (!binaryReader.Read(playerId) || !binaryReader.Read(requestId))
-        {
-            return;
-        }
-
-        // 남은 바이트(Core::Task::UnitOfWork가 직렬화한 제너릭 태스크 목록)는 DB 그룹
-        // 스레드에서 처리할 것이므로, payload(I/O 스레드가 곧 재사용할 버퍼)에서 복사해
-        // 소유권을 옮긴다. 와이어 포맷 상세는 ZoneLinkPackets.h 주석 참고.
-        const auto remaining = binaryReader.RemainingBytes();
-        std::vector<byte> taskBytes(remaining.begin(), remaining.end());
-
-        // 스트림 맨 앞의 ownerId(=clientSessionId)가 곧 이 메시지의 주인이다 -- UnitOfWork가
-        // 직렬화할 때 이미 넣어둔 값이라 따로 실어 보낼 필요가 없다.
-        Packet::BinaryReader ownerBinaryReader(taskBytes);
         uint64_t ownerId{};
-        if (!ownerBinaryReader.Read(ownerId))
+        uint16_t taskCount{};
+        if (!binaryReader.Read(zonePlayerId) || !binaryReader.Read(requestId)
+            || !binaryReader.Read(ownerId) || !binaryReader.Read(taskCount))
         {
             return;
         }
 
-        // BASIC을 거치지 않고 DB 그룹으로 직행한다. 같은 플레이어의 UnitOfWork 태스크는 항상
-        // 같은 DB 스레드에서 도착 순서대로 처리되므로 락이 필요 없다.
-        dbGroup_.Post(EProcessorId::Db, ownerId,
-            [playerId, requestId, taskBytes = std::move(taskBytes)]
+        const auto clientSessionId = static_cast<Network::SessionId>(ownerId);
+
+        // **DB에 쓸 player_id는 캐시에서 꺼낸다.** 존이 실어 보낸 zonePlayerId는 아직
+        // clientSessionId에서 파생한 uint32라 DB의 player_id(RUID)가 아니다
+        // (PlayerInfo::playerId 주석). 로그인이 확정한 값만 신뢰한다.
+        const auto playerId = playerManager_->FindPlayerId(clientSessionId);
+        if (!playerId || *playerId == 0)
+        {
+            // 접속이 이미 끊겨 캐시가 사라진 뒤다. 되돌릴 방법이 없으므로 사실만 남긴다.
+            LOG.Error(ELogCategory::Db, "UnitOfWork 스트림의 플레이어를 찾을 수 없어 버린다")
+                .KV("ClientSessionId", clientSessionId).KV("RequestId", requestId)
+                .KV("TaskCount", taskCount);
+            return;
+        }
+
+        // **UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.** 우편 지급과 골드 차감처럼
+        // 모델 두 개에 걸친 변경이 반쪽만 남지 않게 하려는 것이다.
+        //
+        // 주인이 clientSessionId가 아니라 playerId인 이유: DB 작업은 세션이 아니라 계정에
+        // 묶이는 일이라, 재접속해서 세션이 바뀌어도 같은 DB 레인을 유지해야 한 계정의 쓰기가
+        // 도착 순서대로 직렬화된다(LoginProcessor::LoadPlayerContent 주석과 짝).
+        AutoDbCommand autoDbCommand(dbPool_, dbGroup_, static_cast<uint64_t>(*playerId), true);
+
+        for (uint16_t i = 0; i < taskCount; ++i)
+        {
+            uint16_t kind{};
+            uint32_t payloadLen{};
+            if (!binaryReader.Read(kind) || !binaryReader.Read(payloadLen))
             {
-                Packet::BinaryReader taskBinaryReader(taskBytes);
-                uint64_t ownerId{};
-                uint16_t taskCount{};
-                if (!taskBinaryReader.Read(ownerId) || !taskBinaryReader.Read(taskCount))
-                {
-                    return;
-                }
+                break;
+            }
 
-                for (uint16_t i = 0; i < taskCount; ++i)
-                {
-                    uint16_t kind{};
-                    uint32_t payloadLen{};
-                    if (!taskBinaryReader.Read(kind) || !taskBinaryReader.Read(payloadLen))
-                    {
-                        break;
-                    }
+            const auto taskPayload = binaryReader.ReadBytes(payloadLen);
+            if (!taskPayload)
+            {
+                break;
+            }
 
-                    const auto taskPayload = taskBinaryReader.ReadBytes(payloadLen);
-                    if (!taskPayload)
-                    {
-                        break;
-                    }
+            // taskKind는 "상위 8비트 = 콘텐츠 카테고리 / 하위 8비트 = 세부 동작"이라
+            // (Shared/Protocol/Src/TaskKind.h) 여기서 2단으로 분기한다. 콘텐츠가 늘면
+            // case가 하나씩 붙을 뿐, 태스크를 실어 나르는 Task::UnitOfWork(Core)는
+            // 여전히 이 의미를 몰라도 된다.
+            switch (Protocol::CategoryOf(kind))
+            {
+            case Protocol::ETaskCategory::Mail:
+                ApplyMailTask(playerManager_, autoDbCommand,
+                              static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind)),
+                              clientSessionId, *playerId, *taskPayload);
+                break;
+            case Protocol::ETaskCategory::Currency:
+                ApplyCurrencyTask(playerManager_, autoDbCommand, clientSessionId, *playerId, *taskPayload);
+                break;
+            default:
+                // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면
+                // 나머지 태스크는 정상 처리된다.
+                LOG.Warning(ELogCategory::Db, "알 수 없는 UnitOfWork 태스크 카테고리")
+                    .KV("ClientSessionId", clientSessionId).KV("RequestId", requestId).KV("TaskKind", kind);
+                break;
+            }
+        }
 
-                    // taskKind는 "상위 8비트 = 콘텐츠 카테고리 / 하위 8비트 = 세부 동작"이라
-                    // (Shared/Protocol/Src/TaskKind.h) 여기서 2단으로 분기한다. 콘텐츠가 늘면
-                    // case가 하나씩 붙을 뿐, 태스크를 실어 나르는 Task::UnitOfWork(Core)는
-                    // 여전히 이 의미를 몰라도 된다.
-                    switch (Protocol::CategoryOf(kind))
-                    {
-                    case Protocol::ETaskCategory::Mail:
-                        ApplyMailTask(static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind)),
-                                      ownerId, playerId, *taskPayload);
-                        break;
-                    case Protocol::ETaskCategory::Currency:
-                        ApplyCurrencyTask(ownerId, playerId, *taskPayload);
-                        break;
-                    default:
-                        // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면
-                        // 나머지 태스크는 정상 처리된다.
-                        LOG.Warning(ELogCategory::Db, "알 수 없는 UnitOfWork 태스크 카테고리")
-                            .KV("OwnerId", ownerId).KV("RequestId", requestId).KV("TaskKind", kind);
-                        break;
-                    }
-                }
-            });
+        // autoDbCommand가 여기서 소멸하며 쌓인 SP를 DB 레인으로 한 번에 넘긴다.
     }
 }

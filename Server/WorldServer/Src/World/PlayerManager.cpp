@@ -45,6 +45,45 @@ namespace World
         it->second.authenticated = true;
     }
 
+    void PlayerManager::AddMail(const Network::SessionId clientSessionId, MailInfo mailInfo)
+    {
+        const auto it = players_.find(clientSessionId);
+        if (it == players_.end())
+        {
+            return;
+        }
+
+        const auto mailId = mailInfo.mailId;
+        it->second.mails.insert_or_assign(mailId, std::move(mailInfo));
+    }
+
+    void PlayerManager::RemoveMail(const Network::SessionId clientSessionId, const Protocol::MailId mailId)
+    {
+        if (const auto it = players_.find(clientSessionId); it != players_.end())
+        {
+            it->second.mails.erase(mailId);
+        }
+    }
+
+    void PlayerManager::SetCurrency(const Network::SessionId clientSessionId, const uint8_t currencyType,
+                                    const int64_t amount)
+    {
+        if (const auto it = players_.find(clientSessionId); it != players_.end())
+        {
+            it->second.currencies.insert_or_assign(currencyType, amount);
+        }
+    }
+
+    std::optional<int64_t> PlayerManager::FindPlayerId(const Network::SessionId clientSessionId) const
+    {
+        const auto it = players_.find(clientSessionId);
+        if (it == players_.end())
+        {
+            return std::nullopt;
+        }
+        return it->second.playerId;
+    }
+
     std::optional<PlayerInfo> PlayerManager::Find(const Network::SessionId clientSessionId) const
     {
         const auto it = players_.find(clientSessionId);

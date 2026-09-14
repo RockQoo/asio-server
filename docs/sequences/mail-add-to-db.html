@@ -117,24 +117,23 @@
             <span class="line"></span>
             <span class="desc">클라이언트는 Task를 그대로 적용해 우편함을 맞춘다</span>
         </div>
-
         <div class="msg m-world" style="grid-column: 6 / 12; grid-row: 14;">
-            <span class="lbl">⑪ dbGroup_.Post(ownerId)</span>
+            <span class="lbl">⑪ basicGroup_.Post(clientSessionId)</span>
             <span class="line"></span>
-            <span class="desc">Main 레인을 거치지 않고 <b>DB 레인으로 직행</b> — 라우팅 상태를 안 건드리므로</span>
+            <span class="desc">다른 패킷과 <b>같은 BASIC 레인, 같은 주인</b> — 접속 종료와 순서가 어긋나지 않는다</span>
         </div>
 
-        <div class="act todo" style="grid-column: 11 / 13; grid-row: 15;">
-            <b>⑫ ApplyMailTask</b>
-            taskKind를 카테고리/동작 2단으로 분기해 Task를 하나씩 읽는다.
-            <b style="margin-top:5px; color:#b8860b">여기가 아직 TODO다</b>
-            지금은 로그만 남기고 끝난다.
+        <div class="act" style="grid-column: 11 / 13; grid-row: 15;">
+            <b>⑫ HandleUnitOfWorkStream</b>
+            taskKind를 카테고리/동작 2단으로 분기해 Task를 하나씩 읽고,
+            <b>World 캐시(PlayerManager)에 반영</b>한 뒤 같은 내용을 AutoDbCommand에 쌓는다.
+            DB에 쓸 <code>player_id</code>는 로그인이 확정한 값을 캐시에서 꺼낸다.
         </div>
 
         <div class="msg m-db" style="grid-column: 12 / 14; grid-row: 16;">
-            <span class="lbl">⑬ usp_mails_upsert <em>(미구현)</em></span>
-            <span class="line" style="border-top-style: dashed;"></span>
-            <span class="desc">SP·ODBC·트랜잭션 코드는 완성돼 있고 호출만 없다</span>
+            <span class="lbl">⑬ usp_mails_upsert <em>(owner=playerId)</em></span>
+            <span class="line"></span>
+            <span class="desc">AutoDbCommand 소멸 = DB 레인으로 한 번에. <b>UoW 하나 = 트랜잭션 하나</b></span>
         </div>
     </div>
 
@@ -164,11 +163,14 @@
     <a href="mail-buy-rollback.html">C2ZMailBuy 롤백</a>에서 볼 수 있다.
 </div>
 
-<div class="callout todo">
-    <h4>④ 지금 끊겨 있는 곳</h4>
-    ⑫~⑬. <code>mailId</code>는 이미 전역 <code>RUID</code>(<code>int64</code>)로 바뀌어 PK 충돌은 없다.
-    남은 것은 <code>Z2WUnitOfWorkStream</code>을 BASIC 레인으로 보내 World 캐시를 갱신하고,
-    거기서 <code>playerId</code>를 오너로 DB 레인에 넘겨 SP를 부르는 배선이다.
+<div class="callout">
+    <h4>④ 주인이 두 번 바뀐다</h4>
+    Zone에서는 <code>clientSessionId</code>가 주인이고, World의 BASIC 레인까지도 같다 —
+    그래야 그 사람의 라우팅·캐시·접속 종료가 한 줄로 처리된다.
+    DB 레인에 들어갈 때만 <code>playerId</code>로 갈아탄다: DB 작업은 세션이 아니라 <b>계정</b>에
+    묶이는 일이라, 재접속해서 세션 번호가 바뀌어도 한 계정의 쓰기는 같은 레인에서 도착 순서대로
+    직렬화돼야 한다. 갈아탈 때 쓰는 <code>playerId</code>는 존이 실어 보낸 값이 아니라
+    <b>로그인이 확정해 캐시에 넣어둔 값</b>이다.
 </div>
 
 <h2>관련 코드</h2>
@@ -179,8 +181,8 @@
     <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code></td></tr>
     <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Handler/PlayerMail.cpp</code> — <code>HandleMailAdd</code></td></tr>
     <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code> — 소멸자</td></tr>
-    <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>PostUnitOfWorkStream</code></td></tr>
-    <tr><td>⑬</td><td><code>Sql/mails.sql</code>, <code>Server/WorldServer/Src/Db/AutoDbCommand.h</code></td></tr>
+    <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>HandleUnitOfWorkStream</code></td></tr>
+    <tr><td>⑬</td><td><code>Sql/mails.sql</code>(<code>usp_mails_upsert</code>), <code>Server/WorldServer/Src/Db/AutoDbCommand.h</code></td></tr>
 </table>
 
 <p class="foot">asio-server · 시퀀스 다이어그램</p>

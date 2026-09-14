@@ -104,25 +104,17 @@ DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에
 98%대로 오른다. 그래도 무작위 키 대조군보다 페이지 수가 22% 적다.
 </div>
 
-<div class="callout warn">
-    <h4>지금 막혀 있는 곳 — mailId 타입</h4>
-    <code>Model</code>의 <code>nextMailId_</code>가 아직 <b>플레이어마다 1부터 세는
-    <code>uint32_t</code></b>다. SP는 <code>@mail_id BIGINT</code>(RUID 전제)라,
-    이 상태로 저장하면 <b>두 사람의 첫 우편이 둘 다 <code>mail_id = 1</code></b>이 되어 PK가 충돌한다.
-    <br><br>
-    <code>int64_t</code>로 바꾸면 와이어 포맷이 달라지므로 Zone · 프로토콜 · Client(C#) ·
-    ProtocolClient · StressClient를 <b>한 커밋에 같이</b> 고쳐야 한다.
-</div>
-
-<div class="callout todo">
-    <h4>그리고 배선 — 지금은 읽기만 된다</h4>
-    <code>ZoneLinkHandler::ApplyMailTask</code>가 Task를 읽기만 하고
-    <code>AutoDbCommand</code>를 만들지 않는다. 스트림당 하나를 만들고 Task 루프가
-    <code>Add()</code>만 하면 위 트랜잭션이 그대로 성립한다.
-    <p style="margin:8px 0 0"><b>읽기 경로는 로그인으로 열렸다</b> —
-    <code>usp_players_select</code> / <code>usp_players_upsert</code> /
-    <code>usp_players_load</code>가 실제로 돌고 있다. 쓰기만 비어 있어서, 골드를 써도 DB에는
-    그대로다.</p>
+<div class="callout">
+    <h4>쓰기 경로 — 존의 UnitOfWork가 그대로 트랜잭션이 된다</h4>
+    <code>ZoneLinkHandler::HandleUnitOfWorkStream</code>이 스트림당 <code>AutoDbCommand</code> 하나를
+    만들고, Task 루프가 <code>Add()</code>만 한다. 스코프를 벗어나면 쌓인 SP가 DB 레인으로 한 번에
+    나가고 위 트랜잭션이 그대로 성립한다.
+    <p style="margin:8px 0 0"><b>주인은 <code>playerId</code>다</b> — 세션이 아니라 계정에 묶이는
+    일이라 재접속해도 한 계정의 쓰기가 같은 레인에서 도착 순서대로 직렬화된다. 그 값은 존이 실어
+    보낸 것이 아니라 로그인이 확정해 World 캐시에 넣어둔 것을 쓴다.</p>
+    <p style="margin:8px 0 0"><code>mail_id</code>는 전역 <code>RUID</code>(<code>int64</code>)라
+    <code>@mail_id BIGINT</code>와 짝이 맞고, 존이 메모리에서 먼저 확정하므로 클라이언트 응답에
+    실을 id가 이미 있다(<code>IDENTITY</code>를 쓰지 않는 이유).</p>
 </div>
 
 <h2>결과 집합이 여러 개인 SP</h2>

@@ -16,7 +16,7 @@ namespace World
         , dbPool_(config_.dbConnectionString)
         , loginProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, dbPool_)
         , gatewayLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, loginProcessor_)
-        , zoneLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_)
+        , zoneLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, dbPool_)
         , toolProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, config_.toolSharedSecret)
         , signals_(ioPool_.At(0), SIGINT, SIGTERM)
     {

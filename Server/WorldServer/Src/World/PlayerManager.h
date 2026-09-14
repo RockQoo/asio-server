@@ -84,6 +84,22 @@ namespace World
                               std::unordered_map<Protocol::MailId, MailInfo> mails,
                               std::unordered_map<uint8_t, int64_t> currencies);
 
+        // ---- 존이 올린 UnitOfWork 태스크 반영 ----
+        // 셋 다 BASIC 레인(owner = clientSessionId)에서만 불린다. 그 레인은 이 클라이언트의
+        // 접속 종료(HandleClientDisconnected)와도 같은 주인이라, "이미 지워진 사람에게 우편을
+        // 넣는" 순서 역전이 생기지 않는다.
+        //
+        // **캐시를 갱신하지 않으면 프로세스를 넘는 핸드오프에서 그 변경이 사라진다** -- 존이
+        // W2ZEnterZone으로 받는 시작 상태가 곧 이 캐시이기 때문이다.
+        void AddMail(const Network::SessionId clientSessionId, MailInfo mailInfo);
+        void RemoveMail(const Network::SessionId clientSessionId, const Protocol::MailId mailId);
+        void SetCurrency(const Network::SessionId clientSessionId, const uint8_t currencyType,
+                         const int64_t amount);
+
+        // DB 작업의 주인이 될 player_id만 꺼낸다. FindRoute와 같은 이유로 우편함까지 복사하지
+        // 않는다 -- 태스크 하나마다 불리는 자리다.
+        [[nodiscard]] std::optional<int64_t> FindPlayerId(const Network::SessionId clientSessionId) const;
+
         // **값으로 복사해서 돌려준다.** 참조를 주면 호출부가 락을 벗어난 뒤에도 그걸 들고 있을
         // 수 있고, 그때 다른 스레드가 Remove하면 댕글링이다. 콘텐츠 캐시가 커지면 이 복사가
         // 비싸지므로, 라우팅만 필요한 자리는 아래 FindRoute를 쓴다.

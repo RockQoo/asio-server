@@ -52,10 +52,14 @@ namespace World
     //
     // **핸드오프에도 같은 포맷이 쓰인다** -- 존을 넘을 때 World 가 캐시에서 다시 실어 보낸다.
     //
-    // 다만 지금은 **캐시가 로그인 시점의 DB 스냅샷에서 멈춰 있다.** 존이 올린 UnitOfWork 를
-    // World 캐시에 반영하는 단계가 아직 없어서(ZoneLinkHandler 의 ApplyMailTask 가 로그만
-    // 남긴다), 존에서 새로 만든 우편은 프로세스를 넘는 핸드오프에서 여전히 사라진다.
-    // 같은 프로세스 안의 가로 이동은 Player 객체가 그대로 살아 있어 영향이 없다.
+    // **캐시는 최신이다** -- 존이 올린 UnitOfWork 를 World 가 BASIC 레인에서 계속 반영한다
+    // (ZoneLinkHandler 의 HandleUnitOfWorkStream). 스트림과 핸드오프 요청이 같은 TCP 링크로
+    // 오고 같은 주인(clientSessionId)의 같은 strand 에서 처리되므로, 직전에 만든 우편도 이미
+    // 캐시에 들어 있다.
+    //
+    // 세로 이동에서는 World 가 원본 링크에 W2ZLeaveZone 도 보낸다 -- 안 보내면 그쪽 프로세스에
+    // Player 와 우편함이 유령으로 남는다. 가로 이동은 Player 객체가 그대로 살아 있으므로
+    // 보내지 않고, 이 본문의 콘텐츠도 쓰이지 않는다(살아 있는 모델이 권위다).
     //
     // 쓰는 쪽은 Packet/EnterZoneBody.h, 읽는 쪽은 ZoneServer 의 WorldLinkHandler 다.
     // 한쪽만 고치면 조용히 어긋나므로 이 표가 유일한 계약이다.

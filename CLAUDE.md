@@ -210,7 +210,7 @@ Client → GatewayServer(순수 릴레이) → WorldServer(라우팅 + DB) → Z
                                         ├ Basic 라우팅            Player 8    owner=clientSessionId
                                         ├ Login 로그인            ZoneSpace n owner=zoneId
                                         └ Tool  운영툴            Broadcast 1 owner=zoneId
-                                      Db 4     owner 지정 시 직렬화
+                                      Db 4     owner=playerId (계정 단위 직렬화)
 ```
 
 핵심 불변식: **큐 그룹은 `asio::io_context` + 스레드 N개 + `strand` N개**이고, 넣는 방법이
@@ -271,10 +271,10 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
-| `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 로그인 때 읽은 우편·재화 캐시도 들고 있다 |
+| `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 **살아 있는 우편·재화 캐시**다 — 로그인 때 DB에서 채우고, 존이 올린 UnitOfWork를 BASIC 레인에서 계속 반영한다. 프로세스를 넘는 핸드오프가 이 캐시를 그대로 실어 보낸다 |
 | | `Login::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **레인을 네 번 갈아타고 도중에 주인이 바뀐다**(이름 해시 → `playerId`) |
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
-| | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기** 경로는 실제로 돌고, UoW의 **쓰기** 배선은 아직 TODO |
+| | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
 | `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
 | | `PlayerProcessor` | 플레이어 레인의 진입점 — 입장/퇴장 + 패킷 라우팅. Move/Chat만 직접 처리한다(모델 변경도 DB 저장도 없어 UoW를 열지 않는다) |
 | | `PlayerMail` | 우편 요청 처리(Add/Del/Buy). **콘텐츠 큰 분류 = 파일 한 쌍**이고 자기 패킷을 스스로 등록한다. 전부 static — 필요한 것은 `PlayerContext`로 들어온다 |
@@ -354,10 +354,10 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지 큐 프로세서 구조(asio
 `io_context` + `strand`), Mail(Mutexed/UnitOfWork) 시스템, 재화(Currency) + 모델 두 개에 걸친
 트랜잭션과 역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RUID`), 부하 테스트 도구(StressClient),
-시각 클라이언트(Client), **로그인(`C2WLogin`) + 자동 가입 + World 콘텐츠 캐시**까지 완료.
-부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`). 남은 것:
-**DB 쓰기 경로**(UnitOfWork → SP 배선 — 읽기는 로그인으로 열렸다), 중복 로그인 차단,
-`mail_id`/`player_id`의 `int64` 확대, Actor/Monster/AOI. 자세한 표는
+시각 클라이언트(Client), **로그인(`C2WLogin`) + 자동 가입 + World 콘텐츠 캐시**,
+**DB 쓰기 경로**(UnitOfWork -> BASIC 레인에서 캐시 반영 -> `playerId`를 주인으로 DB 레인, UoW 하나 =
+트랜잭션 하나)까지 완료. 부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`).
+남은 것: 중복 로그인 차단, `player_id`의 `int64` 확대(존 쪽), Actor/Monster/AOI. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
 
 ---
