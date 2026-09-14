@@ -59,8 +59,8 @@ namespace Zone
         // members_가 바뀐 직후에 부른다(존 레인).
         void PublishBroadcastTargets();
 
-        void SendEnterZoneNotify(const Network::SessionId clientSessionId, const uint32_t playerId) const;
-        void RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
+        void SendEnterZoneNotify(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId) const;
+        void RequestZoneTransfer(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
                                   const float x, const float y) const;
 
         // 담당 구간을 필드로 흩지 않고 정의 그대로 들고 있는다 -- 경계 검사(Def::Contains)를

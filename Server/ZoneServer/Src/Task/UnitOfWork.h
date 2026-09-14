@@ -2,6 +2,7 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Task/UnitOfWork.h"
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
@@ -24,12 +25,12 @@ namespace Zone
         // 클라이언트 요청을 처리하는 경우. requestPacketId는 클라이언트가 "무슨 요청의
         // 결과인지" 짝지을 수 있도록 결과 패킷에 그대로 실린다.
         UnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
-                       const uint32_t playerId, const PacketId requestPacketId);
+                       const Protocol::PlayerId playerId, const PacketId requestPacketId);
 
         // 요청 없이 서버가 스스로 만든 변경(우편 만료 삭제 등). 결과 패킷의 requestPacketId
         // 자리에 0이 실려서, 클라이언트는 "내가 요청한 적 없는 변경 통지"로 구분한다.
         UnitOfWork(WorldLink& worldLink, const Network::SessionId clientSessionId,
-                       const uint32_t playerId);
+                       const Protocol::PlayerId playerId);
 
         // 결말을 내는 자리. 예외를 밖으로 내보내면 프로세스가 즉시 종료되므로 noexcept +
         // 내부 try/catch로 막는다.
@@ -44,7 +45,7 @@ namespace Zone
 
         WorldLink& worldLink_;
         Network::SessionId clientSessionId_;
-        uint32_t playerId_;
+        Protocol::PlayerId playerId_;
         uint16_t requestPacketId_;
     };
 }

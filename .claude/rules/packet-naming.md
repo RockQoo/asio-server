@@ -117,7 +117,7 @@ T2WToolHello         ->  T2WHello          (Tool도 T2W가 이미 말한다)
 | 1001 | `Z2CEchoAck` | `Echo` 재사용이었음 |
 | 1002 | `Z2CChatNotify` | `Chat` 재사용이었음 |
 | 1003 | `Z2CMoveNotify` | `Move` 재사용이었음, **본문에 sessionId 추가** |
-| 1004 | `Z2CEnterZoneNotify` | `Zone::PacketId::EnterZoneNotify` |
+| 1004 | `Z2CEnterZoneNotify` | `Zone::PacketId::EnterZoneNotify`. **본문에 clientSessionId 추가** — playerId가 int64 계정 키가 되면서, 브로드캐스트 발신자 키(세션 id)와 갈라졌다 |
 | ~~1005~~ | ~~`Z2CMailAddAck`~~ | `Z2CTaskResult`로 통합되며 폐기(번호 재사용 안 함) |
 | ~~1006~~ | ~~`Z2CMailDelAck`~~ | 〃 |
 | 1007 | `Z2CTaskResult` | 신규 — UnitOfWork 결과 공통 응답 |

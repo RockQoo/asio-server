@@ -31,7 +31,7 @@ namespace World
         // 모았다가 스코프 끝에서 한 번에 DB 레인으로 넘긴다.
         void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoDbCommand& autoDbCommand,
                            const Protocol::EMailTask subTask, const Network::SessionId clientSessionId,
-                           const int64_t playerId, const std::span<const byte> taskPayload)
+                           const Protocol::PlayerId playerId, const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
             Protocol::MailId mailId{};
@@ -53,7 +53,7 @@ namespace World
                 // mailId는 존이 이미 확정한 RUID다 -- DB의 IDENTITY를 기다리지 않으므로
                 // 클라이언트는 벌써 이 id로 우편을 들고 있다(cpp-patterns.md의 RUID 절).
                 autoDbCommand.Add(DbCommand{"dbo.usp_mails_upsert",
-                    {mailId.Value(), playerId, std::move(title), std::move(body), sendUt, endUt}});
+                    {mailId.Value(), playerId.Value(), std::move(title), std::move(body), sendUt, endUt}});
                 break;
 
             case Protocol::EMailTask::Removed:
@@ -70,7 +70,7 @@ namespace World
         }
 
         void ApplyCurrencyTask(PlayerManager::Mutexed& playerManager, AutoDbCommand& autoDbCommand,
-                               const Network::SessionId clientSessionId, const int64_t playerId,
+                               const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
                                const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
@@ -88,7 +88,7 @@ namespace World
             // DB는 새 값으로 UPDATE하면 되고, 이전 값은 감사/추적용이다 -- "누가 언제 얼마에서
             // 얼마로 바뀌었는지"가 한 행에 남으면 재화 사고를 추적할 수 있다. 지금 SP는 새 값만
             // 받으므로 이전 값은 로그로만 남긴다.
-            autoDbCommand.Add(DbCommand{"dbo.usp_currencies_upsert", {playerId, currencyType, newValue}});
+            autoDbCommand.Add(DbCommand{"dbo.usp_currencies_upsert", {playerId.Value(), currencyType, newValue}});
 
             LOG.Debug(ELogCategory::Db, "Currency 태스크 반영")
                 .KV("ClientSessionId", clientSessionId).KV("PlayerId", playerId)
@@ -135,8 +135,8 @@ namespace World
 
         case PacketId::Z2WUnitOfWorkStream:
             // Task::UnitOfWork::Serialize가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
-            // 그 앞에 Zone이 붙인 playerId(uint32) + requestId(int64)가 있어 offset 12다.
-            return PeekOwnerId<uint64_t>(payload, sizeof(uint32_t) + sizeof(Common::RUID));
+            // 그 앞에 Zone이 붙인 playerId(int64) + requestId(int64)가 있어 offset 16이다.
+            return PeekOwnerId<uint64_t>(payload, sizeof(Protocol::PlayerId) + sizeof(Common::RUID));
 
         default:
             return std::nullopt;
@@ -346,7 +346,7 @@ namespace World
         // 건너뛰고 DB 그룹으로 직행해서, **World 캐시가 로그인 시점 스냅샷에 멈춰 있었다** --
         // 존에서 만든 우편이 프로세스를 넘는 핸드오프에서 사라지던 원인이 그것이다.
         Packet::BinaryReader binaryReader(payload);
-        uint32_t zonePlayerId{};
+        Protocol::PlayerId zonePlayerId{};
         Common::RUID requestId{};
         uint64_t ownerId{};
         uint16_t taskCount{};
@@ -358,11 +358,10 @@ namespace World
 
         const auto clientSessionId = static_cast<Network::SessionId>(ownerId);
 
-        // **DB에 쓸 player_id는 캐시에서 꺼낸다.** 존이 실어 보낸 zonePlayerId는 아직
-        // clientSessionId에서 파생한 uint32라 DB의 player_id(RUID)가 아니다
-        // (PlayerInfo::playerId 주석). 로그인이 확정한 값만 신뢰한다.
+        // **DB에 쓸 player_id는 캐시에서 꺼낸다.** 존이 실어 보낸 값을 그대로 쓰지 않는 이유는
+        // 신뢰 경계다 -- DB 키는 로그인이 확정한 값만 쓴다.
         const auto playerId = playerManager_->FindPlayerId(clientSessionId);
-        if (!playerId || *playerId == 0)
+        if (!playerId || !playerId->IsValid())
         {
             // 접속이 이미 끊겨 캐시가 사라진 뒤다. 되돌릴 방법이 없으므로 사실만 남긴다.
             LOG.Error(ELogCategory::Db, "UnitOfWork 스트림의 플레이어를 찾을 수 없어 버린다")
@@ -371,13 +370,22 @@ namespace World
             return;
         }
 
+        // 존이 실은 값과 캐시가 다르면 둘 중 하나가 어긋난 것이다. 지금은 캐시를 믿고 진행하되
+        // 사실을 남긴다 -- **여기가 위조 검증이 들어갈 자리**다(태스크 내용을 캐시와 대조).
+        if (zonePlayerId != *playerId)
+        {
+            LOG.Error(ELogCategory::Db, "존이 실은 playerId가 캐시와 다르다")
+                .KV("ClientSessionId", clientSessionId)
+                .KV("FromZone", zonePlayerId).KV("FromCache", *playerId);
+        }
+
         // **UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.** 우편 지급과 골드 차감처럼
         // 모델 두 개에 걸친 변경이 반쪽만 남지 않게 하려는 것이다.
         //
         // 주인이 clientSessionId가 아니라 playerId인 이유: DB 작업은 세션이 아니라 계정에
         // 묶이는 일이라, 재접속해서 세션이 바뀌어도 같은 DB 레인을 유지해야 한 계정의 쓰기가
         // 도착 순서대로 직렬화된다(LoginProcessor::LoadPlayerContent 주석과 짝).
-        AutoDbCommand autoDbCommand(dbPool_, dbGroup_, static_cast<uint64_t>(*playerId), true);
+        AutoDbCommand autoDbCommand(dbPool_, dbGroup_, static_cast<uint64_t>(playerId->Value()), true);
 
         for (uint16_t i = 0; i < taskCount; ++i)
         {

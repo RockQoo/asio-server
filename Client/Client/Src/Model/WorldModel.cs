@@ -90,16 +90,21 @@ public sealed class WorldModel
     public LoginOutcome? Login { get; private set; }
 
     /// <summary>
-    /// 로그인으로 확정된 DB의 player_id. <see cref="MyPlayerId"/>와 <b>다른 값이다</b> —
-    /// 그쪽은 존이 브로드캐스트에 쓰는 uint32이고 이건 계정의 영속 키(int64)다.
+    /// 로그인으로 확정된 DB의 player_id(int64). <see cref="MySessionId"/>와 <b>다른 값이다</b> —
+    /// 그쪽은 존이 브로드캐스트에 "누가" 보냈는지를 싣는 세션 키이고, 이건 계정의 영속 키다.
+    /// <c>W2CLogin</c>과 <c>Z2CEnterZoneNotify</c> 둘 다에 실려 오며 같은 값이어야 한다.
     /// </summary>
     public long AccountPlayerId { get; private set; }
 
     /// <summary>로그인한 계정 이름. 서버가 확정해 돌려준 값이다.</summary>
     public string PlayerName { get; private set; } = string.Empty;
 
-    /// <summary>내 playerId. <c>Z2CEnterZoneNotify</c>를 받기 전에는 0이다.</summary>
-    public uint MyPlayerId { get; private set; }
+    /// <summary>
+    /// 내 세션 id. <c>Z2CEnterZoneNotify</c>를 받기 전에는 0이다.
+    /// <c>Z2CMoveNotify</c>/<c>Z2CChatNotify</c>의 발신자 키와 같은 값이라, 그 통지 중
+    /// 내 것을 가려내는 데 쓴다. <b>계정 키가 아니다</b>(그건 <see cref="AccountPlayerId"/>).
+    /// </summary>
+    public uint MySessionId { get; private set; }
 
     /// <summary>서버가 배정한 현재 zoneId. 핸드오프될 때마다 갱신된다.</summary>
     public uint MyZoneId { get; private set; }
@@ -129,7 +134,7 @@ public sealed class WorldModel
 
     public IReadOnlyList<ChatLine> ChatLines => chatLines_;
 
-    public RemotePlayer? Me => MyPlayerId != 0 && players_.TryGetValue(MyPlayerId, out var me) ? me : null;
+    public RemotePlayer? Me => MySessionId != 0 && players_.TryGetValue(MySessionId, out var me) ? me : null;
 
     public void SetRequestedPosition(float x, float y)
     {
@@ -162,7 +167,7 @@ public sealed class WorldModel
         List<uint>? stale = null;
         foreach (var (playerId, player) in players_)
         {
-            if (playerId != MyPlayerId && player.LastSeenSeconds < cutoffSeconds)
+            if (playerId != MySessionId && player.LastSeenSeconds < cutoffSeconds)
             {
                 (stale ??= []).Add(playerId);
             }
@@ -226,16 +231,23 @@ public sealed class WorldModel
 
     private void ApplyEnterZone(byte[] payload)
     {
-        // EnterZoneNotifyPacket: playerId(uint32) + zoneId(uint32)
+        // EnterZoneNotifyPacket: playerId(int64) + clientSessionId(uint64) + zoneId(uint32)
+        //
+        // **playerId와 sessionId가 따로 온다.** 예전에는 playerId 하나뿐이었고 그 값이
+        // 세션 id를 uint32로 자른 것이라 둘을 겸했는데, 서버가 진짜 계정 키를 싣게 되면서
+        // 갈라졌다. 브로드캐스트(Move/Chat)의 발신자 키는 여전히 세션 id다.
         var reader = new BinaryPacketReader(payload);
-        if (!reader.TryReadUInt32(out var playerId) || !reader.TryReadUInt32(out var zoneId))
+        if (!reader.TryReadInt64(out var playerId)
+            || !reader.TryReadUInt64(out var clientSessionId)
+            || !reader.TryReadUInt32(out var zoneId))
         {
             return;
         }
 
         var isHandoff = HasEnteredZone && zoneId != MyZoneId;
 
-        MyPlayerId = playerId;
+        AccountPlayerId = playerId;
+        MySessionId = (uint)clientSessionId;
         MyZoneId = zoneId;
         HasEnteredZone = true;
 
@@ -321,7 +333,7 @@ public sealed class WorldModel
             return;
         }
 
-        var isMine = senderId == MyPlayerId;
+        var isMine = senderId == MySessionId;
         AddChatLine(new ChatLine(
             isMine ? $"나: {message}" : $"{senderId}: {message}",
             isMine ? ChatLineKind.Mine : ChatLineKind.Other));

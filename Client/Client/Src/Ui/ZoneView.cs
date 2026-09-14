@@ -179,7 +179,7 @@ public sealed class ZoneView
     {
         foreach (var player in world.Players.Values)
         {
-            var isMe = player.PlayerId == world.MyPlayerId;
+            var isMe = player.PlayerId == world.MySessionId;
             var isStale = nowSeconds - player.LastSeenSeconds > StaleAfterSeconds;
 
             var body = isMe

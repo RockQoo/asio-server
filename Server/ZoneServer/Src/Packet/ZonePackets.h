@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Protocol/Src/Ids.h"
+
 namespace Zone
 {
     // 고정 레이아웃 페이로드들.
@@ -14,7 +16,17 @@ namespace Zone
 
     struct EnterZoneNotifyPacket
     {
-        uint32_t playerId;
+        // 로그인이 확정한 DB의 player_id(RUID). **재접속해도 같다.**
+        Protocol::PlayerId playerId;
+
+        // 이 클라이언트의 세션 id. **playerId와 용도가 다르다** -- Z2CMoveNotify /
+        // Z2CChatNotify 가 "누가" 보냈는지를 이 값으로 싣기 때문에, 클라이언트가 그 통지들
+        // 중 자기 것을 가려내려면 이 값이 필요하다.
+        //
+        // 예전에는 playerId 가 clientSessionId 를 uint32 로 자른 값이라 하나로 둘 다
+        // 됐는데, 그건 우연이었고 재접속하면 playerId 가 바뀌는 결함이기도 했다.
+        uint64_t clientSessionId;
+
         uint32_t zoneId;
     };
 

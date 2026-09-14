@@ -189,7 +189,7 @@ Common::RUID ruid{};        // X
 | 종류 | 밑바탕 | 상태 |
 |---|---|---|
 | `MailId` | `int64` | **적용됨** |
-| `PlayerId` | `int64` | 별칭만 있음 |
+| `PlayerId` | `int64` | **적용됨** |
 | `ZoneId` | `uint32`(RUID 아님) | 별칭만 있음 |
 
 `Common::RUID`를 그대로 쓰는 자리는 **아직 변환 안 된 종류**뿐이고, 거기서만 역할 이름을 쓴다.

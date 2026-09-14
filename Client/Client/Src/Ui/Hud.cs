@@ -45,7 +45,7 @@ public sealed class Hud
         if (world.HasEnteredZone)
         {
             x = DrawField(painter, "Zone", world.MyZoneId.ToString(), new Color(150, 230, 180), x, y);
-            x = DrawField(painter, "playerId", world.MyPlayerId.ToString(), Color.White, x, y);
+            x = DrawField(painter, "playerId", world.MySessionId.ToString(), Color.White, x, y);
 
             var me = world.Me;
             var positionText = me is null

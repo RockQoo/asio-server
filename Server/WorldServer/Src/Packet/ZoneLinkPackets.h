@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Protocol/Src/Ids.h"
+
 namespace World
 {
 #pragma pack(push, 1)
@@ -23,7 +25,11 @@ namespace World
     {
         uint32_t zoneId;
         uint64_t clientSessionId;
-        uint32_t playerId;
+
+        // 로그인이 확정한 DB의 player_id(RUID). **clientSessionId 파생값이 아니다** --
+        // 예전에는 uint32였고 세션 id를 잘라 넣고 있어서 재접속할 때마다 값이 바뀌었다.
+        Protocol::PlayerId playerId;
+
         float x;
         float y;
     };

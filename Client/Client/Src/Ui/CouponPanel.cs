@@ -76,11 +76,11 @@ public sealed class CouponPanel
                           new Vector2(rect.X + 10, y), new Color(120, 132, 155));
         y += painter.SmallFont.LineHeight + 6;
 
-        var sessionText = world.MyPlayerId == 0
+        var sessionText = world.MySessionId == 0
             ? "clientSessionId: (존 입장 전 — 보상을 받을 대상이 없습니다)"
-            : $"clientSessionId: {world.MyPlayerId}  (보상 우편을 받을 대상)";
+            : $"clientSessionId: {world.MySessionId}  (보상 우편을 받을 대상)";
         painter.SmallText(sessionText, new Vector2(rect.X + 10, y),
-                          world.MyPlayerId == 0 ? new Color(220, 150, 110) : new Color(140, 200, 165));
+                          world.MySessionId == 0 ? new Color(220, 150, 110) : new Color(140, 200, 165));
         y += painter.SmallFont.LineHeight + 10;
 
         var isBusy = pending_ is not null;
@@ -120,7 +120,7 @@ public sealed class CouponPanel
 
         // playerId를 그대로 clientSessionId로 넘긴다 — 서버의 playerId는 clientSessionId의
         // 하위 32비트이고 SessionId는 1부터 증가하는 카운터라 상위 32비트가 0이다.
-        ulong? sessionId = world.MyPlayerId == 0 ? null : world.MyPlayerId;
+        ulong? sessionId = world.MySessionId == 0 ? null : world.MySessionId;
         pending_ = coupons_.RedeemAsync(code, sessionId);
     }
 

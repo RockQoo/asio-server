@@ -103,7 +103,7 @@ namespace Zone
         }
     }
 
-    void Instance::SendEnterZoneNotify(const Network::SessionId clientSessionId, const uint32_t playerId) const
+    void Instance::SendEnterZoneNotify(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId) const
     {
         const auto worldSession = worldLink_.Get();
         if (!worldSession)
@@ -113,6 +113,7 @@ namespace Zone
 
         EnterZoneNotifyPacket notify{};
         notify.playerId = playerId;
+        notify.clientSessionId = clientSessionId;
         notify.zoneId = def_.zoneId;
 
         World::ClientEnvelopeHeader header{};
@@ -125,7 +126,7 @@ namespace Zone
         worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
-    void Instance::RequestZoneTransfer(const Network::SessionId clientSessionId, const uint32_t playerId,
+    void Instance::RequestZoneTransfer(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
                                             const float x, const float y) const
     {
         const auto worldSession = worldLink_.Get();

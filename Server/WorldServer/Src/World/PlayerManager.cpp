@@ -24,7 +24,7 @@ namespace World
         }
     }
 
-    void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, const int64_t playerId,
+    void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
                                          std::string playerName,
                                          std::unordered_map<Protocol::MailId, MailInfo> mails,
                                          std::unordered_map<uint8_t, int64_t> currencies)
@@ -74,7 +74,7 @@ namespace World
         }
     }
 
-    std::optional<int64_t> PlayerManager::FindPlayerId(const Network::SessionId clientSessionId) const
+    std::optional<Protocol::PlayerId> PlayerManager::FindPlayerId(const Network::SessionId clientSessionId) const
     {
         const auto it = players_.find(clientSessionId);
         if (it == players_.end())

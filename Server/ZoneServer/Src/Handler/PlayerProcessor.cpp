@@ -76,7 +76,7 @@ namespace Zone
             // 신규 입장이거나 **프로세스를 넘는 핸드오프**(세로 이동)다. 둘 다 이 프로세스에는
             // 그 사람이 없으므로 모델을 새로 만든다 -- **시작 상태는 전부 생성자로 들어간다.**
             // 존은 DB를 직접 읽지 않으므로 이 패킷(=World 캐시)이 유일한 출처다.
-            auto mailBox = mailRegistry_.Add(clientSessionId, std::move(packet.mails));
+            auto mailBox = mailRegistry_.Add(clientSessionId, packet.state.playerId, std::move(packet.mails));
 
             player = std::make_shared<Player>(clientSessionId, packet.state.playerId, zoneId,
                                               packet.state.x, packet.state.y,

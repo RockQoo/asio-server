@@ -25,7 +25,7 @@ namespace Zone
         // (Packet/WorldPackets.h), 각 모델이 자기 생성자에서 그것만 받는다.
         // 콘텐츠가 늘면 인자가 하나 늘고 멤버가 하나 는다 -- 빈 모델을 만들어 두고 나중에
         // 채우는 경로는 두지 않는다(그 사이에 읽으면 없는 것으로 보인다).
-        Player(const Network::SessionId sessionId, const uint32_t playerId, const uint32_t zoneId,
+        Player(const Network::SessionId sessionId, const Protocol::PlayerId playerId, const uint32_t zoneId,
                const float x, const float y,
                std::shared_ptr<Mail::Model::Mutexed> mailBox,
                const std::vector<Currency::Info>& currencies)
@@ -43,7 +43,7 @@ namespace Zone
 
         // 생성 후 불변이라 어느 레인에서 읽어도 안전하다.
         [[nodiscard]] Network::SessionId GetSessionId() const noexcept { return sessionId_; }
-        [[nodiscard]] uint32_t GetPlayerId() const noexcept { return playerId_; }
+        [[nodiscard]] Protocol::PlayerId GetPlayerId() const noexcept { return playerId_; }
 
         // 지금 있는 존. **플레이어 레인 전용**이라 락이 없다 -- 핸드오프도 결국 이 레인으로
         // 오는 입장/퇴장 메시지로 처리되므로, 쓰는 쪽도 읽는 쪽도 항상 이 사람의 스레드다.
@@ -66,7 +66,7 @@ namespace Zone
 
     private:
         const Network::SessionId sessionId_;
-        const uint32_t playerId_;
+        const Protocol::PlayerId playerId_;
         uint32_t zoneId_;
 
         MoveModel::Mutexed move_;

@@ -14,6 +14,7 @@ namespace Mail
     void ExpiryService::SweepOnce(const int64_t nowUt)
     {
         mailRegistry_.ForEach([this, nowUt](const Network::SessionId clientSessionId,
+                                             const Protocol::PlayerId playerId,
                                              const std::shared_ptr<Model::Mutexed>& mailModel)
         {
             // 이 타이머는 존 워커 스레드가 아니라 별도 유지보수 스레드에서 돈다 -- 그 사이
@@ -27,10 +28,6 @@ namespace Mail
             {
                 return;
             }
-
-            // clientSessionId를 그대로 playerId로도 쓰는 이 프로젝트의 단순화 규칙(WorldServer의
-            // GatewayLinkHandler::HandleClientConnected 참고)을 그대로 따른다.
-            const auto playerId = static_cast<uint32_t>(clientSessionId);
 
             // 클라이언트 요청이 아니라 서버가 스스로 만든 변경이라 requestPacketId가 없는
             // 생성자를 쓴다 -- 클라이언트는 "요청한 적 없는 변경 통지"로 받아 자기 우편함에서

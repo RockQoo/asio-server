@@ -294,7 +294,8 @@
    5. [남음] playerId -> clientSessionId 색인 (중복 로그인, 검사+삽입이 원자적이어야 함)
    6. [완료] 존이 올린 UnitOfWork 를 BASIC 레인에서 캐시에 반영 + playerId 를 주인으로 SP 호출
              [남음] 캐시와 대조해 위조를 걸러내는 단계
-   7. [진행] 클라이언트 3종 로그인 대응 + player_id int64 확대 (mail_id 는 완료)
+   7. [완료] player_id int64 확대 -- 와이어(PlayerZoneStatePacket / Z2CEnterZoneNotify)까지
+             [남음] StressClient 로그인 대응
    ```
 
    **6번이 열리면서 두 가지가 같이 풀렸다.** `Z2WUnitOfWorkStream` 이 BASIC 을 건너뛰고 DB
@@ -311,10 +312,14 @@
    `W2ZEnterZone` 과 짝으로 원본 링크에 `W2ZLeaveZone` 을 보낸다 -- 같은 프로세스 안의 이동은
    살아 있는 `Player` 를 그대로 옮기므로 보내지 않는다(판정 기준은 zoneId 가 아니라 링크 세션).
 
-   **7번이 규모가 크다**: `player_id` 가 `uint32_t` -> `int64_t` 가 되면서 와이어 포맷이
-   바뀐다. Zone `Player` -> 프로토콜 -> `Client`(C#) / `ProtocolClient` / `StressClient` 가
-   전부 딸려오고, 서버만 고치면 클라가 깨지므로 한 커밋에 같이 가야 한다. `mail_id` 는
-   `Protocol::MailId`(StrongId) 로 이미 끝났다.
+   **7번이 열렸다**: `player_id` 가 `uint32_t` -> `Protocol::PlayerId`(int64) 가 되면서 와이어
+   포맷이 바뀌었다(`PlayerZoneStatePacket` / `Z2CEnterZoneNotify`). Zone `Player` -> 프로토콜
+   -> `Client`(C#) / `ProtocolClient` / `StressClient` 를 한 커밋에 같이 고쳤다.
+
+   그 과정에서 `Z2CEnterZoneNotify` 에 `clientSessionId` 가 추가됐다. 예전에는 playerId 가
+   세션 id 를 uint32 로 자른 값이라 **하나가 두 역할을 겸하고 있었고**, C# 클라이언트가 그걸
+   브로드캐스트(Move/Chat)의 발신자 키와 대조하는 데 쓰고 있었다. 진짜 계정 키를 싣게 되면서
+   둘이 갈라져, 클라이언트가 자기 세션 id 를 알 방법이 따로 필요해졌다.
 
    **`StressClient` 는 현재 동작하지 않는다** -- 로그인을 보내지 않아 존 입장이 막힌다.
    7번에서 같이 고친다. 시드에 `stress_00001~20000` 이 이미 있으므로 세션 index 로 이름만

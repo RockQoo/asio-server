@@ -324,8 +324,9 @@ namespace World
         PlayerZoneStatePacket enterState{};
         enterState.zoneId = entry->zoneId;
         enterState.clientSessionId = clientSessionId;
-        // 존 쪽 playerId는 아직 uint32라 clientSessionId에서 파생한다(PlayerInfo::playerId 주석).
-        enterState.playerId = static_cast<uint32_t>(clientSessionId);
+        // **로그인이 확정한 값을 그대로 싣는다.** 예전에는 clientSessionId 를 uint32 로 잘라
+        // 넣고 있어서, 존과 클라이언트가 보는 playerId 가 재접속할 때마다 바뀌었다.
+        enterState.playerId = Protocol::PlayerId{playerId};
         enterState.x = entry->x;
         enterState.y = entry->y;
 
@@ -336,7 +337,7 @@ namespace World
         // 캐시를 채우고 인증을 확정한다. 쓰기 락을 두 번 잡지 않도록 한 번에 묶는다.
         {
             auto writeProxy = playerManager_.Write();
-            writeProxy->SetAuthenticated(clientSessionId, playerId, playerName,
+            writeProxy->SetAuthenticated(clientSessionId, Protocol::PlayerId{playerId}, playerName,
                                      std::move(mails), std::move(currencies));
             writeProxy->SetZone(clientSessionId, entry->zoneId);
         }

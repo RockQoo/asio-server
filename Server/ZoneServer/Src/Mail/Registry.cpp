@@ -4,6 +4,7 @@
 namespace Mail
 {
     std::shared_ptr<Model::Mutexed> Registry::Add(const Network::SessionId clientSessionId,
+                                                  const Protocol::PlayerId playerId,
                                                   std::vector<Info> initial)
     {
         // Mutexed는 완벽 전달 생성자를 갖고 있어서 Model의 인자를 그대로 넘길 수 있다 --
@@ -17,7 +18,7 @@ namespace Mail
         mailBox->Write()->BindSelf(mailBox);
 
         std::unique_lock lock(mutex_);
-        mails_[clientSessionId] = mailBox;
+        mails_[clientSessionId] = Entry{playerId, mailBox};
         return mailBox;
     }
 
@@ -31,16 +32,16 @@ namespace Mail
     {
         std::shared_lock lock(mutex_);
         const auto it = mails_.find(clientSessionId);
-        return it != mails_.end() ? it->second : nullptr;
+        return it != mails_.end() ? it->second.mailBox : nullptr;
     }
 
-    void Registry::ForEach(const std::function<void(const Network::SessionId,
-                                                        const std::shared_ptr<Model::Mutexed>&)>& func) const
+    void Registry::ForEach(const std::function<void(const Network::SessionId, const Protocol::PlayerId,
+                                                    const std::shared_ptr<Model::Mutexed>&)>& func) const
     {
         std::shared_lock lock(mutex_);
-        for (const auto& [clientSessionId, mailModel] : mails_)
+        for (const auto& [clientSessionId, entry] : mails_)
         {
-            func(clientSessionId, mailModel);
+            func(clientSessionId, entry.playerId, entry.mailBox);
         }
     }
 }

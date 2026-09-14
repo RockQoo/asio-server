@@ -38,9 +38,9 @@ namespace World
         // ---- 계정 ----
         // 로그인으로 확정된 DB의 player_id(RUID). 인증 전에는 0이다.
         //
-        // **존으로 나가는 PlayerZoneStatePacket::playerId와 다른 값이다.** 그쪽은 아직
-        // uint32이고 clientSessionId에서 파생한다(PROGRESS.md 1-B의 7번).
-        int64_t playerId{};
+        // **존으로 나가는 PlayerZoneStatePacket::playerId 와 같은 값이다.** 예전에는 그쪽이
+        // uint32 라 clientSessionId 를 잘라 넣고 있었고, 재접속할 때마다 값이 바뀌었다.
+        Protocol::PlayerId playerId{};
         std::string playerName;
 
         // C2WLogin을 통과했는가. **false면 게임 패킷을 존으로 넘기지 않는다.**
@@ -79,7 +79,7 @@ namespace World
 
         // 로그인 성공을 기록한다. 이 호출 뒤에야 그 세션의 게임 패킷이 존으로 흐른다.
         // 콘텐츠 캐시(mails/currencies)는 DB에서 읽어온 것을 그대로 옮겨 담는다.
-        void SetAuthenticated(const Network::SessionId clientSessionId, const int64_t playerId,
+        void SetAuthenticated(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
                               std::string playerName,
                               std::unordered_map<Protocol::MailId, MailInfo> mails,
                               std::unordered_map<uint8_t, int64_t> currencies);
@@ -98,7 +98,7 @@ namespace World
 
         // DB 작업의 주인이 될 player_id만 꺼낸다. FindRoute와 같은 이유로 우편함까지 복사하지
         // 않는다 -- 태스크 하나마다 불리는 자리다.
-        [[nodiscard]] std::optional<int64_t> FindPlayerId(const Network::SessionId clientSessionId) const;
+        [[nodiscard]] std::optional<Protocol::PlayerId> FindPlayerId(const Network::SessionId clientSessionId) const;
 
         // **값으로 복사해서 돌려준다.** 참조를 주면 호출부가 락을 벗어난 뒤에도 그걸 들고 있을
         // 수 있고, 그때 다른 스레드가 Remove하면 댕글링이다. 콘텐츠 캐시가 커지면 이 복사가

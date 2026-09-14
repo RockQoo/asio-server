@@ -182,7 +182,8 @@ namespace
                     if (payload.size() >= sizeof(notify))
                     {
                         std::memcpy(&notify, payload.data(), sizeof(notify));
-                        std::cout << "[recv] EnterZoneNotify playerId=" << notify.playerId
+                        std::cout << "[recv] EnterZoneNotify playerId=" << notify.playerId.Value()
+                                  << " sessionId=" << notify.clientSessionId
                                   << " zoneId=" << notify.zoneId << '\n';
                     }
                     break;
