@@ -16,7 +16,7 @@ namespace Mail
         // 전역 유일이라 이미 있는 id가 나올 수 없다. 그래도 확인하는 건 **여기서 걸리면
         // 발급기가 고장 났다는 신호**이기 때문이다 -- 조용히 덮어쓰면 남의 우편이 사라진다.
         // 실패한 요청이 id를 하나 태우는 건 신경 쓰지 않는다(RUID는 ms당 4,096개다).
-        const auto mailId = Common::Ruid::Create();
+        const Protocol::MailId mailId{Common::Ruid::Create()};
         if (mails_.contains(mailId))
         {
             return EErrorCode::MailAlreadyExists;
@@ -51,7 +51,7 @@ namespace Mail
         return EErrorCode::Success;
     }
 
-    EErrorCode Model::DelMail(const Common::RUID mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
+    EErrorCode Model::DelMail(const Protocol::MailId mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
     {
         const auto it = mails_.find(mailId);
         if (it == mails_.end())
@@ -69,9 +69,9 @@ namespace Mail
         return EErrorCode::Success;
     }
 
-    std::vector<Common::RUID> Model::TakeExpiredMailIds(const int64_t nowUt) const
+    std::vector<Protocol::MailId> Model::TakeExpiredMailIds(const int64_t nowUt) const
     {
-        std::vector<Common::RUID> expired;
+        std::vector<Protocol::MailId> expired;
         for (const auto& [mailId, info] : mails_)
         {
             if (info.endUt <= nowUt)

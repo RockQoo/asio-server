@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Core/Src/Common/RUID.h"
 
 namespace World
@@ -26,7 +27,7 @@ namespace World
     {
         uint32_t requestId;
         uint64_t clientSessionId;
-        Common::RUID mailId;
+        Protocol::MailId mailId;
     };
 
     struct ToolClientListPacket

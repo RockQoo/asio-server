@@ -15,7 +15,7 @@ namespace Stress
         // Z2CTaskResult에 실려 온 UnitOfWork 태스크 스트림에서 원하는 Mail 태스크의 mailId를
         // 꺼낸다. 스트림 포맷은 Shared/Core/Src/Task/UnitOfWork.h 주석 참고 --
         // 부하 도구라 첫 번째로 맞는 태스크 하나만 보면 충분하다.
-        [[nodiscard]] std::optional<Common::RUID> FindMailTaskId(const std::span<const byte> stream,
+        [[nodiscard]] std::optional<Protocol::MailId> FindMailTaskId(const std::span<const byte> stream,
                                                              const Protocol::EMailTask subTask)
         {
             Packet::BinaryReader binaryReader(stream);
@@ -48,7 +48,7 @@ namespace Stress
                 }
 
                 Packet::BinaryReader mailBinaryReader(*taskPayload);
-                Common::RUID mailId{};
+                Protocol::MailId mailId{};
                 if (!mailBinaryReader.Read(mailId))
                 {
                     return std::nullopt;
@@ -192,7 +192,7 @@ namespace Stress
         const auto addedMailId = FindMailTaskId(stream, Protocol::EMailTask::Added);
         if (errorCode != 0 || !addedMailId)
         {
-            stats_.RecordMismatch(testSessionId, cycleIndex_, 0, 0, "mail add failed");
+            stats_.RecordMismatch(testSessionId, cycleIndex_, Protocol::MailId{}, Protocol::MailId{}, "mail add failed");
             MarkProgress();
             return;
         }
@@ -228,7 +228,7 @@ namespace Stress
         const auto testSessionId = static_cast<Network::SessionId>(index_);
         if (errorCode != 0 || !removedMailId)
         {
-            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, 0,
+            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, Protocol::MailId{},
                                    "delete reported failure");
         }
         else if (*removedMailId != lastAddedMailId_)
@@ -284,7 +284,7 @@ namespace Stress
         MarkProgress();
     }
 
-    void Session::SendMailDel(const Common::RUID mailId)
+    void Session::SendMailDel(const Protocol::MailId mailId)
     {
         if (!session_)
         {

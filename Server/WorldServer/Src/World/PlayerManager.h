@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
@@ -18,7 +19,7 @@ namespace World
     struct MailInfo
     {
         // Zone의 Mail::Info.mailId와 같은 RUID다. 와이어 포맷을 공유하므로 폭도 같아야 한다.
-        Common::RUID mailId{};
+        Protocol::MailId mailId{};
         std::string title;
         std::string body;
         int64_t sendUt{};
@@ -48,7 +49,7 @@ namespace World
         // ---- 콘텐츠 캐시 ----
         // 로그인 때 usp_players_load로 채우고, 존에 그대로 넘겨 동기화한다. 나중에 존이 올린
         // UnitOfWork 태스크를 여기에 대조해 위조를 걸러내는 자리이기도 하다.
-        std::unordered_map<Common::RUID, MailInfo> mails;
+        std::unordered_map<Protocol::MailId, MailInfo> mails;
         std::unordered_map<uint8_t, int64_t> currencies;  // 키는 Protocol::ECurrencyType
     };
 
@@ -80,7 +81,7 @@ namespace World
         // 콘텐츠 캐시(mails/currencies)는 DB에서 읽어온 것을 그대로 옮겨 담는다.
         void SetAuthenticated(const Network::SessionId clientSessionId, const int64_t playerId,
                               std::string playerName,
-                              std::unordered_map<Common::RUID, MailInfo> mails,
+                              std::unordered_map<Protocol::MailId, MailInfo> mails,
                               std::unordered_map<uint8_t, int64_t> currencies);
 
         // **값으로 복사해서 돌려준다.** 참조를 주면 호출부가 락을 벗어난 뒤에도 그걸 들고 있을

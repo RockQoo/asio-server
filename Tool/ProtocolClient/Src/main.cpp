@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Core/Src/Packet/Buffer.h"
@@ -129,7 +130,7 @@ namespace
             }
 
             Packet::BinaryReader mailBinaryReader(*taskPayload);
-            Common::RUID mailId{};
+            Protocol::MailId mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};
@@ -142,7 +143,7 @@ namespace
 
             const auto subTask = static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind));
             std::cout << "        - Mail " << (subTask == Protocol::EMailTask::Added ? "Added" : "Removed")
-                      << " mailId=" << mailId << " title=" << title << '\n';
+                      << " mailId=" << mailId.Value() << " title=" << title << '\n';
         }
     }
 
@@ -399,8 +400,12 @@ int main(const int argc, char** argv)
                 }
                 else if (sub == "del")
                 {
-                    Common::RUID mailId{};
-                    iss >> mailId;
+                    // 사람이 친 숫자를 id로 바꾸는 자리다 -- StrongId 생성자가 explicit이라
+                    // 중간에 raw 정수를 거치는 것이 코드에 드러난다.
+                    int64_t mailIdValue{};
+                    iss >> mailIdValue;
+
+                    const Protocol::MailId mailId{mailIdValue};
                     SendPacket(socket, PacketId::C2ZMailDel,
                                std::as_bytes(std::span(&mailId, 1)));
                 }

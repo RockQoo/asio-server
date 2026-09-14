@@ -223,15 +223,15 @@ namespace World
         }
 
         // 결과 집합 순서는 usp_players_load의 SELECT 순서와 같은 계약이다(그 SP 주석 참고).
-        std::unordered_map<Common::RUID, MailInfo> mails;
+        std::unordered_map<Protocol::MailId, MailInfo> mails;
         for (const auto& row : SetAt(dbResult, 0))
         {
-            const auto mailId = GetInt64(row, 0);
+            const auto mailIdValue = GetInt64(row, 0);
             const auto title = GetString(row, 1);
             const auto body = GetString(row, 2);
             const auto sendUt = GetInt64(row, 3);
             const auto endUt = GetInt64(row, 4);
-            if (!mailId || !title || !body || !sendUt || !endUt)
+            if (!mailIdValue || !title || !body || !sendUt || !endUt)
             {
                 LOG.Error(ELogCategory::Db, "usp_players_load의 우편 컬럼 형태가 예상과 다르다")
                     .KV("PlayerId", playerId);
@@ -239,7 +239,10 @@ namespace World
                 return;
             }
 
-            mails.emplace(*mailId, MailInfo{*mailId, *title, *body, *sendUt, *endUt});
+            // DB에서 읽은 정수를 타입 있는 id로 바꾸는 자리다 -- StrongId 생성자가 explicit인
+            // 덕분에 이 경계가 코드에 드러난다(그냥 흘러들어오지 않는다).
+            const Protocol::MailId mailId{*mailIdValue};
+            mails.emplace(mailId, MailInfo{mailId, *title, *body, *sendUt, *endUt});
         }
 
         std::unordered_map<uint8_t, int64_t> currencies;
@@ -281,7 +284,7 @@ namespace World
     void LoginProcessor::PostSuccess(const std::shared_ptr<Network::Session>& gatewaySession,
                                       const Network::SessionId clientSessionId, const std::string& playerName,
                                       const Common::RUID playerId,
-                                      std::unordered_map<Common::RUID, MailInfo> mails,
+                                      std::unordered_map<Protocol::MailId, MailInfo> mails,
                                       std::unordered_map<uint8_t, int64_t> currencies)
     {
         basicGroup_.Post(EProcessorId::Login, clientSessionId,
@@ -296,7 +299,7 @@ namespace World
     void LoginProcessor::CompleteLogin(const std::shared_ptr<Network::Session>& gatewaySession,
                                         const Network::SessionId clientSessionId, const std::string& playerName,
                                         const Common::RUID playerId,
-                                        std::unordered_map<Common::RUID, MailInfo> mails,
+                                        std::unordered_map<Protocol::MailId, MailInfo> mails,
                                         std::unordered_map<uint8_t, int64_t> currencies)
     {
         // DB를 다녀오는 동안 접속이 끊겼을 수 있다. 그러면 등록이 이미 지워져 있다.

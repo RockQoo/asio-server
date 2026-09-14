@@ -181,13 +181,33 @@ Common::RUID mailId{};      // O -- 타입이 말 못 하는 것을 이름이 �
 Common::RUID ruid{};        // X
 ```
 
-**이 예외는 한시적이다.** `StrongId<Tag>`(가칭)로 `PlayerId` / `MailId` / `ItemId`를 각각 **다른
-타입**으로 만들 계획이고, 그러면 `MailId mailId;`가 되어 일반 규칙으로 돌아온다. 그 타입의 성질:
+**이 예외는 한시적이고, 이미 줄어들고 있다.** `Protocol::StrongId<Tag, TValue, kInvalid>`
+(`Shared/Protocol/Src/StrongId.h`)가 id를 **자기만의 타입**으로 만들고, 그 별칭들이
+`Shared/Protocol/Src/Ids.h`에 있다. 변환이 끝난 종류는 `MailId mailId;`가 되어 일반 규칙으로
+돌아온다.
 
-- 내부 표현은 `int64`지만 **생성할 때만 값을 넣을 수 있다**(`Ruid::Create()`가 그 자리다)
-- 같은 타입끼리 `==`/`!=` 비교 가능, `std::unordered_map`의 키로 쓸 수 있게 `std::hash` 특수화
-- **`MailId == 100`처럼 raw 정수와는 비교도 대입도 안 된다** — `MailId`에 `PlayerId`를 넣는
-  사고를 컴파일 단계에서 막는 것이 목적이다
+| 종류 | 밑바탕 | 상태 |
+|---|---|---|
+| `MailId` | `int64` | **적용됨** |
+| `PlayerId` | `int64` | 별칭만 있음 |
+| `ZoneId` | `uint32`(RUID 아님) | 별칭만 있음 |
+
+`Common::RUID`를 그대로 쓰는 자리는 **아직 변환 안 된 종류**뿐이고, 거기서만 역할 이름을 쓴다.
+
+### `StrongId`에 `R` 접두사를 안 붙인 이유
+
+`RUID`는 이 프로젝트의 **id 체계 자체**라 출처 표시가 필요했지만, `StrongId`는 그 위에 얹는
+범용 래퍼다. "전부 붙이면 접두사가 의미를 잃는다"는 같은 절의 단서를 따른다.
+
+### 규칙 셋
+
+- **생성할 때만 값이 들어간다.** 생성자가 `explicit`이라 raw 정수가 흘러들지 못하고, 만든
+  뒤에는 같은 타입끼리의 복사 말고는 바꿀 수 없다.
+- **`Value()`는 경계에서만** — 와이어/DB 인자로 넘길 때. 일반 로직에서 부르기 시작하면 이
+  클래스가 있으나 마나가 된다. 로그는 `std::formatter` 특수화가 처리하므로 붙일 필요 없다.
+- **직렬화는 그대로 된다.** 값 하나만 든 trivially-copyable + standard-layout이라
+  `Packet::BinaryWriter::Write`의 기존 concept을 통과하고 바이트도 동일하다 — 즉 **와이어
+  포맷이 바뀌지 않아서** C# 클라이언트/운영툴은 손댈 것이 없다.
 
 ### 예외 — 매개변수 타입이 기반 클래스라 실체를 안 말해줄 때
 

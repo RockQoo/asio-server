@@ -14,7 +14,7 @@ namespace World
     // (ZoneLinkHandler). 둘이 같은 바이트를 만들어야 존 쪽 파서가 하나로 끝난다.
     [[nodiscard]] inline std::vector<byte> BuildEnterZoneBody(
         const PlayerZoneStatePacket& state,
-        const std::unordered_map<Common::RUID, MailInfo>& mails,
+        const std::unordered_map<Protocol::MailId, MailInfo>& mails,
         const std::unordered_map<uint8_t, int64_t>& currencies)
     {
         Packet::BinaryWriter binaryWriter;

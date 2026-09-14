@@ -1,3 +1,4 @@
+#include "Shared/Protocol/Src/Ids.h"
 #include "pch.h"
 #include "Handler/PlayerProcessor.h"
 #include "Game/Instance.h"
@@ -225,7 +226,7 @@ namespace Zone
         UnitOfWork unitOfWork(worldLink_, context.player.GetSessionId(), context.player.GetPlayerId(),
                                   PacketId::C2ZMailDel);
 
-        Common::RUID mailId{};
+        Protocol::MailId mailId{};
         if (payload.size() < sizeof(mailId))
         {
             unitOfWork.SetError(EErrorCode::InvalidPayload);

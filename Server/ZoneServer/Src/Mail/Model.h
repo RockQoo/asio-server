@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
+#include "Shared/Protocol/Src/Ids.h"
 
 namespace Task
 {
@@ -16,7 +16,7 @@ namespace Mail
         // **전역 유일한 RUID다.** 예전에는 우편함마다 1부터 세는 지역 카운터였는데, 그러면
         // 플레이어끼리 같은 값이 나오고 프로세스를 넘는 핸드오프에서 1부터 다시 시작한다 --
         // DB의 mail_id가 단독 PK(Sql/mails.sql)라 그대로는 쓸 수 없었다.
-        Common::RUID mailId{};
+        Protocol::MailId mailId{};
         std::string title;
         std::string body;
         int64_t sendUt{};
@@ -53,11 +53,11 @@ namespace Mail
         // AddMail은 id를 새로 배정해버려서 원래 id를 복원할 수 없다.
         [[nodiscard]] EErrorCode InsertMail(Info info, Task::UnitOfWork& unitOfWork);
 
-        [[nodiscard]] EErrorCode DelMail(const Common::RUID mailId, Task::UnitOfWork& unitOfWork,
+        [[nodiscard]] EErrorCode DelMail(const Protocol::MailId mailId, Task::UnitOfWork& unitOfWork,
                                          const bool isTimeout);
 
         // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.
-        [[nodiscard]] std::vector<Common::RUID> TakeExpiredMailIds(const int64_t nowUt) const;
+        [[nodiscard]] std::vector<Protocol::MailId> TakeExpiredMailIds(const int64_t nowUt) const;
 
         // World가 DB에서 읽어 실어 보낸 우편으로 **시작 상태를 채운다**(W2ZEnterZone).
         //
@@ -70,6 +70,6 @@ namespace Mail
         [[nodiscard]] std::shared_ptr<Mutexed> LockSelf() const;
 
         std::weak_ptr<Mutexed> self_;
-        std::unordered_map<Common::RUID, Info> mails_;
+        std::unordered_map<Protocol::MailId, Info> mails_;
     };
 }
