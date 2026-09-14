@@ -16,10 +16,10 @@ namespace Zone
     {
     }
 
-    void BroadcastDispatcher::Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
+    void BroadcastDispatcher::Broadcast(const Protocol::ZoneId zoneId, std::vector<Network::SessionId> targets,
                                         const PacketId innerPacketId, std::vector<byte> payload)
     {
-        broadcastGroup_.Post(EProcessorId::Broadcast, zoneId,
+        broadcastGroup_.Post(EProcessorId::Broadcast, zoneId.Value(),
             [&worldLink = worldLink_, targets = std::move(targets), innerPacketId, payload = std::move(payload)]
             {
                 const auto worldSession = worldLink.Get();

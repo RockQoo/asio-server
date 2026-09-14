@@ -465,7 +465,8 @@ namespace World
 
                 ToolClientEntry entry{};
                 entry.clientSessionId = clientSessionId;
-                entry.zoneId = info.zoneId;
+                // 운영툴은 C# 라 StrongId 를 모른다 -- 이 링크가 Value() 를 쓰는 경계다.
+                entry.zoneId = info.zoneId.Value();
                 collected.push_back(entry);
             });
 

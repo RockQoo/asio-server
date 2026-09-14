@@ -51,7 +51,7 @@ namespace Zone
             return broadcastTargets_.load(std::memory_order_acquire);
         }
 
-        [[nodiscard]] uint32_t GetZoneId() const noexcept { return def_.zoneId; }
+        [[nodiscard]] Protocol::ZoneId GetZoneId() const noexcept { return def_.zoneId; }
         [[nodiscard]] const Def& GetDef() const noexcept { return def_; }
         [[nodiscard]] size_t GetPlayerCount() const noexcept { return members_.size(); }
 

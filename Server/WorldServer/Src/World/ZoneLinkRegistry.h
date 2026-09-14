@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
 
 namespace Network
@@ -41,29 +42,29 @@ namespace World
     public:
         using Mutexed = Thread::Mutexed<ZoneLinkRegistry>;
 
-        void Add(const uint32_t zoneId, const std::shared_ptr<Network::Session>& zoneSession,
+        void Add(const Protocol::ZoneId zoneId, const std::shared_ptr<Network::Session>& zoneSession,
                  const float xMin, const float xMax, const float yMin, const float yMax);
-        void Remove(const uint32_t zoneId);
+        void Remove(const Protocol::ZoneId zoneId);
 
         // 연결 하나가 여러 zoneId를 등록했을 수 있으므로(한 Zone 서버 프로세스가 존 여러 개를
         // 호스팅), 그 연결이 끊기면 이 세션이 걸려 있는 zoneId 항목을 전부 지운다.
         void RemoveBySession(const Network::SessionId sessionId);
 
-        [[nodiscard]] std::optional<ZoneLinkInfo> Find(const uint32_t zoneId) const;
-        [[nodiscard]] std::optional<uint32_t> FindZoneContaining(const float x, const float y) const;
+        [[nodiscard]] std::optional<ZoneLinkInfo> Find(const Protocol::ZoneId zoneId) const;
+        [[nodiscard]] std::optional<Protocol::ZoneId> FindZoneContaining(const float x, const float y) const;
 
         // 신규 접속을 어디에 넣을지 정할 때 쓴다. zoneId가 가장 작은 존을 "첫 존"으로 보고 그
         // 중앙 좌표를 함께 준다 -- 스폰 좌표를 상수로 박아두면 배치가 바뀔 때(존 격자화처럼)
         // 그 좌표가 어느 존에도 속하지 않게 되어 아무도 입장하지 못한다. 실제로 그렇게 깨졌다.
         struct EntryPoint
         {
-            uint32_t zoneId{};
+            Protocol::ZoneId zoneId{};
             float x{};
             float y{};
         };
         [[nodiscard]] std::optional<EntryPoint> FindEntryPoint() const;
 
     private:
-        std::unordered_map<uint32_t, ZoneLinkInfo> zones_;
+        std::unordered_map<Protocol::ZoneId, ZoneLinkInfo> zones_;
     };
 }

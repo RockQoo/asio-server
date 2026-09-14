@@ -63,7 +63,7 @@ namespace Zone
             {
                 zoneIdList += ",";
             }
-            zoneIdList += std::to_string(def.zoneId);
+            zoneIdList += std::to_string(def.zoneId.Value());
         }
 
         LOG.Info(ELogCategory::General, "ZoneServer 대기 시작")

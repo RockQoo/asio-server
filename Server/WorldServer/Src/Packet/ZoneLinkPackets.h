@@ -9,7 +9,7 @@ namespace World
     // (격자든 CSV든)을 알 필요가 없다 -- 배치를 바꿔도 World 코드는 그대로다.
     struct ZoneRegisterPacket
     {
-        uint32_t zoneId;
+        Protocol::ZoneId zoneId;
         float xMin;
         float xMax;
         float yMin;
@@ -23,7 +23,7 @@ namespace World
     // (현재) 존"(World 쪽 로그용 -- 실제 라우팅 대상은 x로 결정된다).
     struct PlayerZoneStatePacket
     {
-        uint32_t zoneId;
+        Protocol::ZoneId zoneId;
         uint64_t clientSessionId;
 
         // 로그인이 확정한 DB의 player_id(RUID). **clientSessionId 파생값이 아니다** --

@@ -16,7 +16,7 @@ namespace World
         players_.erase(clientSessionId);
     }
 
-    void PlayerManager::SetZone(const Network::SessionId clientSessionId, const uint32_t zoneId)
+    void PlayerManager::SetZone(const Network::SessionId clientSessionId, const Protocol::ZoneId zoneId)
     {
         if (const auto it = players_.find(clientSessionId); it != players_.end())
         {

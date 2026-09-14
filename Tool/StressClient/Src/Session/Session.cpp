@@ -144,7 +144,7 @@ namespace Stress
         if (payload.size() >= sizeof(notify))
         {
             std::memcpy(&notify, payload.data(), sizeof(notify));
-            zoneId_ = notify.zoneId;
+            zoneId_ = notify.zoneId.Value();
         }
 
         if (isBroadcaster_)

@@ -170,29 +170,28 @@ Packet::BinaryReader mailReader(*taskPayload); // 두 번째부터는 무엇을 
 `std::vector<byte> payloadCopy` 처럼 컨테이너/표준 타입은 **담긴 내용**으로 이름 짓는다. 이
 규칙은 이 프로젝트가 정의한 클래스에만 적용한다.
 
-### 예외 — `Common::RUID` (한시적)
+### `Common::RUID`와 이름
 
-`RUID`는 `int64_t` 별칭 하나로 **여러 역할**을 겸한다(`playerId`/`mailId`/`requestId`). 타입이
-역할을 구분해주지 못하므로 여기서는 **역할 이름을 쓴다** — 전부 `ruid`로 부르면 무엇의 id인지
-알 수 없다.
+`RUID`는 `int64_t` 별칭이라 타입이 역할을 구분해주지 못한다. 그래서 `RUID`를 그대로 쓰는
+자리에서는 **역할 이름을 쓴다** -- 전부 `ruid`로 부르면 무엇의 id인지 알 수 없다.
 
 ```cpp
-Common::RUID mailId{};      // O -- 타입이 말 못 하는 것을 이름이 말한다
+Common::RUID requestId{};   // O -- 타입이 말 못 하는 것을 이름이 말한다
 Common::RUID ruid{};        // X
 ```
 
-**이 예외는 한시적이고, 이미 줄어들고 있다.** `Protocol::StrongId<Tag, TValue, kInvalid>`
-(`Shared/Protocol/Src/StrongId.h`)가 id를 **자기만의 타입**으로 만들고, 그 별칭들이
-`Shared/Protocol/Src/Ids.h`에 있다. 변환이 끝난 종류는 `MailId mailId;`가 되어 일반 규칙으로
-돌아온다.
+**그 자리는 이제 `requestId` 하나뿐이다.** 나머지는 `Protocol::StrongId<Tag, TValue, kInvalid>`
+(`Shared/Protocol/Src/StrongId.h`)로 **자기만의 타입**이 됐고, 별칭은
+`Shared/Protocol/Src/Ids.h`에 있다. 그 종류들은 `MailId mailId;`처럼 일반 규칙으로 돌아온다.
 
 | 종류 | 밑바탕 | 상태 |
 |---|---|---|
-| `MailId` | `int64` | **적용됨** |
-| `PlayerId` | `int64` | **적용됨** |
-| `ZoneId` | `uint32`(RUID 아님) | 별칭만 있음 |
+| `MailId` | `int64` | 적용됨 |
+| `PlayerId` | `int64` | 적용됨 |
+| `ZoneId` | `uint32`(RUID 아님) | 적용됨 |
 
-`Common::RUID`를 그대로 쓰는 자리는 **아직 변환 안 된 종류**뿐이고, 거기서만 역할 이름을 쓴다.
+새 id 종류를 만들 때는 `int64` 별칭을 하나 더 두지 말고 `Ids.h`에 StrongId 별칭을 먼저
+추가한다.
 
 ### `StrongId`에 `R` 접두사를 안 붙인 이유
 

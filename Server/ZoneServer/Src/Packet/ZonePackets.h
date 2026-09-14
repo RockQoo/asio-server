@@ -27,7 +27,7 @@ namespace Zone
         // 됐는데, 그건 우연이었고 재접속하면 playerId 가 바뀌는 결함이기도 했다.
         uint64_t clientSessionId;
 
-        uint32_t zoneId;
+        Protocol::ZoneId zoneId;
     };
 
     // Mail 요청의 결과는 고정 구조체가 아니라 Z2CTaskResult(UnitOfWork 태스크 스트림)로

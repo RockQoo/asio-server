@@ -33,7 +33,7 @@ namespace World
         // 이 클라이언트에게 보낼 때 쓸 게이트웨이 링크. **클라이언트의 소켓이 아니다** --
         // Gateway가 여러 대면 "이 사람은 몇 번 게이트웨이 경유"를 가리키게 된다.
         std::shared_ptr<Network::Session> gatewaySession;
-        uint32_t zoneId{};
+        Protocol::ZoneId zoneId{};
 
         // ---- 계정 ----
         // 로그인으로 확정된 DB의 player_id(RUID). 인증 전에는 0이다.
@@ -75,7 +75,7 @@ namespace World
 
         void Add(const Network::SessionId clientSessionId, const std::shared_ptr<Network::Session>& gatewaySession);
         void Remove(const Network::SessionId clientSessionId);
-        void SetZone(const Network::SessionId clientSessionId, const uint32_t zoneId);
+        void SetZone(const Network::SessionId clientSessionId, const Protocol::ZoneId zoneId);
 
         // 로그인 성공을 기록한다. 이 호출 뒤에야 그 세션의 게임 패킷이 존으로 흐른다.
         // 콘텐츠 캐시(mails/currencies)는 DB에서 읽어온 것을 그대로 옮겨 담는다.
@@ -109,7 +109,7 @@ namespace World
         struct Route
         {
             std::shared_ptr<Network::Session> gatewaySession;
-            uint32_t zoneId{};
+            Protocol::ZoneId zoneId{};
             bool authenticated{};
         };
         [[nodiscard]] std::optional<Route> FindRoute(const Network::SessionId clientSessionId) const;

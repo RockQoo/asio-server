@@ -68,7 +68,7 @@ namespace Zone
 
         // 존 레인이 발행해둔 대상 스냅샷을 읽어 BROADCAST 그룹으로 넘긴다.
         // 로스터를 직접 순회하지 않으므로 존 레인과 겹치지 않는다.
-        void BroadcastToZone(const uint32_t zoneId, const PacketId innerPacketId,
+        void BroadcastToZone(const Protocol::ZoneId zoneId, const PacketId innerPacketId,
                              const std::span<const byte> payload,
                              const Network::SessionId excludeClientSessionId = 0) const;
 

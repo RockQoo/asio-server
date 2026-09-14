@@ -173,7 +173,7 @@ namespace Zone
         worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
-    void PlayerProcessor::BroadcastToZone(const uint32_t zoneId, const PacketId innerPacketId,
+    void PlayerProcessor::BroadcastToZone(const Protocol::ZoneId zoneId, const PacketId innerPacketId,
                                           const std::span<const byte> payload,
                                           const Network::SessionId excludeClientSessionId) const
     {

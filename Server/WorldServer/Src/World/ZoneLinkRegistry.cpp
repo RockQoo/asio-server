@@ -5,13 +5,13 @@
 
 namespace World
 {
-    void ZoneLinkRegistry::Add(const uint32_t zoneId, const std::shared_ptr<Network::Session>& zoneSession,
+    void ZoneLinkRegistry::Add(const Protocol::ZoneId zoneId, const std::shared_ptr<Network::Session>& zoneSession,
                                 const float xMin, const float xMax, const float yMin, const float yMax)
     {
         zones_[zoneId] = ZoneLinkInfo{zoneSession, xMin, xMax, yMin, yMax};
     }
 
-    void ZoneLinkRegistry::Remove(const uint32_t zoneId)
+    void ZoneLinkRegistry::Remove(const Protocol::ZoneId zoneId)
     {
         zones_.erase(zoneId);
     }
@@ -24,7 +24,7 @@ namespace World
         });
     }
 
-    std::optional<ZoneLinkInfo> ZoneLinkRegistry::Find(const uint32_t zoneId) const
+    std::optional<ZoneLinkInfo> ZoneLinkRegistry::Find(const Protocol::ZoneId zoneId) const
     {
         const auto it = zones_.find(zoneId);
         if (it == zones_.end())
@@ -34,7 +34,7 @@ namespace World
         return it->second;
     }
 
-    std::optional<uint32_t> ZoneLinkRegistry::FindZoneContaining(const float x, const float y) const
+    std::optional<Protocol::ZoneId> ZoneLinkRegistry::FindZoneContaining(const float x, const float y) const
     {
         for (const auto& [zoneId, info] : zones_)
         {
@@ -51,7 +51,7 @@ namespace World
         // unordered_map이라 순회 순서가 정해져 있지 않다 -- "가장 작은 zoneId"를 직접 고른다.
         // 그래야 서버를 다시 띄울 때마다 입장 존이 바뀌지 않는다.
         const ZoneLinkInfo* best = nullptr;
-        uint32_t bestZoneId = 0;
+        Protocol::ZoneId bestZoneId{};
         for (const auto& [zoneId, info] : zones_)
         {
             if (best == nullptr || zoneId < bestZoneId)

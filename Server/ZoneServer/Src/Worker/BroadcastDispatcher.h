@@ -2,6 +2,7 @@
 
 #include "Shared/Core/Src/Common/Types.h"
 #include "Shared/Core/Src/Processor/Group.h"
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Worker/ProcessorId.h"
 
@@ -20,7 +21,7 @@ namespace Zone
     public:
         BroadcastDispatcher(Processor::Group<EProcessorId>& broadcastGroup, WorldLink& worldLink);
 
-        void Broadcast(const uint32_t zoneId, std::vector<Network::SessionId> targets,
+        void Broadcast(const Protocol::ZoneId zoneId, std::vector<Network::SessionId> targets,
                        const PacketId innerPacketId, std::vector<byte> payload);
 
     private:

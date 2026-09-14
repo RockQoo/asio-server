@@ -184,7 +184,7 @@ namespace
                         std::memcpy(&notify, payload.data(), sizeof(notify));
                         std::cout << "[recv] EnterZoneNotify playerId=" << notify.playerId.Value()
                                   << " sessionId=" << notify.clientSessionId
-                                  << " zoneId=" << notify.zoneId << '\n';
+                                  << " zoneId=" << notify.zoneId.Value() << '\n';
                     }
                     break;
                 }

@@ -75,7 +75,7 @@ namespace
             }
 
             Zone::Def def{};
-            def.zoneId = zoneId;
+            def.zoneId = Protocol::ZoneId{zoneId};
             def.xMin = static_cast<float>(column) * kZoneSize;
             def.xMax = def.xMin + kZoneSize;
             // 행 0이 위쪽이다 -- y는 위로 증가하므로 행 번호가 커질수록 y가 작아진다.
@@ -103,7 +103,7 @@ int main(const int argc, char* argv[])
         {
             zoneIdSuffix += "_";
         }
-        zoneIdSuffix += std::to_string(def.zoneId);
+        zoneIdSuffix += std::to_string(def.zoneId.Value());
     }
     if (zoneIdSuffix.empty())
     {
@@ -131,7 +131,7 @@ int main(const int argc, char* argv[])
         {
             minZoneId = def.zoneId < minZoneId ? def.zoneId : minZoneId;
         }
-        Common::Ruid::Init(Common::kNodeIdZoneBegin + minZoneId);
+        Common::Ruid::Init(Common::kNodeIdZoneBegin + minZoneId.Value());
     }
 
     if (zones.empty())

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Packet/Dispatcher.h"
+#include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
@@ -18,7 +19,7 @@ namespace Zone
     struct PlayerContext
     {
         Player& player;
-        uint32_t zoneId;
+        Protocol::ZoneId zoneId;
         WorldLink& worldLink;
     };
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Protocol/Src/Ids.h"
+
 namespace Zone
 {
     // 이 존 서버 프로세스가 호스팅하는 존 하나의 정의(config로 조절).
@@ -13,7 +15,7 @@ namespace Zone
     // 다시 고치지 않아도 된다).
     struct Def
     {
-        uint32_t zoneId;
+        Protocol::ZoneId zoneId;
         float xMin;
         float xMax;
         float yMin;
