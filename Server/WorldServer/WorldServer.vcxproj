@@ -129,6 +129,10 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
     <ClInclude Include="Src\Login\LoginProcessor.h" />
     <ClInclude Include="Src\Tool\ToolProcessor.h" />
+    <ClInclude Include="Src\Test\MsgId.h" />
+    <ClInclude Include="Src\Test\TestValue.h" />
+    <ClInclude Include="Src\Test\TestProcessor.h" />
+    <ClInclude Include="Src\Test\TestKeys.h" />
     <ClInclude Include="Src\World\PlayerManager.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
     <ClInclude Include="Src\Packet\OwnerIdPeek.h" />
@@ -141,7 +145,6 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Handler\ZoneLinkHandler.h" />
     <ClInclude Include="Src\App\App.h" />
     <ClInclude Include="Src\App\Config.h" />
-    <ClInclude Include="Src\Cli\ConsoleLoop.h" />
     <ClInclude Include="Src\Cli\DbCheck.h" />
     <ClInclude Include="Src\Cli\IdTest.h" />
   </ItemGroup>
@@ -160,9 +163,10 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClCompile Include="Src\Login\LoginProcessor.cpp" />
     <ClCompile Include="Src\Tool\ToolProcessor.cpp" />
     <ClCompile Include="Src\App\App.cpp" />
+    <ClCompile Include="Src\Test\TestProcessor.cpp" />
+    <ClCompile Include="Src\Test\TestKeys.cpp" />
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\Config.cpp" />
-    <ClCompile Include="Src\Cli\ConsoleLoop.cpp" />
     <ClCompile Include="Src\Cli\DbCheck.cpp" />
     <ClCompile Include="Src\Cli\IdTest.cpp" />
   </ItemGroup>

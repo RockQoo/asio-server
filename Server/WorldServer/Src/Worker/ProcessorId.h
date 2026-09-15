@@ -19,6 +19,8 @@ namespace World
                 // 주인이 clientSessionId로 Main과 같아서, 로그인이 PlayerManager에 쓴 값을
                 // 그 사람의 다음 패킷이 그대로 본다(다른 레인이면 그 사이가 레이스가 된다)
         Tool,   // 운영툴 명령 -- BASIC 그룹(Main과 스레드를 공유한다)
+        Test,   // F키 테스트 메시지 -- BASIC 그룹(Main과 스레드를 공유한다).
+                // 통계에서 테스트 트래픽이 실제 라우팅과 섞이지 않게 태그만 나눈 것이다
         Db,     // UnitOfWork 스트림 적재 + 로그인 계정 조회/생성 -- DB 그룹(블로킹을 허용)
         Count,
     };
@@ -30,6 +32,7 @@ namespace World
         case EProcessorId::Main:  return "Main";
         case EProcessorId::Login: return "Login";
         case EProcessorId::Tool:  return "Tool";
+        case EProcessorId::Test:  return "Test";
         case EProcessorId::Db:    return "Db";
         case EProcessorId::Count: break;
         }

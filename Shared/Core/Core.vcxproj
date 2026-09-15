@@ -121,6 +121,7 @@
     <ClInclude Include="Src\Packet\BinaryWriter.h" />
     <ClInclude Include="Src\Packet\BinaryReader.h" />
     <ClInclude Include="Src\Packet\Dispatcher.h" />
+    <ClInclude Include="Src\Packet\Args.h" />
     <ClInclude Include="Src\Network\IPacketHandler.h" />
     <ClInclude Include="Src\Network\Session.h" />
     <ClInclude Include="Src\Network\Listener.h" />
@@ -133,6 +134,8 @@
     <ClInclude Include="Src\Processor\Group.h" />
     <ClInclude Include="Src\Task\ITask.h" />
     <ClInclude Include="Src\Task\UnitOfWork.h" />
+    <ClInclude Include="Src\Console\KeyBinder.h" />
+    <ClInclude Include="Src\Message\Router.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -140,6 +143,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Src\Log\Logger.cpp" />
+    <ClCompile Include="Src\Console\KeyBinder.cpp" />
     <ClCompile Include="Src\Packet\Buffer.cpp" />
     <ClCompile Include="Src\Network\Session.cpp" />
     <ClCompile Include="Src\Network\Listener.cpp" />

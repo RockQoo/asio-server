@@ -25,6 +25,7 @@
     <Filter Include="Db" />
     <Filter Include="Cli" />
     <Filter Include="Login" />
+    <Filter Include="Test" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -100,14 +101,23 @@
     <ClInclude Include="Src\App\Config.h">
       <Filter>App</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Cli\ConsoleLoop.h">
-      <Filter>Cli</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Cli\DbCheck.h">
       <Filter>Cli</Filter>
     </ClInclude>
     <ClInclude Include="Src\Cli\IdTest.h">
       <Filter>Cli</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Test\MsgId.h">
+      <Filter>Test</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Test\TestValue.h">
+      <Filter>Test</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Test\TestProcessor.h">
+      <Filter>Test</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Test\TestKeys.h">
+      <Filter>Test</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -145,9 +155,6 @@
     <ClCompile Include="Src\App\Config.cpp">
       <Filter>App</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Cli\ConsoleLoop.cpp">
-      <Filter>Cli</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Cli\DbCheck.cpp">
       <Filter>Cli</Filter>
     </ClCompile>
@@ -155,5 +162,11 @@
       <Filter>Cli</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\Test\TestProcessor.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Test\TestKeys.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

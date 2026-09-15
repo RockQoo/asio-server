@@ -25,7 +25,8 @@
 Basic 그룹 (스레드 8 + strand 8)
       ├ Main 프로세서   클라이언트 라우팅 (PlayerManager / ZoneLinkRegistry)
       ├ Login 프로세서  로그인 결과 반영 + 존 입장
-      └ Tool 프로세서   운영툴 명령
+      ├ Tool 프로세서   운영툴 명령
+      └ Test 프로세서   F키 테스트 메시지(PushMsg → Message::Router)
       ↓
 Db 그룹 (스레드 4 + strand 4)     블로킹을 허용하는 별도 그룹. owner = playerId
       └ Db 프로세서     UnitOfWork 적재 · 로그인 계정 조회/생성/콘텐츠 적재</code></pre>
@@ -180,7 +181,7 @@ Db 레인에서만 <code>playerId</code>로 갈아탄다 — DB 작업은 세션
 
 <h2>코드 위치</h2>
 <pre><code>Server/WorldServer/Src/
-├ Worker/ProcessorId.h        Main / Login / Tool / Db
+├ Worker/ProcessorId.h        Main / Login / Tool / Test / Db
 ├ World/PlayerManager         누가 어느 존에 있고 무엇을 갖고 있는가
 ├ World/ZoneLinkRegistry      어느 존이 어느 사각형인가
 ├ Handler/GatewayLinkHandler  클라 패킷 → C2W면 로그인, 아니면 담당 존
@@ -188,6 +189,9 @@ Db 레인에서만 <code>playerId</code>로 갈아탄다 — DB 작업은 세션
 ├ Login/LoginProcessor        로그인 · 자동 가입 · 콘텐츠 적재
 ├ Packet/EnterZoneBody.h      W2ZEnterZone 가변 본문(콘텐츠 동봉)
 ├ Tool/ToolProcessor          운영툴(9300)
+├ Test/MsgId.h                EMsgId + PushMsg(msgId, 프로세서id, ownerId, 인자...)
+├ Test/TestProcessor          메시지 핸들러(받는 쪽)
+├ Test/TestKeys               F키 바인딩(TestFunc1)
 └ Db/                         AutoDbCommand · DbConnection · PasswordHash</code></pre>
 
 <p class="foot">asio-server · 서버별 문서</p>

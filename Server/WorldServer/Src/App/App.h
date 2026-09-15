@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Core/Src/Console/KeyBinder.h"
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Network/Listener.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
@@ -9,6 +10,7 @@
 #include "Handler/GatewayLinkHandler.h"
 #include "Handler/ZoneLinkHandler.h"
 #include "Login/LoginProcessor.h"
+#include "Test/MsgId.h"
 #include "Tool/ToolProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
@@ -27,6 +29,7 @@ namespace World
     {
     public:
         explicit App(Config config);
+        ~App();
 
         void Run();
         void Stop();
@@ -63,6 +66,14 @@ namespace World
         GatewayLinkHandler gatewayLinkHandler_;
         ZoneLinkHandler zoneLinkHandler_;
         ToolProcessor toolProcessor_;
+
+        // 테스트 하네스. **msgRouter_는 App이 소유한다**(싱글턴이 아니다) -- 전역에는 이걸
+        // 가리키는 포인터만 두고 생성자/소멸자에서 세우고 지운다. 그래야 라우터가 참조하는
+        // Group들보다 오래 살지 않는다(Router.h 참고).
+        MsgRouter msgRouter_;
+
+        // F키 입력 스레드. 콜백은 그 스레드에서 돌고, 서버 상태는 PushMsg로 레인에 넘긴다.
+        Console::KeyBinder keyBinder_;
         std::shared_ptr<Network::Listener> gatewayListener_;
         std::shared_ptr<Network::Listener> zoneListener_;
         std::shared_ptr<Network::Listener> toolListener_;

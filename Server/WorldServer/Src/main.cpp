@@ -2,7 +2,6 @@
 #include "App/App.h"
 
 #include "App/Config.h"
-#include "Cli/ConsoleLoop.h"
 #include "Cli/DbCheck.h"
 #include "Cli/IdTest.h"
 
@@ -61,13 +60,6 @@ int main(const int argc, char* argv[])
         Common::Ruid::Init(Common::kNodeIdWorldBegin);
 
         World::App app(std::move(config));
-
-        // 콘솔 REPL은 표준 입력에서 막히므로 별도 스레드다. detach 해도 되는 이유는 app.Run()이
-        // 끝나면 프로세스가 곧 종료되고, 이 스레드가 붙잡고 있는 자원이 없기 때문이다.
-        std::atomic<bool> running{true};
-        std::thread consoleThread(World::RunConsoleLoop, std::ref(app), std::ref(running));
-        consoleThread.detach();
-
         app.Run();
     }
     catch (const std::exception& ex)

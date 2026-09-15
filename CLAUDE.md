@@ -110,13 +110,19 @@ C:\Work\asio-server\
 │   │   └── Src/
 │   │       ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
 │   │       ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, CoreErrorCode.h, CoreException.h
-│   │       ├── Packet/               Header/Buffer/Framer, BinaryWriter/Reader,
+│   │       ├── Packet/               Header/Buffer/Framer, BinaryWriter/Reader, Args(가변 인자를
+│   │       │                         넣은 순서대로 쓰고 읽는다 -- WriteArgs/ReadArgs),
 │   │       │                         Dispatcher<TId,TContext>
 │   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
 │   │       │                         connect, Listener와 대칭), Session, SessionManager
 │   │       ├── Processor/            Group(큐 그룹 = asio io_context + strand N개), Stats
 │   │       ├── Timer/                RepeatingTimer
 │   │       ├── Thread/Mutexed.h      shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
+│   │       ├── Console/KeyBinder.h   콘솔 F키 → 콜백(토글). **전용 입력 스레드 하나**가 읽고,
+│   │       │                         콜백은 서버 레인이 아니라 그 스레드에서 돈다
+│   │       ├── Message/Router.h      프로세서 id로 메시지를 보낸다(PushMsg). 키가 (프로세서,
+│   │       │                         msgId) 쌍이라 같은 msgId를 프로세서마다 다르게 처리한다.
+│   │       │                         **싱글턴이 아니라 App이 소유**하고 전역엔 포인터만 둔다
 │   │       └── Task/                 ITask(변경 기록 하나 -- 직렬화/역연산은 파생이 구현),
 │   │                                 UnitOfWork(범용 Unit-of-Work 기반 클래스). 커밋은 **파생
 │   │                                 클래스 소멸자**에서 -- 성공이면 World와 클라이언트로 전송,
@@ -133,8 +139,10 @@ C:\Work\asio-server\
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
 │   ├── WorldServer/                  라우팅(BASIC 레인) + DB 레인 (실행 파일)
 │   │   ├── Src/App/Config.{h,cpp}    Config 구조체 + LoadConfig -- main은 한 줄로 받아 App에 넘긴다
-│   │   ├── Src/Cli/                  실행 인자 모드: ConsoleLoop(notice REPL) / DbCheck / IdTest
-│   │   │                             main에 있던 것을 뺐다(403 -> 86줄). 세 서버 모두 App/Config.{h,cpp} 구조가 같다
+│   │   ├── Src/Cli/                  실행 인자 모드: DbCheck / IdTest
+│   │   │                             main에 있던 것을 뺐다(403 -> 72줄). 세 서버 모두 App/Config.{h,cpp} 구조가 같다
+│   │   ├── Src/Test/                 F키 테스트 하네스: TestKeys(F1→TestFunc1) + TestProcessor
+│   │   │                             (PushMsg(msgId, 프로세서id, ownerId, 인자...)로 보낸다)
 │   │   ├── Src/World/                PlayerManager(로그인 캐시 + 라우팅), ZoneLinkRegistry
 │   │   │                             — World는 "남는 스레드"가 기본이라 둘 다 Mutexed
 │   │   └── Src/Login/                LoginProcessor — C2WLogin → 계정 조회/자동 가입 → 콘텐츠 적재
@@ -211,7 +219,8 @@ Client → GatewayServer(순수 릴레이) → WorldServer(라우팅 + DB) → Z
                                       Basic 8  기본 = 남는 스레드  LB 4        파싱/주인 판정
                                         ├ Basic 라우팅            Player 8    owner=clientSessionId
                                         ├ Login 로그인            ZoneSpace n owner=zoneId
-                                        └ Tool  운영툴            Broadcast 1 owner=zoneId
+                                        ├ Tool  운영툴            Broadcast 1 owner=zoneId
+                                        └ Test  F키 테스트
                                       Db 4     owner=playerId (계정 단위 직렬화)
 ```
 

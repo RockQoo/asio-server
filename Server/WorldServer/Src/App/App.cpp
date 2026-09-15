@@ -5,6 +5,8 @@
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
+#include "Test/TestKeys.h"
+#include "Test/TestProcessor.h"
 
 namespace World
 {
@@ -20,8 +22,17 @@ namespace World
         , toolProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, config_.toolSharedSecret)
         , signals_(ioPool_.At(0), SIGINT, SIGTERM)
     {
+        // **전역 핸들을 여기서 세운다.** 이 시점부터 PushMsg가 이 App의 라우터를 찾는다.
+        MsgRouter::SetCurrent(&msgRouter_);
     }
 
+    App::~App()
+    {
+        // **멤버(Group들)가 소멸되기 전에 지운다** -- 소멸자 본문이 멤버 소멸보다 먼저 도므로
+        // 순서가 항상 맞는다. 이걸 빠뜨리면 죽은 Group을 가리키는 포인터가 남는다.
+        MsgRouter::SetCurrent(nullptr);
+
+    }
     void App::Run()
     {
         basicGroup_.Start();
@@ -47,6 +58,15 @@ namespace World
 
         SetupSignalHandling();
 
+        // 테스트 하네스. 묶인 키가 없으면 Start()가 스레드를 만들지 않는다.
+        // 어느 프로세서 메시지를 어느 그룹에서 돌릴지 먼저 등록하고, 그다음 핸들러를 묶는다.
+        // **둘 다 KeyBinder::Start()보다 앞이다** -- 레인 스레드가 락 없이 읽는 표라 도는
+        // 중에 바꾸면 경합한다.
+        msgRouter_.Register(EProcessorId::Test, basicGroup_);
+        TestProcessor::Register(msgRouter_);
+        RegisterTestKeys(keyBinder_);
+        keyBinder_.Start();
+
         LOG.Info(ELogCategory::General, "WorldServer 대기 시작")
             .KV("GatewayPort", config_.gatewayPort).KV("ZonePort", config_.zonePort)
             .KV("ToolPort", config_.toolPort)
@@ -61,6 +81,10 @@ namespace World
         // DB로 새 일이 더 들어오지 않는다. 그리고 **DB 그룹이 마지막까지 남아 밀린 저장을
         // 소진**해야 한다 -- 급하게 내리면 몇 초 분량의 플레이 결과가 사라진다.
         // (Group::Stop()은 work_guard를 놓아 남은 작업을 소진시킨 뒤 스레드를 join한다.)
+        // **BASIC을 세우기 전에 입력 스레드를 멈춘다** -- 안 그러면 F키 한 번이 이미 닫히는
+        // 중인 레인으로 메시지를 밀어 넣는다.
+        keyBinder_.Stop();
+
         basicGroup_.Stop();
         dbGroup_.Stop();
         LOG.Info(ELogCategory::General, "WorldServer 종료 완료");
