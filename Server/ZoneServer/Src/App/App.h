@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Core/Src/Console/KeyBinder.h"
 #include "Shared/Core/Src/Network/Connector.h"
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Processor/Group.h"
@@ -62,6 +63,9 @@ namespace Zone
         Mail::ExpiryService mailExpiryService_;
 
         std::shared_ptr<Network::Connector> worldConnector_;
+
+        // F키 테스트 하네스. 콜백은 전용 입력 스레드에서 돈다(레인이 아니다).
+        Console::KeyBinder keyBinder_;
         std::unique_ptr<Timer::RepeatingTimer> mailExpiryTimer_;
         std::unique_ptr<Timer::RepeatingTimer> statsTimer_;
         asio::signal_set signals_;

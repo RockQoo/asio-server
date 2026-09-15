@@ -31,6 +31,7 @@
     <Filter Include="Task">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Test" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -127,6 +128,9 @@
     <ClInclude Include="Src\App\Config.h">
       <Filter>App</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Test\TestKeys.h">
+      <Filter>Test</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
@@ -179,5 +183,8 @@
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\Test\TestKeys.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "App/App.h"
 
+#include "Test/TestKeys.h"
+
 namespace Gateway
 {
     App::App(Config config)
@@ -22,12 +24,17 @@ namespace Gateway
 
         SetupSignalHandling();
 
+        RegisterTestKeys(keyBinder_);
+        keyBinder_.Start();
+
         LOG.Info(ELogCategory::General, "GatewayServer 대기 시작")
             .KV("ClientPort", config_.clientPort)
             .KV("WorldHost", config_.worldHost).KV("WorldPort", config_.worldPort);
 
         ioPool_.Run();
         ioPool_.Join();
+
+        keyBinder_.Stop();
 
         LOG.Info(ELogCategory::General, "GatewayServer 종료 완료");
     }

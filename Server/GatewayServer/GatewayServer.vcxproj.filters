@@ -13,6 +13,7 @@
     <Filter Include="App">
       <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Test" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -34,6 +35,9 @@
     <ClInclude Include="Src\App\Config.h">
       <Filter>App</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Test\TestKeys.h">
+      <Filter>Test</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
@@ -50,5 +54,8 @@
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\Test\TestKeys.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

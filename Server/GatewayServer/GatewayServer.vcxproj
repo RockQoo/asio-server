@@ -123,6 +123,7 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />
     <ClInclude Include="Src\App\App.h" />
     <ClInclude Include="Src\App\Config.h" />
+    <ClInclude Include="Src\Test\TestKeys.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -134,6 +135,7 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
     <ClCompile Include="Src\App\App.cpp" />
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\Config.cpp" />
+    <ClCompile Include="Src\Test\TestKeys.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Core\Core.vcxproj">

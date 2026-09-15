@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Core/Src/Console/KeyBinder.h"
 #include "Shared/Core/Src/Network/Connector.h"
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Network/Listener.h"
@@ -35,6 +36,9 @@ namespace Gateway
         WorldLinkHandler worldLinkHandler_;
         std::shared_ptr<Network::Listener> clientListener_;
         std::shared_ptr<Network::Connector> worldConnector_;
+
+        // F키 테스트 하네스. 콜백은 전용 입력 스레드에서 돈다(서버 레인이 아니다).
+        Console::KeyBinder keyBinder_;
         asio::signal_set signals_;
     };
 }

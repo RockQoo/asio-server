@@ -3,6 +3,8 @@
 
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
 
+#include "Test/TestKeys.h"
+
 namespace Zone
 {
     App::App(Config config)
@@ -56,6 +58,9 @@ namespace Zone
 
         SetupSignalHandling();
 
+        RegisterTestKeys(keyBinder_);
+        keyBinder_.Start();
+
         std::string zoneIdList;
         for (const auto& def : config_.zones)
         {
@@ -87,6 +92,10 @@ namespace Zone
         // **종속 관계의 역순으로 내린다.** LB가 플레이어 레인에, 플레이어 레인이 존 레인과
         // 브로드캐스트 레인에 일을 던지므로 그 순서로 세워야 이미 정지한 레인에 새 일이
         // 들어가지 않는다(Group::Stop()은 큐에 남은 것을 소진한 뒤 join한다).
+        // **레인을 세우기 전에 입력 스레드를 멈춘다** -- 안 그러면 F키 한 번이 이미 닫히는
+        // 중인 레인으로 일을 밀어 넣는다.
+        keyBinder_.Stop();
+
         lbGroup_.Stop();
         playerGroup_.Stop();
         zoneWorkers_.Stop();  // 내부에서 타이머 취소 -> 존 레인 -> 브로드캐스트 순
