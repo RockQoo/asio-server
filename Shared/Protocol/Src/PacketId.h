@@ -27,6 +27,9 @@ namespace Protocol
         C2ZMailDel = 5,  // mailId, Task::UnitOfWork 경유
         C2ZMailBuy = 6,  // title/body/durationSec/price. 우편 지급 + 골드 차감을 한 트랜잭션으로
                          // 처리한다 -- 뒤(골드)에서 실패하면 앞(우편)이 역순으로 되돌아간다
+        C2ZAttack = 7,   // targetUnitId + attackKind. **이 대역에서 유일하게 존 레인으로 가는 요청**이다
+                         // -- 때리는 대상이 남이라 주인이 세션이 아니라 존이다
+                         // (docs/design/combat-lane.md)
 
         // ---- Z2C : Zone -> 클라이언트 (1000 ~ 1999) ----
         Z2CEchoAck = 1001,          // C2ZEcho의 응답. 본문은 받은 것 그대로
@@ -38,6 +41,16 @@ namespace Protocol
                                     // 성공하면 클라이언트가 그 태스크를 자기 메모리에 그대로
                                     // 적용해 서버와 동기화하고, 실패하면 스트림 없이 에러만 온다.
                                     // requestPacketId=0은 요청 없이 서버가 만든 변경(메일 만료 등).
+        Z2CAttackResult = 1008,     // **시전자에게만.** errorCode(4) + 대상/데미지/남은 HP.
+                                    // 실패해도 반드시 보낸다 -- 무응답으로 멈추는 경로를 두지 않는다
+        Z2CUnitAttackNotify = 1009,  // 시전자 **제외** 존 전체. 공격 모션을 그리게 하는 통지라
+                                    // 성공한 공격만 나간다(실패는 남이 볼 것이 없다).
+                                    // Notify를 붙인 이유는 C2ZAttack과 짝이라 "요청의 응답"으로
+                                    // 오해될 수 있어서다(C2ZMove/Z2CMoveNotify와 같은 자리)
+        Z2CUnitSpawn = 1010,        // 유닛 등장. 입장자에게는 존 전체 목록을, 리스폰 때는 한 기를
+        Z2CUnitDespawn = 1011,      // 유닛 퇴장(존을 떠남). 사망과 다르다 -- 사망은 자리에 남는다
+        Z2CUnitStateSync = 1012,    // **틱 끝에 한 번.** 그 틱에 값이 바뀐 유닛의 hp/mp만 모아 보낸다
+        Z2CUnitDead = 1013,         // 사망. 틱을 기다리지 않고 즉시 나간다
 
         // ---- C2W : 클라이언트 -> World (2000 ~ 2999) ----
         // **이 대역만 World가 끝점이다.** Gateway는 여전히 내용을 모르는 릴레이지만, World는

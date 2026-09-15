@@ -128,13 +128,97 @@ public sealed class Hud
         painter.Text(text, new Vector2(rect.X + 16, rect.Y + 8), new Color(255, 225, 150) * fade);
     }
 
+    /// <summary>
+    /// 화면 아래 가운데의 전투 패널 — 내 HP/MP, 든 무기, 고른 대상.
+    ///
+    /// <para>
+    /// 상태 줄(위쪽)에 끼워 넣지 않고 따로 둔 이유: 위쪽은 "서버와 통신이 되고 있는가"를 보는
+    /// 자리이고 여기는 "지금 싸움이 어떻게 되고 있는가"를 보는 자리다. 둘이 섞이면 서버가
+    /// 이상한 것인지 내가 죽은 것인지 한눈에 안 갈린다.
+    /// </para>
+    /// </summary>
+    public void DrawCombatBar(Painter painter, WorldModel world, Rectangle screen, double nowSeconds)
+    {
+        if (world.MyUnit is not { } me)
+        {
+            return;
+        }
+
+        const int Width = 280;
+        const int BarHeight = 12;
+
+        var rect = new Rectangle(screen.Center.X - (Width / 2), screen.Bottom - 132, Width,
+                                 (BarHeight * 2) + painter.SmallFont.LineHeight + 22);
+        painter.FillRect(rect, new Color(12, 16, 24, 225));
+        painter.StrokeRect(rect, new Color(60, 76, 100));
+
+        var x = rect.X + 8;
+        var barWidth = Width - 16;
+
+        DrawStatBar(painter, new Rectangle(x, rect.Y + 6, barWidth, BarHeight), me.Hp, me.MaxHp,
+                    CombatArt.HealthColor(me.MaxHp > 0 ? me.Hp / (float)me.MaxHp : 0.0f), "HP");
+        DrawStatBar(painter, new Rectangle(x, rect.Y + 8 + BarHeight, barWidth, BarHeight), me.Mp, me.MaxMp,
+                    new Color(110, 160, 235), "MP");
+
+        var weaponText = world.Weapon == AttackKind.Melee ? "근접 (1)" : "원거리 (2)";
+        var targetText = world.TargetUnitId != 0 && world.Units.TryGetValue(world.TargetUnitId, out var target)
+            ? $"대상 {target.UnitId}  {target.Hp}/{target.MaxHp}"
+            : "대상 없음 (Tab 또는 클릭)";
+
+        painter.SmallText($"{weaponText}   ·   {targetText}   ·   Space 공격",
+                          new Vector2(x, rect.Y + 12 + (BarHeight * 2)), new Color(150, 166, 194));
+
+        DrawAttackFailureToast(painter, world, screen, nowSeconds);
+    }
+
+    private static void DrawStatBar(Painter painter, Rectangle bounds, int value, int max, Color fill,
+                                    string label)
+    {
+        painter.FillRect(bounds, new Color(24, 30, 42));
+
+        if (max > 0 && value > 0)
+        {
+            var width = (int)(bounds.Width * Math.Clamp(value / (float)max, 0.0f, 1.0f));
+            painter.FillRect(new Rectangle(bounds.X, bounds.Y, width, bounds.Height), fill);
+        }
+
+        var text = $"{label} {value}/{max}";
+        painter.SmallText(text, new Vector2(bounds.X + 6, bounds.Y - 1), new Color(235, 240, 250));
+    }
+
+    /// <summary>
+    /// 공격이 왜 안 먹혔는지. <b>서버가 실패해도 반드시 응답을 주기 때문에</b> 띄울 수 있는
+    /// 것이고, 그 규약이 없으면 화면은 "아무 일도 안 일어남"만 보여준다.
+    /// </summary>
+    private static void DrawAttackFailureToast(Painter painter, WorldModel world, Rectangle screen,
+                                               double nowSeconds)
+    {
+        const double DurationSeconds = 1.6;
+
+        if (world.LastAttackFailure is not { } reason)
+        {
+            return;
+        }
+
+        var age = nowSeconds - world.LastAttackFailureAtSeconds;
+        if (age > DurationSeconds)
+        {
+            return;
+        }
+
+        var fade = (float)Math.Clamp(DurationSeconds - age, 0.0, 1.0);
+        var size = painter.SmallFont.Measure(reason);
+        var position = new Vector2(screen.Center.X - (size.X * 0.5f), screen.Bottom - 152);
+        painter.SmallText(reason, position, new Color(240, 160, 150) * fade);
+    }
+
     public void DrawHelpBar(Painter painter, Rectangle bounds, string fontName)
     {
         painter.FillRect(bounds, new Color(12, 15, 22, 245));
         painter.FillRect(new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), new Color(50, 62, 84));
 
         const string Help =
-            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 Echo 핑  ·  F2 자동 순회  ·  Esc 입력/패널 닫기";
+            "WASD 이동  ·  빈 곳 클릭 순간 이동  ·  유닛 클릭/Tab 타겟  ·  Space 공격  ·  1/2 무기  ·  Enter 채팅  ·  F1 핑  ·  F2 자동 순회";
         painter.SmallText(Help, new Vector2(bounds.X + 12, bounds.Y + 5), new Color(130, 144, 168));
 
         var fontText = $"글꼴: {fontName}";

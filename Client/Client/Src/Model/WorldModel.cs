@@ -79,7 +79,13 @@ public sealed class WorldModel
     /// <summary>채팅 로그 보관 줄 수. 넘으면 오래된 것부터 버린다.</summary>
     private const int MaxChatLines = 200;
 
+    /// <summary>화살 연출이 대상까지 날아가는 시간(초). 서버 판정과 무관한 값이다.</summary>
+    private const double ArrowFlightSeconds = 0.25;
+
     private readonly Dictionary<uint, RemotePlayer> players_ = [];
+    private readonly Dictionary<uint, CombatUnit> units_ = [];
+    private readonly List<ArrowEffect> arrows_ = [];
+    private readonly List<DamagePopup> damagePopups_ = [];
     private readonly List<MailEntry> mails_ = [];
     private readonly List<ChatLine> chatLines_ = [];
 
@@ -128,7 +134,31 @@ public sealed class WorldModel
     /// <summary>그 공지를 받은 시각. 토스트를 언제 걷을지 정하는 데만 쓴다.</summary>
     public double LastNoticeAtSeconds { get; private set; }
 
+    /// <summary>
+    /// 지금 고른 공격 대상의 unitId. 0이면 없다. <b>UI 상태지만 여기 둔다</b> — 존 뷰(대상 링)와
+    /// HUD(대상 HP)와 입력(공격 전송)이 같은 값을 봐야 해서, 어느 한쪽이 들고 있으면 나머지
+    /// 둘에 전달 인자가 생긴다.
+    /// </summary>
+    public uint TargetUnitId { get; set; }
+
+    /// <summary>지금 쥐고 있는 무기. 서버에는 이 상태가 없고 요청마다 실려 나간다.</summary>
+    public AttackKind Weapon { get; set; } = AttackKind.Melee;
+
+    /// <summary>마지막 공격 실패 사유. 화면 중앙 아래 토스트로 잠깐 띄운다.</summary>
+    public string? LastAttackFailure { get; private set; }
+
+    public double LastAttackFailureAtSeconds { get; private set; }
+
     public IReadOnlyDictionary<uint, RemotePlayer> Players => players_;
+
+    public IReadOnlyDictionary<uint, CombatUnit> Units => units_;
+
+    public IReadOnlyList<ArrowEffect> Arrows => arrows_;
+
+    public IReadOnlyList<DamagePopup> DamagePopups => damagePopups_;
+
+    /// <summary>내 전투 유닛. 존에 들어가기 전이나 등장 통지 전에는 null이다.</summary>
+    public CombatUnit? MyUnit => MySessionId != 0 && units_.TryGetValue(MySessionId, out var unit) ? unit : null;
 
     public IReadOnlyList<MailEntry> Mails => mails_;
 
@@ -221,6 +251,30 @@ public sealed class WorldModel
                 ApplyLogin(packet.Payload);
                 break;
 
+            case PacketId.Z2CUnitSpawn:
+                ApplyUnitSpawn(packet.Payload);
+                break;
+
+            case PacketId.Z2CUnitDespawn:
+                ApplyUnitDespawn(packet.Payload);
+                break;
+
+            case PacketId.Z2CUnitStateSync:
+                ApplyUnitStateSync(packet.Payload);
+                break;
+
+            case PacketId.Z2CUnitDead:
+                ApplyUnitDead(packet.Payload, nowSeconds);
+                break;
+
+            case PacketId.Z2CAttackResult:
+                ApplyAttackResult(packet.Payload, nowSeconds);
+                break;
+
+            case PacketId.Z2CUnitAttackNotify:
+                ApplyUnitAttackNotify(packet.Payload, nowSeconds);
+                break;
+
             default:
                 // 등록하지 않은 id는 조용히 버리지 않고 남긴다 — 서버가 새 패킷을 보내기
                 // 시작했는데 클라이언트가 아직 모르는 상황이 눈에 띄어야 한다.
@@ -265,6 +319,19 @@ public sealed class WorldModel
 
             // 다른 존의 플레이어는 브로드캐스트가 오지 않으므로 화면에서 사라져야 한다.
             players_.Clear();
+
+            // 유닛도 같이 비운다. 유닛 id는 **존 안에서만 유효**해서 옆 존의 몬스터 id와
+            // 겹칠 수 있고, 새 존이 입장 직후 자기 목록을 통째로 보내준다. 안 비우면 옆 존의
+            // 몬스터가 화면에 남아 있다가 새 목록과 id가 부딪힌다.
+            //
+            // **경계를 넘으면 내 HP가 최대치로 돌아간다.** 존 서버는 DB를 만지지 않고, 세로
+            // 핸드오프에서는 프로세스가 바뀌어 유닛이 새로 만들어지기 때문이다 — HP를 이어
+            // 받게 하려면 World가 전투 스탯을 날라야 하는데 그러면 "World는 전투를 모른다"가
+            // 깨진다(docs/design/combat-lane.md).
+            units_.Clear();
+            arrows_.Clear();
+            damagePopups_.Clear();
+            TargetUnitId = 0;
         }
         else
         {
@@ -490,6 +557,226 @@ public sealed class WorldModel
                 AddSystemLine($"적용 규칙이 없는 Mail 태스크 subTask={(byte)subTask} — 건너뜁니다.");
                 break;
         }
+    }
+
+    /// <summary>
+    /// <c>Z2CUnitSpawn</c>: count(uint16) + count개의 항목. 입장할 때는 존 전체가, 리스폰할
+    /// 때는 한 기가 온다. 이미 있는 유닛이면 값을 덮어쓴다 — 리스폰이 같은 패킷으로 오므로
+    /// "새로 넣기"만 하면 죽은 상태가 화면에 남는다.
+    /// </summary>
+    private void ApplyUnitSpawn(byte[] payload)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadUInt16(out var count))
+        {
+            return;
+        }
+
+        for (var index = 0; index < count; ++index)
+        {
+            if (!reader.TryReadUInt32(out var unitId)
+                || !reader.TryReadUInt8(out var kind)
+                || !reader.TryReadSingle(out var x)
+                || !reader.TryReadSingle(out var y)
+                || !reader.TryReadInt32(out var hp)
+                || !reader.TryReadInt32(out var maxHp)
+                || !reader.TryReadInt32(out var mp)
+                || !reader.TryReadInt32(out var maxMp))
+            {
+                return;
+            }
+
+            if (!units_.TryGetValue(unitId, out var unit))
+            {
+                unit = new CombatUnit { UnitId = unitId, Kind = (UnitKind)kind };
+                units_[unitId] = unit;
+            }
+
+            unit.X = x;
+            unit.Y = y;
+            unit.Hp = hp;
+            unit.MaxHp = maxHp;
+            unit.Mp = mp;
+            unit.MaxMp = maxMp;
+            unit.DeadAtSeconds = double.NegativeInfinity;
+        }
+    }
+
+    private void ApplyUnitDespawn(byte[] payload)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadUInt32(out var unitId))
+        {
+            return;
+        }
+
+        units_.Remove(unitId);
+
+        if (TargetUnitId == unitId)
+        {
+            TargetUnitId = 0;
+        }
+    }
+
+    /// <summary>
+    /// <c>Z2CUnitStateSync</c>: 틱 끝에 한 번, 그 틱에 값이 바뀐 유닛만. <b>모르는 unitId는
+    /// 버린다</b> — 등장 통지보다 먼저 도착할 일은 없지만, 오면 그건 순서가 어긋난 것이라
+    /// 빈 유닛을 만들어 두면 좌표 없는 HP 바가 화면에 뜬다.
+    /// </summary>
+    private void ApplyUnitStateSync(byte[] payload)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadUInt16(out var count))
+        {
+            return;
+        }
+
+        for (var index = 0; index < count; ++index)
+        {
+            if (!reader.TryReadUInt32(out var unitId)
+                || !reader.TryReadInt32(out var hp)
+                || !reader.TryReadInt32(out var mp))
+            {
+                return;
+            }
+
+            if (units_.TryGetValue(unitId, out var unit))
+            {
+                unit.Hp = hp;
+                unit.Mp = mp;
+            }
+        }
+    }
+
+    private void ApplyUnitDead(byte[] payload, double nowSeconds)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadUInt32(out var unitId) || !reader.TryReadUInt32(out _))
+        {
+            return;
+        }
+
+        if (!units_.TryGetValue(unitId, out var unit))
+        {
+            return;
+        }
+
+        // 사망 통지는 틱을 기다리지 않고 즉시 오므로, HP 동기화(0)가 아직 안 왔을 수 있다.
+        // 여기서 0으로 맞춰야 쓰러지는 연출과 HP 바가 어긋나지 않는다.
+        unit.Hp = 0;
+        unit.DeadAtSeconds = nowSeconds;
+
+        if (unitId == MySessionId)
+        {
+            AddSystemLine("쓰러졌습니다. 잠시 뒤 다시 일어납니다.");
+        }
+    }
+
+    /// <summary>
+    /// <c>Z2CAttackResult</c>: 내가 보낸 공격의 결과. <b>실패해도 온다.</b>
+    /// 성공이면 내 유닛의 공격 연출을 시작하고, 실패면 사유를 토스트로 띄운다.
+    /// </summary>
+    private void ApplyAttackResult(byte[] payload, double nowSeconds)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadInt32(out var errorCode)
+            || !reader.TryReadUInt32(out var targetUnitId)
+            || !reader.TryReadUInt8(out var attackKind)
+            || !reader.TryReadInt32(out var damage)
+            || !reader.TryReadInt32(out var targetHp))
+        {
+            return;
+        }
+
+        if (errorCode != (int)ErrorCode.Success)
+        {
+            LastAttackFailure = ErrorCodeText.Describe(errorCode);
+            LastAttackFailureAtSeconds = nowSeconds;
+            return;
+        }
+
+        // 서버가 알려준 HP를 바로 반영한다. 틱 끝의 상태 동기화를 기다리면 최대 한 틱만큼
+        // 내 화면이 남의 화면보다 늦다.
+        if (units_.TryGetValue(targetUnitId, out var target))
+        {
+            target.Hp = targetHp;
+        }
+
+        PlayAttack(MySessionId, targetUnitId, (AttackKind)attackKind, damage, nowSeconds, isMine: true);
+    }
+
+    /// <summary>
+    /// <c>Z2CUnitAttackNotify</c>: 남의 공격. 시전자는 자기 <c>Z2CAttackResult</c>로 같은
+    /// 연출을 그리므로 이 패킷을 받지 않는다.
+    /// </summary>
+    private void ApplyUnitAttackNotify(byte[] payload, double nowSeconds)
+    {
+        var reader = new BinaryPacketReader(payload);
+        if (!reader.TryReadUInt32(out var attackerUnitId)
+            || !reader.TryReadUInt32(out var targetUnitId)
+            || !reader.TryReadUInt8(out var attackKind)
+            || !reader.TryReadInt32(out var damage))
+        {
+            return;
+        }
+
+        PlayAttack(attackerUnitId, targetUnitId, (AttackKind)attackKind, damage, nowSeconds, isMine: false);
+    }
+
+    /// <summary>
+    /// 공격 한 번의 연출을 시작한다 — 무기를 대상 쪽으로 돌리고, 원거리면 화살을 띄우고,
+    /// 데미지 숫자를 올린다. <b>연출 길이는 서버 판정과 무관하다</b>(서버는 이미 즉발로
+    /// 확정했다). 그래서 이 함수의 시간 값들은 전부 클라이언트가 정한다.
+    /// </summary>
+    private void PlayAttack(uint attackerUnitId, uint targetUnitId, AttackKind attackKind,
+                            int damage, double nowSeconds, bool isMine)
+    {
+        if (!units_.TryGetValue(attackerUnitId, out var attacker)
+            || !units_.TryGetValue(targetUnitId, out var target))
+        {
+            return;
+        }
+
+        var (attackerX, attackerY) = PositionOf(attacker);
+        var (targetX, targetY) = PositionOf(target);
+
+        attacker.AttackAtSeconds = nowSeconds;
+        attacker.LastAttackKind = attackKind;
+        attacker.WeaponRadians = MathF.Atan2(targetY - attackerY, targetX - attackerX);
+
+        target.HitAtSeconds = nowSeconds;
+
+        if (attackKind == AttackKind.Ranged)
+        {
+            arrows_.Add(new ArrowEffect(attackerX, attackerY, targetX, targetY,
+                                        nowSeconds, ArrowFlightSeconds));
+        }
+
+        if (damage > 0)
+        {
+            damagePopups_.Add(new DamagePopup(targetX, targetY, damage, isMine, nowSeconds));
+        }
+    }
+
+    /// <summary>
+    /// 유닛의 화면 좌표. <b>플레이어는 이동 통지 쪽이 권위</b>이고, 그 정보가 아직 없으면
+    /// 등장 통지에 실려 온 좌표로 버틴다.
+    /// </summary>
+    public (float X, float Y) PositionOf(CombatUnit unit)
+    {
+        if (unit.Kind == UnitKind.Player && players_.TryGetValue(unit.UnitId, out var player))
+        {
+            return (player.X, player.Y);
+        }
+
+        return (unit.X, unit.Y);
+    }
+
+    /// <summary>수명이 다한 연출을 걷어낸다. 게임 스레드가 매 프레임 한 번 부른다.</summary>
+    public void UpdateEffects(double nowSeconds)
+    {
+        arrows_.RemoveAll(arrow => nowSeconds >= arrow.EndSeconds);
+        damagePopups_.RemoveAll(popup => nowSeconds >= popup.EndSeconds);
     }
 
     private void AddChatLine(ChatLine line)

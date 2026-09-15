@@ -156,6 +156,9 @@ C:\Work\asio-server\
 │           │                         PlayerContext(핸들러가 받는 스택 컨텍스트 + 등록 도우미)
 │           ├── Packet/               ZonePackets(고정 레이아웃 와이어 구조체 -- 도구도 쓴다),
 │           │                         ClientPackets(C2Z 요청 구조체 + Parse. 디스패치 앞에서 파싱)
+│           ├── Combat/               Unit/AttackDef(사거리·데미지 순수 함수)/UnitRegistry/Service.
+│           │                         **존 레인 전용이라 락이 0개** -- 틱(리젠·리스폰·몬스터 AI)과
+│           │                         전투 패킷을 같은 strand에 세웠기 때문(docs/design/combat-lane.md)
 │           ├── Currency/             Model(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
 │           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
 │           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)
@@ -258,6 +261,13 @@ owner=`clientSessionId`)과 "존 전체가 공유하는 것"(로스터·좌표·
 대신 모델 단위 락(`Thread::Mutexed`)이 필요하다 — 근거와 함정은
 `docs/design/processor-group.md`.
 
+**전투(`C2ZAttack`)만 클라이언트 요청 중 유일하게 레인을 갈아탄다.** 때리는 대상이 남이라
+주인을 세션으로 둘 수 없어서, 플레이어 레인은 파싱만 하고 `PostToZone(zoneId)`로 다시 던진다.
+그러면 틱(리젠·리스폰·몬스터 AI)과 같은 strand에 서게 되어 전투 코드에 락이 하나도 없다.
+LB 레인에서 바로 못 보내는 이유(그 자리는 zoneId를 모른다)와 샤딩 단위 A/B/C 비교는
+`docs/design/combat-lane.md`. **HP는 영속 대상이 아니라서 존을 옮기면 최대치로 돌아간다** —
+그 대가로 World는 전투 코드가 0줄이다.
+
 존 경계를 넘는 이동(핸드오프)은 WorldServer가 라우팅 테이블(`PlayerManager`)만 바꿔서
 처리한다 — Gateway는 이동 자체를 모르고, 클라이언트는 EnterZoneNotify로 새 zoneId를 통지받을
 뿐 재접속/재인증 없이 같은 TCP 연결을 그대로 쓴다.
@@ -287,6 +297,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
 | | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
 | `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
+| | `Combat::Service` | 존 하나의 전투 — 공격 처리 + 틱(리젠·리스폰·몬스터 AI·변경분 전송). **틱과 전투 패킷이 같은 strand라 뮤텍스가 0개**다. 전송은 `ISender`로 끊어 World 링크를 모른다. 근거: `docs/design/combat-lane.md` |
 | | `PlayerProcessor` | 플레이어 레인의 진입점 — 입장/퇴장 + 패킷 라우팅. Move/Chat만 직접 처리한다(모델 변경도 DB 저장도 없어 UoW를 열지 않는다) |
 | | `PlayerMail` | 우편 요청 처리(Add/Del/Buy). **콘텐츠 큰 분류 = 파일 한 쌍**이고 자기 패킷을 스스로 등록한다. 전부 static — 필요한 것은 `PlayerContext`로 들어온다 |
 | | `PlayerRegistry` | clientSessionId → Player. 레인 수만큼 샤딩돼 락이 없다 |
@@ -367,8 +378,11 @@ Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지
 트랜잭션과 역순 롤백 실측(`C2ZMailBuy`), 요청 식별자(`RUID`), 부하 테스트 도구(StressClient),
 시각 클라이언트(Client), **로그인(`C2WLogin`) + 자동 가입 + World 콘텐츠 캐시**,
 **DB 쓰기 경로**(UnitOfWork -> BASIC 레인에서 캐시 반영 -> `playerId`를 주인으로 DB 레인, UoW 하나 =
-트랜잭션 하나)까지 완료. 부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`).
-남은 것: 중복 로그인 차단, `player_id`의 `int64` 확대(존 쪽), Actor/Monster/AOI. 자세한 표는
+트랜잭션 하나), **전투(근접/원거리 + 더미 몬스터 + 리스폰 + 몬스터 AI)** 까지 완료. 전투는
+이 저장소에서 **틱이 처음 생기는 콘텐츠**라 존 레인에 올렸다(`docs/design/combat-lane.md`).
+부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`).
+남은 것: 전투 부하 시나리오(StressClient), 드랍·경험치(**여기서 샤딩 단위가 다시 걸린다**),
+중복 로그인 차단, `player_id`의 `int64` 확대(존 쪽), AOI. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
 
 ---

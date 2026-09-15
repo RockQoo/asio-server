@@ -59,6 +59,16 @@ public sealed class ClientGame : Game
     private const double EchoInterval = 1.0;
 
     /// <summary>
+    /// 공격 전송 최소 간격(초). <b>서버 쿨다운(<c>Combat::kMelee</c>/<c>kRanged</c>)의 사본이고,
+    /// 판정이 아니라 입력 throttle 용도다</b> — 권위는 전적으로 서버에 있고 여기서 막지 않아도
+    /// 서버가 <c>CombatOnCooldown</c>으로 돌려준다. 다만 그러면 실패 토스트가 매 프레임 뜬다.
+    /// 값이 서버보다 짧으면 토스트가 조금 뜨고, 길면 공격이 조금 느려질 뿐 어긋나지는 않는다.
+    /// </summary>
+    private const double MeleeCooldownSeconds = 0.8;
+
+    private const double RangedCooldownSeconds = 1.2;
+
+    /// <summary>
     /// 가만히 있어도 좌표를 다시 알리는 주기(초).
     ///
     /// <para>
@@ -147,6 +157,7 @@ public sealed class ClientGame : Game
 
     private double moveSentAtSeconds_ = double.NegativeInfinity;
     private double echoSentAtSeconds_ = double.NegativeInfinity;
+    private double attackSentAtSeconds_ = double.NegativeInfinity;
     private bool moveDirty_;
 
     /// <summary>입장/핸드오프 직후 좌표를 알렸는지. <see cref="AnnouncePositionOnZoneChange"/> 참고.</summary>
@@ -268,8 +279,10 @@ public sealed class ClientGame : Game
                 AnnouncePositionOnZoneChange();
                 HandleGlobalKeys();
                 HandleMovement(gameTime);
+                HandleCombat();
                 HandleEcho();
                 world_.ForgetStalePlayers(nowSeconds_ - PlayerForgetAfterSeconds);
+                world_.UpdateEffects(nowSeconds_);
                 break;
         }
 
@@ -488,6 +501,91 @@ public sealed class ClientGame : Game
         }
     }
 
+    /// <summary>
+    /// 타겟팅과 공격. <b>여기서 판정하는 것은 아무것도 없다</b> — 사거리·쿨다운·MP는 전부
+    /// 서버가 보고, 실패해도 <c>Z2CAttackResult</c>가 사유를 들고 온다. 클라이언트가 하는 일은
+    /// "누구를" "무슨 무기로" 때릴지 고르는 것뿐이다.
+    /// </summary>
+    private void HandleCombat()
+    {
+        if (IsTyping)
+        {
+            return;
+        }
+
+        if (input_.IsKeyPressed(Keys.D1))
+        {
+            world_.Weapon = AttackKind.Melee;
+            world_.AddSystemLine("근접 무기를 들었습니다. (사거리 1.2, 쿨다운 0.8초, MP 0)");
+        }
+
+        if (input_.IsKeyPressed(Keys.D2))
+        {
+            world_.Weapon = AttackKind.Ranged;
+            world_.AddSystemLine("원거리 무기를 들었습니다. (사거리 5.0, 쿨다운 1.2초, MP 5)");
+        }
+
+        if (input_.IsKeyPressed(Keys.Tab))
+        {
+            world_.TargetUnitId = FindNearestMonster();
+        }
+
+        // 자동 순회 중에는 알아서 싸운다 -- 사람이 안 보고 있어도 전투 경로(공격 -> 데미지 ->
+        // 사망 -> 리스폰 -> 몬스터 반격)가 계속 도는지 확인하려는 것이다. 지켜볼 때는 Space.
+        var wantsAttack = input_.IsKeyDown(Keys.Space);
+        if (autoTour_)
+        {
+            if (world_.TargetUnitId == 0
+                || !world_.Units.TryGetValue(world_.TargetUnitId, out var current)
+                || current.IsDead)
+            {
+                world_.TargetUnitId = FindNearestMonster();
+            }
+
+            wantsAttack = true;
+        }
+
+        if (!wantsAttack || world_.TargetUnitId == 0)
+        {
+            return;
+        }
+
+        var cooldown = world_.Weapon == AttackKind.Melee ? MeleeCooldownSeconds : RangedCooldownSeconds;
+        if (nowSeconds_ - attackSentAtSeconds_ < cooldown)
+        {
+            return;
+        }
+
+        SendAttack(world_.TargetUnitId, world_.Weapon);
+    }
+
+    /// <summary>가장 가까운 살아 있는 몬스터. 없으면 0.</summary>
+    private uint FindNearestMonster()
+    {
+        var bestUnitId = 0u;
+        var bestDistanceSquared = float.MaxValue;
+
+        foreach (var unit in world_.Units.Values)
+        {
+            if (unit.Kind != UnitKind.Monster || unit.IsDead)
+            {
+                continue;
+            }
+
+            var (x, y) = world_.PositionOf(unit);
+            var dx = x - localX_;
+            var dy = y - localY_;
+            var distanceSquared = (dx * dx) + (dy * dy);
+            if (distanceSquared < bestDistanceSquared)
+            {
+                bestDistanceSquared = distanceSquared;
+                bestUnitId = unit.UnitId;
+            }
+        }
+
+        return bestUnitId;
+    }
+
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(new Color(10, 12, 18));
@@ -522,6 +620,7 @@ public sealed class ClientGame : Game
                            autoTour_ ? autoTourZoneChanges_ : null,
                            options_.AutoTourReverse);
         hud_.DrawNoticeToast(painter, world_, screen, totalSeconds);
+        hud_.DrawCombatBar(painter, world_, screen, totalSeconds);
         hud_.DrawHelpBar(painter,
                          new Rectangle(0, screen.Height - 24, screen.Width, 24),
                          font.FontName);
@@ -650,6 +749,14 @@ public sealed class ClientGame : Game
             return;
         }
 
+        // 유닛 위를 찍었으면 이동이 아니라 타겟팅이다. 이동이 먼저면 몬스터를 고르려다
+        // 그 자리로 걸어가 버려서 고를 방법이 없다.
+        if (zoneView_.HitTestUnit(world_, input_.MousePosition, nowSeconds_) is var unitId and not 0)
+        {
+            world_.TargetUnitId = unitId;
+            return;
+        }
+
         var target = zoneView_.ScreenToWorld(input_.MousePosition);
         SetLocalPosition(target.X, target.Y);
     }
@@ -689,6 +796,17 @@ public sealed class ClientGame : Game
         writer.WriteSingle(localX_);
         writer.WriteSingle(localY_);
         link_.Send(PacketId.C2ZMove, writer);
+    }
+
+    private void SendAttack(uint targetUnitId, AttackKind weapon)
+    {
+        // AttackPacket은 #pragma pack(1) 구조체 { uint32 targetUnitId; uint8 attackKind; }라
+        // 길이 접두 없이 5바이트다.
+        var writer = new BinaryPacketWriter(sizeof(uint) + sizeof(byte));
+        writer.WriteUInt32(targetUnitId);
+        writer.WriteUInt8((byte)weapon);
+        link_.Send(PacketId.C2ZAttack, writer);
+        attackSentAtSeconds_ = nowSeconds_;
     }
 
     private void SendChat(string message)

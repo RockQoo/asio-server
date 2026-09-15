@@ -25,6 +25,9 @@ public sealed class ZoneView
     /// <summary>이 시간(초) 이상 이동 통지가 없는 플레이어는 흐리게 그린다.</summary>
     private const double StaleAfterSeconds = 5.0;
 
+    /// <summary>대상 클릭 판정 반경(픽셀). 마커보다 넉넉하다 — <see cref="HitTestUnit"/> 주석 참고.</summary>
+    private const float TargetPickRadius = 22.0f;
+
     public Rectangle Bounds { get; private set; }
 
     public void Layout(Rectangle bounds) => Bounds = bounds;
@@ -54,8 +57,48 @@ public sealed class ZoneView
         DrawZones(painter, world);
         DrawGrid(painter);
         DrawRequestedMarker(painter, world);
-        DrawPlayers(painter, world, nowSeconds);
+        DrawUnits(painter, world, nowSeconds);
+        DrawPlayersWithoutUnit(painter, world, nowSeconds);
+        DrawArrows(painter, world, nowSeconds);
+        DrawDamagePopups(painter, world, nowSeconds);
         painter.StrokeRect(Bounds, new Color(80, 100, 130));
+    }
+
+    /// <summary>
+    /// 클릭 지점에 있는 유닛의 unitId. 없으면 0.
+    ///
+    /// <para>
+    /// 판정 반경을 마커보다 넉넉하게 잡는다 — 이 화면은 존 4개를 한 화면에 욱여넣은 상태라
+    /// 유닛이 작게 그려지고, 정확히 원 안을 찍게 하면 타겟팅이 짜증난다. 카메라가 플레이어를
+    /// 따라가게 바뀌면 유닛이 커지므로 그때 이 여유를 줄이면 된다.
+    /// </para>
+    /// </summary>
+    public uint HitTestUnit(WorldModel world, Point screen, double nowSeconds)
+    {
+        var bestUnitId = 0u;
+        var bestDistanceSquared = float.MaxValue;
+        var pick = new Vector2(screen.X, screen.Y);
+
+        foreach (var unit in world.Units.Values)
+        {
+            // 내 자신은 고르지 않는다. 지금은 PvP가 없어서 골라 봐야 SameKind로 튕긴다.
+            if (unit.UnitId == world.MySessionId)
+            {
+                continue;
+            }
+
+            var (worldX, worldY) = world.PositionOf(unit);
+            var center = WorldToScreen(worldX, worldY);
+            var distanceSquared = Vector2.DistanceSquared(center, pick);
+
+            if (distanceSquared < bestDistanceSquared && distanceSquared <= TargetPickRadius * TargetPickRadius)
+            {
+                bestDistanceSquared = distanceSquared;
+                bestUnitId = unit.UnitId;
+            }
+        }
+
+        return bestUnitId;
     }
 
     private void DrawZones(Painter painter, WorldModel world)
@@ -175,37 +218,146 @@ public sealed class ZoneView
         painter.FillCircle(center, 4.0f, new Color(240, 200, 120, 160));
     }
 
-    private void DrawPlayers(Painter painter, WorldModel world, double nowSeconds)
+    /// <summary>
+    /// 전투 유닛(플레이어 + 몬스터). <b>몸통은 정면 한 장이고 무기만 방향대로 돈다</b> —
+    /// 서버에 방향 값이 없어서 그 각도는 클라이언트가 만들어낸 값이다(이동 방향, 공격 중에는
+    /// 대상 방향).
+    /// </summary>
+    private void DrawUnits(Painter painter, WorldModel world, double nowSeconds)
+    {
+        // 선택한 대상의 링을 먼저 깐다 — 유닛보다 뒤에 있어야 몸통을 가리지 않는다.
+        if (world.TargetUnitId != 0 && world.Units.TryGetValue(world.TargetUnitId, out var target))
+        {
+            var (targetX, targetY) = world.PositionOf(target);
+            CombatArt.DrawTargetRing(painter, WorldToScreen(targetX, targetY), PlayerRadius, nowSeconds);
+        }
+
+        foreach (var unit in world.Units.Values)
+        {
+            var (worldX, worldY) = world.PositionOf(unit);
+            var center = WorldToScreen(worldX, worldY);
+            var isMine = unit.UnitId == world.MySessionId;
+
+            CombatArt.DrawBody(painter, center, PlayerRadius, unit.Kind, unit.IsDead, isMine,
+                               nowSeconds, unit.HitAtSeconds);
+
+            if (!unit.IsDead)
+            {
+                // 몬스터만 투구를 쓴다. 스탯에 DEF가 있다는 것을 그림으로 말해주는 자리다.
+                if (unit.Kind == UnitKind.Monster)
+                {
+                    CombatArt.DrawHelmet(painter, center, PlayerRadius);
+                }
+
+                DrawUnitWeapon(painter, world, unit, center, nowSeconds);
+            }
+
+            CombatArt.DrawHealthBar(painter, center, PlayerRadius, unit);
+            DrawUnitLabel(painter, world, unit, center, nowSeconds);
+        }
+    }
+
+    private void DrawUnitWeapon(Painter painter, WorldModel world, CombatUnit unit, Vector2 center,
+                                double nowSeconds)
+    {
+        var weapon = unit.Kind == UnitKind.Monster ? AttackKind.Melee : unit.LastAttackKind;
+        var swingSeconds = weapon == AttackKind.Melee ? CombatArt.SwingSeconds : CombatArt.DrawSeconds;
+        var elapsed = nowSeconds - unit.AttackAtSeconds;
+        var swingProgress = elapsed >= swingSeconds ? 1.0f : (float)(elapsed / swingSeconds);
+
+        // 공격 중이면 대상 쪽, 아니면 걸어가는 쪽을 본다. 내가 지금 든 무기는 서버가 모르는
+        // 클라이언트 상태라, 아직 한 번도 안 때린 내 캐릭터에는 그 선택을 그대로 보여준다.
+        var facing = unit.WeaponRadians;
+        if (swingProgress >= 1.0f && world.Players.TryGetValue(unit.UnitId, out var player))
+        {
+            facing = player.DirRadians;
+        }
+
+        if (unit.UnitId == world.MySessionId && swingProgress >= 1.0f)
+        {
+            weapon = world.Weapon;
+        }
+
+        CombatArt.DrawWeapon(painter, center, PlayerRadius, weapon, facing, swingProgress);
+    }
+
+    private void DrawUnitLabel(Painter painter, WorldModel world, CombatUnit unit, Vector2 center,
+                               double nowSeconds)
+    {
+        var isMine = unit.UnitId == world.MySessionId;
+        var isStale = world.Players.TryGetValue(unit.UnitId, out var player)
+                      && !isMine
+                      && nowSeconds - player.LastSeenSeconds > StaleAfterSeconds;
+
+        var label = unit.Kind switch
+        {
+            UnitKind.Monster => $"몬스터 {unit.Hp}/{unit.MaxHp}",
+            _ => isMine ? $"나 ({unit.UnitId})" : unit.UnitId.ToString(),
+        };
+
+        var labelWidth = painter.SmallFont.Measure(label).X;
+        painter.SmallText(label,
+                          new Vector2(center.X - (labelWidth * 0.5f), center.Y + PlayerRadius + 3),
+                          isStale ? new Color(120, 130, 145) : new Color(210, 220, 235));
+    }
+
+    /// <summary>
+    /// 유닛 정보가 아직 안 온 플레이어. 존에 막 들어왔을 때 이동 통지가 등장 통지보다 먼저
+    /// 도착할 수 있고, 그 사이 화면에서 사라지면 "핸드오프가 됐나"를 눈으로 쫓을 수 없다 —
+    /// <b>이 화면의 존재 이유가 그것이라</b> 전투 정보 없이도 일단 그린다.
+    /// </summary>
+    private void DrawPlayersWithoutUnit(Painter painter, WorldModel world, double nowSeconds)
     {
         foreach (var player in world.Players.Values)
         {
-            var isMe = player.PlayerId == world.MySessionId;
+            if (world.Units.ContainsKey(player.PlayerId))
+            {
+                continue;
+            }
+
             var isStale = nowSeconds - player.LastSeenSeconds > StaleAfterSeconds;
-
-            var body = isMe
-                ? new Color(120, 220, 160)
-                : isStale ? new Color(90, 100, 120) : new Color(120, 170, 240);
-
             var center = WorldToScreen(player.X, player.Y);
-            painter.FillCircle(center, PlayerRadius, body);
+            painter.FillCircle(center, PlayerRadius, isStale ? new Color(90, 100, 120) : new Color(120, 170, 240));
 
-            // 방향 작대기. 서버에는 dir 필드가 없어서, 직전 좌표에서 새 좌표로의 변화량으로
-            // 클라이언트가 만들어낸 값이다(RemotePlayer.ApplyMove 참고).
             var tip = center + new Vector2(
                 MathF.Cos(player.DirRadians) * DirLength,
                 -MathF.Sin(player.DirRadians) * DirLength);
-            painter.Line(center, tip, isMe ? Color.White : new Color(220, 230, 245), 2.5f);
+            painter.Line(center, tip, new Color(220, 230, 245), 2.5f);
+        }
+    }
 
-            if (isMe)
-            {
-                painter.FillCircle(center, 4.0f, new Color(20, 30, 26));
-            }
+    private void DrawArrows(Painter painter, WorldModel world, double nowSeconds)
+    {
+        foreach (var arrow in world.Arrows)
+        {
+            var progress = arrow.Progress(nowSeconds);
+            var position = WorldToScreen(
+                arrow.FromX + ((arrow.ToX - arrow.FromX) * progress),
+                arrow.FromY + ((arrow.ToY - arrow.FromY) * progress));
 
-            var label = isMe ? $"나 ({player.PlayerId})" : player.PlayerId.ToString();
-            var labelWidth = painter.SmallFont.Measure(label).X;
-            painter.SmallText(label,
-                              new Vector2(center.X - (labelWidth * 0.5f), center.Y + PlayerRadius + 3),
-                              isStale ? new Color(120, 130, 145) : new Color(210, 220, 235));
+            var from = WorldToScreen(arrow.FromX, arrow.FromY);
+            var to = WorldToScreen(arrow.ToX, arrow.ToY);
+            CombatArt.DrawArrow(painter, position, MathF.Atan2(-(to.Y - from.Y), to.X - from.X));
+        }
+    }
+
+    private void DrawDamagePopups(Painter painter, WorldModel world, double nowSeconds)
+    {
+        foreach (var popup in world.DamagePopups)
+        {
+            var progress = popup.Progress(nowSeconds);
+            var center = WorldToScreen(popup.X, popup.Y);
+
+            // 위로 떠오르면서 사라진다. 겹쳐도 시간차로 갈라져 보인다.
+            var position = new Vector2(center.X, center.Y - PlayerRadius - 14 - (progress * 22.0f));
+            var alpha = (byte)(255 * (1.0f - (progress * progress)));
+            var color = popup.IsMine
+                ? new Color((byte)255, (byte)236, (byte)150, alpha)
+                : new Color((byte)255, (byte)150, (byte)140, alpha);
+
+            var text = popup.Damage.ToString();
+            var width = painter.Font.Measure(text).X;
+            painter.Text(text, new Vector2(position.X - (width * 0.5f), position.Y), color);
         }
     }
 }

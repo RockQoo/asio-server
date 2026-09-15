@@ -22,6 +22,9 @@
     <Filter Include="World">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000007}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Combat">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-00000000000a}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Currency">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
     </Filter>
@@ -58,6 +61,18 @@
     </ClInclude>
     <ClInclude Include="Src\Packet\WorldPackets.h">
       <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Combat\Unit.h">
+      <Filter>Combat</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Combat\AttackDef.h">
+      <Filter>Combat</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Combat\UnitRegistry.h">
+      <Filter>Combat</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Combat\Service.h">
+      <Filter>Combat</Filter>
     </ClInclude>
     <ClInclude Include="Src\Currency\Model.h">
       <Filter>Currency</Filter>
@@ -134,6 +149,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\Combat\UnitRegistry.cpp">
+      <Filter>Combat</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Combat\Service.cpp">
+      <Filter>Combat</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Currency\Model.cpp">
       <Filter>Currency</Filter>
     </ClCompile>

@@ -35,6 +35,25 @@ namespace Zone
         }
     };
 
+    // **이 요청만 존 레인에서 처리된다**(나머지는 플레이어 레인). 때리는 대상이 남이라
+    // 주인을 세션으로 둘 수 없기 때문이고, 근거는 docs/design/combat-lane.md.
+    // 파싱은 여기, 즉 **레인을 갈아타기 전에** 끝난다 -- 형식이 깨진 바이트로 존 레인의
+    // 틱을 방해할 이유가 없다.
+    struct C2ZAttack
+    {
+        AttackPacket attack{};
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            if (payload.size() < sizeof(AttackPacket))
+            {
+                return false;
+            }
+            std::memcpy(&attack, payload.data(), sizeof(AttackPacket));
+            return true;
+        }
+    };
+
     struct C2ZChat
     {
         std::string message;

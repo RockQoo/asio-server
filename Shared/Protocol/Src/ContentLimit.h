@@ -30,4 +30,11 @@ namespace Protocol
     // 제목·본문이 길면 몇 통만으로도 넘는다. 그래서 World가 W2ZEnterZone 본문을 만들 때
     // **바이트 예산으로 한 번 더 잘라낸다**(Packet/EnterZoneBody.h).
     inline constexpr size_t kMaxMailCount = 100;
+
+    // 유닛 상태/등장 통지 한 장에 실을 유닛 수. 넘으면 **여러 장으로 쪼개서** 보낸다
+    // (자르지 않는다 -- 잘라내면 그 유닛의 HP가 화면에서 영영 갱신되지 않는다).
+    //
+    // 64로 잡은 근거: 등장 통지 항목이 29바이트라 64개면 약 1.9KB다. 위 8192에 봉투
+    // 10바이트를 빼도 한참 남고, 존 하나의 인구가 그보다 많아도 장수만 늘어난다.
+    inline constexpr size_t kMaxUnitsPerPacket = 64;
 }

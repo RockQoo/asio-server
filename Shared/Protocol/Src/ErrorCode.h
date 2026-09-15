@@ -43,6 +43,21 @@ namespace Protocol
         LoginDbFailure = 302,             // DB 조회/생성이 실패했다(재시도하면 될 수 있다)
         LoginAlreadyAuthenticated = 303,  // 이미 로그인한 연결이 또 보냄
         LoginNoZoneAvailable = 304,       // 인증은 됐는데 입장시킬 존이 아직 World에 붙지 않음
+
+        // ---- Combat (400 ~ 499) ----
+        //
+        // 전투만 **에러 코드가 곧 정상 응답의 일부**다. 다른 콘텐츠는 실패가 예외적이지만,
+        // 사거리 밖/쿨다운은 조작 중에 계속 나오는 흔한 결과라 클라이언트가 그때마다 이유를
+        // 표시해야 한다. 그래서 전용 태그 enum을 따로 두지 않고 여기에 합쳤다 -- 두 벌이면
+        // 클라이언트에 "에러를 읽는 방법"이 두 가지가 된다.
+        CombatUnitNotFound = 400,   // 시전자의 유닛이 존에 없음(입장 처리 누락 신호)
+        CombatNoTarget = 401,       // 대상 unitId가 이 존에 없음(이미 퇴장했거나 조작)
+        CombatSelfDead = 402,       // 죽은 채로 때리려 함
+        CombatTargetDead = 403,     // 이미 죽은 대상
+        CombatSameKind = 404,       // 같은 진영(플레이어끼리/몬스터끼리). 지금은 PvP가 없다
+        CombatOutOfRange = 405,     // 사거리 밖
+        CombatOnCooldown = 406,     // 쿨다운이 안 돌았음
+        CombatNotEnoughMp = 407,    // MP 부족. **검증을 다 통과한 뒤에만 소모하므로 롤백이 없다**
     };
 }
 

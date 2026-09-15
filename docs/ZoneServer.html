@@ -25,7 +25,7 @@ World로 <b>나가서</b> 붙고(accept하지 않는다), 받은 패킷을 <b>�
 LB 그룹 (4)          패킷 파싱, 주인 판정. 게임 상태를 안 만진다
       ↓
 Player 그룹 (8)      owner = clientSessionId   우편·재화·UnitOfWork
-ZoneSpace 그룹 (존 수) owner = zoneId           로스터·좌표·경계·틱
+ZoneSpace 그룹 (존 수) owner = zoneId           로스터·좌표·경계·틱 · <b>유닛/전투</b>
 Broadcast 그룹 (1)   owner = zoneId           팬아웃 전송</code></pre>
 
 <b>Player와 ZoneSpace를 나눈 것이 이 서버의 설계 핵심이다.</b>
@@ -39,6 +39,16 @@ Broadcast 그룹 (1)   owner = zoneId           팬아웃 전송</code></pre>
     1만 세션 부하 테스트에서 처리량이 1/39로 무너졌던 원인이 정확히 그것이었다.
     콘텐츠 처리의 주인을 <code>clientSessionId</code>로 바꾸면서 같은 존에 사람이 몰려도
     Player 레인 8개로 갈라지게 됐다.
+</div>
+
+<div class="callout">
+    <h4>전투만 레인을 갈아탄다</h4>
+    클라이언트 요청은 전부 Player 레인에서 끝나는데 <code>C2ZAttack</code>만 예외다 —
+    <b>때리는 대상이 남이라 주인을 세션으로 둘 수 없다.</b> 그래서 Player 레인은 파싱만 하고
+    <code>PostToZone(zoneId)</code>로 다시 던진다. 그러면 틱(리젠·리스폰·몬스터 AI)과 같은
+    strand에 서게 되어 <b><code>Combat::</code> 전체에 뮤텍스가 하나도 없다</b>.
+    같은 문제를 유닛 단위 락으로 푸는 길도 있다 — 비교표와 갈아탈 지점은
+    <a href="design/combat-lane.md">combat-lane.md</a>.
 </div>
 
 <div class="callout">
@@ -73,6 +83,8 @@ y: 0 └─────────┴─────────┘</code></pre
     <tr><td><code>Player</code></td><td>플레이어 한 명 + 그 사람의 모델들</td><td>모델마다 다름 (아래)</td></tr>
     <tr><td><code>PlayerRegistry</code></td><td>clientSessionId → Player</td><td>없음 — 레인 수만큼 샤딩</td></tr>
     <tr><td><code>Instance</code></td><td>존 하나의 권위 상태(로스터·경계·틱)</td><td>없음 — ZoneSpace 레인 전용</td></tr>
+    <tr><td><code>Combat::Service</code></td><td>유닛·공격·리젠·리스폰·몬스터 AI</td><td>없음 — 틱과 같은 레인이라</td></tr>
+    <tr><td><code>Combat::UnitRegistry</code></td><td>unitId → Unit. 플레이어 유닛 id는 세션 id를 자른 값</td><td>없음 — ZoneSpace 레인 전용</td></tr>
     <tr><td><code>Model</code></td><td>우편함</td><td><code>Mutexed</code> — 만료 스윕과 만난다</td></tr>
     <tr><td><code>Model</code></td><td>지갑. 값 변경 통로가 <code>SetTracked</code> 하나</td><td>없음 — Player 레인 전용</td></tr>
     <tr><td><code>UnitOfWork</code></td><td>변경분을 모았다가 소멸자에서 결말을 낸다</td><td>—</td></tr>
@@ -106,6 +118,7 @@ model.Change(..., unitOfWork);          // ④ 바뀐 내용은 Task로 기록�
 <div class="cards">
     <a class="card" href="sequences/mail-add-to-db.html"><b>C2ZMailAdd → DB</b><span>LB → Player 레인 → UoW 전 구간</span></a>
     <a class="card" href="sequences/zone-handoff.html"><b>존 핸드오프</b><span>ZoneSpace 레인의 틱이 경계를 판정한다</span></a>
+    <a class="card" href="sequences/zone-combat.html"><b>C2ZAttack — 전투와 틱</b><span>유일하게 레인을 갈아타는 요청</span></a>
     <a class="card" href="design/processor-group.md"><b>Group 설계</b><span>레인 어피니티의 근거와 함정</span></a>
 </div>
 
@@ -117,7 +130,10 @@ model.Change(..., unitOfWork);          // ④ 바뀐 내용은 Task로 기록�
 ├ Handler/PlayerMail        우편 요청 처리 (Add·Del·Buy) — 콘텐츠 큰 분류마다 파일 하나
 ├ Packet/ClientPackets      C2Z 요청 구조체 + Parse (디스패치 앞에서)
 ├ Game/Player · PlayerRegistry
-├ Game/Instance           로스터·경계·틱
+├ Game/Instance           로스터·경계·틱 (+ 전투 전송 통로)
+├ Combat/Unit · AttackDef     유닛/스탯, 사거리·데미지 공식(순수 함수)
+├ Combat/UnitRegistry      존 레인 전용 유닛 컨테이너
+├ Combat/Service           공격 처리 + 틱(리젠·리스폰·AI·변경분 전송)
 ├ Mail/ · Currency/           콘텐츠 모델 + Task
 └ Task/UnitOfWork         소멸자에서 전송 / 역순 롤백</code></pre>
 

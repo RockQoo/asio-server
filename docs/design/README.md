@@ -38,3 +38,4 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 | [config-file.md](config-file.md) | `Shared/Core/Src/Common/ConfigFile.h`, `config/*.cfg` |
 | [parameter-passing.md](parameter-passing.md) | `Shared/Protocol/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |
 | [strong-id.md](strong-id.md) | `Shared/Protocol/Src/StrongId.h`, `Ids.h` |
+| [combat-lane.md](combat-lane.md) | `Server/ZoneServer/Src/Combat/`, 전투를 존 레인에 둔 이유 |

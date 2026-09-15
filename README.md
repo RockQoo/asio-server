@@ -109,7 +109,7 @@ bat\start_gmtool.bat      :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 
 | 도구 | 목적 | 사용법 |
 |------|------|--------|
-| `ProtocolClient` | 패킷 왕복을 손으로 확인하는 REPL | `echo` / `move` / `chat` / `mail add·del·buy` |
+| `ProtocolClient` | 패킷 왕복을 손으로 확인하는 REPL | `echo` / `move` / `chat` / `mail add·del·buy` / `attack` |
 | `StressClient` | 대규모 동시 접속·정확성·지연 | `StressClient.exe 127.0.0.1 9000 1000 200` |
 | `Client` | 존 이동·채팅·우편·쿠폰을 눈으로 | `bat\start_client.bat 2 Debug auto` |
 
@@ -132,7 +132,8 @@ bat\start_gmtool.bat      :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 | 8 | 운영툴(GmTool) — 우편/공지/대량 쿠폰 | 완료 |
 | 9 | **실제 DB 연동** — 로그인이 계정·우편·재화를 읽고, 존의 UnitOfWork가 SP로 저장된다 | 완료 |
 | 9-1 | 로그인/자동 가입, World 콘텐츠 캐시, 클라이언트 단계 분리 | 완료 |
-| 10 | Actor/Monster, AOI(시야 동기화) | 예정 |
+| 10 | **전투** — 근접/원거리, 더미 몬스터, 사망·리스폰, 몬스터 AI. 틱과 전투 패킷을 같은 strand에 세워 락 0개 | 완료 |
+| 10-1 | 드랍·경험치(샤딩 단위 재검토 지점), AOI(시야 동기화) | 예정 |
 | 11 | MonoGame 시각 클라이언트 | 완료 |
 
 ## 의도적으로 범위 밖에 둔 것

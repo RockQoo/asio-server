@@ -125,6 +125,10 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="Src\Packet\ZonePackets.h" />
     <ClInclude Include="Src\Packet\ClientPackets.h" />
     <ClInclude Include="Src\Packet\WorldPackets.h" />
+    <ClInclude Include="Src\Combat\Unit.h" />
+    <ClInclude Include="Src\Combat\AttackDef.h" />
+    <ClInclude Include="Src\Combat\UnitRegistry.h" />
+    <ClInclude Include="Src\Combat\Service.h" />
     <ClInclude Include="Src\Currency\Model.h" />
     <ClInclude Include="Src\Currency\CurrencyTask.h" />
     <ClInclude Include="Src\Game\MoveModel.h" />
@@ -155,6 +159,8 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Src\Combat\UnitRegistry.cpp" />
+    <ClCompile Include="Src\Combat\Service.cpp" />
     <ClCompile Include="Src\Currency\Model.cpp" />
     <ClCompile Include="Src\Currency\CurrencyTask.cpp" />
     <ClCompile Include="Src\Game\Instance.cpp" />

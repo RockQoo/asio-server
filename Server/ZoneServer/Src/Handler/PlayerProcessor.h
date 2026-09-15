@@ -63,6 +63,10 @@ namespace Zone
         void HandleMove(const PlayerContext& context, const C2ZMove& packet);
         void HandleChat(const PlayerContext& context, const C2ZChat& packet);
 
+        // **여기서 처리하지 않고 존 레인으로 넘긴다.** 이 처리기에서 유일하게 레인을 갈아타는
+        // 핸들러다 -- 때리는 대상이 남이라 주인이 세션이 아니라 존이기 때문이다.
+        void HandleAttack(const PlayerContext& context, const C2ZAttack& packet);
+
         void SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                           const std::span<const byte> payload) const;
 

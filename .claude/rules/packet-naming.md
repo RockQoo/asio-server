@@ -114,6 +114,7 @@ T2WToolHello         ->  T2WHello          (Tool도 T2W가 이미 말한다)
 | 4 | `C2ZMailAdd` | `Zone::PacketId::MailAdd` |
 | 5 | `C2ZMailDel` | `Zone::PacketId::MailDel` |
 | 6 | `C2ZMailBuy` | 신규 — 우편 지급 + 골드 차감(모델 두 개에 걸친 트랜잭션) |
+| 7 | `C2ZAttack` | 신규 — targetUnitId + attackKind. **이 대역에서 유일하게 존 레인에서 처리된다**(대상이 남이라 주인이 세션이 아니라 존) |
 | 1001 | `Z2CEchoAck` | `Echo` 재사용이었음 |
 | 1002 | `Z2CChatNotify` | `Chat` 재사용이었음 |
 | 1003 | `Z2CMoveNotify` | `Move` 재사용이었음, **본문에 sessionId 추가** |
@@ -121,6 +122,12 @@ T2WToolHello         ->  T2WHello          (Tool도 T2W가 이미 말한다)
 | ~~1005~~ | ~~`Z2CMailAddAck`~~ | `Z2CTaskResult`로 통합되며 폐기(번호 재사용 안 함) |
 | ~~1006~~ | ~~`Z2CMailDelAck`~~ | 〃 |
 | 1007 | `Z2CTaskResult` | 신규 — UnitOfWork 결과 공통 응답 |
+| 1008 | `Z2CAttackResult` | 신규 — **시전자에게만**. errorCode + 대상/데미지/남은 HP. 실패해도 반드시 보낸다 |
+| 1009 | `Z2CUnitAttackNotify` | 신규 — 시전자 **제외** 주변. 공격 모션 통지(`C2ZAttack`과 짝이라 `Notify`를 붙였다) |
+| 1010 | `Z2CUnitSpawn` | 신규 — count + 항목들. 입장 시 전체 목록, 리스폰 시 한 기 |
+| 1011 | `Z2CUnitDespawn` | 신규 — 존을 떠남. **사망과 다르다**(사망한 유닛은 자리에 남는다) |
+| 1012 | `Z2CUnitStateSync` | 신규 — 틱 끝에 한 번, 그 틱에 값이 바뀐 유닛만 |
+| 1013 | `Z2CUnitDead` | 신규 — 사망. 틱을 기다리지 않고 즉시 |
 | 2001 | `C2WLogin` | 신규 — playerName + password. 계정이 없으면 그 자리에서 만든다 |
 | 3001 | `W2CNotice` | `Zone::PacketId::Notice` |
 | 3002 | `W2CLogin` | 신규 — errorCode + playerId + playerName |

@@ -39,9 +39,31 @@ REPL로는 잘 안 보이는 것을 화면이 대신 보여주는 게 목적이�
 ├ Net/GameLink      TCP + 프레이밍. 수신은 큐에만 넣는다
 ├ Net/CouponClient  쿠폰 등록만 HTTP (GmTool.Web)
 ├ Model/WorldModel  게임 스레드 전용 상태 → 락이 없다
+├ Model/CombatModel 유닛·화살·데미지 숫자. 좌표는 몬스터만 들고 있다(아래)
 ├ Text/GlyphAtlas   한글 글리프를 런타임에 GDI+로 굽는다 (.mgcb 미사용)
+├ Ui/CombatArt      몸통·칼·활·화살·투구·HP바를 <b>도형으로</b> 그린다
 └ Ui/               LoginScreen · LoadingScreen · ZoneView · ChatPanel · MailPanel
                     · CouponPanel · Hud</code></pre>
+</div>
+
+<div class="callout">
+    <h4>그림 리소스가 없다 — 전부 도형이다</h4>
+    콘텐츠 파이프라인(<code>.mgcb</code>)을 쓰지 않으므로 칼·활·투구도 선과 원으로 그린다.
+    <code>Ui/CombatArt.cs</code> 한 곳에 모아 둔 이유가 그것이다 — 나중에 스프라이트
+    아틀라스를 받으면 <b>그 파일의 함수 본문만</b> 텍스처 그리기로 바뀌고, 좌표 계산·회전
+    각도·연출 타이밍은 그대로 남는다. 함수 이름도 아틀라스 프레임 이름과 1:1로 맞춰 뒀다.
+    <br><br>
+    <b>방향별 프레임이 필요 없다</b>: 서버에 방향 값이 없어서 몸통은 언제나 정면이고
+    무기만 각도대로 돈다. 그 각도도 "직전 좌표 → 새 좌표"에서 클라이언트가 만들어낸 값이다.
+</div>
+
+<div class="callout">
+    <h4>유닛 id와 플레이어 키가 같은 값이다</h4>
+    서버가 플레이어 유닛의 id를 <code>clientSessionId</code>를 <code>uint32</code>로 자른 값으로
+    발급한다. 그건 <code>Z2CMoveNotify</code>가 발신자를 싣는 방식과 <b>정확히 같아서</b>,
+    "움직이는 원"(<code>Players</code>)과 "HP 바"(<code>Units</code>)를 키 하나로 잇는다 —
+    클라이언트에 변환표가 없다. 그래서 좌표의 권위는 이동 통지 쪽에 두고
+    <code>CombatUnit</code>의 좌표는 몬스터에만 쓴다.
 </div>
 
 <h2>단계를 나눈 이유</h2>
@@ -122,7 +144,10 @@ Update/Draw 분기를 다시 째야 한다.</p>
 <h2>실행</h2>
 <pre><code>bat\start_client.bat 2            :: 창 2개 (브로드캐스트 확인에는 최소 2개)
 bat\start_client.bat 2 Debug auto :: 자동 순회 — 짝수 창은 반대 방향으로 돈다</code></pre>
-<p>첫 화면은 로그인이다. 기본값은 <code>tester1</code> / <code>0000</code>(시드 계정).<br>조작: WASD/방향키 이동, 존 뷰 클릭으로 순간 이동, Enter 채팅, F1 Echo 핑, F2 자동 순회, Esc 패널 닫기.</p>
+<p>첫 화면은 로그인이다. 기본값은 <code>tester1</code> / <code>0000</code>(시드 계정).<br>조작: WASD/방향키 이동, 빈 곳 클릭으로 순간 이동, <b>유닛 클릭 또는 Tab으로 타겟</b>,
+<b>Space 공격</b>, <b>1/2 근접·원거리 전환</b>, Enter 채팅, F1 Echo 핑, F2 자동 순회, Esc 패널 닫기.</p>
+<p><b>자동 순회(F2)를 켜면 알아서 싸운다</b> — 가장 가까운 몬스터를 골라 계속 때린다.
+사람이 안 보고 있어도 공격 → 데미지 → 사망 → 리스폰 → 몬스터 반격이 계속 도는지 확인하려는 것이다.</p>
 
 <h2>관련 문서</h2>
 <div class="cards">

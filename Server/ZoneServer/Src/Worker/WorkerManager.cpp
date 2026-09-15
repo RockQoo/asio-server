@@ -16,7 +16,8 @@ namespace Zone
     {
         for (const auto& def : zoneDefs_)
         {
-            zoneInstances_.emplace(def.zoneId, std::make_unique<Instance>(def, worldLink));
+            zoneInstances_.emplace(def.zoneId,
+                                   std::make_unique<Instance>(def, worldLink, broadcastDispatcher_));
         }
     }
 

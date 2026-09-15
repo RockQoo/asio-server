@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>C2ZAttack — 전투가 레인을 갈아타는 이유</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<a class="back" href="index.html">← 시퀀스 다이어그램 목록</a>
+
+<h1>C2ZAttack — 전투가 레인을 갈아타는 이유</h1>
+<p class="sub"><b>클라이언트 요청 중 유일하게 존 레인에서 처리되는 패킷</b>이다.
+나머지는 전부 플레이어 레인(<code>owner = clientSessionId</code>)에서 끝나는데,
+전투만 때리는 대상이 남이라 주인을 세션으로 둘 수 없다.
+그리고 이 패킷과 <b>존 틱</b>이 같은 데이터를 만지는 첫 사례이기도 하다.</p>
+
+<div class="legend">
+    <span class="badge b-client">Client</span>
+    <span class="badge b-gateway">Gateway I/O</span>
+    <span class="badge b-world">World Main 레인</span>
+    <span class="badge b-lb">Zone LB 레인</span>
+    <span class="badge b-player">Zone Player 레인</span>
+    <span class="badge b-zone">Zone ZoneSpace 레인 (틱)</span>
+    <span class="badge b-db">Zone Broadcast 레인</span>
+</div>
+
+<div class="seq">
+<div class="seq-inner">
+
+    <div class="seq-head" style="grid-template-columns: repeat(7, 1fr);">
+        <div class="actor a-client">Client<small>게임 스레드</small></div>
+        <div class="actor a-gateway">GatewayServer<small>I/O 스레드</small></div>
+        <div class="actor a-world">WorldServer<small>Main 레인</small></div>
+        <div class="actor a-lb">ZoneServer<small>LB 레인</small></div>
+        <div class="actor a-player">ZoneServer<small>Player 레인</small></div>
+        <div class="actor a-zone">ZoneServer<small>ZoneSpace 레인 = 틱</small></div>
+        <div class="actor a-db">ZoneServer<small>Broadcast 레인</small></div>
+    </div>
+
+    <div class="seq-body" style="grid-template-columns: repeat(14, 1fr);">
+        <div class="lifelines" style="grid-template-columns: repeat(7, 1fr);">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+
+        <div class="msg m-io" style="grid-column: 2 / 4; grid-row: 1;">
+            <span class="lbl">① C2ZAttack</span>
+            <span class="line"></span>
+            <span class="desc">targetUnitId(4) + attackKind(1)</span>
+        </div>
+
+        <div class="msg m-io" style="grid-column: 4 / 6; grid-row: 2;">
+            <span class="lbl">② G2WRelay</span>
+            <span class="line"></span>
+            <span class="desc">Gateway는 내용을 안 본다 — 다른 패킷과 똑같다</span>
+        </div>
+
+        <div class="msg m-world" style="grid-column: 6 / 8; grid-row: 3;">
+            <span class="lbl">③ W2ZRelay</span>
+            <span class="line"></span>
+            <span class="desc">World도 전투를 모른다. <b>전투 코드 0줄</b></span>
+        </div>
+
+        <div class="act" style="grid-column: 7 / 9; grid-row: 4;">
+            <b>파싱 + 주인 판정</b>
+            봉투에 있는 것은 <code>clientSessionId</code>뿐이라
+            <b>여기서는 zoneId를 알 수 없다</b> — 그래서 곧장 존 레인으로 못 간다.
+        </div>
+
+        <div class="msg m-lb" style="grid-column: 8 / 10; grid-row: 5;">
+            <span class="lbl">④ playerGroup_.Post(clientSessionId)</span>
+            <span class="line"></span>
+        </div>
+
+        <div class="act" style="grid-column: 9 / 11; grid-row: 6;">
+            <b>⑤ HandleAttack — 여기서는 처리하지 않는다</b>
+            페이로드 해석은 디스패치 앞에서 이미 끝났다.
+            이 핸들러가 하는 일은 <code>Player</code>에서 zoneId를 읽어
+            <b>존 레인으로 다시 던지는 것</b>뿐이다.
+        </div>
+
+        <div class="msg m-player" style="grid-column: 10 / 12; grid-row: 7;">
+            <span class="lbl">⑥ PostToZone(<b>zoneId</b>)</span>
+            <span class="line"></span>
+            <span class="desc"><b>주인이 바뀌는 지점</b> — sessionId → zoneId</span>
+        </div>
+
+        <div class="act" style="grid-column: 11 / 13; grid-row: 8;">
+            <b>⑦ Instance::HandleAttack — 락 없음</b>
+            시전자 좌표를 <code>MoveModel</code>에서 한 번 맞춘 뒤 순서대로 본다:<br>
+            유닛 존재 → 생사 → 대상 존재 → 대상 생사 → 진영 → 쿨다운 → 사거리 → MP.<br>
+            <b>전부 통과한 뒤에</b> MP를 깎으므로 롤백 코드가 없다.<br>
+            데미지는 <b>남은 HP로 먼저 잘라내고</b> 적용한다.
+        </div>
+
+        <div class="msg m-zone rtl" style="grid-column: 2 / 12; grid-row: 9;">
+            <span class="lbl">⑧ Z2CAttackResult <em>(시전자에게만)</em></span>
+            <span class="line"></span>
+            <span class="desc">errorCode + damage + targetHp. <b>실패해도 반드시 보낸다</b> — 무응답으로 멈추는 경로를 두지 않는다</span>
+        </div>
+
+        <div class="msg m-zone" style="grid-column: 12 / 14; grid-row: 10;">
+            <span class="lbl">⑨ Broadcast(zoneId)</span>
+            <span class="line"></span>
+            <span class="desc">로스터를 직접 순회해 대상 목록을 만들어 넘긴다</span>
+        </div>
+
+        <div class="msg m-db rtl" style="grid-column: 2 / 14; grid-row: 11;">
+            <span class="lbl">⑩ Z2CUnitAttackNotify <em>(시전자 제외 주변)</em></span>
+            <span class="line"></span>
+            <span class="desc">공격 모션용 통지. 시전자는 ⑧로 같은 연출을 그린다</span>
+        </div>
+
+        <div class="act" style="grid-column: 11 / 13; grid-row: 12;">
+            <b>⑪ 같은 레인에서 틱이 돈다 (100ms)</b>
+            리젠 → 리스폰 → 몬스터 AI → 변경분 수집.<br>
+            <b>⑦과 같은 strand라 유닛 HP에 락이 필요 없다.</b>
+            몬스터가 반격하는 것도 여기다 — "사거리 안 가장 가까운 플레이어" 한 줄.
+        </div>
+
+        <div class="msg m-zone" style="grid-column: 12 / 14; grid-row: 13;">
+            <span class="lbl">⑫ Broadcast(zoneId)</span>
+            <span class="line"></span>
+            <span class="desc">그 틱에 값이 바뀐 유닛만 모아서 한 장</span>
+        </div>
+
+        <div class="msg m-db rtl" style="grid-column: 2 / 14; grid-row: 14;">
+            <span class="lbl">⑬ Z2CUnitStateSync</span>
+            <span class="line"></span>
+            <span class="desc">count + {unitId, hp, mp}. 64기가 넘으면 장을 나눈다</span>
+        </div>
+
+        <div class="act stop" style="grid-column: 11 / 13; grid-row: 15;">
+            <b>예외 — 사망만 즉시 나간다</b>
+            <code>Z2CUnitDead</code>는 틱을 기다리지 않는다.
+            미루면 최대 한 틱 동안 <b>이미 죽은 대상을 계속 때린다</b>.
+        </div>
+    </div>
+
+</div>
+</div>
+
+<h2>이 그림에서 봐야 할 것</h2>
+
+<div class="callout">
+    <h4>① 레인을 갈아타는 화살표(⑥)가 전투 설계의 전부다</h4>
+    이 한 줄이 없으면 전투 패킷은 플레이어 레인에서 처리되고, 그러면 <b>내 스레드가 남의 HP를
+    만진다</b>. 틱도 같은 HP를 만지므로 유닛마다 락이 붙어야 한다.
+    존 레인으로 넘기는 순간 틱과 같은 strand에 서게 되어
+    <code>Combat::</code> 전체에 뮤텍스가 하나도 없다.
+    같은 문제를 <b>유닛 단위 락</b>으로 푸는 길도 있다 — 존 하나에 수백 명이 들어오면
+    직렬화로 버티지 못하기 때문이다. 규모가 다르면 답도 다르다는 것이 요점이고,
+    갈아탈 지점도 정해져 있다(<a href="../design/combat-lane.md">combat-lane.md</a>).
+</div>
+
+<div class="callout">
+    <h4>② 왜 LB(④)에서 바로 존 레인으로 안 보내나</h4>
+    홉 하나를 아낄 수 있지만 <b>그 자리는 zoneId를 모른다</b>. 봉투에 있는 것은
+    <code>clientSessionId</code>뿐이고 zoneId는 <code>Player</code>가 들고 있는데,
+    <code>PlayerRegistry</code>는 플레이어 레인 전용이라 LB에서 읽을 수 없다.
+    <code>sessionId → zoneId</code> 전역 표를 두면 되지만 그건 여러 레인이 같이 보므로
+    <code>Mutexed</code>가 된다 — <b>락을 없애려고 옮기면서 디스패치 경로에 락을 만드는 셈</b>이다.
+</div>
+
+<div class="callout">
+    <h4>③ 상태 동기화는 모아서, 응답과 사망은 즉시</h4>
+    공격 한 번마다 HP를 뿌리면 대규모 전투에서 브로드캐스트가 인원의 제곱으로 늘어난다.
+    그래서 값이 바뀐 유닛에 <code>dirty</code> 표시만 하고 ⑬에서 한 장으로 보낸다.
+    예외가 둘이고 이유가 서로 다르다 — ⑧은 <b>요청의 답</b>이라 미룰 수 없고,
+    사망은 <b>미루면 죽은 대상을 계속 때린다</b>.
+</div>
+
+<div class="callout warn">
+    <h4>④ 존 경계를 넘으면 HP가 최대치로 돌아간다</h4>
+    유닛은 <code>Instance</code>가 소유하므로 존을 옮기면 새로 만들어진다. 세로 핸드오프
+    (프로세스를 넘는 이동)에서는 <code>Zone::Player</code> 자체가 새로 만들어져 이어받을 값이
+    애초에 없다. HP를 나르려면 <code>W2ZEnterZone</code>에 전투 스탯을 실어야 하는데,
+    그러면 <b>World가 전투를 알게 되어</b> ③의 "World 전투 코드 0줄"이 깨진다.
+    HP가 영속 대상이 아닌 이상 그 대칭을 깨지 않기로 했다 —
+    <b>대가는 "경계에서 도망치면 풀피"</b>이고, 필요해지면 존 쪽에서 핸드오프를 미루는 편이 맞다.
+</div>
+
+<h2>관련 코드</h2>
+<table>
+    <tr><th>단계</th><th>파일</th></tr>
+    <tr><td>①</td><td><code>Client/Client/Src/ClientGame.cs</code> — <code>SendAttack</code></td></tr>
+    <tr><td>②~③</td><td>다른 패킷과 동일 — <code>ClientLinkHandler.cpp</code> / <code>GatewayLinkHandler.cpp</code></td></tr>
+    <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code></td></tr>
+    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleAttack</code></td></tr>
+    <tr><td>⑦</td><td><code>Server/ZoneServer/Src/Combat/Service.cpp</code> — <code>HandleAttack</code> / <code>ApplyHit</code></td></tr>
+    <tr><td>⑧~⑩</td><td><code>Server/ZoneServer/Src/Game/Instance.cpp</code> — <code>SendToClient</code> / <code>BroadcastToZone</code></td></tr>
+    <tr><td>⑪~⑬</td><td><code>Server/ZoneServer/Src/Combat/Service.cpp</code> — <code>Tick</code> / <code>FlushDirtyUnits</code></td></tr>
+    <tr><td>판정 공식</td><td><code>Server/ZoneServer/Src/Combat/AttackDef.h</code> — 순수 함수 3개</td></tr>
+</table>
+
+<p class="foot">asio-server · 시퀀스 다이어그램</p>
+</main>
+</body>
+</html>

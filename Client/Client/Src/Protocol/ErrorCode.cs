@@ -34,6 +34,30 @@ public enum ErrorCode
 
     /// <summary>인증은 됐는데 입장시킬 존이 아직 World에 붙지 않음.</summary>
     LoginNoZoneAvailable = 304,
+
+    /// <summary>내 유닛이 존에 없음(입장 처리 누락 신호).</summary>
+    CombatUnitNotFound = 400,
+
+    /// <summary>대상이 이 존에 없음. 이미 퇴장했거나 화면이 낡았다.</summary>
+    CombatNoTarget = 401,
+
+    /// <summary>내가 죽은 채로 때리려 함.</summary>
+    CombatSelfDead = 402,
+
+    /// <summary>이미 죽은 대상.</summary>
+    CombatTargetDead = 403,
+
+    /// <summary>같은 진영(플레이어끼리). 지금은 PvP가 없다.</summary>
+    CombatSameKind = 404,
+
+    /// <summary>사거리 밖.</summary>
+    CombatOutOfRange = 405,
+
+    /// <summary>쿨다운이 안 돌았음.</summary>
+    CombatOnCooldown = 406,
+
+    /// <summary>MP 부족. 서버는 검증을 다 통과한 뒤에만 소모하므로 아무것도 안 깎였다.</summary>
+    CombatNotEnoughMp = 407,
 }
 
 public static class ErrorCodeText
@@ -54,6 +78,14 @@ public static class ErrorCodeText
         ErrorCode.LoginDbFailure => "서버가 DB에 접근하지 못했습니다. 잠시 후 다시 시도하세요",
         ErrorCode.LoginAlreadyAuthenticated => "이미 로그인된 연결입니다",
         ErrorCode.LoginNoZoneAvailable => "입장할 존 서버가 아직 준비되지 않았습니다",
+        ErrorCode.CombatUnitNotFound => "내 유닛이 존에 없습니다(입장 처리 누락)",
+        ErrorCode.CombatNoTarget => "대상이 없습니다",
+        ErrorCode.CombatSelfDead => "죽어 있어 공격할 수 없습니다",
+        ErrorCode.CombatTargetDead => "이미 쓰러진 대상입니다",
+        ErrorCode.CombatSameKind => "같은 편은 공격할 수 없습니다",
+        ErrorCode.CombatOutOfRange => "사거리 밖입니다",
+        ErrorCode.CombatOnCooldown => "아직 재사용 대기 중입니다",
+        ErrorCode.CombatNotEnoughMp => "MP가 부족합니다",
         _ => $"알 수 없는 에러({errorCode})",
     };
 }

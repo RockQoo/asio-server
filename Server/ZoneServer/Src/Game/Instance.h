@@ -1,12 +1,14 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
+#include "Combat/Service.h"
 #include "Game/Player.h"
 #include "Game/Def.h"
 
 namespace Zone
 {
     class WorldLink;
+    class BroadcastDispatcher;
 }
 
 namespace Zone
@@ -24,15 +26,25 @@ namespace Zone
     //
     // **이동은 이 레인이 틱에서만 만진다.** 이동 패킷 자체는 플레이어 레인이 받아 검증하고
     // MoveModel에 요청만 기록하므로, 패킷이 폭주해도 이 레인의 틱 주기가 흔들리지 않는다.
-    class Instance
+    //
+    // **전투가 이 클래스에 얹힌 이유**: 전투는 틱(리젠·리스폰·AI)과 패킷(C2ZAttack)이 같은
+    // 상태를 만지는 첫 콘텐츠다. 둘 다 이 레인으로 몰면 락이 한 개도 필요 없다 --
+    // 그래서 전투 패킷만 플레이어 레인을 거쳐 여기로 한 번 더 넘어온다
+    // (PlayerProcessor::HandleAttack -> WorkerManager::PostToZone).
+    // 비교표와 갈아탈 지점: docs/design/combat-lane.md
+    class Instance final : private Combat::Service::ISender
     {
     public:
-        Instance(const Def& def, WorldLink& worldLink);
+        Instance(const Def& def, WorldLink& worldLink, BroadcastDispatcher& broadcastDispatcher);
 
         // --- 존 레인에서만 호출 ---
         void OnPlayerEnter(const std::shared_ptr<Player>& player);
         void OnPlayerLeave(const Network::SessionId clientSessionId);
         void Tick(const float deltaSeconds);
+
+        // 전투 요청. 플레이어 레인이 파싱만 하고 넘겨준다 -- 때리는 대상이 남이라 주인을
+        // 세션으로 둘 수 없기 때문이다.
+        void HandleAttack(const Network::SessionId clientSessionId, const AttackPacket& packet);
 
         // --- 어느 레인에서나 호출 가능 ---
         //
@@ -56,6 +68,16 @@ namespace Zone
         [[nodiscard]] size_t GetPlayerCount() const noexcept { return members_.size(); }
 
     private:
+        // --- Combat::Service::ISender ---
+        //
+        // 전투 코드가 World 링크도 브로드캐스트 레인도 모르게 하는 통로다(Service.h 주석).
+        // 여기서는 **로스터를 직접 순회한다** -- 이 레인이 members_의 주인이라 스냅샷을 거칠
+        // 이유가 없고, 방금 죽거나 들어온 사람이 즉시 반영된다.
+        void SendToClient(const Network::SessionId clientSessionId, const PacketId innerPacketId,
+                          const std::span<const byte> payload) override;
+        void BroadcastToZone(const PacketId innerPacketId, const std::span<const byte> payload,
+                             const Network::SessionId excludeClientSessionId) override;
+
         // members_가 바뀐 직후에 부른다(존 레인).
         void PublishBroadcastTargets();
 
@@ -67,9 +89,14 @@ namespace Zone
         // 한 곳에만 두면 x/y 중 한쪽만 빠뜨리는 실수가 안 생긴다.
         Def def_;
         WorldLink& worldLink_;
+        BroadcastDispatcher& broadcastDispatcher_;
 
         // 존 레인 전용이라 락이 없다.
         std::unordered_map<Network::SessionId, std::shared_ptr<Player>> members_;
+
+        // 유닛/HP/공격. **members_와 같은 레인이라 락이 없다**(Combat/Unit.h 주석).
+        // 선언 순서상 위의 것들보다 뒤에 와야 한다 -- 생성자에서 *this를 넘기므로.
+        Combat::Service combat_;
 
         std::atomic<std::shared_ptr<const std::vector<Network::SessionId>>> broadcastTargets_;
     };

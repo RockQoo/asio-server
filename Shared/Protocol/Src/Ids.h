@@ -29,4 +29,17 @@ namespace Protocol
     // 존 번호. 1부터 시작하고 0은 "존 없음/미배정" 예약값이다.
     // **RUID가 아니다** -- 2x2 격자의 고정 번호라 사람이 정한다(ParseZoneList).
     using ZoneId = StrongId<struct ZoneIdTag, uint32_t>;
+
+    // 전투 유닛 하나. **존 메모리 안에서만 유효하고 DB에 남지 않는다** -- 그래서 RUID가 아니다.
+    //
+    // uint32인 것이 의도다: 플레이어 유닛의 id는 **clientSessionId를 uint32로 자른 값**이고,
+    // 그건 Z2CMoveNotify/Z2CChatNotify가 발신자를 싣는 방식과 정확히 같다(ZonePackets.h).
+    // 그래서 클라이언트는 키 하나로 "움직이는 원"과 "HP 바"를 이을 수 있다 -- 폭을 넓히면
+    // 그 대응이 깨져서 클라이언트에 변환 표가 하나 생긴다.
+    // 몬스터는 최상위 비트를 세운 대역(kMonsterUnitIdBase)이라 세션 id와 겹치지 않는다.
+    using UnitId = StrongId<struct UnitIdTag, uint32_t>;
+
+    // 몬스터 유닛 id의 시작. 세션 id는 접속 순서대로 1씩 증가하므로 이 값에 닿으려면 한
+    // 프로세스가 21억 번 accept해야 한다.
+    inline constexpr uint32_t kMonsterUnitIdBase = 0x8000'0000u;
 }

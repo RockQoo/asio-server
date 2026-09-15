@@ -30,6 +30,14 @@ public enum PacketId : ushort
     /// <summary>C2Z: mailId(int64 RUID). 결과는 <see cref="Z2CTaskResult"/>로 돌아온다.</summary>
     C2ZMailDel = 5,
 
+    /// <summary>
+    /// C2Z: targetUnitId(uint32) + attackKind(uint8). <b>서버에서 유일하게 존 레인으로 가는
+    /// 요청이다</b> — 때리는 대상이 남이라 주인이 세션이 아니라 존이고, 그래서 틱(리젠·리스폰·
+    /// 몬스터 AI)과 같은 스레드에서 처리된다. 결과는 <see cref="Z2CAttackResult"/>로 오고,
+    /// <b>실패해도 반드시 온다</b>.
+    /// </summary>
+    C2ZAttack = 7,
+
     /// <summary>Z2C: <see cref="C2ZEcho"/>의 응답. 본문은 보낸 바이트 그대로(길이 접두 없음).</summary>
     Z2CEchoAck = 1001,
 
@@ -47,6 +55,38 @@ public enum PacketId : ushort
     /// requestPacketId가 0이면 요청 없이 서버가 만든 변경(우편 만료 삭제, 운영툴 우편 발송).
     /// </summary>
     Z2CTaskResult = 1007,
+
+    /// <summary>
+    /// Z2C: errorCode(int32) + targetUnitId(uint32) + attackKind(uint8) + damage(int32) +
+    /// targetHp(int32). <b>시전자에게만</b> 오고 실패해도 온다 — 화면이 무응답으로 멈추는
+    /// 경로를 만들지 않으려는 서버 쪽 규약이다.
+    /// </summary>
+    Z2CAttackResult = 1008,
+
+    /// <summary>
+    /// Z2C: attackerUnitId(uint32) + targetUnitId(uint32) + attackKind(uint8) + damage(int32).
+    /// 시전자를 <b>뺀</b> 존 전체에 간다(시전자는 자기 <see cref="Z2CAttackResult"/>로 같은
+    /// 연출을 그린다). 성공한 공격만 나가므로 에러 코드가 없다.
+    /// </summary>
+    Z2CUnitAttackNotify = 1009,
+
+    /// <summary>
+    /// Z2C: count(uint16) + count개의 {unitId(uint32), kind(uint8), x/y(float), hp/maxHp/mp/maxMp(int32)}.
+    /// 입장할 때는 존 전체 목록이, 리스폰할 때는 한 기가 온다. 수가 많으면 여러 장으로 쪼개서 온다.
+    /// </summary>
+    Z2CUnitSpawn = 1010,
+
+    /// <summary>Z2C: unitId(uint32). 존을 떠난 것이라 <see cref="Z2CUnitDead"/>와 다르다.</summary>
+    Z2CUnitDespawn = 1011,
+
+    /// <summary>
+    /// Z2C: count(uint16) + count개의 {unitId(uint32), hp(int32), mp(int32)}.
+    /// <b>틱 끝에 한 번</b>, 그 틱에 값이 바뀐 유닛만 모아서 온다.
+    /// </summary>
+    Z2CUnitStateSync = 1012,
+
+    /// <summary>Z2C: unitId(uint32) + killerUnitId(uint32). 틱을 기다리지 않고 즉시 온다.</summary>
+    Z2CUnitDead = 1013,
 
     /// <summary>
     /// C2W: playerName + password(둘 다 길이 접두 UTF-8). <b>존이 아니라 World가 처리한다</b> —

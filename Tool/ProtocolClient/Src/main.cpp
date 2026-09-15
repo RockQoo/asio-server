@@ -26,6 +26,8 @@ namespace
             "  move <x> <y>    - Move 패킷 전송, 같은 존에 브로드캐스트됨(본인도 수신).\n"
             "                    x가 10 이상/미만 경계를 넘으면 서버가 조용히 다른 존으로 핸드오프한다\n"
             "  chat <문자열>   - Chat 패킷 전송, 같은 존에 브로드캐스트됨(본인도 수신)\n"
+            "  attack <unitId> [melee|ranged]  - Attack 패킷 전송. **이 요청만 존 레인에서 처리된다**\n"
+            "                    (대상 unitId는 입장 직후 오는 UnitSpawn 목록에 찍힌다. 실패해도 응답이 온다)\n"
             "  mail add <제목> <본문> <초>  - MailAdd 패킷 전송(초 뒤 서버가 자동 만료 삭제)\n"
             "  mail del <id>               - MailDel 패킷 전송\n"
             "  mail buy <제목> <본문> <초> <가격>  - 우편 지급 + 골드 차감을 한 트랜잭션으로\n"
@@ -187,6 +189,78 @@ namespace
                                       << " zoneId=" << notify.zoneId.Value() << '\n';
                         }
                     }
+                    break;
+
+                case PacketId::Z2CUnitSpawn:
+                    {
+                        // count(uint16) + 항목들. **대상 unitId를 여기서 얻는다** --
+                        // attack 명령에 넣을 번호가 이 목록에 있다.
+                        Packet::BinaryReader binaryReader(payload);
+                        uint16_t count{};
+                        if (!binaryReader.Read(count))
+                        {
+                            break;
+                        }
+
+                        for (uint16_t index = 0; index < count; ++index)
+                        {
+                            Zone::UnitSpawnEntry entry{};
+                            if (!binaryReader.Read(entry))
+                            {
+                                break;
+                            }
+
+                            std::cout << "[recv] UnitSpawn unitId=" << entry.unitId
+                                      << " kind=" << static_cast<int32_t>(entry.kind)
+                                      << " x=" << entry.x << " y=" << entry.y
+                                      << " hp=" << entry.hp << '/' << entry.maxHp << '\n';
+                        }
+                    }
+                    break;
+
+                case PacketId::Z2CAttackResult:
+                    {
+                        Zone::AttackResultPacket result{};
+                        if (payload.size() >= sizeof(result))
+                        {
+                            std::memcpy(&result, payload.data(), sizeof(result));
+                            std::cout << "[recv] AttackResult errorCode=" << result.errorCode
+                                      << " target=" << result.targetUnitId
+                                      << " damage=" << result.damage
+                                      << " targetHp=" << result.targetHp << '\n';
+                        }
+                    }
+                    break;
+
+                case PacketId::Z2CUnitAttackNotify:
+                    {
+                        Zone::UnitAttackNotifyPacket notify{};
+                        if (payload.size() >= sizeof(notify))
+                        {
+                            std::memcpy(&notify, payload.data(), sizeof(notify));
+                            std::cout << "[recv] UnitAttackNotify " << notify.attackerUnitId
+                                      << " -> " << notify.targetUnitId
+                                      << " damage=" << notify.damage << '\n';
+                        }
+                    }
+                    break;
+
+                case PacketId::Z2CUnitDead:
+                    {
+                        Zone::UnitDeadPacket dead{};
+                        if (payload.size() >= sizeof(dead))
+                        {
+                            std::memcpy(&dead, payload.data(), sizeof(dead));
+                            std::cout << "[recv] UnitDead unitId=" << dead.unitId
+                                      << " killer=" << dead.killerUnitId << '\n';
+                        }
+                    }
+                    break;
+
+                // UnitStateSync / UnitDespawn은 일부러 찍지 않는다 -- 틱마다 오므로 REPL에서
+                // 다른 출력을 전부 밀어낸다. 값이 필요하면 AttackResult의 targetHp를 보면 된다.
+                case PacketId::Z2CUnitStateSync:
+                case PacketId::Z2CUnitDespawn:
                     break;
 
                 case PacketId::Z2CEchoAck:
@@ -374,6 +448,17 @@ int main(const int argc, char** argv)
                 Packet::BinaryWriter binaryWriter;
                 binaryWriter.WriteString(RestOfLine(iss));
                 SendPacket(socket, PacketId::C2ZChat, binaryWriter.GetBuffer());
+            }
+            else if (command == "attack")
+            {
+                Zone::AttackPacket attack{};
+                std::string kind;
+                iss >> attack.targetUnitId >> kind;
+
+                // 기본은 근접이다 -- 원거리는 MP를 쓰므로 명시했을 때만 쓴다.
+                attack.attackKind = kind == "ranged" ? 1 : 0;
+
+                SendPacket(socket, PacketId::C2ZAttack, std::as_bytes(std::span(&attack, 1)));
             }
             else if (command == "mail")
             {

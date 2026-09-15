@@ -35,6 +35,8 @@ namespace Zone
             [this](const PlayerContext& context, const C2ZMove& packet) { HandleMove(context, packet); });
         RegisterPacketHandler<C2ZChat>(packetDispatcher_, PacketId::C2ZChat,
             [this](const PlayerContext& context, const C2ZChat& packet) { HandleChat(context, packet); });
+        RegisterPacketHandler<C2ZAttack>(packetDispatcher_, PacketId::C2ZAttack,
+            [this](const PlayerContext& context, const C2ZAttack& packet) { HandleAttack(context, packet); });
 
         // 콘텐츠 패킷은 콘텐츠가 스스로 등록한다 -- 우편 패킷을 하나 늘릴 때 이 파일을 고칠
         // 일이 없어야 콘텐츠마다 파일을 나눈 의미가 있다.
@@ -143,6 +145,28 @@ namespace Zone
         binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
         binaryWriter.Write(packet.move);
         BroadcastToZone(context.zoneId, PacketId::Z2CMoveNotify, binaryWriter.GetBuffer());
+    }
+
+    void PlayerProcessor::HandleAttack(const PlayerContext& context, const C2ZAttack& packet)
+    {
+        // **이 한 줄이 전투 설계의 전부다.** 다른 요청은 여기(플레이어 레인, owner =
+        // clientSessionId)에서 끝나지만, 전투는 남의 HP를 만지므로 주인이 세션이 아니라 존이다.
+        // 존 레인으로 넘기면 틱(리젠·리스폰·AI)과 같은 strand에 서게 되어 **전투 코드 전체에
+        // 뮤텍스가 하나도 필요 없어진다**(docs/design/combat-lane.md).
+        //
+        // 파싱은 이미 끝났고 여기서는 값을 복사해 넘기기만 한다 -- 형식이 깨진 바이트가 존
+        // 레인까지 가서 틱을 방해할 이유가 없다.
+        const auto zoneId = context.zoneId;
+        const auto clientSessionId = context.player.GetSessionId();
+        const auto attack = packet.attack;
+
+        zoneWorkers_.PostToZone(zoneId, [this, zoneId, clientSessionId, attack]
+        {
+            if (zoneWorkers_.HasZone(zoneId))
+            {
+                zoneWorkers_.GetZoneInstance(zoneId).HandleAttack(clientSessionId, attack);
+            }
+        });
     }
 
     void PlayerProcessor::HandleChat(const PlayerContext& context, const C2ZChat& packet)
