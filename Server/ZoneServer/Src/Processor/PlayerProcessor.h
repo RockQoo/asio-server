@@ -7,6 +7,8 @@
 #include "Shared/Common/Src/Packet/ClientPackets.h"
 #include "Shared/Common/Src/Packet/WorldPackets.h"
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/Send.h"
+#include "Shared/Common/Src/Packet/ZonePackets.h"
 #include "Shared/Common/Src/PacketId.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 
@@ -66,14 +68,37 @@ private:
     void HandleMove(const PlayerContext& context, const Common::C2ZMove& packet);
     void HandleChat(const PlayerContext& context, const Common::C2ZChat& packet);
 
-    void SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
-                      const std::span<const byte> payload) const;
+    // ---- 보내는 쪽 ----
+    //
+    // 패킷 구조체 하나만 받는다. id 는 TPacket::kPacketId 에서 나오고, **보낼 수 있는
+    // 방향인지 컴파일 타임에 검사한다**(.claude/rules/packet-naming.md).
+
+    // 이 클라이언트 한 명에게. Zone 은 클라이언트와 직접 연결되지 않으므로 World 를 거치는
+    // 봉투에 담긴다 -- 호출부는 그걸 몰라도 된다.
+    template <typename TPacket>
+    void SendToClient(const Network::SessionId clientSessionId, const TPacket& packet) const
+    {
+        Common::AssertDirection<TPacket, Common::EPacketDirection::Z2C>();
+        SendToClientBytes(clientSessionId, TPacket::kPacketId, Common::ToBytes(packet));
+    }
+
+    // 그 존 안 전원에게.
+    template <typename TPacket>
+    void BroadcastToZone(const Common::ZoneId zoneId, const TPacket& packet,
+                         const Network::SessionId excludeClientSessionId = 0) const
+    {
+        Common::AssertDirection<TPacket, Common::EPacketDirection::Z2C>();
+        BroadcastToZoneBytes(zoneId, TPacket::kPacketId, Common::ToBytes(packet), excludeClientSessionId);
+    }
+
+    void SendToClientBytes(const Network::SessionId clientSessionId, const PacketId innerPacketId,
+                           const std::span<const byte> payload) const;
 
     // 존 레인이 발행해둔 대상 스냅샷을 읽어 BROADCAST 그룹으로 넘긴다.
     // 로스터를 직접 순회하지 않으므로 존 레인과 겹치지 않는다.
-    void BroadcastToZone(const Common::ZoneId zoneId, const PacketId innerPacketId,
-                         const std::span<const byte> payload,
-                         const Network::SessionId excludeClientSessionId = 0) const;
+    void BroadcastToZoneBytes(const Common::ZoneId zoneId, const PacketId innerPacketId,
+                              const std::span<const byte> payload,
+                              const Network::SessionId excludeClientSessionId = 0) const;
 
     PlayerRegistry& playerRegistry_;
     WorkerManager& zoneWorkers_;

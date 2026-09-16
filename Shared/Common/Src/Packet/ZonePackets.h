@@ -2,6 +2,8 @@
 
 #include "Shared/Common/Src/PacketId.h"
 
+#include "Shared/Core/Src/Packet/BinaryWriter.h"
+
 #include "Shared/Common/Src/Ids.h"
 
 namespace Common
@@ -36,5 +38,45 @@ namespace Common
     // Mail 요청의 결과는 고정 구조체가 아니라 Z2CTaskResult(UnitOfWork 태스크 스트림)로
     // 돌아간다 -- 응답 구조체를 콘텐츠마다 새로 만드는 대신, 클라이언트가 서버와 같은
     // 태스크 목록을 그대로 적용하는 방식이다(Shared/Common/Src/TaskKind.h 참고).
+
+    // 이동 통지. **요청(C2ZMove)과 본문이 다르다** -- 받는 쪽은 "누가" 움직였는지 알아야 해서
+    // 발신자가 앞에 붙는다. 고정 레이아웃이라 Serialize() 가 필요 없다.
+    struct Z2CMoveNotify
+    {
+        static constexpr PacketId kPacketId = PacketId::Z2CMoveNotify;
+
+        uint32_t senderSessionId;
+        Position position;
+
+        void Set(const uint32_t sender, const Position& value)
+        {
+            senderSessionId = sender;
+            position = value;
+        }
+    };
 #pragma pack(pop)
+
+    // 채팅 통지. 문자열이 있어 고정 레이아웃이 아니므로 **자기 바이트를 직접 만든다**
+    // (Common::ToBytes 가 Serialize() 를 보고 갈라준다).
+    struct Z2CChatNotify
+    {
+        static constexpr PacketId kPacketId = PacketId::Z2CChatNotify;
+
+        uint32_t senderSessionId{};
+        std::string message;
+
+        void Set(const uint32_t sender, std::string text)
+        {
+            senderSessionId = sender;
+            message = std::move(text);
+        }
+
+        [[nodiscard]] std::vector<byte> Serialize() const
+        {
+            Packet::BinaryWriter binaryWriter;
+            binaryWriter.Write(senderSessionId);
+            binaryWriter.WriteString(message);
+            return binaryWriter.MoveBuffer();
+        }
+    };
 }

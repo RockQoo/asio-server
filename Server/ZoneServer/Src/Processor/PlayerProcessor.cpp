@@ -216,23 +216,20 @@ void PlayerProcessor::HandleMove(const PlayerContext& context, const Common::C2Z
     // ③ 브로드캐스트는 틱을 기다리지 않고 즉시. 요청(C2ZMove)과 통지(Z2CMoveNotify)는
     //    id도 본문도 다르다 -- 받는 쪽은 "누가" 움직였는지 알아야 하므로 sessionId를
     //    앞에 붙인다.
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
-    binaryWriter.Write(packet.move);
-    BroadcastToZone(context.zoneId, PacketId::Z2CMoveNotify, binaryWriter.GetBuffer());
+    Common::Z2CMoveNotify notify;
+    notify.Set(static_cast<uint32_t>(context.player.GetSessionId()), packet.move);
+    BroadcastToZone(context.zoneId, notify);
 }
 
 void PlayerProcessor::HandleChat(const PlayerContext& context, const Common::C2ZChat& packet)
 {
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
-    binaryWriter.WriteString(packet.message);
-
-    BroadcastToZone(context.zoneId, PacketId::Z2CChatNotify, binaryWriter.GetBuffer());
+    Common::Z2CChatNotify notify;
+    notify.Set(static_cast<uint32_t>(context.player.GetSessionId()), packet.message);
+    BroadcastToZone(context.zoneId, notify);
 }
 
-void PlayerProcessor::SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
-                                   const std::span<const byte> payload) const
+void PlayerProcessor::SendToClientBytes(const Network::SessionId clientSessionId, const PacketId innerPacketId,
+                                        const std::span<const byte> payload) const
 {
     const auto worldSession = worldLink_.Get();
     if (!worldSession)
@@ -245,9 +242,9 @@ void PlayerProcessor::SendToPlayer(const Network::SessionId clientSessionId, con
         Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), payload));
 }
 
-void PlayerProcessor::BroadcastToZone(const Common::ZoneId zoneId, const PacketId innerPacketId,
-                                      const std::span<const byte> payload,
-                                      const Network::SessionId excludeClientSessionId) const
+void PlayerProcessor::BroadcastToZoneBytes(const Common::ZoneId zoneId, const PacketId innerPacketId,
+                                           const std::span<const byte> payload,
+                                           const Network::SessionId excludeClientSessionId) const
 {
     if (!zoneWorkers_.HasZone(zoneId))
     {
