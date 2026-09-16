@@ -7,6 +7,8 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/LoginPackets.h"
+#include "Shared/Common/Src/Packet/Send.h"
 
 C2GHandler::C2GHandler(Network::SessionManager& sessionManager, Network::SessionHolder& worldLink)
     : sessionManager_(sessionManager)
@@ -26,11 +28,11 @@ void C2GHandler::OnSessionOpened(const Network::Session::SPtr& session)
         return;
     }
 
-    const Network::SessionId clientSessionId = session->Id();
-    worldSession->SendPacket(PacketId::G2WClientConnected,
-                              std::as_bytes(std::span(&clientSessionId, 1)));
+    Common::G2WClientConnected packet;
+    packet.Set(session->Id());
+    worldSession->SendPacket(packet.kPacketId, Common::ToBytes(packet));
 
-    LOG.Info(ELogCategory::Client, "클라이언트 접속").KV("SessionId", clientSessionId)
+    LOG.Info(ELogCategory::Client, "클라이언트 접속").KV("SessionId", session->Id())
         .KV("Remote", session->RemoteAddress());
 }
 
@@ -54,9 +56,9 @@ void C2GHandler::OnClosed(const Network::Session::SPtr& session, const std::erro
 
     if (const auto worldSession = worldLink_.Get())
     {
-        const Network::SessionId clientSessionId = session->Id();
-        worldSession->SendPacket(PacketId::G2WClientDisconnected,
-                                  std::as_bytes(std::span(&clientSessionId, 1)));
+        Common::G2WClientDisconnected packet;
+        packet.Set(session->Id());
+        worldSession->SendPacket(packet.kPacketId, Common::ToBytes(packet));
     }
 
     LOG.Info(ELogCategory::Client, "클라이언트 접속 종료").KV("SessionId", session->Id());

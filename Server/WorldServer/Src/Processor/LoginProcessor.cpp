@@ -12,6 +12,8 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
+#include "Shared/Common/Src/Packet/LoginPackets.h"
+#include "Shared/Common/Src/Packet/Send.h"
 
 LoginProcessor::LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                                Processor::Group<EWorldProcessorId>& basicGroup, DbProcessor& dbProcessor)
@@ -43,14 +45,15 @@ void LoginProcessor::HandleClientPacket(const Network::Session::SPtr& gatewaySes
 void LoginProcessor::HandleLogin(const Network::Session::SPtr& gatewaySession,
                                  const Network::SessionId clientSessionId, const std::span<const byte> payload)
 {
-    Packet::BinaryReader binaryReader(payload);
-    std::string playerName;
-    std::string password;
-    if (!binaryReader.ReadString(playerName) || !binaryReader.ReadString(password))
+    Common::C2WLogin packet;
+    if (!packet.Parse(payload))
     {
         SendResult(gatewaySession, clientSessionId, EErrorCode::InvalidPayload, 0, {});
         return;
     }
+
+    const auto& playerName = packet.playerName;
+    const auto& password = packet.password;
 
     if (playerName.empty() || playerName.size() > kMaxPlayerNameBytes
         || password.empty() || password.size() > kMaxPasswordBytes)
@@ -353,13 +356,11 @@ void LoginProcessor::SendResult(const Network::Session::SPtr& gatewaySession,
                                  const Network::SessionId clientSessionId, const EErrorCode errorCode,
                                  const Base::RUID playerId, const std::string_view playerName) const
 {
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(static_cast<int32_t>(errorCode));
-    binaryWriter.Write(playerId);
-    binaryWriter.WriteString(playerName);
+    Common::W2CLogin packet;
+    packet.Set(errorCode, playerId, std::string(playerName));
 
     gatewaySession->SendPacket(
         PacketId::W2GRelay,
-        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(PacketId::W2CLogin),
-                          binaryWriter.GetBuffer()));
+        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(packet.kPacketId),
+                          Common::ToBytes(packet)));
 }

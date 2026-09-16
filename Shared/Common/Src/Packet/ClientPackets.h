@@ -112,4 +112,35 @@ namespace Common
                 && binaryReader.Read(durationSec) && binaryReader.Read(price);
         }
     };
+
+    // 왕복 확인용. 본문은 **해석하지 않는 바이트 그대로**다 -- 받은 것을 그대로 되돌려
+    // 보내는 것이 이 패킷의 전부라, 문자열로 규정하지 않는다.
+    struct C2ZEcho
+    {
+        static constexpr PacketId kPacketId = PacketId::C2ZEcho;
+
+        std::vector<byte> data;
+
+        void Set(const std::span<const byte> bytes) { data.assign(bytes.begin(), bytes.end()); }
+
+        [[nodiscard]] std::vector<byte> Serialize() const { return data; }
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            data.assign(payload.begin(), payload.end());
+            return true;
+        }
+    };
+
+    // Echo 응답. **요청과 id 를 공유하지 않는다**(한 id 는 한 방향) -- 본문은 받은 것 그대로다.
+    struct Z2CEchoAck
+    {
+        static constexpr PacketId kPacketId = PacketId::Z2CEchoAck;
+
+        std::vector<byte> data;
+
+        void Set(const std::span<const byte> bytes) { data.assign(bytes.begin(), bytes.end()); }
+
+        [[nodiscard]] std::vector<byte> Serialize() const { return data; }
+    };
 }

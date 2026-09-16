@@ -113,10 +113,13 @@ void PlayerProcessor::ReplyEcho(const Common::RelayEnvelope& header,
 
     // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
     // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
+    Common::Z2CEchoAck packet;
+    packet.Set(innerPayload);
+
     worldSession->SendPacket(
         PacketId::Z2WRelay,
-        Common::WrapRelay(header.clientSessionId, static_cast<uint16_t>(PacketId::Z2CEchoAck),
-                          innerPayload));
+        Common::WrapRelay(header.clientSessionId, static_cast<uint16_t>(packet.kPacketId),
+                          Common::ToBytes(packet)));
 }
 void PlayerProcessor::OnPlayerEnter(Common::W2ZEnterZone packet)
 {

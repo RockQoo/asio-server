@@ -141,6 +141,19 @@ struct C2WLogin
 
 ### 구조체가 아예 없는 패킷도 있다
 
+**`~Relay` 넷은 구조체를 만들지 않는다.** 봉투(`RelayEnvelope`) + **해석하지 않는** 원본
+패킷이라, "본문"이라는 게 없다. `Common::WrapRelay`/`UnwrapRelay` 가 그 자리를 대신한다.
+
+**`Z2CTaskResult` / `Z2WUnitOfWorkStream` 도 만들지 않는다.** 본문이 태스크 목록을 순회하며
+쌓는 스트림이라, `Set()` 으로 한 번에 받는 모양과 맞지 않는다. `ZoneUnitOfWork` 가 직접 쓴다.
+
+**운영툴 대역(T2W/W2T)의 가변 길이 패킷**은 `docs/design/wire-format.md` 의 표가 계약이고,
+GmTool(C#)이 그 표를 보고 짝을 맞춘다.
+
+그 밖의 가변 길이 본문은 구조체에 `Serialize()`/`Parse()` 를 둔다 -- `Common::ToBytes` 가
+`Serialize()` 유무를 concept 으로 보고 갈라주므로 **보내는 쪽 코드는 고정이든 가변이든 같다.**
+
+
 가변 길이 본문(`C2ZChat`의 문자열, `Z2WUnitOfWorkStream`의 태스크 목록)은 `BinaryWriter`/
 `BinaryReader`로 직접 쓰고 읽는다. 그때는 **바이트 포맷 표를 주석으로** 남기고(형식은
 `Packet/ZoneLinkPackets.h`와 `docs/design/wire-format.md`), 구조체를 억지로 만들지 않는다.
