@@ -117,7 +117,6 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h" />
     <ClInclude Include="Src\World\WorldLink.h" />
     <ClInclude Include="Src\Handler\ClientLinkHandler.h" />
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />

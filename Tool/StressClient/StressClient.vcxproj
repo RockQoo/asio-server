@@ -103,7 +103,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h" />
     <ClInclude Include="Src\Stats\LatencyHistogram.h" />
     <ClInclude Include="Src\Stats\Stats.h" />
     <ClInclude Include="Src\Session\Session.h" />

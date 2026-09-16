@@ -74,8 +74,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Base`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
-  변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
-  콘텐츠를 몰라야 해서 Core/Gateway/World/Zone/Stress가 각자 따로 갖는다(같은 문서 참고).
+  변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 **서버·도구가
+  `Common::ELogCategory` 하나를 공유**한다 -- 같은 태그가 파일마다 다른 뜻이면 요청 하나를
+  RUID로 쫓을 때 로그를 나란히 못 읽는다(예전에는 World의 `[Zone]`이 존 링크, Zone의
+  `[Zone]`이 존 로직이었다). Core만 자기 것(`Log::ELogCategory` -- General/Network/Packet/
+  Thread)을 따로 갖는다. Core가 Gateway/Zone/Db를 알면 불변 규칙 1이 깨지기 때문이다.
 - **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `Header`/`Position`/
   `PlayerState`/`Config` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
@@ -153,6 +156,7 @@ C:\Work\asio-server\
 │       ├── ContentLimit.h        가변 길이 본문 상한(채팅/우편 길이·통 수) -- 없으면 프레임
 │       │                         상한을 넘겨 그 링크에 붙은 전원의 연결이 끊긴다
 │       ├── Enum.h                콘텐츠 enum 모음(재화 종류 등). 값 목록 하나에 파일 하나를 만들지 않는다
+│       ├── LogCategory.h         서버·도구 공용 로그 카테고리(Core는 자기 것을 따로 갖는다)
 │       ├── Ids.h / StrongId.h    PlayerId/MailId/ZoneId -- 종류마다 자기 타입
 │       ├── MailInfo.h            우편 한 통. **World 캐시와 Zone 모델이 같은 타입을 쓴다**
 │       ├── CurrencyInfo.h        재화 하나의 잔액. 종류는 ECurrencyType 그대로 (밑바탕 타입이 고정이라 모르는 값도 담긴다)

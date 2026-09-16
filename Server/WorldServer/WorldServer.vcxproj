@@ -117,7 +117,6 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h" />
     <ClInclude Include="Src\Packet\EnterZoneBody.h" />
     <ClInclude Include="Src\Processor\DbProcessor.h" />
     <ClInclude Include="Src\Processor\LoginProcessor.h" />

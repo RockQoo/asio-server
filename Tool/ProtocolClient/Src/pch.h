@@ -68,4 +68,4 @@
 
 // ProtocolClient 는 자기 카테고리를 따로 두지 않고 ZoneServer 것을 그대로 쓴다
 // -- 존 프로토콜을 두드리는 도구라 로그 카테고리도 같은 것이 읽기 편하다.
-#include "Server/ZoneServer/Src/Log/LogCategory.h"
+#include "Shared/Common/Src/LogCategory.h"

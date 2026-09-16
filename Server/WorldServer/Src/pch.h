@@ -66,5 +66,5 @@
 // LOG.<Level>(category, "메시지").KV(...) 형태의 전역 로그 진입점.
 #include "Shared/Core/Src/Log/Proxy.h"
 
-// 카테고리는 Core 것이 아니라 WorldServer 자신의 World::ELogCategory 를 쓴다.
-#include "Log/LogCategory.h"
+// 카테고리는 Core 것이 아니라 서버·도구가 공유하는 Common::ELogCategory 를 쓴다.
+#include "Shared/Common/Src/LogCategory.h"
