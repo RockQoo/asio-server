@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Shared/Core/Src/Base/Types.h"
-#include "Game/Player.h"
-#include "Game/PlayerRegistry.h"
-#include "Processor/PlayerContext.h"
+#include "Player/Player.h"
+#include "Player/PlayerRegistry.h"
+#include "Player/PlayerContext.h"
 #include "Shared/Common/Src/Packet/ClientPackets.h"
 #include "Shared/Common/Src/Packet/WorldPackets.h"
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
@@ -13,10 +13,7 @@
 class WorkerManager;
 class BroadcastProcessor;
 
-namespace Mail
-{
-    class Registry;
-}
+class MailRegistry;
 
 // **플레이어 레인(owner = clientSessionId)**의 진입점 -- 입장/퇴장과 패킷 라우팅을 맡고,
 // 콘텐츠 처리 자체는 콘텐츠별 파일(PlayerMail 등)로 내보낸다. 존이 아니라 플레이어가
@@ -36,7 +33,7 @@ class PlayerProcessor
 public:
     PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
                     BroadcastProcessor& broadcastProcessor, Network::SessionHolder& worldLink,
-                    Mail::Registry& mailRegistry);
+                    MailRegistry& mailRegistry);
 
     // **World 링크에서 온 패킷의 유일한 진입점.** WorldLinkHandler가 I/O 스레드에서
     // ownerId만 뽑아 이 레인으로 던지고, 패킷 해석부터 여기서 시작한다.
@@ -82,7 +79,7 @@ private:
     WorkerManager& zoneWorkers_;
     BroadcastProcessor& broadcastProcessor_;
     Network::SessionHolder& worldLink_;
-    Mail::Registry& mailRegistry_;
+    MailRegistry& mailRegistry_;
 
     // 패킷 타입 -> 핸들러. **존마다도 플레이어마다도 아니고 이 처리기에 하나만** 둔다 --
     // 개체마다 테이블을 갖는 구조는 등록 내용이 개체별로 다를 때만 의미가 있고, 그렇지

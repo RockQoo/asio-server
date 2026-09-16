@@ -190,20 +190,26 @@ C:\Work\asio-server\
 │   │                                 — 공지처럼 주인이 없는 경로가 있어 둘 다 Mutexed
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
-│           ├── Processor/           레인에서 도는 프로세서 클래스. **EProcessorId 태그와 1:1**
-│           │                         PlayerProcessor(수신 파싱 + 입장/퇴장 + 패킷 라우팅),
-│           │                         ZoneProcessor(존별 권위 상태 -- 로스터/좌표/경계/틱),
-│           │                         BroadcastProcessor(팬아웃 전송),
-│           │                         PlayerMail(우편 요청 처리 -- 콘텐츠 큰 분류마다 파일 하나),
-│           │                         PlayerContext(핸들러가 받는 스택 컨텍스트 + 등록 도우미)
-│           ├── Worker/               WorkerManager(Zone/Broadcast 그룹 + 존별 tick 타이머 소유)
-│           ├── Handler/              WorldLinkHandler -- **I/O 스레드 전용**. 주인만 뽑아
-│           │                         플레이어 레인으로 넘긴다(LB 레인은 없앴다)
-│           ├── Currency/             Model(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
-│           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
-│           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)
-│           ├── Mail/                 Model/MailTask/Registry(만료 스윕용 색인)/ExpiryService
-│           └── Task/UnitOfWork   UnitOfWork 파생 — World(DB)/클라이언트 전송 + 역연산 롤백
+│           ├── Player/              **플레이어 한 명의 것을 전부 여기 모은다.** Player.h 의 멤버가
+│           │                        곧 목록이다 -- MoveModel / MailModel / CurrencyModel.
+│           │                        PlayerRegistry(clientSessionId -> Player, 레인 수만큼 샤딩),
+│           │                        PlayerContext(핸들러가 받는 스택 컨텍스트 + 등록 도우미),
+│           │                        PlayerMail(우편 요청 처리 -- 콘텐츠 큰 분류마다 파일 하나),
+│           │                        PlayerTask.h(AddMail/DelMail/Currency 태스크 -- 전부
+│           │                        데이터뿐이라 .cpp 가 없어 한 파일에 모은다)
+│           ├── Mail/                **존 전역** 우편 서비스. MailRegistry(그 존 전원의
+│           │                        MailModel::Mutexed 색인)와 MailExpiryService(만료 스윕 타이머).
+│           │                        플레이어 소유가 아니다 -- 스윕이 다른 스레드라서
+│           │                        MailModel 이 Mutexed 인 것이다
+│           ├── Processor/           레인에서 도는 프로세서. **EZoneProcessorId 태그와 1:1**
+│           │                        PlayerProcessor(수신 파싱 + 입장/퇴장 + 패킷 라우팅),
+│           │                        ZoneProcessor(존별 권위 상태 -- 로스터/좌표/경계/틱),
+│           │                        BroadcastProcessor(팬아웃 전송), ProcessorId.h
+│           ├── App/                 ZoneApp, ZoneConfig, ZoneDef(담당 존 하나의 정의)
+│           ├── Worker/              WorkerManager(Zone/Broadcast 그룹 + 존별 tick 타이머 소유)
+│           ├── Handler/             W2ZHandler -- **I/O 스레드 전용**. 주인만 뽑아
+│           │                        플레이어 레인으로 넘긴다
+│           └── Task/ZoneUnitOfWork  Task::UnitOfWork 파생 -- World(DB)/클라이언트 전송 + 역연산 롤백
 ├── Client/                           게임 클라이언트 — C#/MonoGame, 별도 솔루션
 │   ├── Client.slnx                   (GmTool과 같은 이유로 C++ 솔루션에 넣지 않는다)
 │   └── Client/Src/

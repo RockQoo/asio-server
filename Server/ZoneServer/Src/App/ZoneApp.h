@@ -4,12 +4,12 @@
 #include "Shared/Core/Src/Network/Connector.h"
 #include "Shared/Core/Src/Network/IoContextPool.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Game/PlayerRegistry.h"
+#include "Player/PlayerRegistry.h"
 #include "App/ZoneDef.h"
 #include "Processor/PlayerProcessor.h"
 #include "Handler/W2ZHandler.h"
-#include "Mail/ExpiryService.h"
-#include "Mail/Registry.h"
+#include "Mail/MailExpiryService.h"
+#include "Mail/MailRegistry.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 #include "Processor/ProcessorId.h"
 #include "Worker/WorkerManager.h"
@@ -52,11 +52,11 @@ private:
     Processor::Group<EZoneProcessorId> playerGroup_;
 
     PlayerRegistry playerRegistry_;
-    Mail::Registry mailRegistry_;
+    MailRegistry mailRegistry_;
     WorkerManager zoneWorkers_;
     PlayerProcessor playerProcessor_;
     W2ZHandler worldLinkHandler_;
-    Mail::ExpiryService mailExpiryService_;
+    MailExpiryService mailExpiryService_;
 
     std::shared_ptr<Network::Connector> worldConnector_;
 

@@ -656,11 +656,25 @@ Mail::MailModel         ->  Mail::Model
 **파일 이름도 같이 바꾼다**(`Game/ZoneDef.h` → `Game/Def.h`) — 한 파일에 타입 하나, 파일
 이름은 그 타입 이름이라는 규칙을 유지한다.
 
+### 예외 — 여러 네임스페이스에 반복되는 역할 이름은 접두사를 남긴다
+
+`Header`/`Group`/`Session`은 그 네임스페이스에 하나뿐인 이름이지만, **`Model`은 콘텐츠마다
+반복되는 역할 이름**이다(`MailModel`/`CurrencyModel`, 앞으로 아이템·인벤도). 그런 이름은
+접두사를 떼면 안 된다:
+
+- 편집기 탭이 `Model.h` 두 개로 똑같이 보인다
+- 같은 프로젝트에 `Model.cpp`가 둘이면 MSVC가 **같은 obj에 덮어쓴다**(`MSB8027`). 그래서
+  6개 vcxproj 전부에 `<ObjectFileName>` 우회가 들어가 있다 — 이름을 갈랐으면 필요 없었다
+- 애초에 **맨이름으로 쓰는 자리가 한 곳도 없었다.** 바깥(`Player.h`/`ZoneUnitOfWork.h`)에서
+  쓰이니 전부 한정해서 적고 있었고, 그래서 "네임스페이스가 이미 말해준다"가 성립하지 않았다
+
+판단 기준: **그 짧은 이름이 이 저장소에서 유일한가.** 아니면 접두사를 남긴다.
+
 ### 예외 — 뗐을 때 다른 것과 겹치면 그대로 둔다
 
 | 그대로 두는 것 | 왜 |
 |---|---|
-| `Currency::CurrencyTask` | `Task`는 이 코드베이스의 **네임스페이스**(`Task::ITask`/`Task::UnitOfWork`)다. `Currency::Task`를 만들면 `Currency` 안에서 `Task::`가 무엇을 가리키는지 흔들린다 |
+| `CurrencyTask` | `Task`는 이 코드베이스의 **네임스페이스**(`Task::ITask`/`Task::UnitOfWork`)다. 그냥 `Task`로 두면 무엇을 가리키는지 흔들린다 |
 | `Log::Logger` | `Log` + `ger`이라 애초에 접두사가 아니다 |
 
 ### 같이 확인할 것 — 게터 이름과 충돌한다

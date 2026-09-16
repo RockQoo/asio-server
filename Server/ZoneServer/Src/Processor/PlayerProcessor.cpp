@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "Processor/PlayerProcessor.h"
 #include "Processor/ZoneProcessor.h"
-#include "Processor/PlayerMail.h"
-#include "Mail/Model.h"
-#include "Mail/Registry.h"
+#include "Player/PlayerMail.h"
+#include "Player/MailModel.h"
+#include "Mail/MailRegistry.h"
 #include "Shared/Common/Src/Packet/ZonePackets.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 #include "Processor/BroadcastProcessor.h"
@@ -18,7 +18,7 @@
 
 PlayerProcessor::PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
                                  BroadcastProcessor& broadcastProcessor, Network::SessionHolder& worldLink,
-                                 Mail::Registry& mailRegistry)
+                                 MailRegistry& mailRegistry)
     : playerRegistry_(playerRegistry)
     , zoneWorkers_(zoneWorkers)
     , broadcastProcessor_(broadcastProcessor)

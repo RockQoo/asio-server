@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Base/Types.h"
-#include "Game/Player.h"
+#include "Player/Player.h"
 #include "App/ZoneDef.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 

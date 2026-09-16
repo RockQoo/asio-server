@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "Task/ZoneUnitOfWork.h"
-#include "Currency/CurrencyTask.h"
-#include "Game/Player.h"
-#include "Mail/MailTask.h"
+#include "Player/PlayerTask.h"
+#include "Player/Player.h"
+#include "Player/PlayerTask.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
 
@@ -106,18 +106,18 @@ std::vector<byte> ZoneUnitOfWork::Serialize() const
         {
         case Common::ETaskType::MailAdd:
             // 추가는 New(들어온 우편)를 내보낸다.
-            WriteMail(taskBinaryWriter, static_cast<const Mail::AddMailTask&>(*task).Info().New());
+            WriteMail(taskBinaryWriter, static_cast<const AddMailTask&>(*task).Info().New());
             break;
 
         case Common::ETaskType::MailDel:
             // 삭제는 Prev(지워진 우편)를 내보낸다 -- 받는 쪽이 어느 우편이 사라졌는지
             // 알아야 하고, 클라이언트는 그 mailId를 자기 목록에서 지운다.
-            WriteMail(taskBinaryWriter, static_cast<const Mail::DelMailTask&>(*task).Info().Prev());
+            WriteMail(taskBinaryWriter, static_cast<const DelMailTask&>(*task).Info().Prev());
             break;
 
         case Common::ETaskType::CurrencyUpdate:
             {
-                const auto& currencyTask = static_cast<const Currency::CurrencyTask&>(*task);
+                const auto& currencyTask = static_cast<const CurrencyTask&>(*task);
                 taskBinaryWriter.Write(static_cast<uint8_t>(currencyTask.Type()));
                 taskBinaryWriter.Write(currencyTask.Value().New());
                 taskBinaryWriter.Write(currencyTask.Value().Prev());
@@ -164,7 +164,7 @@ void ZoneUnitOfWork::RollbackAll() noexcept
                         break;
                     }
                     // 추가를 되돌리는 건 삭제다. New의 mailId를 지운다.
-                    const auto& info = static_cast<const Mail::AddMailTask&>(task).Info().New();
+                    const auto& info = static_cast<const AddMailTask&>(task).Info().New();
                     if (const auto errorCode = models_.mailBox->Write()->DelMail(info.mailId, sink, false);
                         errorCode != EErrorCode::Success)
                     {
@@ -182,7 +182,7 @@ void ZoneUnitOfWork::RollbackAll() noexcept
                     }
                     // 삭제를 되돌리려면 mailId까지 그대로 복원해야 해서 AddMail(서버가 id를
                     // 새로 배정)이 아니라 InsertMail(id 지정)을 쓴다. Prev가 지워진 원본이다.
-                    const auto& info = static_cast<const Mail::DelMailTask&>(task).Info().Prev();
+                    const auto& info = static_cast<const DelMailTask&>(task).Info().Prev();
                     if (const auto errorCode = models_.mailBox->Write()->InsertMail(info, sink);
                         errorCode != EErrorCode::Success)
                     {
@@ -200,7 +200,7 @@ void ZoneUnitOfWork::RollbackAll() noexcept
                     }
                     // Prev를 그대로 되돌린다. 검증할 게 없어서(이전 값은 방금까지 유효했던
                     // 값이다) 실패할 수 없고, 그게 값 복원 방식을 고른 이유다.
-                    const auto& currencyTask = static_cast<const Currency::CurrencyTask&>(task);
+                    const auto& currencyTask = static_cast<const CurrencyTask&>(task);
                     const auto prevValue = currencyTask.Value().Prev();
                     if (const auto errorCode = models_.wallet->SetCurrency(currencyTask.Type(), prevValue, sink);
                         errorCode != EErrorCode::Success)

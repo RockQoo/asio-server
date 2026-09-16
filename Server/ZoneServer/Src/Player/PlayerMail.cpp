@@ -1,7 +1,7 @@
 #include "pch.h"
-#include "Processor/PlayerMail.h"
-#include "Game/Player.h"
-#include "Mail/Model.h"
+#include "Player/PlayerMail.h"
+#include "Player/Player.h"
+#include "Player/MailModel.h"
 #include "Task/ZoneUnitOfWork.h"
 
 #include "Shared/Common/Src/ContentLimit.h"

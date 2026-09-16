@@ -5,8 +5,8 @@
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Common/Src/PacketId.h"
 
-#include "Currency/Model.h"
-#include "Mail/Model.h"
+#include "Player/CurrencyModel.h"
+#include "Player/MailModel.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 
 class Player;
@@ -33,13 +33,13 @@ public:
     // 알아야 한다. UnitOfWork를 여는 쪽이 자기가 만질 모델만 채운다 -- 만료 스윕처럼
     // 우편함만 만지는 경로는 wallet이 비어 있다.
     //
-    // wallet이 포인터인 이유: Currency::Model은 Player가 값으로 들고 있어(Mutexed가 아니다)
+    // wallet이 포인터인 이유: CurrencyModel은 Player가 값으로 들고 있어(Mutexed가 아니다)
     // 소유권을 나눠 가질 수 없다. 이 UnitOfWork의 수명이 요청 스코프라 그동안 Player가
     // 사라지지 않는다는 전제는 그대로다(퇴장도 같은 레인에서 돈다).
     struct Models
     {
-        std::shared_ptr<Mail::Model::Mutexed> mailBox;
-        Currency::Model* wallet{};
+        std::shared_ptr<MailModel::Mutexed> mailBox;
+        CurrencyModel* wallet{};
     };
 
     // 클라이언트 요청을 처리하는 경우. requestPacketId는 클라이언트가 "무슨 요청의

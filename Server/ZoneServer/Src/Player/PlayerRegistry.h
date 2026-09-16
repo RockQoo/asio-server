@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Core/Src/Base/Types.h"
-#include "Game/Player.h"
+#include "Player/Player.h"
 
 // 이 프로세스에 접속해 있는 Player들의 소유자. **플레이어 레인(owner = clientSessionId)
 // 전용**이다.

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Processor/PlayerContext.h"
+#include "Player/PlayerContext.h"
 #include "Shared/Common/Src/Packet/ClientPackets.h"
 
 // **우편 콘텐츠의 요청 처리기.** 콘텐츠 하나 = 파일 하나이고, 여기에 그 콘텐츠의 패킷

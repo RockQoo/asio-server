@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Game/PlayerRegistry.h"
+#include "Player/PlayerRegistry.h"
 
 #include "Shared/Core/Src/Base/CoreException.h"
 
