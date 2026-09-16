@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Shared/Core/Src/Packet/Buffer.h"
 
-#include "Shared/Core/Src/Common/CoreException.h"
+#include "Shared/Core/Src/Base/CoreException.h"
 
 namespace Packet
 {
@@ -29,7 +29,7 @@ namespace Packet
 
         if (header.bodySize > Header::MaxBodySize())
         {
-            throw Common::CoreException(Common::ECoreErrorCode::PacketTooLarge,
+            throw Base::CoreException(Base::ECoreErrorCode::PacketTooLarge,
                                          "Buffer: 본문 크기가 MaxBodySize를 초과하여 연결을 종료한다");
         }
 

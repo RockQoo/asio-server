@@ -121,6 +121,9 @@
     <ClCompile Include="Src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Common\Common.vcxproj">
+      <Project>{2c9d5a41-7b3e-4f18-9a6c-0d5e8b41c7f2}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\Shared\Core\Core.vcxproj">
       <Project>{7f5eacff-89b1-4967-8e20-b0a2de4a0ff5}</Project>
     </ProjectReference>

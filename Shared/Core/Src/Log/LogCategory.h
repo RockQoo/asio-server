@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/BasicTypes.h"
+#include "Shared/Core/Src/Base/BasicTypes.h"
 
 namespace Log
 {

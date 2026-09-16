@@ -29,8 +29,8 @@ namespace Zone
     {
         World::PlayerZoneStatePacket state{};
 
-        std::vector<Mail::Info> mails;
-        std::vector<Currency::Info> currencies;
+        std::vector<Common::MailInfo> mails;
+        std::vector<Common::CurrencyInfo> currencies;
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
         {
@@ -51,7 +51,7 @@ namespace Zone
             mails.reserve(mailCount);
             for (uint16_t i = 0; i < mailCount; ++i)
             {
-                Mail::Info info{};
+                Common::MailInfo info{};
                 if (!binaryReader.Read(info.mailId) || !binaryReader.ReadString(info.title)
                     || !binaryReader.ReadString(info.body) || !binaryReader.Read(info.sendUt)
                     || !binaryReader.Read(info.endUt))
@@ -70,7 +70,7 @@ namespace Zone
             currencies.reserve(currencyCount);
             for (uint16_t i = 0; i < currencyCount; ++i)
             {
-                Currency::Info info{};
+                Common::CurrencyInfo info{};
                 if (!binaryReader.Read(info.type) || !binaryReader.Read(info.amount))
                 {
                     return false;

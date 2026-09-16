@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Base/Types.h"
 #include "Game/Player.h"
 #include "Game/Def.h"
 
@@ -51,7 +51,7 @@ namespace Zone
             return broadcastTargets_.load(std::memory_order_acquire);
         }
 
-        [[nodiscard]] Protocol::ZoneId GetZoneId() const noexcept { return def_.zoneId; }
+        [[nodiscard]] Common::ZoneId GetZoneId() const noexcept { return def_.zoneId; }
         [[nodiscard]] const Def& GetDef() const noexcept { return def_; }
         [[nodiscard]] size_t GetPlayerCount() const noexcept { return members_.size(); }
 
@@ -59,8 +59,8 @@ namespace Zone
         // members_가 바뀐 직후에 부른다(존 레인).
         void PublishBroadcastTargets();
 
-        void SendEnterZoneNotify(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId) const;
-        void RequestZoneTransfer(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
+        void SendEnterZoneNotify(const Network::SessionId clientSessionId, const Common::PlayerId playerId) const;
+        void RequestZoneTransfer(const Network::SessionId clientSessionId, const Common::PlayerId playerId,
                                   const float x, const float y) const;
 
         // 담당 구간을 필드로 흩지 않고 정의 그대로 들고 있는다 -- 경계 검사(Def::Contains)를

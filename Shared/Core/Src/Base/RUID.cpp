@@ -1,7 +1,7 @@
 #include "pch.h"
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 
-namespace Common
+namespace Base
 {
     namespace
     {

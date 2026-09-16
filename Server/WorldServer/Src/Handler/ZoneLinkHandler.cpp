@@ -5,7 +5,7 @@
 #include "Packet/ZoneLinkPackets.h"
 #include "Processor/MainProcessor.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Network/Session.h"
 
 namespace World
@@ -36,7 +36,7 @@ namespace World
         case PacketId::Z2WUnitOfWorkStream:
             // Task::UnitOfWork::Serialize가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
             // 그 앞에 Zone이 붙인 playerId(int64) + requestId(int64)가 있어 offset 16이다.
-            return PeekOwnerId<uint64_t>(payload, sizeof(Protocol::PlayerId) + sizeof(Common::RUID));
+            return PeekOwnerId<uint64_t>(payload, sizeof(Common::PlayerId) + sizeof(Base::RUID));
 
         default:
             return std::nullopt;

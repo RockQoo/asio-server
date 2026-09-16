@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Base/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Game/Def.h"
 #include "Worker/ProcessorId.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
 {

@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-namespace Protocol
+namespace Common
 {
     // 가변 길이 본문의 상한. **Zone/World/클라이언트가 함께 지켜야 하는 계약**이라 여기 있다.
     //

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/BasicTypes.h"
+#include "Shared/Core/Src/Base/BasicTypes.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 #include "Worker/ProcessorId.h"
 
 namespace World

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Common
+namespace Base
 {
     // `key = value` 한 줄짜리 설정 파일.
     //

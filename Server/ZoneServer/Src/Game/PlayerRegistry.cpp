@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Game/PlayerRegistry.h"
 
-#include "Shared/Core/Src/Common/CoreException.h"
+#include "Shared/Core/Src/Base/CoreException.h"
 
 namespace Zone
 {
@@ -9,7 +9,7 @@ namespace Zone
     {
         if (shardCount == 0)
         {
-            throw Common::CoreException(Common::ECoreErrorCode::InvalidArgument,
+            throw Base::CoreException(Base::ECoreErrorCode::InvalidArgument,
                                          "PlayerRegistry: shardCount는 0보다 커야 한다");
         }
 

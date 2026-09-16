@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/BasicTypes.h"
+#include "Shared/Core/Src/Base/BasicTypes.h"
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 #include "Packet/ZoneLinkPackets.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"

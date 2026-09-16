@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace Protocol
+namespace Common
 {
     // Task::UnitOfWork::RecordTask에 실리는 taskKind의 인코딩 규약.
     // 상위 8비트 = 콘텐츠 카테고리, 하위 8비트 = 그 안의 세부 동작.
@@ -49,6 +49,19 @@ namespace Protocol
                                      | static_cast<uint16_t>(static_cast<uint8_t>(subTask)));
     }
 
+    // 태스크 하나를 가리키는 **평면 값**. MakeTaskKind 의 결과와 같은 값이라 와이어에 그대로
+    // 실리고, 읽는 쪽은 2단 분기 대신 이 enum 하나로 switch 할 수 있다.
+    //
+    // 2단 인코딩(카테고리 + 세부 동작)을 없애지 않는 이유: World 는 카테고리만 보고 어느 SP
+    // 묶음인지 고르는 자리가 있고, 모르는 카테고리를 통째로 건너뛰는 것도 그 층에서 한다.
+    // 여기는 "그 값 전체를 아는 쪽"이 쓰는 이름표다.
+    enum class ETaskType : uint16_t
+    {
+        None           = 0,
+        MailAdd        = MakeTaskKind(ETaskCategory::Mail, EMailTask::Added),
+        MailDel        = MakeTaskKind(ETaskCategory::Mail, EMailTask::Removed),
+        CurrencyUpdate = MakeTaskKind(ETaskCategory::Currency, ECurrencyTask::Updated),
+    };
     [[nodiscard]] constexpr ETaskCategory CategoryOf(const uint16_t taskKind) noexcept
     {
         return static_cast<ETaskCategory>(static_cast<uint8_t>(taskKind >> 8));

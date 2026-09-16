@@ -2,7 +2,7 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/PacketFramer.h"
-#include "Shared/Core/Src/Common/CoreException.h"
+#include "Shared/Core/Src/Base/CoreException.h"
 
 namespace Network
 {
@@ -53,7 +53,7 @@ namespace Network
         {
             frame = Packet::BuildFrame(packetId, payload);
         }
-        catch (const Common::CoreException& ex)
+        catch (const Base::CoreException& ex)
         {
             LOG.Error(ELogCategory::Packet, "패킷이 너무 커서 보내지 않는다")
                 .KV("SessionId", id_).KV("PacketId", packetId)
@@ -98,7 +98,7 @@ namespace Network
                             self->handler_.OnPacket(self, header, payload);
                         }
                     }
-                    catch (const Common::CoreException& ex)
+                    catch (const Base::CoreException& ex)
                     {
                         LOG.Error(ELogCategory::Packet, "패킷 프레이밍 오류")
                             .KV("SessionId", self->id_)

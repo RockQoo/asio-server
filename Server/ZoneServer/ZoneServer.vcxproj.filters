@@ -39,18 +39,6 @@
     <ClInclude Include="Src\Log\LogCategory.h">
       <Filter>Log</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Shared\Protocol\Src\CurrencyType.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Shared\Protocol\Src\ErrorCode.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Shared\Protocol\Src\TaskKind.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Shared\Protocol\Src\PacketId.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Packet\ZonePackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
@@ -138,14 +126,8 @@
     <ClCompile Include="Src\Currency\Model.cpp">
       <Filter>Currency</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Currency\CurrencyTask.cpp">
-      <Filter>Currency</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Processor\ZoneProcessor.cpp">
       <Filter>Processor</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Mail\MailTask.cpp">
-      <Filter>Mail</Filter>
     </ClCompile>
     <ClCompile Include="Src\Mail\Model.cpp">
       <Filter>Mail</Filter>

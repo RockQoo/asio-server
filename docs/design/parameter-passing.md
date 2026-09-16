@@ -1,14 +1,14 @@
 # 매개변수 전달 — 언제 값이고 언제 `const&`인가
 
-대상: `Shared/Protocol/Src/StrongId.h`,
+대상: `Shared/Common/Src/StrongId.h`,
 `.claude/rules/cpp-patterns.md`의 "값 매개변수에 `const` 붙이기".
 
 ## 왜 이 문서가 있나
 
 ```cpp
 void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoSpCommands& autoSpCommands,
-                   const Protocol::EMailTask subTask, const Network::SessionId clientSessionId,
-                   const Protocol::PlayerId playerId, const std::span<const byte> taskPayload)
+                   const Common::EMailTask subTask, const Network::SessionId clientSessionId,
+                   const Common::PlayerId playerId, const std::span<const byte> taskPayload)
 ```
 
 이 시그니처를 보고 **"`PlayerId`는 클래스인데 왜 `const&`가 아닌가, 넘길 때마다 복사가
@@ -26,7 +26,7 @@ void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoSpCommands& autoSp
 | 본문에서 멤버·컨테이너로 `std::move`한다 | `T` 값 (sink, **`const` 금지**) |
 | 읽기만 하는 문자열 | `std::string_view` |
 
-`Protocol::PlayerId`/`MailId`/`ZoneId`는 전부 첫 줄에 해당한다.
+`Common::PlayerId`/`MailId`/`ZoneId`는 전부 첫 줄에 해당한다.
 
 ## 근거 1 — 비싼 것은 "클래스"가 아니라 "복사 생성자가 하는 일"이다
 
@@ -74,13 +74,13 @@ MSVC x64는 클래스 인자를 이렇게 나눈다.
 `/O2`로 실측한 결과:
 
 ```asm
-; void ByValue(const Protocol::PlayerId)      <- StrongId 를 값으로
+; void ByValue(const Common::PlayerId)      <- StrongId 를 값으로
         jmp     Sink                           ; 이게 전부
 
 ; void RawByValue(const int64_t)              <- 맨 int64_t 를 값으로
         jmp     Sink                           ; 완전히 동일
 
-; void ByConstRef(const Protocol::PlayerId&)  <- 참조로
+; void ByConstRef(const Common::PlayerId&)  <- 참조로
         mov     rcx, QWORD PTR [rcx]           ; 역참조가 하나 늘었다
         jmp     Sink
 ```
@@ -132,10 +132,10 @@ int64_t Twice(/* 값 또는 참조 */ playerId)
 
 | 타입 | 크기 | |
 |---|---|---|
-| `Protocol::PlayerId` / `MailId` | 8B | `StrongId<_, int64_t>` |
-| `Protocol::ZoneId` | 4B | `StrongId<_, uint32_t>` |
+| `Common::PlayerId` / `MailId` | 8B | `StrongId<_, int64_t>` |
+| `Common::ZoneId` | 4B | `StrongId<_, uint32_t>` |
 | `Network::SessionId` | 8B | `uint64_t` 별칭 |
-| `Protocol::EMailTask` / `ECurrencyType` 등 enum | 1~4B | |
+| `Common::EMailTask` / `ECurrencyType` 등 enum | 1~4B | |
 | `std::span<const byte>` | 16B | 그 자체가 view — `const&`는 안티패턴 |
 
 ## 측정 환경

@@ -5,10 +5,10 @@
 #include "Packet/EnterZoneBody.h"
 #include "Packet/RelayEnvelope.h"
 #include "Processor/LoginProcessor.h"
-#include "Shared/Protocol/Src/CurrencyType.h"
-#include "Shared/Protocol/Src/TaskKind.h"
+#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/TaskKind.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 
@@ -27,11 +27,11 @@ namespace World
         // BASIC 레인(owner = clientSessionId)에서 불린다 -- DB로 나가는 것은 autoSpCommands가
         // 모았다가 스코프 끝에서 한 번에 DB 레인으로 넘긴다.
         void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoSpCommands& autoSpCommands,
-                           const Protocol::EMailTask subTask, const Network::SessionId clientSessionId,
-                           const Protocol::PlayerId playerId, const std::span<const byte> taskPayload)
+                           const Common::EMailTask subTask, const Network::SessionId clientSessionId,
+                           const Common::PlayerId playerId, const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
-            Protocol::MailId mailId{};
+            Common::MailId mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};
@@ -44,10 +44,10 @@ namespace World
 
             switch (subTask)
             {
-            case Protocol::EMailTask::Added:
+            case Common::EMailTask::Added:
                 {
                     playerManager.Write()->AddMail(clientSessionId,
-                                                   MailInfo{mailId, title, body, sendUt, endUt});
+                                                   Common::MailInfo{mailId, title, body, sendUt, endUt});
                     // mailId는 존이 이미 확정한 RUID다 -- DB의 IDENTITY를 기다리지 않으므로
                     // 클라이언트는 벌써 이 id로 우편을 들고 있다(cpp-patterns.md의 RUID 절).
                     autoSpCommands.Add(DbCommand{"dbo.usp_mails_upsert",
@@ -55,7 +55,7 @@ namespace World
                 }
                 break;
 
-            case Protocol::EMailTask::Removed:
+            case Common::EMailTask::Removed:
                 {
                     playerManager.Write()->RemoveMail(clientSessionId, mailId);
                     // 행을 지우지 않고 삭제 시각만 남긴다(Sql/mails.sql의 규칙 5).
@@ -71,7 +71,7 @@ namespace World
         }
 
         void ApplyCurrencyTask(PlayerManager::Mutexed& playerManager, AutoSpCommands& autoSpCommands,
-                               const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
+                               const Network::SessionId clientSessionId, const Common::PlayerId playerId,
                                const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
@@ -207,7 +207,7 @@ namespace World
 
         // **C2W 대역만 World가 끝점이다.** 봉투를 벗겨 직접 처리하고 존으로 넘기지 않는다.
         // 대역으로 가르므로 로그인 말고 다른 C2W 패킷이 생겨도 이 분기는 그대로다.
-        if (Protocol::DirectionOf(innerPacketId) == Protocol::EPacketDirection::C2W)
+        if (Common::DirectionOf(innerPacketId) == Common::EPacketDirection::C2W)
         {
             loginProcessor_.HandleClientPacket(gatewaySession, envelopeHeader.clientSessionId, innerPacketId,
                                                payload.subspan(sizeof(ClientEnvelopeHeader)));
@@ -398,8 +398,8 @@ namespace World
         // 직행해서, **World 캐시가 로그인 시점 스냅샷에 멈춰 있었다** -- 존에서 만든 우편이
         // 프로세스를 넘는 핸드오프에서 사라지던 원인이 그것이다.
         Packet::BinaryReader binaryReader(payload);
-        Protocol::PlayerId zonePlayerId{};
-        Common::RUID requestId{};
+        Common::PlayerId zonePlayerId{};
+        Base::RUID requestId{};
         uint64_t ownerId{};
         uint16_t taskCount{};
         if (!binaryReader.Read(zonePlayerId) || !binaryReader.Read(requestId)
@@ -455,17 +455,17 @@ namespace World
             }
 
             // taskKind는 "상위 8비트 = 콘텐츠 카테고리 / 하위 8비트 = 세부 동작"이라
-            // (Shared/Protocol/Src/TaskKind.h) 여기서 2단으로 분기한다. 콘텐츠가 늘면
+            // (Shared/Common/Src/TaskKind.h) 여기서 2단으로 분기한다. 콘텐츠가 늘면
             // case가 하나씩 붙을 뿐, 태스크를 실어 나르는 Task::UnitOfWork(Core)는
             // 여전히 이 의미를 몰라도 된다.
-            switch (Protocol::CategoryOf(kind))
+            switch (Common::CategoryOf(kind))
             {
-            case Protocol::ETaskCategory::Mail:
+            case Common::ETaskCategory::Mail:
                 ApplyMailTask(playerManager_, autoSpCommands,
-                              static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind)),
+                              static_cast<Common::EMailTask>(Common::SubTaskOf(kind)),
                               clientSessionId, *playerId, *taskPayload);
                 break;
-            case Protocol::ETaskCategory::Currency:
+            case Common::ETaskCategory::Currency:
                 ApplyCurrencyTask(playerManager_, autoSpCommands, clientSessionId, *playerId, *taskPayload);
                 break;
             default:

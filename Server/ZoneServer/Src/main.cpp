@@ -3,7 +3,7 @@
 
 #include "App/Config.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 
 namespace
 {
@@ -75,7 +75,7 @@ namespace
             }
 
             Zone::Def def{};
-            def.zoneId = Protocol::ZoneId{zoneId};
+            def.zoneId = Common::ZoneId{zoneId};
             def.xMin = static_cast<float>(column) * kZoneSize;
             def.xMax = def.xMin + kZoneSize;
             // 행 0이 위쪽이다 -- y는 위로 증가하므로 행 번호가 커질수록 y가 작아진다.
@@ -131,7 +131,7 @@ int main(const int argc, char* argv[])
         {
             minZoneId = def.zoneId < minZoneId ? def.zoneId : minZoneId;
         }
-        Common::Ruid::Init(Common::kNodeIdZoneBegin + minZoneId.Value());
+        Base::Ruid::Init(Base::kNodeIdZoneBegin + minZoneId.Value());
     }
 
     if (zones.empty())

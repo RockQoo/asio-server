@@ -5,7 +5,7 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
 {
@@ -16,7 +16,7 @@ namespace Zone
     {
     }
 
-    void BroadcastProcessor::Broadcast(const Protocol::ZoneId zoneId, std::vector<Network::SessionId> targets,
+    void BroadcastProcessor::Broadcast(const Common::ZoneId zoneId, std::vector<Network::SessionId> targets,
                                         const PacketId innerPacketId, std::vector<byte> payload)
     {
         broadcastGroup_.Post(EProcessorId::Broadcast, zoneId.Value(),

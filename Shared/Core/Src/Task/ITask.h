@@ -1,18 +1,23 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/BasicTypes.h"
-
-namespace Packet
-{
-    class BinaryWriter;
-}
+#include "Shared/Core/Src/Base/BasicTypes.h"
 
 namespace Task
 {
-    class UnitOfWork;
-
-    // UnitOfWork에 쌓이는 변경 기록 하나. Core는 이 변경이 무슨 뜻인지 모르고, 직렬화와
-    // 역연산은 콘텐츠 계층이 파생 클래스에서 구현한다.
+    // UnitOfWork에 쌓이는 변경 기록 하나.
+    //
+    // **태스크는 데이터만 갖는다.** 직렬화도 역연산도 여기 없다 -- 그건 태스크의 뜻을 아는
+    // 콘텐츠 계층(파생 UnitOfWork)이 taskKind로 분기해서 한다. Core는 목록을 들고 순서를
+    // 지켜줄 뿐이고, 그래야 Core가 게임을 모른다는 규칙이 선다.
+    //
+    // 파생이 갖는 것은 셋뿐이다:
+    //   1) Kind()          -- 무슨 변경인가 (Common::MakeTaskKind로 만든 값)
+    //   2) Paired<T> 멤버  -- 적용한 값(New)과 직전 값(Prev)
+    //   3) Set(...)        -- 그 멤버를 채우는 진입점. UnitOfWork::AddTask가 부른다
+    //
+    // **불변 규칙**: 모델 메모리에 적용한 변경은 반드시 여기 태스크로 남아야 한다. 태스크
+    // 목록이 곧 "실제로 적용된 변경"이어야 역순 롤백이 정확하고, 클라이언트가 같은 목록을
+    // 적용해 서버와 상태가 맞는다.
     //
     // **왜 직렬화된 바이트가 아니라 타입 있는 객체인가**: 기록 시점에 직렬화해두면 (1) 실패로
     // 끝나는 요청도 직렬화 비용을 내고, (2) 롤백할 때 그 바이트를 다시 파싱해야 한다. 객체로
@@ -31,18 +36,8 @@ namespace Task
         ITask(ITask&&) = delete;
         ITask& operator=(ITask&&) = delete;
 
-        // World와 클라이언트가 같은 값으로 분기하는 태스크 종류(Protocol::MakeTaskKind).
+        // World와 클라이언트가 같은 값으로 분기하는 태스크 종류(Common::MakeTaskKind).
         [[nodiscard]] virtual uint16_t Kind() const noexcept = 0;
-
-        // 성공했을 때만 불린다 -- 여기 쓴 바이트가 그대로 World와 클라이언트로 나간다.
-        virtual void Serialize(Packet::BinaryWriter& binaryWriter) const = 0;
-
-        // 실패했을 때 기록의 역순으로 불린다. sink는 전송 기능이 없는 UnitOfWork라 되돌리는
-        // 과정에서 쌓인 태스크가 조용히 버려진다 -- 그래서 롤백 전용 함수를 따로 만들지 않고
-        // 정상 함수(추가를 되돌릴 때 삭제 함수)를 그대로 재사용할 수 있다.
-        // 롤백은 조금 전에 성공한 변경을 되돌리는 것뿐이라 실패할 수 없다는 전제다
-        // (.claude/rules/cpp-patterns.md "콘텐츠 로직 실패는 ..." 절 참고).
-        virtual void Rollback(UnitOfWork& sink) const = 0;
 
     protected:
         ITask() = default;

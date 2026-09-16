@@ -2,7 +2,7 @@
 
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 namespace Network
 {

@@ -1,6 +1,6 @@
 # RUID — 모든 id를 서버가 발급한다
 
-대상 코드: `Shared/Core/Src/Common/RUID.h`
+대상 코드: `Shared/Core/Src/Base/RUID.h`
 
 ## 구조
 

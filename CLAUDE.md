@@ -40,6 +40,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 필수 규칙
 
+### 불변 규칙 두 개 (다른 모든 판단보다 우선한다)
+
+1. **`Shared/Core` 에 콘텐츠가 종속되면 안 된다.** Core 는 이 게임을 몰라야 다른 서버에
+   그대로 가져다 쓸 수 있는 라이브러리다. 콘텐츠를 아는 타입·분기·상수는 `Shared/Common`
+   (서버들이 공유하는 계약) 또는 각 서버 프로젝트에 둔다. 그래서 Core 의 기반 네임스페이스는
+   `Base::` 이고 `Common::` 은 `Shared/Common` 이 쓴다 -- 이름만 봐도 층이 갈린다.
+
+2. **모델 메모리에 적용한 변경은 반드시 UnitOfWork 에 Task 로 Add 되어야 한다.**
+   태스크 목록이 곧 "실제로 적용된 변경"이라, 빠뜨리면 (1) 실패 시 되돌릴 수 없고
+   (2) 클라이언트가 서버와 다른 상태로 남는다. 모델 함수가 상태를 바꾸고 태스크를 남기지
+   않는 경로는 만들지 않는다.
+
 - **언어**: 응답/코드 주석 전부 한글. **C# 운영툴(`Tool/GmTool`)도 동일** — XML 문서
   주석(`///`)과 일반 주석 모두 한글.
 - **주석의 분량**: 주석은 "무엇을"이 아니라 "왜"를 설명하되, **소스에는 "고칠 때 모르면
@@ -59,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   **거꾸로, 커밋되는 파일에서 `docs/local/` 아래의 개별 파일을 경로로 가리키지 않는다.**
   clone한 사람에게는 없는 파일이라 깨진 링크가 된다(그래서 아래 구조 트리에도 없다).
 - **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
-  (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Common`/`Log`
+  (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Base`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
   변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
@@ -109,7 +121,9 @@ C:\Work\asio-server\
 │   ├── Core/                         게임 로직을 전혀 모르는 재사용 가능 정적 라이브러리
 │   │   └── Src/
 │   │       ├── pch.h / pch.cpp       precompiled header (asio.hpp + 무거운 표준 헤더)
-│   │       ├── Common/               Types.h(SessionId 등 별칭), BasicTypes.h, CoreErrorCode.h, CoreException.h
+│   │       ├── Base/                 Types.h(SessionId 등 별칭), BasicTypes.h, CoreErrorCode.h,
+│   │       │                         CoreException.h, RUID, ConfigFile. **Common 이 아니라 Base 다**
+│   │       │                         -- Common:: 은 Shared/Common 의 게임 계약이 쓴다
 │   │       ├── Packet/               Header/Buffer/Framer, BinaryWriter/Reader, Args(가변 인자를
 │   │       │                         넣은 순서대로 쓰고 읽는다 -- WriteArgs/ReadArgs),
 │   │       │                         Dispatcher<TId,TContext>
@@ -123,18 +137,22 @@ C:\Work\asio-server\
 │   │       ├── Message/Router.h      프로세서 id로 메시지를 보낸다(PushMsg). 키가 (프로세서,
 │   │       │                         msgId) 쌍이라 같은 msgId를 프로세서마다 다르게 처리한다.
 │   │       │                         **싱글턴이 아니라 App이 소유**하고 전역엔 포인터만 둔다
-│   │       └── Task/                 ITask(변경 기록 하나 -- 직렬화/역연산은 파생이 구현),
-│   │                                 UnitOfWork(범용 Unit-of-Work 기반 클래스). 커밋은 **파생
-│   │                                 클래스 소멸자**에서 -- 성공이면 World와 클라이언트로 전송,
-│   │                                 실패면 역순 롤백. RollbackUnitOfWork는 전송 없는 통
-│   └── Protocol/Src/             Zone/World/클라이언트가 공유하는 계약(전부 헤더 전용)
-│       ├── PacketId.h            모든 패킷 id 하나로 통합(Protocol::PacketId).
+│   │       └── Task/                 ITask(변경 기록 하나 -- **데이터만** 갖는다: Kind + New/Prev),
+│   │                                 Paired<T>(New/Prev 짝), UnitOfWork(범용 기반 클래스 -- 목록과
+│   │                                 순서만 안다). 커밋은 **파생 클래스 소멸자**에서, 직렬화와
+│   │                                 역연산은 **파생이 taskKind 로 분기**한다(Core 는 뜻을 모른다)
+│   └── Common/                   Gateway/World/Zone/도구가 공유하는 계약 + 데이터 타입 (StaticLibrary)
+│       ├── PacketId.h            모든 패킷 id 하나로 통합(Common::PacketId).
 │       │                         규약: .claude/rules/packet-naming.md
-│       ├── ErrorCode.h           콘텐츠 처리 결과 코드(Protocol::EErrorCode, 콘텐츠별 100 단위)
+│       ├── ErrorCode.h           콘텐츠 처리 결과 코드(Common::EErrorCode, 콘텐츠별 100 단위)
 │       ├── TaskKind.h            UnitOfWork taskKind 인코딩(상위 8비트 카테고리 + 하위 8비트 동작)
 │       ├── ContentLimit.h        가변 길이 본문 상한(채팅/우편 길이·통 수) -- 없으면 프레임
 │       │                         상한을 넘겨 그 링크에 붙은 전원의 연결이 끊긴다
-│       └── CurrencyType.h        재화 종류(0은 '종류 없음' 예약값)
+│       ├── CurrencyType.h        재화 종류(0은 '종류 없음' 예약값)
+│       ├── Ids.h / StrongId.h    PlayerId/MailId/ZoneId -- 종류마다 자기 타입
+│       ├── MailInfo.h            우편 한 통. **World 캐시와 Zone 모델이 같은 타입을 쓴다**
+│       ├── CurrencyInfo.h        재화 하나의 잔액(와이어에서 종류가 uint8 이라 그대로 받는다)
+│       └── Common.cpp            빌드 앵커. 헤더뿐이라 .lib 에 심볼이 없으면 LNK4221 이 난다
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
 │   ├── WorldServer/                  라우팅(BASIC 레인) + DB 레인 (실행 파일)
@@ -177,7 +195,7 @@ C:\Work\asio-server\
 │       ├── Text/GlyphAtlas           한글 글리프를 런타임에 GDI+로 굽는다(.mgcb 미사용)
 │       └── Ui/                       Painter/Widgets/ZoneView/ChatPanel/MailPanel/CouponPanel/Hud
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아니다)
-│   ├── ProtocolClient/                   수동 테스트용 REPL (Core + Shared/Protocol 참조)
+│   ├── ProtocolClient/                   수동 테스트용 REPL (Core + Shared/Common 참조)
 │   ├── StressClient/               비동기 멀티플렉싱 부하 테스트 도구(1만 세션까지 실측)
 │   └── GmTool/                       서버 기능 검증용 운영툴 — C#/.NET 10, 별도 솔루션(기능 개발 중단)
 │       ├── GmTool.slnx               (C++ 솔루션에 섞으면 서버만 빌드할 때 NuGet 복원까지 끌려온다)
@@ -284,7 +302,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Processor::Group<TId>` | 큐 그룹 = asio `io_context` + 스레드 N개 + `strand` N개. `Post(id, work)`는 남는 스레드, `Post(id, ownerId, work)`는 `ownerId % N` strand로 직렬화 |
 | | `Thread::Mutexed<T>` | `.Write()->`(unique_lock)/`->`(shared_lock) — 교차 스레드 접근 예외 지점만 보호 |
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
-| | `Common::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
+| | `Base::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
 | `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 **살아 있는 우편·재화 캐시**다 — 로그인 때 DB에서 채우고, 존이 올린 UnitOfWork를 BASIC 레인에서 계속 반영한다. 프로세스를 넘는 핸드오프가 이 캐시를 그대로 실어 보낸다 |
 | | `World::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **BASIC→DB→BASIC으로 레인을 갈아타지만 주인은 `clientSessionId` 하나로 고정**이다 — `playerId`를 알게 된 뒤에도 바꾸지 않는다(갈아타면 앞 구간과 직렬화가 끊긴다). 존 입장 뒤의 UnitOfWork만 `playerId`가 주인 |
 | | `World::MainProcessor` | BASIC 레인(`Main`)의 라우팅 처리기. Gateway/Zone 링크가 I/O 스레드에서 던진 일이 실제로 도는 곳 -- 링크 핸들러는 주인만 뽑아 넘기고 상태를 만지지 않는다 |

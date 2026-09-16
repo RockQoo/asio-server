@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Base/Types.h"
 #include "Game/Player.h"
 #include "Game/PlayerRegistry.h"
 #include "Processor/PlayerContext.h"
 #include "Packet/ClientPackets.h"
 #include "Packet/WorldPackets.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
 {
@@ -79,7 +79,7 @@ namespace Zone
 
         // 존 레인이 발행해둔 대상 스냅샷을 읽어 BROADCAST 그룹으로 넘긴다.
         // 로스터를 직접 순회하지 않으므로 존 레인과 겹치지 않는다.
-        void BroadcastToZone(const Protocol::ZoneId zoneId, const PacketId innerPacketId,
+        void BroadcastToZone(const Common::ZoneId zoneId, const PacketId innerPacketId,
                              const std::span<const byte> payload,
                              const Network::SessionId excludeClientSessionId = 0) const;
 

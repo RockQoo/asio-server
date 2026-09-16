@@ -38,7 +38,7 @@ sqlcmd -S 127.0.0.1,1433 -U asio_game -P 0000 -C -b -f 65001 -d asio_game -i Sql
 
 `-f 65001`을 빠뜨리면 UTF-8 파일이 CP949로 읽혀 한글이 깨진 채 저장된다.
 
-## 키 설계 — 모든 id는 `Common::Ruid`가 발급한다
+## 키 설계 — 모든 id는 `Base::Ruid`가 발급한다
 
 `IDENTITY`를 쓰지 않는다. 서버가 메모리에서 먼저 확정하고 클라이언트에 응답한 뒤 DB에
 반영하는 구조(UnitOfWork)라, **DB가 id를 정하면 그 응답에 담을 id가 없기 때문이다.**

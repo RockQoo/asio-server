@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Protocol/Src/Ids.h"
+#include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Game/Def.h"
 #include "Processor/ZoneProcessor.h"
@@ -57,7 +57,7 @@ namespace Zone
         // 존 레인으로 메시지를 보낸다. ownerId가 zoneId이므로 같은 존의 일은 항상 같은
         // 스레드에서 순서대로 처리되고, 그래서 Instance에 락이 없다.
         template <typename F>
-        void PostToZone(const Protocol::ZoneId zoneId, F&& work)
+        void PostToZone(const Common::ZoneId zoneId, F&& work)
         {
             zoneGroup_.Post(EProcessorId::Zone, zoneId.Value(), std::forward<F>(work));
         }
@@ -65,8 +65,8 @@ namespace Zone
         // zoneProcessors_는 생성자에서 다 만들어지고 이후 구조가 바뀌지 않으므로, 조회 자체는
         // 어느 레인에서 해도 안전하다. 다만 **돌려받은 Instance의 메서드는 존 레인에서만**
         // 불러야 한다(예외: BroadcastTargets()는 락 없이 읽는 스냅샷이라 어디서든 가능).
-        [[nodiscard]] bool HasZone(const Protocol::ZoneId zoneId) const { return zoneProcessors_.contains(zoneId); }
-        [[nodiscard]] ZoneProcessor& GetZoneProcessor(const Protocol::ZoneId zoneId) { return *zoneProcessors_.at(zoneId); }
+        [[nodiscard]] bool HasZone(const Common::ZoneId zoneId) const { return zoneProcessors_.contains(zoneId); }
+        [[nodiscard]] ZoneProcessor& GetZoneProcessor(const Common::ZoneId zoneId) { return *zoneProcessors_.at(zoneId); }
 
         void LogStats() const
         {
@@ -82,7 +82,7 @@ namespace Zone
         Processor::Group<EProcessorId> zoneGroup_;
         Processor::Group<EProcessorId> broadcastGroup_;
         BroadcastProcessor broadcastProcessor_;
-        std::unordered_map<Protocol::ZoneId, std::unique_ptr<ZoneProcessor>> zoneProcessors_;
+        std::unordered_map<Common::ZoneId, std::unique_ptr<ZoneProcessor>> zoneProcessors_;
         std::vector<std::unique_ptr<Timer::RepeatingTimer>> tickTimers_;
     };
 }

@@ -7,7 +7,7 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
 {
@@ -103,7 +103,7 @@ namespace Zone
         }
     }
 
-    void ZoneProcessor::SendEnterZoneNotify(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId) const
+    void ZoneProcessor::SendEnterZoneNotify(const Network::SessionId clientSessionId, const Common::PlayerId playerId) const
     {
         const auto worldSession = worldLink_.Get();
         if (!worldSession)
@@ -126,7 +126,7 @@ namespace Zone
         worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
-    void ZoneProcessor::RequestZoneTransfer(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
+    void ZoneProcessor::RequestZoneTransfer(const Network::SessionId clientSessionId, const Common::PlayerId playerId,
                                             const float x, const float y) const
     {
         const auto worldSession = worldLink_.Get();

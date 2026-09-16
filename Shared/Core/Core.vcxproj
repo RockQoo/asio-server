@@ -103,13 +103,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Common\BasicTypes.h" />
-    <ClInclude Include="Src\Common\ConfigFile.h" />
-    <ClInclude Include="Src\Common\RUID.h" />
-    <ClInclude Include="Src\Common\Types.h" />
-    <ClInclude Include="Src\Common\CoreErrorCode.h" />
-    <ClInclude Include="Src\Common\EnumFlags.h" />
-    <ClInclude Include="Src\Common\CoreException.h" />
+    <ClInclude Include="Src\Base\BasicTypes.h" />
+    <ClInclude Include="Src\Base\ConfigFile.h" />
+    <ClInclude Include="Src\Base\RUID.h" />
+    <ClInclude Include="Src\Base\Types.h" />
+    <ClInclude Include="Src\Base\CoreErrorCode.h" />
+    <ClInclude Include="Src\Base\EnumFlags.h" />
+    <ClInclude Include="Src\Base\CoreException.h" />
     <ClInclude Include="Src\Log\LogLevel.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
     <ClInclude Include="Src\Log\Entry.h" />
@@ -133,6 +133,7 @@
     <ClInclude Include="Src\Processor\Stats.h" />
     <ClInclude Include="Src\Processor\Group.h" />
     <ClInclude Include="Src\Task\ITask.h" />
+    <ClInclude Include="Src\Task\Paired.h" />
     <ClInclude Include="Src\Task\UnitOfWork.h" />
     <ClInclude Include="Src\Console\KeyBinder.h" />
     <ClInclude Include="Src\Message\Router.h" />
@@ -151,8 +152,8 @@
     <ClCompile Include="Src\Network\SessionManager.cpp" />
     <ClCompile Include="Src\Network\IoContextPool.cpp" />
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp" />
-    <ClCompile Include="Src\Common\ConfigFile.cpp" />
-    <ClCompile Include="Src\Common\RUID.cpp" />
+    <ClCompile Include="Src\Base\ConfigFile.cpp" />
+    <ClCompile Include="Src\Base\RUID.cpp" />
     <ClCompile Include="Src\Task\UnitOfWork.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

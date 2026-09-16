@@ -5,7 +5,7 @@
 #include "Shared/Core/Src/Network/Listener.h"
 #include "Shared/Core/Src/Timer/RepeatingTimer.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 #include "Db/DbConnection.h"
 #include "Handler/GatewayLinkHandler.h"
 #include "Handler/ZoneLinkHandler.h"

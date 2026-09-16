@@ -12,7 +12,7 @@ namespace Packet
         void Append(std::span<const byte> data);
 
         // 완전한 패킷이 있으면 꺼낸다. 헤더가 Header::MaxBodySize()를 넘는 본문 크기를
-        // 주장하면 Common::CoreException(ECoreErrorCode::PacketTooLarge)을 던진다
+        // 주장하면 Base::CoreException(ECoreErrorCode::PacketTooLarge)을 던진다
         // (손상되었거나 악의적인 스트림으로부터 보호).
         [[nodiscard]] bool TryExtract(Header& outHeader, std::vector<byte>& outPayload);
 

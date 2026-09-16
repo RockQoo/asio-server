@@ -4,7 +4,7 @@
 #include <format>
 #include <functional>
 
-namespace Protocol
+namespace Common
 {
     // id 하나를 **자기만의 타입**으로 만드는 래퍼. 다른 종류의 id 대입/비교와 raw 정수와의
     // 암묵 변환을 컴파일 에러로 막는다.
@@ -55,10 +55,10 @@ namespace Protocol
 // 타입을 가를 뿐 값에 들어 있지 않으므로 섞일 일이 없다(애초에 다른 타입이라 같은 맵에
 // 들어갈 수 없다).
 template <typename TTag, typename TValue, TValue kInvalidValue>
-struct std::hash<Protocol::StrongId<TTag, TValue, kInvalidValue>>
+struct std::hash<Common::StrongId<TTag, TValue, kInvalidValue>>
 {
     [[nodiscard]] std::size_t operator()(
-        const Protocol::StrongId<TTag, TValue, kInvalidValue>& strongId) const noexcept
+        const Common::StrongId<TTag, TValue, kInvalidValue>& strongId) const noexcept
     {
         return std::hash<TValue>{}(strongId.Value());
     }
@@ -68,10 +68,10 @@ struct std::hash<Protocol::StrongId<TTag, TValue, kInvalidValue>>
 // `.Value()`를 붙여야 한다 -- 그러면 "Value()는 경계에서만"이라는 규율이 로그 때문에 무너진다.
 // 밑바탕 타입의 formatter를 상속해서 포맷 스펙(`{:>20}` 등)도 그대로 따라온다.
 template <typename TTag, typename TValue, TValue kInvalidValue>
-struct std::formatter<Protocol::StrongId<TTag, TValue, kInvalidValue>> : std::formatter<TValue>
+struct std::formatter<Common::StrongId<TTag, TValue, kInvalidValue>> : std::formatter<TValue>
 {
     template <typename TContext>
-    auto format(const Protocol::StrongId<TTag, TValue, kInvalidValue>& strongId, TContext& context) const
+    auto format(const Common::StrongId<TTag, TValue, kInvalidValue>& strongId, TContext& context) const
     {
         return std::formatter<TValue>::format(strongId.Value(), context);
     }

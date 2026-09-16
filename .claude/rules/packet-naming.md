@@ -9,14 +9,16 @@ paths:
 
 ## 하나의 enum
 
-패킷 id는 **`Protocol::PacketId` 하나**로 관리한다. 링크별/방향별로 enum을 쪼개지 않는다.
+패킷 id는 **`Common::PacketId` 하나**로 관리한다. 링크별/방향별로 enum을 쪼개지 않는다.
 
 ```
-Shared/Protocol/Src/PacketId.h  ->  namespace Protocol
+Shared/Common/Src/PacketId.h  ->  namespace Common
 ```
 
-`Common`이 아니라 `Protocol`인 이유: `Common`은 이미 `Shared/Core/Src/Common/`이 쓰고 있고,
-Core는 게임 콘텐츠를 모르는 정적 라이브러리라 거기에 패킷 id를 넣으면 그 원칙이 깨진다.
+예전에는 `Protocol` 이었다. `Common` 을 Core 가 쓰고 있어서 피한 이름인데, Core 쪽을
+`Base` 로 개명하면서 자리가 났다 -- 지금은 `Common::` 이 **서버들이 공유하는 게임 계약**만
+가리키고 `Base::` 가 Core 의 기반 타입을 가리킨다. Core 에 콘텐츠가 섞이면 안 된다는 규칙은
+그대로고, 이름이 그 경계를 드러내게 됐다.
 
 `enum class`를 유지한다(암묵 정수 변환 차단). 호출부의 `static_cast<uint16_t>`는
 `Session::SendPacket`에 enum 오버로드를 얹어 없앤다 — Core는 `std::is_enum_v` 제약만 걸어
@@ -168,11 +170,11 @@ T2WToolHello         ->  T2WHello          (Tool도 T2W가 이미 말한다)
 
 - `requestPacketId`: 어느 요청의 결과인지 짝짓는 키. **0이면 요청 없이 서버가 만든 변경**
   (메일 자동 만료 등)이라 클라이언트는 통지로 받아 적용만 한다.
-- 실패하면 태스크 스트림 없이 `errorCode`(`Protocol::EErrorCode`)만 온다 -- 서버는 이미
+- 실패하면 태스크 스트림 없이 `errorCode`(`Common::EErrorCode`)만 온다 -- 서버는 이미
   메모리를 되돌린 뒤다.
 
 그래서 새 콘텐츠를 추가할 때 Z2C 응답 id를 새로 딸 필요가 없다. 필요한 건 태스크 종류
-(`Protocol::ETaskCategory` + 세부 동작)와 에러 코드뿐이다.
+(`Common::ETaskCategory` + 세부 동작)와 에러 코드뿐이다.
 
 ## 가시성
 
@@ -182,13 +184,13 @@ C++ enum은 여러 헤더로 나눠 정의할 수 없으므로, `PacketId.h`를 
 다만 **별도 코드베이스는 자기 대역만 선언한다.** `Tool/GmTool`(C#)은 `T2W`/`W2T` 값만 갖는
 enum을 직접 선언하고, 클라이언트 패킷 정의를 "참고용"으로 미러링해두지 않는다 --
 운영툴의 공지/우편은 클라이언트 패킷을 존에 주입하는 방식이지만 그 변환은 전적으로 World의
-`Tool::ToolProcessor`가 하므로, 운영툴은 어떤 클라이언트 패킷으로 바뀌는지 알 필요가 없다.
+`World::ToolProcessor`가 하므로, 운영툴은 어떤 클라이언트 패킷으로 바뀌는지 알 필요가 없다.
 
 ## 호출부 표기: `PacketId::C2ZMove`
 
-정의는 `namespace Protocol` 안이지만, `PacketId.h` 맨 끝의 `using Protocol::PacketId;`로
-전역에 노출해서 **호출부는 `Protocol::`을 붙이지 않는다**. `Protocol::PacketId::C2ZMove`는
-같은 얘기를 두 번 하는 셈이라(`Protocol` + `PacketId`) 시그니처가 길어질 뿐이었다.
+정의는 `namespace Common` 안이지만, `PacketId.h` 맨 끝의 `using Common::PacketId;`로
+전역에 노출해서 **호출부는 `Common::`을 붙이지 않는다**. `Common::PacketId::C2ZMove`는
+시그니처가 길어질 뿐이었다.
 
 ```cpp
 dispatcher_.Register(PacketId::T2WHello, this, &ToolProcessor::HandleToolHello);
@@ -199,7 +201,7 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 프로젝트마다 자기 것을 같은 이름으로 노출하는 반면 `PacketId`는 저장소 전체에 하나뿐이라
 이름이 겹칠 여지도 없다.
 
-**`using enum`은 쓰지 않는다.** `using enum Protocol::PacketId;`까지 가면 `T2WHello`처럼
+**`using enum`은 쓰지 않는다.** `using enum Common::PacketId;`까지 가면 `T2WHello`처럼
 한정자 없이 쓸 수 있지만, 열거자 30여 개가 전역 이름이 되고 이 헤더를 include한 모든 TU가
 그걸 떠안는다. `PacketId::` 한 겹은 "이 값이 패킷 id"라는 표시로 남겨둔다. 타입 안전성은
 어느 쪽이든 그대로다(`enum class`이므로 정수로의 암묵 변환은 계속 막힌다).
@@ -220,7 +222,7 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 ## 적용 상태
 
 **적용 완료.** 링크별 4개 enum(`Zone::PacketId`, `World::GatewayLinkPacketId`,
-`World::ZoneLinkPacketId`, `World::ToolLinkPacketId`)은 삭제됐고 전부 `Protocol::PacketId`로
+`World::ZoneLinkPacketId`, `World::ToolLinkPacketId`)은 삭제됐고 전부 `Common::PacketId`로
 합쳐졌다. `World::EToolResultCode`만 `Server/WorldServer/Src/Packet/ToolResultCode.h`로
 따로 남았다(패킷 id가 아니라 결과 코드라 대역과 무관).
 
@@ -234,4 +236,4 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
   `innerPacketId`만 `Z2CEchoAck`로 바꿔 쓰도록 고쳤다.
 - `Tool/GmTool`의 `ZoneClientPacketId.cs`와 그 값을 고정하던 테스트 3건은 위 가시성 규칙에
   따라 삭제했다(xUnit 80 -> 77개). `ToolLinkPacketId.cs`는 `PacketId.cs`로 바뀌었다.
-- 새 `Shared/Protocol/` 프로젝트(또는 헤더 전용 폴더)를 6개 vcxproj가 참조하도록 추가한다.
+- 새 `Shared/Common/` 프로젝트(또는 헤더 전용 폴더)를 6개 vcxproj가 참조하도록 추가한다.

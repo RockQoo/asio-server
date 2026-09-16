@@ -13,19 +13,19 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{78e54b08-2d3c-4ba7-827a-fe3446bc461b}</ProjectGuid>
-    <RootNamespace>ProtocolClient</RootNamespace>
+    <ProjectGuid>{2c9d5a41-7b3e-4f18-9a6c-0d5e8b41c7f2}</ProjectGuid>
+    <RootNamespace>Common</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -34,12 +34,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -54,70 +49,59 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
-      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
-           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;ASIO_STANDALONE;ASIO_NO_DEPRECATED;_WIN32_WINNT=0x0A00;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_LIB;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)Src;$(RepoRoot);$(RepoRoot)3rd\asio\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- $(RepoRoot) 하나면 된다. 다른 프로젝트가 include 할 때도 같은 전체 경로를 쓰므로
+           (Shared/Common/Src/PacketId.h) 짧은 경로를 열어줄 이유가 없다. -->
+      <AdditionalIncludeDirectories>$(RepoRoot);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <!-- pch 를 쓰지 않는다. 계약 헤더뿐이라 무거운 표준 헤더를 끌어올 일이 없다. -->
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>
+      </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ws2_32.lib;mswsock.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
-      <!-- obj 를 소스 폴더 구조 그대로 쌓는다. 평탄하게 두면 Mail/Model.cpp 와 Currency/Model.cpp
-           처럼 이름만 같은 파일이 같은 obj 를 덮어써 MSB8027(잘못된 빌드 결과)이 난다. -->
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;ASIO_STANDALONE;ASIO_NO_DEPRECATED;_WIN32_WINNT=0x0A00;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_LIB;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)Src;$(RepoRoot);$(RepoRoot)3rd\asio\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(RepoRoot);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>
+      </SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ws2_32.lib;mswsock.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\ContentLimit.h" />
+    <ClInclude Include="Src\CurrencyInfo.h" />
+    <ClInclude Include="Src\MailInfo.h" />
+    <ClInclude Include="Src\CurrencyType.h" />
+    <ClInclude Include="Src\ErrorCode.h" />
+    <ClInclude Include="Src\Ids.h" />
+    <ClInclude Include="Src\PacketId.h" />
+    <ClInclude Include="Src\StrongId.h" />
+    <ClInclude Include="Src\TaskKind.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Src\pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="Src\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\Shared\Common\Common.vcxproj">
-      <Project>{2c9d5a41-7b3e-4f18-9a6c-0d5e8b41c7f2}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Shared\Core\Core.vcxproj">
-      <Project>{7f5eacff-89b1-4967-8e20-b0a2de4a0ff5}</Project>
-    </ProjectReference>
+    <ClCompile Include="Src\Common.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

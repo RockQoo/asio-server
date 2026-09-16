@@ -4,7 +4,7 @@
 namespace Stress
 {
     void Stats::RecordMismatch(const Network::SessionId sessionId, const uint32_t cycleIndex,
-                                      const Protocol::MailId expectedMailId, const Protocol::MailId actualMailId, std::string reason)
+                                      const Common::MailId expectedMailId, const Common::MailId actualMailId, std::string reason)
     {
         mismatchTotalCount_.fetch_add(1, std::memory_order_relaxed);
 

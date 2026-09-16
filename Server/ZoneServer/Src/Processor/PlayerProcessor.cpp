@@ -13,8 +13,8 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Protocol/Src/CurrencyType.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
 {
@@ -258,7 +258,7 @@ namespace Zone
         worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
-    void PlayerProcessor::BroadcastToZone(const Protocol::ZoneId zoneId, const PacketId innerPacketId,
+    void PlayerProcessor::BroadcastToZone(const Common::ZoneId zoneId, const PacketId innerPacketId,
                                           const std::span<const byte> payload,
                                           const Network::SessionId excludeClientSessionId) const
     {

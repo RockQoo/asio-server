@@ -34,7 +34,7 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 | [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `PlayerManager`, `ZoneLinkRegistry` |
 | [unit-of-work.md](unit-of-work.md) | `Task/UnitOfWork.h`, `Zone/Task/UnitOfWork.cpp` |
 | [wire-format.md](wire-format.md) | `Packet/ToolLinkPackets.h`, `Packet/ZoneLinkPackets.h` |
-| [unique-id.md](unique-id.md) | `Shared/Core/Src/Common/RUID.h` |
-| [config-file.md](config-file.md) | `Shared/Core/Src/Common/ConfigFile.h`, `config/*.cfg` |
-| [parameter-passing.md](parameter-passing.md) | `Shared/Protocol/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |
-| [strong-id.md](strong-id.md) | `Shared/Protocol/Src/StrongId.h`, `Ids.h` |
+| [unique-id.md](unique-id.md) | `Shared/Core/Src/Base/RUID.h` |
+| [config-file.md](config-file.md) | `Shared/Core/Src/Base/ConfigFile.h`, `config/*.cfg` |
+| [parameter-passing.md](parameter-passing.md) | `Shared/Common/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |
+| [strong-id.md](strong-id.md) | `Shared/Common/Src/StrongId.h`, `Ids.h` |

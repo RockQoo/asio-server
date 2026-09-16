@@ -5,7 +5,7 @@
 #include "Cli/DbCheck.h"
 #include "Cli/IdTest.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 
 int main(const int argc, char* argv[])
 {
@@ -57,7 +57,7 @@ int main(const int argc, char* argv[])
         //
         // **--idtest 분기보다 뒤에 있어야 한다.** 그 모드는 인자로 받은 노드 번호로 자기가
         // 초기화하는데, 여기서 먼저 잡아버리면 두 번째 호출이 되어 Ruid::Init이 중단시킨다.
-        Common::Ruid::Init(Common::kNodeIdWorldBegin);
+        Base::Ruid::Init(Base::kNodeIdWorldBegin);
 
         World::App app(std::move(config));
         app.Run();

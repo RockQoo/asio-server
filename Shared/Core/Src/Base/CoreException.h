@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/CoreErrorCode.h"
+#include "Shared/Core/Src/Base/CoreErrorCode.h"
 
-namespace Common
+namespace Base
 {
     // 내부 검증 실패를 신호하는 표준 예외. ex.what() 문자열을 파싱해서 에러 종류를 구분하는
     // 상황을 피하기 위해, 사람이 읽는 메시지와는 별개로 ECoreErrorCode를 항상 함께 들고 다닌다.

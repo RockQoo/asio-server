@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Base/Types.h"
 #include "Game/Player.h"
 
 namespace Zone

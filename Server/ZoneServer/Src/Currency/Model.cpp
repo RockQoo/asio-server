@@ -6,31 +6,31 @@
 
 namespace Currency
 {
-    Model::Model(const std::vector<Info>& initial) noexcept
+    Model::Model(const std::vector<Common::CurrencyInfo>& initial) noexcept
     {
         for (const auto& info : initial)
         {
             // 모르는 종류는 조용히 버린다 -- 이 빌드가 아직 모르는 재화가 DB에 있을 수 있고,
             // 그것 때문에 입장을 막을 이유는 없다(Field가 nullptr을 돌려준다).
-            if (auto* const field = Field(static_cast<Protocol::ECurrencyType>(info.type)); field != nullptr)
+            if (auto* const field = Field(static_cast<Common::ECurrencyType>(info.type)); field != nullptr)
             {
                 *field = info.amount;
             }
         }
     }
 
-    int64_t Model::Get(const Protocol::ECurrencyType type) const noexcept
+    int64_t Model::Get(const Common::ECurrencyType type) const noexcept
     {
         switch (type)
         {
-        case Protocol::ECurrencyType::Gold:
+        case Common::ECurrencyType::Gold:
             return gold_;
         default:
             return 0;
         }
     }
 
-    EErrorCode Model::AddCurrency(const Protocol::ECurrencyType type, const int64_t amount,
+    EErrorCode Model::AddCurrency(const Common::ECurrencyType type, const int64_t amount,
                                           Task::UnitOfWork& unitOfWork)
     {
         if (amount < 0)
@@ -49,7 +49,7 @@ namespace Currency
         return SetTracked(type, *field + amount, unitOfWork);
     }
 
-    EErrorCode Model::DecCurrency(const Protocol::ECurrencyType type, const int64_t amount,
+    EErrorCode Model::DecCurrency(const Common::ECurrencyType type, const int64_t amount,
                                           Task::UnitOfWork& unitOfWork)
     {
         if (amount < 0)
@@ -66,18 +66,18 @@ namespace Currency
         return SetTracked(type, *field - amount, unitOfWork);
     }
 
-    EErrorCode Model::SetCurrency(const Protocol::ECurrencyType type, const int64_t value,
+    EErrorCode Model::SetCurrency(const Common::ECurrencyType type, const int64_t value,
                                           Task::UnitOfWork& unitOfWork)
     {
         return SetTracked(type, value, unitOfWork);
     }
 
 
-    int64_t* Model::Field(const Protocol::ECurrencyType type) noexcept
+    int64_t* Model::Field(const Common::ECurrencyType type) noexcept
     {
         switch (type)
         {
-        case Protocol::ECurrencyType::Gold:
+        case Common::ECurrencyType::Gold:
             return &gold_;
         default:
             // None을 포함한 알 수 없는 종류. 0을 유효한 재화로 취급하지 않으려고 nullptr을
@@ -86,7 +86,7 @@ namespace Currency
         }
     }
 
-    EErrorCode Model::SetTracked(const Protocol::ECurrencyType type, const int64_t newValue,
+    EErrorCode Model::SetTracked(const Common::ECurrencyType type, const int64_t newValue,
                                          Task::UnitOfWork& unitOfWork)
     {
         auto* const field = Field(type);
@@ -109,10 +109,8 @@ namespace Currency
             return EErrorCode::Success;
         }
 
-        auto task = std::make_unique<CurrencyTask>(*this, type, newValue, oldValue);
-
         *field = newValue;
-        unitOfWork.AddTask(std::move(task));
+        unitOfWork.AddTask<CurrencyTask>(newValue, oldValue, type);
 
         return EErrorCode::Success;
     }

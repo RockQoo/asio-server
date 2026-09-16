@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Base/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 #include "Packet/ToolResultCode.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Protocol/Src/Ids.h"
+#include "Shared/Common/Src/Ids.h"
 
 namespace Zone
 {
@@ -15,7 +15,7 @@ namespace Zone
     // 다시 고치지 않아도 된다).
     struct Def
     {
-        Protocol::ZoneId zoneId;
+        Common::ZoneId zoneId;
         float xMin;
         float xMax;
         float yMin;

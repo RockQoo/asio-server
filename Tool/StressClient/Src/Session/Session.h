@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Shared/Protocol/Src/Ids.h"
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Common/Src/Ids.h"
+#include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Network/Connector.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Network/Session.h"
@@ -49,7 +49,7 @@ namespace Stress
         void HandleBroadcastPacket();
 
         void SendMailAdd();
-        void SendMailDel(const Protocol::MailId mailId);
+        void SendMailDel(const Common::MailId mailId);
         void StartBroadcastTimer();
         void MarkProgress() noexcept;
 
@@ -73,7 +73,7 @@ namespace Stress
         // 이 세션의 io_context 스레드 안에서만 접근된다(OnPacket/OnSessionOpened/OnClosed는 전부
         // 그 스레드에서 순서대로 호출됨) -- 락/atomic 불필요.
         uint32_t cycleIndex_{0};
-        Protocol::MailId lastAddedMailId_{};
+        Common::MailId lastAddedMailId_{};
 
         // Z2CEnterZoneNotify로 통지받은 현재 존. 이동 좌표를 이 존 안으로 제한하는 데 쓴다
         // (Session.cpp의 HandleEnterZoneNotify 주석 참고). 0은 "아직 모름".

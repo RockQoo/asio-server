@@ -1,6 +1,6 @@
 # 설정 파일 — 왜 파서를 직접 만들었나
 
-대상 코드: `Shared/Core/Src/Common/ConfigFile.h`, `config/*.cfg`
+대상 코드: `Shared/Core/Src/Base/ConfigFile.h`, `config/*.cfg`
 
 ## 형식
 
@@ -84,7 +84,7 @@ Zone::App app(std::move(config));
   명시하는 것이 설계의 핵심인데, 설정만 전역으로 빼면 그 일관성이 깨진다.
 - **수명과 스레드 규약이 흐려진다.** 언제 초기화되고 누가 바꿀 수 있는지가 타입에서 안 보인다.
 
-이 저장소에도 싱글턴이 둘 있다(`Log::Logger`, `Common::Ruid`). 둘 다 **프로세스에
+이 저장소에도 싱글턴이 둘 있다(`Log::Logger`, `Base::Ruid`). 둘 다 **프로세스에
 하나뿐이어야 의미가 성립하는 서비스**다 — 로그 파일 핸들 하나, 노드 번호 하나. 설정은
 그런 종류가 아니라 그냥 값이다.
 

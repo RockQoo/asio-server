@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Protocol/Src/Ids.h"
+#include "Shared/Common/Src/Ids.h"
 
 namespace World
 {
@@ -9,7 +9,7 @@ namespace World
     // (격자든 CSV든)을 알 필요가 없다 -- 배치를 바꿔도 World 코드는 그대로다.
     struct ZoneRegisterPacket
     {
-        Protocol::ZoneId zoneId;
+        Common::ZoneId zoneId;
         float xMin;
         float xMax;
         float yMin;
@@ -23,12 +23,12 @@ namespace World
     // (현재) 존"(World 쪽 로그용 -- 실제 라우팅 대상은 x로 결정된다).
     struct PlayerZoneStatePacket
     {
-        Protocol::ZoneId zoneId;
+        Common::ZoneId zoneId;
         uint64_t clientSessionId;
 
         // 로그인이 확정한 DB의 player_id(RUID). **clientSessionId 파생값이 아니다** --
         // 예전에는 uint32였고 세션 id를 잘라 넣고 있어서 재접속할 때마다 값이 바뀌었다.
-        Protocol::PlayerId playerId;
+        Common::PlayerId playerId;
 
         float x;
         float y;

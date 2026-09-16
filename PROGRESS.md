@@ -155,8 +155,8 @@
     `Z2CTaskResult`)를 실제로 수신하는 것까지 확인했다. 툴 자체는 xUnit 77개.
 - **패킷 id 통합/네이밍**(2026-09-07): 링크별로 흩어져 있던 4개 enum(`Zone::PacketId`,
   `GatewayLinkPacketId`, `ZoneLinkPacketId`, `ToolLinkPacketId`)이 전부 1번부터 값을 쓰고
-  있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Shared/Protocol/Src/PacketId.h`의
-  **`Protocol::PacketId` 하나**로 합치고 이름 앞 3글자를 발신→수신 방향으로 고정했다
+  있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Shared/Common/Src/PacketId.h`의
+  **`Common::PacketId` 하나**로 합치고 이름 앞 3글자를 발신→수신 방향으로 고정했다
   (`C2ZMove`, `W2TCommandResult`). 방향마다 1000 단위로 대역을 잘라 **값 하나로 어느
   소켓의 패킷인지 판정**된다 — 규약 원문은 `.claude/rules/packet-naming.md`.
   - 부수로 갈라진 것: 요청과 응답이 id를 공유하던 `C2ZEcho`/`C2ZMove`/`C2ZChat`이 분리됐고
@@ -181,8 +181,8 @@
     나가고, 클라이언트는 `Z2CTaskResult`로 받아 자기 메모리에 적용한다 — 콘텐츠마다 Ack를
     새로 만들던 `Z2CMailAddAck`/`Z2CMailDelAck`은 폐기됐다(**와이어 포맷 변경**).
   - `ZoneWorld` → `Instance` 리네임(WorldServer와 헷갈렸다), 콘텐츠 에러 코드는
-    `Protocol::EErrorCode`로 분리(Core의 것은 `Common::ECoreErrorCode`), taskKind는
-    `Protocol::TaskKind.h`에서 **상위 8비트 카테고리 + 하위 8비트 세부 동작**으로 인코딩한다.
+    `Common::EErrorCode`로 분리(Core의 것은 `Base::ECoreErrorCode`), taskKind는
+    `Common::TaskKind.h`에서 **상위 8비트 카테고리 + 하위 8비트 세부 동작**으로 인코딩한다.
   - 검증: Debug 빌드 에러·경고 0, 서버 3종을 띄워 `ProtocolClient`로 mail add/del 왕복과
     없는 mailId 삭제 시 `error=100(MailNotFound)` 응답까지 확인, `StressClient` 20세션×5사이클
     100/100 완료(불일치 0).
@@ -251,7 +251,7 @@
     `Registry`는 지우지 않고 **만료 스윕용 색인**으로 남겼다(지우면 `players_`에 락을
     걸어 "존 상태는 락 없음"을 깨거나, 스윕을 BASIC으로 옮겨 `Mutexed`가 필요한 자리를
     없애야 했다).
-  - **`Common::Ruid`**: 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 10 +
+  - **`Base::Ruid`**: 요청 하나를 가리키는 `int64`(밀리초 41 + 노드 10 +
     시퀀스 12비트, 기준 시각 2026-01-01). 랜덤 GUID를 쓰지 않은 이유는 `BIGINT`가 signed고
     무작위 키가 클러스터드 인덱스 페이지 분할을 만들기 때문이다. 노드 번호는 담당 존 중
     가장 작은 zoneId를 그대로 쓴다(별도 설정 없음).
@@ -312,7 +312,7 @@
    `W2ZEnterZone` 과 짝으로 원본 링크에 `W2ZLeaveZone` 을 보낸다 -- 같은 프로세스 안의 이동은
    살아 있는 `Player` 를 그대로 옮기므로 보내지 않는다(판정 기준은 zoneId 가 아니라 링크 세션).
 
-   **7번이 열렸다**: `player_id` 가 `uint32_t` -> `Protocol::PlayerId`(int64) 가 되면서 와이어
+   **7번이 열렸다**: `player_id` 가 `uint32_t` -> `Common::PlayerId`(int64) 가 되면서 와이어
    포맷이 바뀌었다(`PlayerZoneStatePacket` / `Z2CEnterZoneNotify`). Zone `Player` -> 프로토콜
    -> `Client`(C#) / `ProtocolClient` / `StressClient` 를 한 커밋에 같이 고쳤다.
 
@@ -395,10 +395,10 @@
    C++ 을 원본으로 두고 C# 만 생성하면 언어 하나가 특별해지고 파서가 헤더 문법에 얽매인다.
 
    ```
-   Shared/Protocol/Def/*.yml   (packet_id / error_code / task_kind / currency_type / zone_layout)
+   Shared/Common/Def/*.yml   (packet_id / error_code / task_kind / currency_type / zone_layout)
              |
              v   bat\gen_protocol.bat
-   Shared/Protocol/Src/*.g.h  +  Client/Src/Protocol/*.g.cs  +  GmTool.Core/Protocol/*.g.cs
+   Shared/Common/Src/*.g.h  +  Client/Src/Protocol/*.g.cs  +  GmTool.Core/Protocol/*.g.cs
    ```
 
    - **범위는 enum·상수까지**다. 패킷 **본문**(필드 레이아웃과 Read/Write)은 계속 손으로 쓴다 --

@@ -4,6 +4,7 @@
   </Configurations>
   <!-- 서버를 두드리는 테스트 클라이언트들. 나중에 Bot 으로 합칠 자리라 이름을 TestClient 로
        뒀다. Tool.slnx 라고 하면 이 폴더의 주된 도구인 GmTool(별도 .NET 솔루션)과 헷갈린다. -->
+  <Project Path="../Shared/Common/Common.vcxproj" Id="2c9d5a41-7b3e-4f18-9a6c-0d5e8b41c7f2" />
   <Project Path="../Shared/Core/Core.vcxproj" Id="7f5eacff-89b1-4967-8e20-b0a2de4a0ff5" />
   <Project Path="ProtocolClient/ProtocolClient.vcxproj" Id="78e54b08-2d3c-4ba7-827a-fe3446bc461b" />
   <Project Path="StressClient/StressClient.vcxproj" Id="a3b4c5d6-1e2f-4a5b-9c8d-7e6f5a4b3c2d" />

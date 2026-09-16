@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "App/App.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Test/TestKeys.h"

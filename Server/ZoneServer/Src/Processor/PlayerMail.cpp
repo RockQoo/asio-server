@@ -4,7 +4,7 @@
 #include "Mail/Model.h"
 #include "Task/UnitOfWork.h"
 
-#include "Shared/Protocol/Src/ContentLimit.h"
+#include "Shared/Common/Src/ContentLimit.h"
 
 namespace Zone
 {
@@ -15,18 +15,18 @@ namespace Zone
         // 그래서 모델에 넣기 전에 여기서 끊는다.
         [[nodiscard]] bool IsMailTextTooLong(const std::string& title, const std::string& body)
         {
-            return title.size() > Protocol::kMaxMailTitleBytes
-                || body.size() > Protocol::kMaxMailBodyBytes;
+            return title.size() > Common::kMaxMailTitleBytes
+                || body.size() > Common::kMaxMailBodyBytes;
         }
 
         // 우편 하나를 만든다. Add와 Buy가 같은 본문을 쓰므로 한 곳에 모았다 -- 만료 시각
         // 계산이 갈리면 "산 우편만 안 사라진다" 같은 증상이 된다.
-        [[nodiscard]] Mail::Info MakeMailInfo(std::string title, std::string body, const int64_t durationSec)
+        [[nodiscard]] Common::MailInfo MakeMailInfo(std::string title, std::string body, const int64_t durationSec)
         {
             const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
 
-            Mail::Info info{};
+            Common::MailInfo info{};
             info.title = std::move(title);
             info.body = std::move(body);
             info.sendUt = nowUt;
@@ -46,8 +46,7 @@ namespace Zone
     {
         // 스코프를 벗어나는 순간 소멸자가 결말을 낸다 -- 성공이면 World와 클라이언트로 전송,
         // 실패면 역순 롤백. 별도의 커밋 호출이 없다.
-        UnitOfWork unitOfWork(context.worldLink, context.player.GetSessionId(),
-                              context.player.GetPlayerId(), PacketId::C2ZMailAdd);
+        UnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailAdd);
 
         const auto& mailBox = context.player.GetMailBox();
         if (!mailBox)
@@ -73,8 +72,7 @@ namespace Zone
 
     void PlayerMail::HandleMailDel(const PlayerContext& context, const C2ZMailDel& packet)
     {
-        UnitOfWork unitOfWork(context.worldLink, context.player.GetSessionId(),
-                              context.player.GetPlayerId(), PacketId::C2ZMailDel);
+        UnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailDel);
 
         const auto& mailBox = context.player.GetMailBox();
         if (!mailBox)
@@ -93,8 +91,7 @@ namespace Zone
 
     void PlayerMail::HandleMailBuy(const PlayerContext& context, const C2ZMailBuy& packet)
     {
-        UnitOfWork unitOfWork(context.worldLink, context.player.GetSessionId(),
-                              context.player.GetPlayerId(), PacketId::C2ZMailBuy);
+        UnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailBuy);
 
         const auto& mailBox = context.player.GetMailBox();
         if (!mailBox)

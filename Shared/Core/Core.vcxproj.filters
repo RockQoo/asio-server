@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Common">
+    <Filter Include="Base">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000001}</UniqueIdentifier>
     </Filter>
     <Filter Include="Packet">
@@ -28,22 +28,22 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
-      <Filter>Common</Filter>
+      <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\BasicTypes.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\BasicTypes.h">
+      <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\Types.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\Types.h">
+      <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\CoreErrorCode.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\CoreErrorCode.h">
+      <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\EnumFlags.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\EnumFlags.h">
+      <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\CoreException.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\CoreException.h">
+      <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="Src\Log\LogLevel.h">
       <Filter>Log</Filter>
@@ -111,11 +111,11 @@
     <ClInclude Include="Src\Task\UnitOfWork.h">
       <Filter>Task</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\ConfigFile.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\ConfigFile.h">
+      <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Common\RUID.h">
-      <Filter>Common</Filter>
+    <ClInclude Include="Src\Base\RUID.h">
+      <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\Stats.h">
       <Filter>Processor</Filter>
@@ -123,7 +123,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
-      <Filter>Common</Filter>
+      <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Src\Log\Logger.cpp">
       <Filter>Log</Filter>
@@ -152,11 +152,11 @@
     <ClCompile Include="Src\Task\UnitOfWork.cpp">
       <Filter>Task</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Common\ConfigFile.cpp">
-      <Filter>Common</Filter>
+    <ClCompile Include="Src\Base\ConfigFile.cpp">
+      <Filter>Base</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Common\RUID.cpp">
-      <Filter>Common</Filter>
+    <ClCompile Include="Src\Base\RUID.cpp">
+      <Filter>Base</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

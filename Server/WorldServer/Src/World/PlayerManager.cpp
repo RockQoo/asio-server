@@ -16,7 +16,7 @@ namespace World
         players_.erase(clientSessionId);
     }
 
-    void PlayerManager::SetZone(const Network::SessionId clientSessionId, const Protocol::ZoneId zoneId)
+    void PlayerManager::SetZone(const Network::SessionId clientSessionId, const Common::ZoneId zoneId)
     {
         if (const auto it = players_.find(clientSessionId); it != players_.end())
         {
@@ -24,9 +24,9 @@ namespace World
         }
     }
 
-    void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
+    void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, const Common::PlayerId playerId,
                                          std::string playerName,
-                                         std::unordered_map<Protocol::MailId, MailInfo> mails,
+                                         std::unordered_map<Common::MailId, Common::MailInfo> mails,
                                          std::unordered_map<uint8_t, int64_t> currencies)
     {
         const auto it = players_.find(clientSessionId);
@@ -45,7 +45,7 @@ namespace World
         it->second.authenticated = true;
     }
 
-    void PlayerManager::AddMail(const Network::SessionId clientSessionId, MailInfo mailInfo)
+    void PlayerManager::AddMail(const Network::SessionId clientSessionId, Common::MailInfo mailInfo)
     {
         const auto it = players_.find(clientSessionId);
         if (it == players_.end())
@@ -57,7 +57,7 @@ namespace World
         it->second.mails.insert_or_assign(mailId, std::move(mailInfo));
     }
 
-    void PlayerManager::RemoveMail(const Network::SessionId clientSessionId, const Protocol::MailId mailId)
+    void PlayerManager::RemoveMail(const Network::SessionId clientSessionId, const Common::MailId mailId)
     {
         if (const auto it = players_.find(clientSessionId); it != players_.end())
         {
@@ -74,7 +74,7 @@ namespace World
         }
     }
 
-    std::optional<Protocol::PlayerId> PlayerManager::FindPlayerId(const Network::SessionId clientSessionId) const
+    std::optional<Common::PlayerId> PlayerManager::FindPlayerId(const Network::SessionId clientSessionId) const
     {
         const auto it = players_.find(clientSessionId);
         if (it == players_.end())

@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "Shared/Protocol/Src/StrongId.h"
+#include "Shared/Common/Src/StrongId.h"
 
-namespace Protocol
+namespace Common
 {
     // 이 저장소가 쓰는 id 종류 전부. **세 프로세스와 클라이언트가 공유하는 계약**이라
     // Shared/Protocol에 둔다(PacketId/TaskKind와 같은 근거).

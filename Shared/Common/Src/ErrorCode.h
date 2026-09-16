@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Protocol
+namespace Common
 {
     // 콘텐츠 처리 결과 코드. Zone이 판정해서 UnitOfWork에 싣고, 클라이언트가 요청 실패를
     // 표시하는 데 쓴다 -- 두 쪽이 공유하는 계약이라 PacketId와 같은 이유로 여기 있다.
@@ -25,7 +25,7 @@ namespace Protocol
         MailNotFound = 100,       // 대상 mailId가 우편함에 없음
         MailAlreadyExists = 101,  // 배정하려는 mailId가 이미 우편함에 있음(id 발급 버그 신호)
         MailBoxNotFound = 102,    // 이 세션의 우편함 자체가 없음(입장 처리 누락 신호)
-        MailBoxFull = 103,        // 우편함이 상한(Protocol::kMaxMailCount)에 도달함
+        MailBoxFull = 103,        // 우편함이 상한(Common::kMaxMailCount)에 도달함
         MailTextTooLong = 104,    // 제목/본문이 상한을 넘음(ContentLimit.h -- DB 컬럼과 짝)
 
         // ---- Currency (200 ~ 299) ----
@@ -46,6 +46,6 @@ namespace Protocol
     };
 }
 
-// PacketId와 같은 이유로 `Protocol::` 없이 바로 쓰기 위한 전역 노출. `enum class`라
+// PacketId와 같은 이유로 `Common::` 없이 바로 쓰기 위한 전역 노출. `enum class`라
 // 열거자는 여전히 `EErrorCode::`로 한정해야 하고, 정수로의 암묵 변환도 그대로 막힌다.
-using Protocol::EErrorCode;
+using Common::EErrorCode;

@@ -1,36 +1,44 @@
 #pragma once
 
-#include "Currency/Model.h"
+#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/TaskKind.h"
 
 #include "Shared/Core/Src/Task/ITask.h"
-#include "Shared/Protocol/Src/CurrencyType.h"
+#include "Shared/Core/Src/Task/Paired.h"
 
 namespace Currency
 {
-    // 재화 변경 기록 하나. **새 값과 이전 값을 둘 다** 싣는다:
-    //   - 클라이언트는 새 값으로 덮어쓴다. 증감량을 누적하는 방식이 아니라서 통지 하나가
-    //     유실돼도 다음 값에서 자동으로 맞춰진다.
-    //   - 롤백은 이전 값을 그대로 되돌린다. "차감의 반대인 증가"를 부르는 역연산 방식은
-    //     요청한 양과 실제 바뀐 양이 다를 때 틀리는데(상한/하한에 걸린 경우), 이전 값을
-    //     들고 있으면 그런 경우가 없다.
-    // 한쪽만 싣으면 다른 쪽이 곤란해지므로 둘 다 싣는 게 싸다(합쳐서 16바이트).
+    // 재화 변경 기록 하나. **데이터만 갖는다**(ITask 주석 참고).
     //
-    // 모델을 참조로 들고 있어도 안전한 이유: 이 태스크의 수명은 요청 스코프(UnitOfWork)이고,
-    // 그 안에서 소유자 Player가 사라질 수 없다(퇴장 처리도 같은 BASIC 스레드에서 돈다).
+    // **새 값과 이전 값을 둘 다** 싣는다:
+    //   - 클라이언트는 New로 덮어쓴다. 증감량을 누적하는 방식이 아니라서 통지 하나가 유실돼도
+    //     다음 값에서 자동으로 맞춰진다.
+    //   - 롤백은 Prev를 그대로 되돌린다. "차감의 반대인 증가"를 부르는 역연산 방식은 요청한
+    //     양과 실제 바뀐 양이 다를 때 틀리는데(상한/하한에 걸린 경우), 이전 값을 들고 있으면
+    //     그런 경우가 없다.
+    // 합쳐서 16바이트라 둘 다 싣는 게 싸다.
+    //
+    // **재화 종류는 짝이 아니다** -- 바뀌는 것은 값이고 종류는 "어느 값인가"를 가리키는
+    // 식별자라, New/Prev로 나눌 대상이 아니다.
     class CurrencyTask final : public Task::ITask
     {
     public:
-        CurrencyTask(Model& model, const Protocol::ECurrencyType type,
-                     const int64_t newValue, const int64_t oldValue);
+        void Set(const int64_t newValue, const int64_t prevValue, const Common::ECurrencyType type)
+        {
+            value_.Set(newValue, prevValue);
+            type_ = type;
+        }
 
-        [[nodiscard]] uint16_t Kind() const noexcept override;
-        void Serialize(Packet::BinaryWriter& binaryWriter) const override;
-        void Rollback(Task::UnitOfWork& sink) const override;
+        [[nodiscard]] uint16_t Kind() const noexcept override
+        {
+            return static_cast<uint16_t>(Common::ETaskType::CurrencyUpdate);
+        }
+
+        [[nodiscard]] const Task::Paired<int64_t>& Value() const noexcept { return value_; }
+        [[nodiscard]] Common::ECurrencyType Type() const noexcept { return type_; }
 
     private:
-        Model& model_;
-        Protocol::ECurrencyType type_;
-        int64_t newValue_;
-        int64_t oldValue_;
+        Task::Paired<int64_t> value_;
+        Common::ECurrencyType type_{};
     };
 }

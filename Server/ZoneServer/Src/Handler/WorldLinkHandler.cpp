@@ -4,7 +4,7 @@
 #include "World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 

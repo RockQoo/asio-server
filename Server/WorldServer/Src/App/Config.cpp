@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "App/Config.h"
 
-#include "Shared/Core/Src/Common/ConfigFile.h"
+#include "Shared/Core/Src/Base/ConfigFile.h"
 
 namespace World
 {
@@ -23,7 +23,7 @@ namespace World
 
     Config LoadConfig(const std::string& path)
     {
-        const auto file = Common::ConfigFile::Load(path);
+        const auto file = Base::ConfigFile::Load(path);
         if (!file.IsLoaded())
         {
             LOG.Warning(ELogCategory::General, "설정 파일이 없어 기본값으로 뜬다").KV("Path", path);

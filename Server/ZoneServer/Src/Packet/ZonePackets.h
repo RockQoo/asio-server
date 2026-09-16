@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Protocol/Src/Ids.h"
+#include "Shared/Common/Src/Ids.h"
 
 namespace Zone
 {
@@ -17,7 +17,7 @@ namespace Zone
     struct EnterZoneNotifyPacket
     {
         // 로그인이 확정한 DB의 player_id(RUID). **재접속해도 같다.**
-        Protocol::PlayerId playerId;
+        Common::PlayerId playerId;
 
         // 이 클라이언트의 세션 id. **playerId와 용도가 다르다** -- Z2CMoveNotify /
         // Z2CChatNotify 가 "누가" 보냈는지를 이 값으로 싣기 때문에, 클라이언트가 그 통지들
@@ -27,11 +27,11 @@ namespace Zone
         // 됐는데, 그건 우연이었고 재접속하면 playerId 가 바뀌는 결함이기도 했다.
         uint64_t clientSessionId;
 
-        Protocol::ZoneId zoneId;
+        Common::ZoneId zoneId;
     };
 
     // Mail 요청의 결과는 고정 구조체가 아니라 Z2CTaskResult(UnitOfWork 태스크 스트림)로
     // 돌아간다 -- 응답 구조체를 콘텐츠마다 새로 만드는 대신, 클라이언트가 서버와 같은
-    // 태스크 목록을 그대로 적용하는 방식이다(Shared/Protocol/Src/TaskKind.h 참고).
+    // 태스크 목록을 그대로 적용하는 방식이다(Shared/Common/Src/TaskKind.h 참고).
 #pragma pack(pop)
 }

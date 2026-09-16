@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/BasicTypes.h"
+#include "Shared/Core/Src/Base/BasicTypes.h"
 
-namespace Common
+namespace Base
 {
     // 요청 하나를 전 서버에서 유일하게 가리키는 식별자. Zone -> World -> DB 로그를 한 줄로
     // 이어 붙이고, 클라이언트가 "내가 보낸 어느 요청의 결과인지"를 짝지을 때 쓴다.
@@ -119,7 +119,7 @@ namespace Common
     // 프로세스 전역 진입점. 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`.
     //
     // **타입 별칭 `RUID`(전부 대문자, = int64_t)와 이 클래스 `Ruid`(파스칼)는 다른 것이다.**
-    //     Common::RUID id = Common::Ruid::Create();
+    //     Base::RUID id = Base::Ruid::Create();
     class Ruid final
     {
     public:

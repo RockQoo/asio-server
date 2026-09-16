@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Protocol
+namespace Common
 {
     // Packet::Header::id에 실리는 애플리케이션 수준 패킷 타입 id 전체.
     //
@@ -120,10 +120,10 @@ namespace Protocol
     }
 }
 
-// 어디서든 `Protocol::` 없이 `PacketId::T2WHello`처럼 바로 쓰기 위한 전역 노출.
+// 어디서든 `Common::` 없이 `PacketId::T2WHello`처럼 바로 쓰기 위한 전역 노출.
 // `ELogCategory`(Shared/Core/Src/Log/LogCategory.h)와 같은 방식이다. 같은 이유로 전역에
-// 노출하는 이름은 이것과 `Protocol::EErrorCode` 둘뿐이고, 둘 다 저장소를 통틀어 하나씩이라
+// 노출하는 이름은 이것과 `Common::EErrorCode` 둘뿐이고, 둘 다 저장소를 통틀어 하나씩이라
 // 이름이 겹칠 여지가 없다. `enum class`라 `using enum`이
 // 아니므로 열거자는 여전히 `PacketId::`로 한정해야 하고, 정수로의 암묵 변환도 그대로
 // 막힌다 -- 줄어드는 건 네임스페이스 한 겹뿐이다.
-using Protocol::PacketId;
+using Common::PacketId;

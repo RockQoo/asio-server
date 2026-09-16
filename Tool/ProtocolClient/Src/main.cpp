@@ -1,13 +1,13 @@
 #include "pch.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
-#include "Shared/Protocol/Src/Ids.h"
+#include "Shared/Core/Src/Base/RUID.h"
+#include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Core/Src/Packet/Buffer.h"
 #include "Shared/Core/Src/Packet/PacketFramer.h"
-#include "Shared/Protocol/Src/PacketId.h"
-#include "Shared/Protocol/Src/TaskKind.h"
+#include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/TaskKind.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
 namespace
@@ -104,7 +104,7 @@ namespace
                 return;
             }
 
-            if (Protocol::CategoryOf(kind) == Protocol::ETaskCategory::Currency)
+            if (Common::CategoryOf(kind) == Common::ETaskCategory::Currency)
             {
                 Packet::BinaryReader currencyBinaryReader(*taskPayload);
                 uint8_t currencyType{};
@@ -123,14 +123,14 @@ namespace
                 continue;
             }
 
-            if (Protocol::CategoryOf(kind) != Protocol::ETaskCategory::Mail)
+            if (Common::CategoryOf(kind) != Common::ETaskCategory::Mail)
             {
                 std::cout << "        - 알 수 없는 태스크 kind=" << kind << '\n';
                 continue;
             }
 
             Packet::BinaryReader mailBinaryReader(*taskPayload);
-            Protocol::MailId mailId{};
+            Common::MailId mailId{};
             std::string title;
             std::string body;
             int64_t sendUt{};
@@ -141,8 +141,8 @@ namespace
                 continue;
             }
 
-            const auto subTask = static_cast<Protocol::EMailTask>(Protocol::SubTaskOf(kind));
-            std::cout << "        - Mail " << (subTask == Protocol::EMailTask::Added ? "Added" : "Removed")
+            const auto subTask = static_cast<Common::EMailTask>(Common::SubTaskOf(kind));
+            std::cout << "        - Mail " << (subTask == Common::EMailTask::Added ? "Added" : "Removed")
                       << " mailId=" << mailId.Value() << " title=" << title << '\n';
         }
     }
@@ -414,7 +414,7 @@ int main(const int argc, char** argv)
                     int64_t mailIdValue{};
                     iss >> mailIdValue;
 
-                    const Protocol::MailId mailId{mailIdValue};
+                    const Common::MailId mailId{mailIdValue};
                     SendPacket(socket, PacketId::C2ZMailDel,
                                std::as_bytes(std::span(&mailId, 1)));
                 }

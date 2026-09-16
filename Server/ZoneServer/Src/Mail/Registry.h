@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Base/Types.h"
 #include "Mail/Model.h"
 
 namespace Mail
@@ -21,19 +21,19 @@ namespace Mail
         // 필요한데, 그 스윕은 유지보수 타이머 스레드라 플레이어 레인 전용인 PlayerRegistry를
         // 읽을 수 없다. 이 레지스트리는 자기 shared_mutex로 보호되므로 여기 두면 안전하다.
         [[nodiscard]] std::shared_ptr<Model::Mutexed> Add(const Network::SessionId clientSessionId,
-                                                          const Protocol::PlayerId playerId,
-                                                          std::vector<Info> initial);
+                                                          const Common::PlayerId playerId,
+                                                          std::vector<Common::MailInfo> initial);
         void Remove(const Network::SessionId clientSessionId);
 
         [[nodiscard]] std::shared_ptr<Model::Mutexed> Find(const Network::SessionId clientSessionId) const;
 
-        void ForEach(const std::function<void(const Network::SessionId, const Protocol::PlayerId,
+        void ForEach(const std::function<void(const Network::SessionId, const Common::PlayerId,
                                               const std::shared_ptr<Model::Mutexed>&)>& func) const;
 
     private:
         struct Entry
         {
-            Protocol::PlayerId playerId;
+            Common::PlayerId playerId;
             std::shared_ptr<Model::Mutexed> mailBox;
         };
 

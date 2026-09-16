@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Shared/Core/Src/Network/IoContextPool.h"
 
-#include "Shared/Core/Src/Common/CoreException.h"
+#include "Shared/Core/Src/Base/CoreException.h"
 
 namespace Network
 {
@@ -9,7 +9,7 @@ namespace Network
     {
         if (size == 0)
         {
-            throw Common::CoreException(Common::ECoreErrorCode::InvalidArgument,
+            throw Base::CoreException(Base::ECoreErrorCode::InvalidArgument,
                                          "IoContextPool: size는 0보다 커야 한다");
         }
 

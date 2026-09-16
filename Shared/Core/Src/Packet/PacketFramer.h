@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Shared/Core/Src/Common/CoreErrorCode.h"
-#include "Shared/Core/Src/Common/CoreException.h"
+#include "Shared/Core/Src/Base/CoreErrorCode.h"
+#include "Shared/Core/Src/Base/CoreException.h"
 #include "Shared/Core/Src/Packet/Header.h"
 
 namespace Packet
@@ -19,7 +19,7 @@ namespace Packet
     {
         if (payload.size() > Header::MaxBodySize())
         {
-            throw Common::CoreException(Common::ECoreErrorCode::PacketTooLarge,
+            throw Base::CoreException(Base::ECoreErrorCode::PacketTooLarge,
                                         "BuildFrame: 본문이 MaxBodySize를 초과한다");
         }
 

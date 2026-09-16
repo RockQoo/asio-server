@@ -14,7 +14,7 @@ namespace Mail
     void ExpiryService::SweepOnce(const int64_t nowUt)
     {
         mailRegistry_.ForEach([this, nowUt](const Network::SessionId clientSessionId,
-                                             const Protocol::PlayerId playerId,
+                                             const Common::PlayerId playerId,
                                              const std::shared_ptr<Model::Mutexed>& mailModel)
         {
             // 이 타이머는 존 워커 스레드가 아니라 별도 유지보수 스레드에서 돈다 -- 그 사이
@@ -36,7 +36,8 @@ namespace Mail
             // 내는 동안에도 writeProxy(unique_lock)가 아직 살아 있다. 롤백이 같은 Model을
             // 다시 Write()로 잠가도 RecursionGuard가 같은 스레드의 재진입을 건너뛰므로 데드락은
             // 나지 않는다(Mutexed.h 주석 참고).
-            Zone::UnitOfWork unitOfWork(worldLink_, clientSessionId, playerId);
+            Zone::UnitOfWork unitOfWork(worldLink_, clientSessionId, playerId,
+                                        Zone::UnitOfWork::Models{mailModel, nullptr});
 
             for (const auto mailId : expiredIds)
             {

@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "Shared/Core/Src/Common/ConfigFile.h"
+#include "Shared/Core/Src/Base/ConfigFile.h"
 
-#include "Shared/Core/Src/Common/CoreException.h"
+#include "Shared/Core/Src/Base/CoreException.h"
 #include "Shared/Core/Src/Log/Proxy.h"
 
-namespace Common
+namespace Base
 {
     namespace
     {

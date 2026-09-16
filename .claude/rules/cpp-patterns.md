@@ -27,7 +27,7 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 #include "pch.h"                                 // 프로젝트마다 자기 것이 있다
 #include "App/App.h"                             // 같은 프로젝트
 #include "Cli/DbCheck.h"
-#include "Shared/Core/Src/Common/RUID.h"         // 다른 프로젝트
+#include "Shared/Core/Src/Base/RUID.h"         // 다른 프로젝트
 ```
 
 접두사가 있으면 남의 것, 없으면 내 것 -- **줄만 보고 갈린다.** 전부 전체 경로였을 때는
@@ -76,7 +76,7 @@ include 하지 않고 자기 프로젝트 pch 만 include 한다(새 `.cpp` 첫 
 같은 문제다. **`<windows.h>` 는 반대로 pch 에 있다**: `asio.hpp` 가 이미 전 TU 에 끌고 오므로
 넣어도 달라지는 것이 없고, 넣어야 그걸 쓰는 파일이 줄을 지울 수 있다.
 
-**④ `Shared/Protocol` 은 예외다.** vcxproj 가 없는 **헤더 전용 계약**이라 자기 pch 가 없고,
+**④ `Shared/Common` 은 예외다.** vcxproj 가 없는 **헤더 전용 계약**이라 자기 pch 가 없고,
 6개 프로젝트 전부가 가져다 쓴다. 그래서 이 폴더의 헤더는 `<cstdint>` 같은 것을 직접 include 해
 **자기 완결적으로** 유지한다. `<asio.hpp>` 도 같은 이유로 그걸 쓰는 헤더에 남겨둔다(표준 헤더가
 아니라 서드파티라, 무엇이 asio 에 묶여 있는지 보이는 편이 낫다).
@@ -129,7 +129,7 @@ move로 넘겼어도) const 가능.
 변수(`socket_`)·POD public 필드(밑줄 없음)와 한눈에 갈린다.
 
 **`constexpr` 함수는 붙이지 않는다** — 값이 아니라 함수라 PascalCase 그대로다
-(`Header::MaxBodySize()`, `Common::HasFlag()`, `Protocol::MakeTaskKind()`).
+(`Header::MaxBodySize()`, `Base::HasFlag()`, `Common::MakeTaskKind()`).
 
 **`ALL_CAPS`(`TIME_STAMP_BITS`)는 쓰지 않는다.** C++에서 그 자리는 매크로 관례라, 매크로는
 네임스페이스·스코프를 무시하고 전처리에서 무조건 치환되므로 헤더가 같은 이름을 먼저
@@ -170,19 +170,19 @@ Packet::BinaryReader mailReader(*taskPayload); // 두 번째부터는 무엇을 
 `std::vector<byte> payloadCopy` 처럼 컨테이너/표준 타입은 **담긴 내용**으로 이름 짓는다. 이
 규칙은 이 프로젝트가 정의한 클래스에만 적용한다.
 
-### `Common::RUID`와 이름
+### `Base::RUID`와 이름
 
 `RUID`는 `int64_t` 별칭이라 타입이 역할을 구분해주지 못한다. 그래서 `RUID`를 그대로 쓰는
 자리에서는 **역할 이름을 쓴다** -- 전부 `ruid`로 부르면 무엇의 id인지 알 수 없다.
 
 ```cpp
-Common::RUID requestId{};   // O -- 타입이 말 못 하는 것을 이름이 말한다
-Common::RUID ruid{};        // X
+Base::RUID requestId{};   // O -- 타입이 말 못 하는 것을 이름이 말한다
+Base::RUID ruid{};        // X
 ```
 
-**그 자리는 이제 `requestId` 하나뿐이다.** 나머지는 `Protocol::StrongId<Tag, TValue, kInvalid>`
-(`Shared/Protocol/Src/StrongId.h`)로 **자기만의 타입**이 됐고, 별칭은
-`Shared/Protocol/Src/Ids.h`에 있다. 그 종류들은 `MailId mailId;`처럼 일반 규칙으로 돌아온다.
+**그 자리는 이제 `requestId` 하나뿐이다.** 나머지는 `Common::StrongId<Tag, TValue, kInvalid>`
+(`Shared/Common/Src/StrongId.h`)로 **자기만의 타입**이 됐고, 별칭은
+`Shared/Common/Src/Ids.h`에 있다. 그 종류들은 `MailId mailId;`처럼 일반 규칙으로 돌아온다.
 
 | 종류 | 밑바탕 | 상태 |
 |---|---|---|
@@ -245,14 +245,14 @@ template <typename E> requires std::is_enum_v<E>
 
 ## `byte`/`size_t`/고정폭 정수는 `std::` 생략
 
-`Shared/Core/Src/Common/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
+`Shared/Core/Src/Base/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
 전역으로 `using` 해놨고 양쪽 `pch.h`가 include한다(PCH 없는 `ProtocolClient`는 직접 include).
 **이 10개 타입 한정** — `std::string`/`std::vector` 등 다른 표준 타입은 그대로 `std::`를 붙인다.
 
 ## `enum`은 항상 `enum class` + underlying type 명시
 
 일반 enum 금지. **원소 적은 enum은 `uint8_t`가 기본**(`Log::ELogLevel`), **에러 코드처럼 계속
-늘어나는 enum은 `int32_t`**(`Common::ECoreErrorCode`/`Protocol::EErrorCode`, `uint8_t`는 256개로 부족).
+늘어나는 enum은 `int32_t`**(`Base::ECoreErrorCode`/`Common::EErrorCode`, `uint8_t`는 256개로 부족).
 
 ## `switch` 케이스는 스코프로 감싸고 `break`를 중괄호에 맞춘다
 
@@ -262,14 +262,14 @@ template <typename E> requires std::is_enum_v<E>
 ```cpp
 switch (subTask)
 {
-case Protocol::EMailTask::Added:
+case Common::EMailTask::Added:
     {
         playerManager.Write()->AddMail(clientSessionId, MailInfo{mailId, title, body, sendUt, endUt});
         autoSpCommands.Add(DbCommand{"dbo.usp_mails_upsert", {mailId.Value(), ...}});
     }
     break;
 
-case Protocol::EMailTask::Removed:
+case Common::EMailTask::Removed:
     {
         playerManager.Write()->RemoveMail(clientSessionId, mailId);
         autoSpCommands.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
@@ -310,17 +310,17 @@ return "Unknown";
 `main(const int argc, ...)`, asio 콜백처럼 언어/라이브러리가 정확히 `int`를 강제하는 자리는
 그대로 둔다.
 
-## 식별자는 무조건 `Common::Ruid`로 발급한다
+## 식별자는 무조건 `Base::Ruid`로 발급한다
 
-**새로 만드는 id는 예외 없이 `Common::Ruid::Create()`로 받는다.**
+**새로 만드는 id는 예외 없이 `Base::Ruid::Create()`로 받는다.**
 `playerId`, `mailId`처럼 DB에 영구히 남는 것은 물론이고, 새 콘텐츠의 id도 마찬가지다.
 
-프로세스 기동 시 `Common::Ruid::Init(nodeId)`를 **정확히 한 번** 부른다 — 예약값(0)이거나
+프로세스 기동 시 `Base::Ruid::Init(nodeId)`를 **정확히 한 번** 부른다 — 예약값(0)이거나
 비트 폭을 넘거나 **두 번째 호출이면 그 자리에서 중단한다**(재초기화는 시퀀스를 0으로 되돌려
 이미 나간 id를 다시 내준다). `--idtest`처럼 자기 노드 번호로 초기화하는 모드가 있으면
 기동 경로의 `Init`이 그 분기보다 **뒤에** 있어야 한다.
 
-한 프로세스에서 여러 노드를 흉내 내야 하는 테스트만 `Common::RuidGenerator`를 직접 만든다.
+한 프로세스에서 여러 노드를 흉내 내야 하는 테스트만 `Base::RuidGenerator`를 직접 만든다.
 
 금지하는 것들과 이유:
 
@@ -336,7 +336,7 @@ return "Unknown";
 밀리초 안을 가른다. 그리고 시각이 상위 비트라 **id가 시간순으로 커져서** 클러스터드 인덱스에
 append-only로 쌓인다.
 
-노드 번호는 대역이 정해져 있다(`Shared/Core/Src/Common/RUID.h`) — 0은 예약,
+노드 번호는 대역이 정해져 있다(`Shared/Core/Src/Base/RUID.h`) — 0은 예약,
 1\~99가 World, 100\~199가 Zone, 255가 운영툴. **겹치면 서로 같은 id를 발급하므로 새 프로세스
 종류가 생기면 대역을 먼저 정하고 상수로 추가한다.**
 
@@ -349,15 +349,15 @@ append-only로 쌓인다.
 
 | enum | 위치 | 무엇 | 누가 보나 |
 |------|------|------|-----------|
-| `Common::ECoreErrorCode` | `Shared/Core/Src/Common/CoreErrorCode.h` | 프레이밍/인자 검증 실패(`PacketTooLarge`, `InvalidArgument`) | Core 내부. 밖으로 안 나감 |
-| `Protocol::EErrorCode` | `Shared/Protocol/Src/ErrorCode.h` | 콘텐츠 처리 실패(`MailNotFound` 등) | Zone이 판정, 클라이언트가 표시 |
+| `Base::ECoreErrorCode` | `Shared/Core/Src/Base/CoreErrorCode.h` | 프레이밍/인자 검증 실패(`PacketTooLarge`, `InvalidArgument`) | Core 내부. 밖으로 안 나감 |
+| `Common::EErrorCode` | `Shared/Common/Src/ErrorCode.h` | 콘텐츠 처리 실패(`MailNotFound` 등) | Zone이 판정, 클라이언트가 표시 |
 
 **콘텐츠 에러를 Core에 추가하지 않는다** — Core는 콘텐츠를 모르는 정적 라이브러리라,
 에러가 하나 늘 때마다 `Core.lib`과 그걸 참조하는 실행 파일 전부가 다시 빌드된다
-(`ELogCategory`를 프로젝트별로 나눈 것과 같은 이유). `Protocol::EErrorCode`는 클라이언트와
+(`ELogCategory`를 프로젝트별로 나눈 것과 같은 이유). `Common::EErrorCode`는 클라이언트와
 공유하는 계약이라 `PacketId`와 같은 곳에 있고, 콘텐츠별 100 단위 대역을 쓴다.
 
-`Common::CoreException`(`: std::runtime_error`, 메시지+`ECoreErrorCode`를 함께 들고 다님,
+`Base::CoreException`(`: std::runtime_error`, 메시지+`ECoreErrorCode`를 함께 들고 다님,
 `.Code()`로 조회)과 함께 쓴다. 문자열(`ex.what()`) 파싱으로 에러 종류를 구분하지 않는다 —
 검증 실패는 `throw CoreException(ECoreErrorCode::Xxx, "메시지")`. 새 에러 조건은 **자기 대역
 맨 뒤에 추가**(기존 값 정수가 바뀌면 과거 로그와 어긋남).
@@ -365,27 +365,27 @@ asio의 `std::error_code`/`std::system_error`(네트워크 계층)는 이미 코
 
 ## 콘텐츠 로직 실패는 에러 코드로 반환하고, 호출부가 `SetError`로 옮긴다
 
-`UnitOfWork&`를 받는 모델 함수는 **성공/실패를 `[[nodiscard]] Protocol::EErrorCode`로
+`UnitOfWork&`를 받는 모델 함수는 **성공/실패를 `[[nodiscard]] Common::EErrorCode`로
 반환한다.** 모델은 UoW의 에러 상태를 모르고, 태스크를 기록하는 용도로만 UoW를 쓴다.
 
 ```cpp
 // 모델 -- 실패면 아무 상태도 바꾸지 않고, 태스크도 기록하지 않는다
-[[nodiscard]] Protocol::EErrorCode Model::AddMail(Info info, Task::UnitOfWork& unitOfWork)
+[[nodiscard]] Common::EErrorCode Model::AddMail(Info info, Task::UnitOfWork& unitOfWork)
 {
     if (mails_.contains(info.mailId))
     {
-        return Protocol::EErrorCode::MailAlreadyExists;   // 이 시점에 바뀐 게 없다
+        return Common::EErrorCode::MailAlreadyExists;   // 이 시점에 바뀐 게 없다
     }
 
     mails_.emplace(info.mailId, info);
     unitOfWork.AddTask(AddMailTask{info});                // 상태가 바뀐 뒤에만 기록
 
-    return Protocol::EErrorCode::None;
+    return Common::EErrorCode::None;
 }
 
 // 호출부(핸들러) -- 실패를 UoW로 옮기고 즉시 중단한다
 if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
-    errorCode != Protocol::EErrorCode::None)
+    errorCode != Common::EErrorCode::None)
 {
     unitOfWork.SetError(errorCode);
     return;
@@ -466,7 +466,7 @@ private:
 ## 가변 길이 본문에는 반드시 상한이 있어야 한다
 
 **문자열이나 목록을 이어 붙여 패킷 본문을 만드는 코드에는 예외 없이 상한을 둔다.**
-상한값은 `Shared/Protocol/Src/ContentLimit.h`에 모아둔다 -- Zone/World/클라이언트가 함께
+상한값은 `Shared/Common/Src/ContentLimit.h`에 모아둔다 -- Zone/World/클라이언트가 함께
 지켜야 하는 계약이기 때문이다.
 
 **왜 이게 치명적인가**: 프레임 헤더의 `bodySize`가 `uint16`이고, 받는 쪽 `Packet::Buffer`는
@@ -495,7 +495,7 @@ private:
 
 ```cpp
 // 채팅: UnitOfWork가 없어 돌려줄 길이 없다 -> Parse에서 버린다
-return message.size() <= Protocol::kMaxChatBytes;
+return message.size() <= Common::kMaxChatBytes;
 
 // 우편: UnitOfWork가 있다 -> 핸들러가 에러 코드로 끊는다
 if (IsMailTextTooLong(packet.title, packet.body))
@@ -569,7 +569,7 @@ std::string_view message`로 바꾸고 호출부의 불필요한 `std::move`도 
 아니면 `string_view`/`const T&`/`span<const T>`를 쓴다.
 
 **반대 방향도 규칙이다 — 작고 trivially copyable한 타입은 `const T&`가 아니라 `const T` 값으로
-받는다.** `StrongId` 계열 id(`Protocol::PlayerId`/`MailId`/`ZoneId`), enum, `std::span`, 산술
+받는다.** `StrongId` 계열 id(`Common::PlayerId`/`MailId`/`ZoneId`), enum, `std::span`, 산술
 타입이 여기 해당한다. x64 ABI가 이런 값을 **레지스터로** 넘기므로 복사 비용이 `int64_t`와 같고
 (실측상 명령어가 동일), 참조로 받으면 역참조가 붙는 데다 컴파일러가 aliasing을 배제하지 못해
 값을 다시 읽는다. "클래스니까 `const&`가 싸다"는 **힙을 들고 있거나 사용자 정의 복사 생성자가

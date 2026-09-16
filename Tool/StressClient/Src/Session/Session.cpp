@@ -1,11 +1,11 @@
 #include "pch.h"
 #include "Session/Session.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Protocol/Src/PacketId.h"
-#include "Shared/Protocol/Src/TaskKind.h"
+#include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/TaskKind.h"
 #include "Server/ZoneServer/Src/Packet/ZonePackets.h"
 
 namespace Stress
@@ -15,8 +15,8 @@ namespace Stress
         // Z2CTaskResult에 실려 온 UnitOfWork 태스크 스트림에서 원하는 Mail 태스크의 mailId를
         // 꺼낸다. 스트림 포맷은 Shared/Core/Src/Task/UnitOfWork.h 주석 참고 --
         // 부하 도구라 첫 번째로 맞는 태스크 하나만 보면 충분하다.
-        [[nodiscard]] std::optional<Protocol::MailId> FindMailTaskId(const std::span<const byte> stream,
-                                                             const Protocol::EMailTask subTask)
+        [[nodiscard]] std::optional<Common::MailId> FindMailTaskId(const std::span<const byte> stream,
+                                                             const Common::EMailTask subTask)
         {
             Packet::BinaryReader binaryReader(stream);
             uint64_t ownerId{};
@@ -41,14 +41,14 @@ namespace Stress
                     return std::nullopt;
                 }
 
-                if (Protocol::CategoryOf(kind) != Protocol::ETaskCategory::Mail
-                    || Protocol::SubTaskOf(kind) != static_cast<uint8_t>(subTask))
+                if (Common::CategoryOf(kind) != Common::ETaskCategory::Mail
+                    || Common::SubTaskOf(kind) != static_cast<uint8_t>(subTask))
                 {
                     continue;
                 }
 
                 Packet::BinaryReader mailBinaryReader(*taskPayload);
-                Protocol::MailId mailId{};
+                Common::MailId mailId{};
                 if (!mailBinaryReader.Read(mailId))
                 {
                     return std::nullopt;
@@ -163,7 +163,7 @@ namespace Stress
         // requestId는 성공/실패 어느 쪽이든 실린다 -- 태스크 스트림 앞에 있으므로 여기서
         // 읽어서 넘겨야 그 뒤 스트림 오프셋이 맞는다. 부하 도구는 값 자체를 쓰지 않지만,
         // 건너뛰지 않으면 스트림을 8바이트 밀려서 파싱해 mailId를 못 찾는다.
-        Common::RUID requestId{};
+        Base::RUID requestId{};
         if (!binaryReader.Read(errorCode) || !binaryReader.Read(requestPacketId) || !binaryReader.Read(requestId))
         {
             return;
@@ -189,10 +189,10 @@ namespace Stress
     void Session::HandleMailAddResult(const int32_t errorCode, const std::span<const byte> stream)
     {
         const auto testSessionId = static_cast<Network::SessionId>(index_);
-        const auto addedMailId = FindMailTaskId(stream, Protocol::EMailTask::Added);
+        const auto addedMailId = FindMailTaskId(stream, Common::EMailTask::Added);
         if (errorCode != 0 || !addedMailId)
         {
-            stats_.RecordMismatch(testSessionId, cycleIndex_, Protocol::MailId{}, Protocol::MailId{}, "mail add failed");
+            stats_.RecordMismatch(testSessionId, cycleIndex_, Common::MailId{}, Common::MailId{}, "mail add failed");
             MarkProgress();
             return;
         }
@@ -210,7 +210,7 @@ namespace Stress
 
     void Session::HandleMailDelResult(const int32_t errorCode, const std::span<const byte> stream)
     {
-        const auto removedMailId = FindMailTaskId(stream, Protocol::EMailTask::Removed);
+        const auto removedMailId = FindMailTaskId(stream, Common::EMailTask::Removed);
 
         stats_.RecordMailDelAcked();
         if (mailDelSentAt_.time_since_epoch().count() != 0)
@@ -228,7 +228,7 @@ namespace Stress
         const auto testSessionId = static_cast<Network::SessionId>(index_);
         if (errorCode != 0 || !removedMailId)
         {
-            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, Protocol::MailId{},
+            stats_.RecordMismatch(testSessionId, cycleIndex_, lastAddedMailId_, Common::MailId{},
                                    "delete reported failure");
         }
         else if (*removedMailId != lastAddedMailId_)
@@ -284,7 +284,7 @@ namespace Stress
         MarkProgress();
     }
 
-    void Session::SendMailDel(const Protocol::MailId mailId)
+    void Session::SendMailDel(const Common::MailId mailId)
     {
         if (!session_)
         {

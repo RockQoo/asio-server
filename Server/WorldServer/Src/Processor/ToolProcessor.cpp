@@ -3,7 +3,7 @@
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Packet/RelayEnvelope.h"
-#include "Shared/Protocol/Src/PacketId.h"
+#include "Shared/Common/Src/PacketId.h"
 #include "Packet/ToolLinkPackets.h"
 
 #include "Shared/Core/Src/Network/Session.h"

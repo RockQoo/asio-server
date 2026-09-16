@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Protocol
+namespace Common
 {
     // 재화 종류. Zone이 판정하고 World가 DB에 반영하고 클라이언트가 화면에 표시하는, 세 쪽이
     // 공유하는 계약이라 PacketId/ErrorCode와 같은 이유로 여기 있다.
@@ -15,5 +15,5 @@ namespace Protocol
     };
 }
 
-// PacketId/ErrorCode와 같은 이유로 `Protocol::` 없이 바로 쓰기 위한 전역 노출.
-using Protocol::ECurrencyType;
+// PacketId/ErrorCode와 같은 이유로 `Common::` 없이 바로 쓰기 위한 전역 노출.
+using Common::ECurrencyType;

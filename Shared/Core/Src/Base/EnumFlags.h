@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Common
+namespace Base
 {
     // scoped enum을 비트 플래그로 쓸 때 매크로 대신 쓰는 헬퍼. `enum class`는 정수로 암묵
     // 변환되지 않아서(그게 이 프로젝트가 `enum class`만 쓰는 이유다) 조합 검사에 매번

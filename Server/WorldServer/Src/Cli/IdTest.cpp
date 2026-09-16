@@ -3,7 +3,7 @@
 
 #include "Db/DbConnection.h"
 
-#include "Shared/Core/Src/Common/RUID.h"
+#include "Shared/Core/Src/Base/RUID.h"
 
 namespace World
 {
@@ -21,7 +21,7 @@ namespace World
                                     const size_t threadCount, const size_t perThread,
                                     const bool randomMode)
     {
-        Common::Ruid::Init(nodeId);
+        Base::Ruid::Init(nodeId);
 
         const size_t total = threadCount * perThread;
         std::cout << "[idtest] node=" << nodeId << " threads=" << threadCount
@@ -101,7 +101,7 @@ namespace World
                         {
                             bucket.push_back(randomMode
                                 ? distribution(randomEngine)
-                                : Common::Ruid::Create());
+                                : Base::Ruid::Create());
                         }
                     });
                 }
@@ -188,7 +188,7 @@ namespace World
         // 최대 속도로 뽑는 합성 부하라 시퀀스 상한(ms당 4,096개)에 닿는다. 실제 서버는 로그인
         // 1회와 UnitOfWork 1건당 1개라 두 자릿수 배수만큼 아래에서 논다.
         // clockRollback 이 0이 아니면 그건 부하와 무관하고 시스템 시계를 의심해야 한다.
-        const auto health = Common::Ruid::GetHealth();
+        const auto health = Base::Ruid::GetHealth();
         std::cout << "[idtest] Health 시퀀스소진 " << health.sequenceExhaustedCount
                   << ", 시계역행 " << health.clockRollbackCount
                   << " (최대 " << health.maxRollbackMs << "ms)\n";

@@ -139,7 +139,7 @@ namespace World
         // playerId는 DB의 IDENTITY가 아니라 여기서 발급한다(cpp-patterns.md의 RUID 절).
         // 같은 이름으로 동시에 첫 로그인이 들어오면 한쪽만 INSERT되고, 그때 실제로 확정된 값은
         // SP가 돌려주므로 이 값은 "제안"일 뿐이다.
-        const auto requestedPlayerId = Common::Ruid::Create();
+        const auto requestedPlayerId = Base::Ruid::Create();
 
         AutoSpCommands autoSpCommands(dbProcessor_, clientSessionId, true,
             [this, gatewaySession, clientSessionId, playerName, requestedPlayerId]
@@ -154,7 +154,7 @@ namespace World
 
     void LoginProcessor::OnAccountCreated(const Network::Session::SPtr& gatewaySession,
                                            const Network::SessionId clientSessionId, const std::string& playerName,
-                                           const Common::RUID requestedPlayerId, const bool succeeded,
+                                           const Base::RUID requestedPlayerId, const bool succeeded,
                                            const DbResult& dbResult)
     {
         if (!succeeded)
@@ -187,7 +187,7 @@ namespace World
 
     void LoginProcessor::LoadPlayerContent(const Network::Session::SPtr& gatewaySession,
                                             const Network::SessionId clientSessionId,
-                                            const std::string& playerName, const Common::RUID playerId)
+                                            const std::string& playerName, const Base::RUID playerId)
     {
         // **여기서도 주인은 clientSessionId다.** playerId를 알게 됐다고 갈아타지 않는다 --
         // 앞의 조회/가입과 같은 strand에 남아야 로그인 한 건이 한 줄로 처리된다.
@@ -207,7 +207,7 @@ namespace World
 
     void LoginProcessor::OnPlayerLoaded(const Network::Session::SPtr& gatewaySession,
                                          const Network::SessionId clientSessionId,
-                                         const std::string& playerName, const Common::RUID playerId,
+                                         const std::string& playerName, const Base::RUID playerId,
                                          const bool succeeded, const DbResult& dbResult)
     {
         if (!succeeded)
@@ -220,7 +220,7 @@ namespace World
         }
 
         // 결과 집합 순서는 usp_players_load의 SELECT 순서와 같은 계약이다(그 SP 주석 참고).
-        std::unordered_map<Protocol::MailId, MailInfo> mails;
+        std::unordered_map<Common::MailId, Common::MailInfo> mails;
         for (const auto& row : SetAt(dbResult, 0))
         {
             const auto mailIdValue = GetInt64(row, 0);
@@ -238,8 +238,8 @@ namespace World
 
             // DB에서 읽은 정수를 타입 있는 id로 바꾸는 자리다 -- StrongId 생성자가 explicit인
             // 덕분에 이 경계가 코드에 드러난다(그냥 흘러들어오지 않는다).
-            const Protocol::MailId mailId{*mailIdValue};
-            mails.emplace(mailId, MailInfo{mailId, *title, *body, *sendUt, *endUt});
+            const Common::MailId mailId{*mailIdValue};
+            mails.emplace(mailId, Common::MailInfo{mailId, *title, *body, *sendUt, *endUt});
         }
 
         std::unordered_map<uint8_t, int64_t> currencies;
@@ -280,8 +280,8 @@ namespace World
 
     void LoginProcessor::PostSuccess(const Network::Session::SPtr& gatewaySession,
                                       const Network::SessionId clientSessionId, const std::string& playerName,
-                                      const Common::RUID playerId,
-                                      std::unordered_map<Protocol::MailId, MailInfo> mails,
+                                      const Base::RUID playerId,
+                                      std::unordered_map<Common::MailId, Common::MailInfo> mails,
                                       std::unordered_map<uint8_t, int64_t> currencies)
     {
         basicGroup_.Post(EProcessorId::Login, clientSessionId,
@@ -295,8 +295,8 @@ namespace World
 
     void LoginProcessor::CompleteLogin(const Network::Session::SPtr& gatewaySession,
                                         const Network::SessionId clientSessionId, const std::string& playerName,
-                                        const Common::RUID playerId,
-                                        std::unordered_map<Protocol::MailId, MailInfo> mails,
+                                        const Base::RUID playerId,
+                                        std::unordered_map<Common::MailId, Common::MailInfo> mails,
                                         std::unordered_map<uint8_t, int64_t> currencies)
     {
         // DB를 다녀오는 동안 접속이 끊겼을 수 있다. 그러면 등록이 이미 지워져 있다.
@@ -323,7 +323,7 @@ namespace World
         enterState.clientSessionId = clientSessionId;
         // **로그인이 확정한 값을 그대로 싣는다.** 예전에는 clientSessionId 를 uint32 로 잘라
         // 넣고 있어서, 존과 클라이언트가 보는 playerId 가 재접속할 때마다 바뀌었다.
-        enterState.playerId = Protocol::PlayerId{playerId};
+        enterState.playerId = Common::PlayerId{playerId};
         enterState.x = entry->x;
         enterState.y = entry->y;
 
@@ -334,7 +334,7 @@ namespace World
         // 캐시를 채우고 인증을 확정한다. 쓰기 락을 두 번 잡지 않도록 한 번에 묶는다.
         {
             auto writeProxy = playerManager_.Write();
-            writeProxy->SetAuthenticated(clientSessionId, Protocol::PlayerId{playerId}, playerName,
+            writeProxy->SetAuthenticated(clientSessionId, Common::PlayerId{playerId}, playerName,
                                      std::move(mails), std::move(currencies));
             writeProxy->SetZone(clientSessionId, entry->zoneId);
         }
@@ -353,7 +353,7 @@ namespace World
 
     void LoginProcessor::SendResult(const Network::Session::SPtr& gatewaySession,
                                      const Network::SessionId clientSessionId, const EErrorCode errorCode,
-                                     const Common::RUID playerId, const std::string_view playerName) const
+                                     const Base::RUID playerId, const std::string_view playerName) const
     {
         ClientEnvelopeHeader header{};
         header.clientSessionId = clientSessionId;
