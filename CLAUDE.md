@@ -82,9 +82,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
 - **include 경로**: 같은 프로젝트는 `Src` 기준 짧게(`#include "App/Config.h"`), 다른
   프로젝트는 솔루션 루트 기준(`#include "Shared/Core/Src/Network/Session.h"`) — 접두사
-  유무로 내 것/남의 것이 갈린다. **단 다른 프로젝트가 가져다 쓰는 헤더(Core 전부,
-  `WorldServer/Src/Packet/*.h`)는 자기 헤더도 전체 경로**로 쓴다(남의 프로젝트 안에서
-  컴파일되므로). 근거: `cpp-patterns.md`.
+  유무로 내 것/남의 것이 갈린다. **단 다른 프로젝트가 가져다 쓰는 헤더(`Shared/Core`와
+  `Shared/Common` 전부)는 자기 헤더도 전체 경로**로 쓴다(남의 프로젝트 안에서 컴파일되므로).
+  근거: `cpp-patterns.md`.
+- **서버끼리 서로의 헤더를 include 하지 않는다.** 둘 이상이 알아야 하는 것은 계약이므로
+  `Shared/Common` 으로 올린다. 예전에는 Zone/Gateway 가 `WorldServer/Src/Packet/*.h` 를
+  12곳에서 직접 봤고, 그래서 Gateway 코드에 `World::RelayEnvelope` 라고 적혀 있었다.
 - **모던 C++23 적극 사용**: `std::span`/`std::byte`, concept, `[[nodiscard]]`, 템플릿화,
   `std::move`. 세부 규칙(const/sink/emplace/Get const 등)은 `cpp-patterns.md`.
 - **`3rd/asio` 수정 금지** — `.claude/settings.json` PreToolUse 훅으로도 자동 차단.
@@ -126,7 +129,8 @@ C:\Work\asio-server\
 │   │       │                         -- Common:: 은 Shared/Common 의 게임 계약이 쓴다
 │   │       ├── Packet/               Header/Buffer/Framer, BinaryWriter/Reader, Args(가변 인자를
 │   │       │                         넣은 순서대로 쓰고 읽는다 -- WriteArgs/ReadArgs),
-│   │       │                         Dispatcher<TId,TContext>
+│   │       │                         Dispatcher<TId,TContext>, OwnerIdPeek(I/O 스레드에서
+│   │       │                         페이로드 앞의 정수 하나만 훔쳐봐 주인을 뽑는다)
 │   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
 │   │       │                         connect, Listener와 대칭), Session, SessionManager
 │   │       ├── Processor/            Group(큐 그룹 = asio io_context + strand N개), Stats
@@ -152,6 +156,13 @@ C:\Work\asio-server\
 │       ├── Ids.h / StrongId.h    PlayerId/MailId/ZoneId -- 종류마다 자기 타입
 │       ├── MailInfo.h            우편 한 통. **World 캐시와 Zone 모델이 같은 타입을 쓴다**
 │       ├── CurrencyInfo.h        재화 하나의 잔액. 종류는 ECurrencyType 그대로 (밑바탕 타입이 고정이라 모르는 값도 담긴다)
+│       ├── Packet/               **와이어 계약**. 패킷 하나 = 구조체 하나이고 이름은 패킷 id
+│       │                         그대로다(규약: .claude/rules/packet-naming.md)
+│       │                         RelayEnvelope(중계 봉투 -- Relay 4개가 공유),
+│       │                         ClientPackets(C2Z 요청 + Parse), ZonePackets(Z2C 통지),
+│       │                         ZoneLinkPackets/WorldPackets(W2Z·Z2W), ToolLinkPackets(T2W·W2T),
+│       │                         ToolResultCode. **서버 프로젝트 안에 두지 않는다** -- 두면
+│       │                         다른 서버가 그 프로젝트를 include 하는 역방향이 된다
 │       └── Common.cpp            빌드 앵커. 헤더뿐이라 .lib 에 심볼이 없으면 LNK4221 이 난다
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
@@ -177,8 +188,6 @@ C:\Work\asio-server\
 │           ├── Worker/               WorkerManager(Zone/Broadcast 그룹 + 존별 tick 타이머 소유)
 │           ├── Handler/              WorldLinkHandler -- **I/O 스레드 전용**. 주인만 뽑아
 │           │                         플레이어 레인으로 넘긴다(LB 레인은 없앴다)
-│           ├── Packet/               ZonePackets(고정 레이아웃 와이어 구조체 -- 도구도 쓴다),
-│           │                         ClientPackets(C2Z 요청 구조체 + Parse. 디스패치 앞에서 파싱)
 │           ├── Currency/             Model(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
 │           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
 │           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)

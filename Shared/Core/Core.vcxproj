@@ -122,6 +122,7 @@
     <ClInclude Include="Src\Packet\BinaryReader.h" />
     <ClInclude Include="Src\Packet\Dispatcher.h" />
     <ClInclude Include="Src\Packet\Args.h" />
+    <ClInclude Include="Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Network\IPacketHandler.h" />
     <ClInclude Include="Src\Network\Session.h" />
     <ClInclude Include="Src\Network\Listener.h" />

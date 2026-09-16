@@ -2,9 +2,9 @@
 #include "Processor/ToolProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
-#include "Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/PacketId.h"
-#include "Packet/ToolLinkPackets.h"
+#include "Shared/Common/Src/Packet/ToolLinkPackets.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
@@ -113,7 +113,7 @@ namespace World
 
                 LOG.Warning(ELogCategory::Tool, "인증 전 운영툴 요청 거절")
                     .KV("SessionId", session->Id()).KV("PacketId", static_cast<uint16_t>(packetId));
-                SendCommandResult(session, requestId, EToolResultCode::NotAuthenticated, 0);
+                SendCommandResult(session, requestId, Common::EToolResultCode::NotAuthenticated, 0);
                 return;
             }
 
@@ -137,9 +137,9 @@ namespace World
     }
 
     void ToolProcessor::SendCommandResult(const Network::Session::SPtr& toolSession, const uint32_t requestId,
-                                       const EToolResultCode resultCode, const uint32_t affectedCount) const
+                                       const Common::EToolResultCode resultCode, const uint32_t affectedCount) const
     {
-        W2TCommandResult ack{};
+        Common::W2TCommandResult ack{};
         ack.requestId = requestId;
         ack.resultCode = static_cast<uint16_t>(resultCode);
         ack.affectedCount = affectedCount;
@@ -165,7 +165,7 @@ namespace World
         // MainProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
         // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
         // 왔는지 구분할 수 없고, 구분할 필요도 없다.
-        RelayEnvelope envelopeHeader{};
+        Common::RelayEnvelope envelopeHeader{};
         envelopeHeader.clientSessionId = clientSessionId;
         envelopeHeader.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
@@ -188,11 +188,11 @@ namespace World
             || !binaryReader.ReadString(sharedSecret) || !binaryReader.ReadString(operatorName))
         {
             LOG.Warning(ELogCategory::Tool, "ToolHello 파싱 실패").KV("SessionId", toolSession->Id());
-            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
-        const bool versionOk = protocolVersion == kToolLinkProtocolVersion;
+        const bool versionOk = protocolVersion == Common::kToolLinkProtocolVersion;
         const bool secretOk = SecretEquals(sharedSecret, sharedSecret_);
         const bool accepted = versionOk && secretOk;
 
@@ -211,10 +211,10 @@ namespace World
                 .KV("VersionOk", versionOk).KV("SecretOk", secretOk);
         }
 
-        W2THelloResult ack{};
+        Common::W2THelloResult ack{};
         ack.requestId = requestId;
         ack.accepted = accepted ? uint8_t{1} : uint8_t{0};
-        ack.protocolVersion = kToolLinkProtocolVersion;
+        ack.protocolVersion = Common::kToolLinkProtocolVersion;
         toolSession->SendPacket(PacketId::W2THelloResult,
                                 std::as_bytes(std::span(&ack, 1)));
 
@@ -233,7 +233,7 @@ namespace World
         std::string message;
         if (!binaryReader.Read(requestId) || !binaryReader.ReadString(message) || message.empty())
         {
-            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -252,7 +252,7 @@ namespace World
                     return;
                 }
 
-                RelayEnvelope envelopeHeader{};
+                Common::RelayEnvelope envelopeHeader{};
                 envelopeHeader.clientSessionId = clientSessionId;
                 envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
 
@@ -265,7 +265,7 @@ namespace World
 
         LOG.Info(ELogCategory::Tool, "운영툴 공지 브로드캐스트")
             .KV("RequestId", requestId).KV("SentTo", sentCount).KV("Message", message);
-        SendCommandResult(toolSession, requestId, EToolResultCode::Ok, sentCount);
+        SendCommandResult(toolSession, requestId, Common::EToolResultCode::Ok, sentCount);
     }
 
     void ToolProcessor::HandleMailSend(const Network::Session::SPtr& toolSession,
@@ -281,13 +281,13 @@ namespace World
         if (!binaryReader.Read(requestId) || !binaryReader.Read(targetKind) || !binaryReader.Read(clientSessionId)
             || !binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec))
         {
-            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
         if (title.empty() || durationSec <= 0)
         {
-            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -316,13 +316,13 @@ namespace World
             LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(접속 중 전체)")
                 .KV("RequestId", requestId).KV("SentTo", sentCount)
                 .KV("Title", title).KV("DurationSec", durationSec);
-            SendCommandResult(toolSession, requestId, EToolResultCode::Ok, sentCount);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::Ok, sentCount);
             return;
         }
 
         if (targetKind != kMailTargetSingle)
         {
-            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -330,37 +330,37 @@ namespace World
         {
             LOG.Warning(ELogCategory::Tool, "운영툴 우편 대상이 접속 중이 아님")
                 .KV("RequestId", requestId).KV("ClientSessionId", clientSessionId);
-            SendCommandResult(toolSession, requestId, EToolResultCode::TargetNotFound, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::TargetNotFound, 0);
             return;
         }
 
         if (!InjectClientPacket(clientSessionId, PacketId::C2ZMailAdd, mailPayload))
         {
-            SendCommandResult(toolSession, requestId, EToolResultCode::ZoneUnavailable, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::ZoneUnavailable, 0);
             return;
         }
 
         LOG.Info(ELogCategory::Tool, "운영툴 우편 발송(단일 대상)")
             .KV("RequestId", requestId).KV("ClientSessionId", clientSessionId)
             .KV("Title", title).KV("DurationSec", durationSec);
-        SendCommandResult(toolSession, requestId, EToolResultCode::Ok, 1);
+        SendCommandResult(toolSession, requestId, Common::EToolResultCode::Ok, 1);
     }
 
     void ToolProcessor::HandleMailDelete(const Network::Session::SPtr& toolSession,
                                                  const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(T2WMailDelete))
+        if (payload.size() < sizeof(Common::T2WMailDelete))
         {
-            SendCommandResult(toolSession, 0, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, 0, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
-        T2WMailDelete request{};
-        std::memcpy(&request, payload.data(), sizeof(T2WMailDelete));
+        Common::T2WMailDelete request{};
+        std::memcpy(&request, payload.data(), sizeof(Common::T2WMailDelete));
 
         if (!playerManager_->Find(request.clientSessionId))
         {
-            SendCommandResult(toolSession, request.requestId, EToolResultCode::TargetNotFound, 0);
+            SendCommandResult(toolSession, request.requestId, Common::EToolResultCode::TargetNotFound, 0);
             return;
         }
 
@@ -371,7 +371,7 @@ namespace World
         if (!InjectClientPacket(request.clientSessionId, PacketId::C2ZMailDel,
                                 mailBinaryWriter.GetBuffer()))
         {
-            SendCommandResult(toolSession, request.requestId, EToolResultCode::ZoneUnavailable, 0);
+            SendCommandResult(toolSession, request.requestId, Common::EToolResultCode::ZoneUnavailable, 0);
             return;
         }
 
@@ -381,7 +381,7 @@ namespace World
         LOG.Info(ELogCategory::Tool, "운영툴 우편 삭제 요청 전달")
             .KV("RequestId", request.requestId).KV("ClientSessionId", request.clientSessionId)
             .KV("MailId", request.mailId);
-        SendCommandResult(toolSession, request.requestId, EToolResultCode::Ok, 1);
+        SendCommandResult(toolSession, request.requestId, Common::EToolResultCode::Ok, 1);
     }
 
     void ToolProcessor::HandleCouponChunkPush(const Network::Session::SPtr& toolSession,
@@ -395,7 +395,7 @@ namespace World
         if (!binaryReader.Read(requestId) || !binaryReader.ReadString(campaignCode)
             || !binaryReader.Read(chunkSeq) || !binaryReader.Read(couponCount))
         {
-            SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
@@ -406,7 +406,7 @@ namespace World
             std::string code;
             if (!binaryReader.ReadString(code))
             {
-                SendCommandResult(toolSession, requestId, EToolResultCode::BadRequest, 0);
+                SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
                 return;
             }
             couponCodes.push_back(std::move(code));
@@ -429,25 +429,25 @@ namespace World
                     .KV("FirstCode", couponCodes.empty() ? std::string{"(없음)"} : couponCodes.front());
             });
 
-        SendCommandResult(toolSession, requestId, EToolResultCode::Ok, couponCount);
+        SendCommandResult(toolSession, requestId, Common::EToolResultCode::Ok, couponCount);
     }
 
     void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
                                                  const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(T2WClientList))
+        if (payload.size() < sizeof(Common::T2WClientList))
         {
-            SendCommandResult(toolSession, 0, EToolResultCode::BadRequest, 0);
+            SendCommandResult(toolSession, 0, Common::EToolResultCode::BadRequest, 0);
             return;
         }
 
-        T2WClientList request{};
-        std::memcpy(&request, payload.data(), sizeof(T2WClientList));
+        Common::T2WClientList request{};
+        std::memcpy(&request, payload.data(), sizeof(Common::T2WClientList));
 
         // 읽기 락 한 번으로 모은다. 샤딩이던 시절에는 샤드 스레드들이 공유 버퍼에 밀어 넣고
         // 마지막 스레드가 취합했는데, 그 취합 버퍼를 지키려고 여기에만 Mutexed가 하나 더
         // 있었다 -- 매니저 자체가 Mutexed가 되면서 둘 다 없어졌다.
-        std::vector<W2TClientListEntry> collected;
+        std::vector<Common::W2TClientListEntry> collected;
         uint32_t totalCount = 0;
 
         playerManager_->ForEach(
@@ -462,7 +462,7 @@ namespace World
                     return;
                 }
 
-                W2TClientListEntry entry{};
+                Common::W2TClientListEntry entry{};
                 entry.clientSessionId = clientSessionId;
                 // 운영툴은 C# 라 StrongId 를 모른다 -- 이 링크가 Value() 를 쓰는 경계다.
                 entry.zoneId = info.zoneId.Value();

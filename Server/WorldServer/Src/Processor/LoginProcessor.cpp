@@ -5,8 +5,8 @@
 #include "Db/DbConnection.h"
 #include "Db/PasswordHash.h"
 #include "Packet/EnterZoneBody.h"
-#include "Packet/RelayEnvelope.h"
-#include "Packet/ZoneLinkPackets.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "World/PlayerManager.h"
 
 #include "Shared/Core/Src/Network/Session.h"
@@ -318,7 +318,7 @@ namespace World
             return;
         }
 
-        W2ZEnterZone enterZone{};
+        Common::W2ZEnterZoneHead enterZone{};
         enterZone.zoneId = entry->zoneId;
         enterZone.clientSessionId = clientSessionId;
         // **로그인이 확정한 값을 그대로 싣는다.** 예전에는 clientSessionId 를 uint32 로 잘라
@@ -355,7 +355,7 @@ namespace World
                                      const Network::SessionId clientSessionId, const EErrorCode errorCode,
                                      const Base::RUID playerId, const std::string_view playerName) const
     {
-        RelayEnvelope header{};
+        Common::RelayEnvelope header{};
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(PacketId::W2CLogin);
 

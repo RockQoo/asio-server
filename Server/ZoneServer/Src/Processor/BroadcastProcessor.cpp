@@ -4,7 +4,7 @@
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
@@ -30,7 +30,7 @@ namespace Zone
 
                 for (const auto clientSessionId : targets)
                 {
-                    World::RelayEnvelope header{};
+                    Common::RelayEnvelope header{};
                     header.clientSessionId = clientSessionId;
                     header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 

@@ -5,7 +5,7 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Network/SessionManager.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/PacketId.h"
 
 namespace Gateway
@@ -46,7 +46,7 @@ namespace Gateway
             return;
         }
 
-        World::RelayEnvelope envelopeHeader{};
+        Common::RelayEnvelope envelopeHeader{};
         envelopeHeader.clientSessionId = session->Id();
         envelopeHeader.innerPacketId = header.id;
 

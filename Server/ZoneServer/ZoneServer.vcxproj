@@ -118,9 +118,6 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
-    <ClInclude Include="Src\Packet\ZonePackets.h" />
-    <ClInclude Include="Src\Packet\ClientPackets.h" />
-    <ClInclude Include="Src\Packet\WorldPackets.h" />
     <ClInclude Include="Src\Currency\Model.h" />
     <ClInclude Include="Src\Currency\CurrencyTask.h" />
     <ClInclude Include="Src\Game\MoveModel.h" />
@@ -138,7 +135,6 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="Src\Processor\PlayerProcessor.h" />
     <ClInclude Include="Src\Processor\PlayerContext.h" />
     <ClInclude Include="Src\Processor\PlayerMail.h" />
-    <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Processor\BroadcastProcessor.h" />
     <ClInclude Include="Src\Worker\WorkerManager.h" />
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />

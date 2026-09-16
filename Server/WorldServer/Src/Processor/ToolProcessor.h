@@ -6,7 +6,7 @@
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Common/Src/PacketId.h"
-#include "Packet/ToolResultCode.h"
+#include "Shared/Common/Src/Packet/ToolResultCode.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
@@ -63,7 +63,7 @@ namespace World
         [[nodiscard]] std::vector<Network::SessionId> SnapshotOnlineClients() const;
 
         void SendCommandResult(const Network::Session::SPtr& toolSession, const uint32_t requestId,
-                            const EToolResultCode resultCode, const uint32_t affectedCount) const;
+                            const Common::EToolResultCode resultCode, const uint32_t affectedCount) const;
 
         // 클라이언트 한 명에게 "그 클라이언트가 보낸 것처럼" 원본 클라이언트 패킷을 존에
         // 주입한다. 성공(대상이 접속 중이고 그 존과 연결이 살아있음) 여부를 반환한다.

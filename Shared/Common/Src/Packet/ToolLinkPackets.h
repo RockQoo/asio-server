@@ -3,7 +3,7 @@
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Base/RUID.h"
 
-namespace World
+namespace Common
 {
     // 운영툴 링크의 고정 레이아웃 페이로드들. 가변 길이(문자열이 섞인) 패킷은 구조체를 두지
     // 않고 BinaryWriter/BinaryReader로 직접 쓰고 읽으며, 그 와이어 포맷은 이 파일 아래쪽
@@ -27,7 +27,7 @@ namespace World
     {
         uint32_t requestId;
         uint64_t clientSessionId;
-        Common::MailId mailId;
+        MailId mailId;
     };
 
     struct T2WClientList

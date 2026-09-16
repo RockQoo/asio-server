@@ -2,7 +2,7 @@
 
 #include "Shared/Core/Src/Base/BasicTypes.h"
 
-namespace World
+namespace Packet
 {
     // I/O 스레드에서 페이로드 앞부분만 훔쳐봐 "이 메시지의 주인이 누구인가"를 뽑는 헬퍼.
     //

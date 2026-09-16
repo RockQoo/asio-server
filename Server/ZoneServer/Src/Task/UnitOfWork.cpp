@@ -4,7 +4,7 @@
 #include "Game/Player.h"
 #include "Mail/MailTask.h"
 #include "World/WorldLink.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 
 #include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Network/Session.h"
@@ -273,7 +273,7 @@ namespace Zone
 
         // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다
         // (ZoneProcessor::SendToPlayer와 같은 경로).
-        World::RelayEnvelope header{};
+        Common::RelayEnvelope header{};
         header.clientSessionId = clientSessionId_;
         header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CTaskResult);
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Processor/PlayerContext.h"
-#include "Packet/ClientPackets.h"
+#include "Shared/Common/Src/Packet/ClientPackets.h"
 
 namespace Zone
 {
@@ -22,11 +22,11 @@ namespace Zone
         static void Register(PlayerPacketDispatcher& packetDispatcher);
 
     private:
-        static void HandleMailAdd(const PlayerContext& context, const C2ZMailAdd& packet);
-        static void HandleMailDel(const PlayerContext& context, const C2ZMailDel& packet);
+        static void HandleMailAdd(const PlayerContext& context, const Common::C2ZMailAdd& packet);
+        static void HandleMailDel(const PlayerContext& context, const Common::C2ZMailDel& packet);
 
         // 우편 지급 + 골드 차감을 한 트랜잭션으로 처리한다 -- 모델 두 개에 걸친 변경이라
         // 뒤(골드)에서 실패하면 앞(우편)이 역순으로 되돌아가는 걸 실제로 밟는 경로다.
-        static void HandleMailBuy(const PlayerContext& context, const C2ZMailBuy& packet);
+        static void HandleMailBuy(const PlayerContext& context, const Common::C2ZMailBuy& packet);
     };
 }

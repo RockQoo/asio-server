@@ -99,6 +99,13 @@
     <ClInclude Include="Src\PacketId.h" />
     <ClInclude Include="Src\StrongId.h" />
     <ClInclude Include="Src\TaskKind.h" />
+    <ClInclude Include="Src\Packet\RelayEnvelope.h" />
+    <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
+    <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
+    <ClInclude Include="Src\Packet\ToolResultCode.h" />
+    <ClInclude Include="Src\Packet\ZonePackets.h" />
+    <ClInclude Include="Src\Packet\ClientPackets.h" />
+    <ClInclude Include="Src\Packet\WorldPackets.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Common.cpp" />

@@ -4,15 +4,15 @@
 #include "Processor/PlayerMail.h"
 #include "Mail/Model.h"
 #include "Mail/Registry.h"
-#include "Packet/ZonePackets.h"
+#include "Shared/Common/Src/Packet/ZonePackets.h"
 #include "World/WorldLink.h"
 #include "Processor/BroadcastProcessor.h"
 #include "Worker/WorkerManager.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/PacketId.h"
 
@@ -32,10 +32,10 @@ namespace Zone
 
     void PlayerProcessor::Register()
     {
-        RegisterPacketHandler<C2ZMove>(packetDispatcher_, PacketId::C2ZMove,
-            [this](const PlayerContext& context, const C2ZMove& packet) { HandleMove(context, packet); });
-        RegisterPacketHandler<C2ZChat>(packetDispatcher_, PacketId::C2ZChat,
-            [this](const PlayerContext& context, const C2ZChat& packet) { HandleChat(context, packet); });
+        RegisterPacketHandler<Common::C2ZMove>(packetDispatcher_, PacketId::C2ZMove,
+            [this](const PlayerContext& context, const Common::C2ZMove& packet) { HandleMove(context, packet); });
+        RegisterPacketHandler<Common::C2ZChat>(packetDispatcher_, PacketId::C2ZChat,
+            [this](const PlayerContext& context, const Common::C2ZChat& packet) { HandleChat(context, packet); });
 
         // 콘텐츠 패킷은 콘텐츠가 스스로 등록한다 -- 우편 패킷을 하나 늘릴 때 이 파일을 고칠
         // 일이 없어야 콘텐츠마다 파일을 나눈 의미가 있다.
@@ -53,7 +53,7 @@ namespace Zone
             {
                 // 파싱 실패는 버린다. 포맷의 유일한 계약은 World의 Packet/ZoneLinkPackets.h 표이고,
                 // 쓰는 쪽은 Packet/EnterZoneBody.h다.
-                W2ZEnterZone packet;
+                Common::W2ZEnterZone packet;
                 if (!packet.Parse(payload))
                 {
                     LOG.Warning(ELogCategory::Zone, "EnterZone 본문이 잘렸거나 형식이 맞지 않아 버린다")
@@ -66,11 +66,11 @@ namespace Zone
 
         case PacketId::W2ZLeaveZone:
             {
-                if (payload.size() < sizeof(World::W2ZLeaveZone))
+                if (payload.size() < sizeof(Common::W2ZLeaveZone))
                 {
                     return;
                 }
-                World::W2ZLeaveZone leave{};
+                Common::W2ZLeaveZone leave{};
                 std::memcpy(&leave, payload.data(), sizeof(leave));
                 OnPlayerLeave(leave.clientSessionId);
             }
@@ -88,14 +88,14 @@ namespace Zone
     void PlayerProcessor::HandleForwardToZone(const Network::SessionId clientSessionId,
                                               const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(World::RelayEnvelope))
+        if (payload.size() < sizeof(Common::RelayEnvelope))
         {
             return;
         }
 
-        World::RelayEnvelope header{};
-        std::memcpy(&header, payload.data(), sizeof(World::RelayEnvelope));
-        const auto innerPayload = payload.subspan(sizeof(World::RelayEnvelope));
+        Common::RelayEnvelope header{};
+        std::memcpy(&header, payload.data(), sizeof(Common::RelayEnvelope));
+        const auto innerPayload = payload.subspan(sizeof(Common::RelayEnvelope));
 
         const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
         if (innerPacketId == PacketId::C2ZEcho)
@@ -107,7 +107,7 @@ namespace Zone
         HandleClientPacket(clientSessionId, innerPacketId, innerPayload);
     }
 
-    void PlayerProcessor::ReplyEcho(const World::RelayEnvelope& header,
+    void PlayerProcessor::ReplyEcho(const Common::RelayEnvelope& header,
                                     const std::span<const byte> innerPayload) const
     {
         const auto worldSession = worldLink_.Get();
@@ -118,7 +118,7 @@ namespace Zone
 
         // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
         // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
-        World::RelayEnvelope replyHeader = header;
+        Common::RelayEnvelope replyHeader = header;
         replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
 
         Packet::BinaryWriter binaryWriter;
@@ -126,7 +126,7 @@ namespace Zone
         binaryWriter.WriteBytes(innerPayload);
         worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
-    void PlayerProcessor::OnPlayerEnter(W2ZEnterZone packet)
+    void PlayerProcessor::OnPlayerEnter(Common::W2ZEnterZone packet)
     {
         const auto clientSessionId = packet.head.clientSessionId;
         const auto zoneId = packet.head.zoneId;
@@ -213,7 +213,7 @@ namespace Zone
         packetDispatcher_.Dispatch(packetId, context, payload);
     }
 
-    void PlayerProcessor::HandleMove(const PlayerContext& context, const C2ZMove& packet)
+    void PlayerProcessor::HandleMove(const PlayerContext& context, const Common::C2ZMove& packet)
     {
         // ① 검증. 지금은 형식 검사뿐이고(디스패치 앞에서 끝난다), 속도 클램프·어뷰즈 검사·
         //    사망/이동금지 상태 확인이 붙을 자리가 여기다 -- 직전 위치를 읽어야 하는데 그게
@@ -230,7 +230,7 @@ namespace Zone
         BroadcastToZone(context.zoneId, PacketId::Z2CMoveNotify, binaryWriter.GetBuffer());
     }
 
-    void PlayerProcessor::HandleChat(const PlayerContext& context, const C2ZChat& packet)
+    void PlayerProcessor::HandleChat(const PlayerContext& context, const Common::C2ZChat& packet)
     {
         Packet::BinaryWriter binaryWriter;
         binaryWriter.Write(static_cast<uint32_t>(context.player.GetSessionId()));
@@ -248,7 +248,7 @@ namespace Zone
             return;
         }
 
-        World::RelayEnvelope header{};
+        Common::RelayEnvelope header{};
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 

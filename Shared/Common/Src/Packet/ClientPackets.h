@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Packet/ZonePackets.h"
+#include "Shared/Common/Src/Packet/ZonePackets.h"
 
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Common/Src/ContentLimit.h"
 #include "Shared/Common/Src/Ids.h"
 
-namespace Zone
+namespace Common
 {
     // 클라이언트가 보내는 요청 하나 = 여기 구조체 하나. 이름은 패킷 id 그대로 쓴다
     // (.claude/rules/packet-naming.md).
@@ -51,7 +51,7 @@ namespace Zone
             // 없고, 그대로 통과시키면 Z2CChatNotify가 프레임 상한을 넘어 **그 링크에 붙은 전원의
             // 연결이 끊긴다**(Protocol/ContentLimit.h 주석). 정상 클라이언트는 입력창에서 이미
             // 자르므로, 넘겨 보냈다면 조작이다.
-            return message.size() <= Common::kMaxChatBytes;
+            return message.size() <= kMaxChatBytes;
         }
     };
 
@@ -74,19 +74,19 @@ namespace Zone
 
     struct C2ZMailDel
     {
-        Common::MailId mailId;
+        MailId mailId;
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
         {
             // MailId는 int64 하나를 감싼 값이라 와이어에서도 8바이트 그대로다
             // (Shared/Common/Src/StrongId.h).
-            Common::MailId::ValueType value{};
+            MailId::ValueType value{};
             if (payload.size() < sizeof(value))
             {
                 return false;
             }
             std::memcpy(&value, payload.data(), sizeof(value));
-            mailId = Common::MailId{value};
+            mailId = MailId{value};
             return true;
         }
     };

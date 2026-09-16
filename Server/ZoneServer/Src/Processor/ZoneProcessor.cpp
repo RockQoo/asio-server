@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "Processor/ZoneProcessor.h"
-#include "Packet/ZonePackets.h"
+#include "Shared/Common/Src/Packet/ZonePackets.h"
 #include "World/WorldLink.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
@@ -62,7 +62,7 @@ namespace Zone
         //   1) 순회 중 members_에서 지우면 반복자가 깨진다.
         //   2) 핸드오프 요청은 소켓 전송(= asio post)을 일으키는데, 그때 MoveModel 락을 쥐고
         //      있으면 안 된다(cpp-patterns의 "락을 쥔 채 post 금지").
-        std::vector<std::pair<Network::SessionId, Position>> crossed;
+        std::vector<std::pair<Network::SessionId, Common::Position>> crossed;
 
         for (const auto& [clientSessionId, player] : members_)
         {
@@ -80,7 +80,7 @@ namespace Zone
                 // 아직 위치를 확정하지 않는다 -- 대상 존을 찾지 못해 World가 되돌려 보낼 수도
                 // 있으므로, 확정은 새 존의 EnterZoneRequest가 도착할 때 Teleport로 한다.
                 move->CancelRequest();
-                crossed.emplace_back(clientSessionId, Position{requestedX, requestedY});
+                crossed.emplace_back(clientSessionId, Common::Position{requestedX, requestedY});
                 continue;
             }
 
@@ -111,12 +111,12 @@ namespace Zone
             return;
         }
 
-        Z2CEnterZoneNotify notify{};
+        Common::Z2CEnterZoneNotify notify{};
         notify.playerId = playerId;
         notify.clientSessionId = clientSessionId;
         notify.zoneId = def_.zoneId;
 
-        World::RelayEnvelope header{};
+        Common::RelayEnvelope header{};
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEnterZoneNotify);
 
@@ -135,7 +135,7 @@ namespace Zone
             return;
         }
 
-        World::Z2WZoneTransfer transfer{};
+        Common::Z2WZoneTransfer transfer{};
         transfer.zoneId = def_.zoneId;  // 보내는 쪽(현재) 존 -- World 쪽 로그용, 라우팅은 좌표로 결정됨
         transfer.clientSessionId = clientSessionId;
         transfer.playerId = playerId;

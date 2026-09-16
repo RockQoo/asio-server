@@ -1,6 +1,6 @@
 #pragma once
 
-namespace World
+namespace Common
 {
     // W2TCommandResult::resultCode 값. 운영툴은 내부 도구라서(공격자에게 노출되는
     // 클라이언트 API가 아니다) 실패 원인을 구체적으로 알려주는 편이 운영에 유리하다 --

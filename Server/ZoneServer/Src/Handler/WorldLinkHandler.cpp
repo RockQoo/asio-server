@@ -2,8 +2,8 @@
 #include "Handler/WorldLinkHandler.h"
 #include "Processor/PlayerProcessor.h"
 #include "World/WorldLink.h"
-#include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
-#include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
+#include "Shared/Core/Src/Packet/OwnerIdPeek.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Common/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
@@ -28,7 +28,7 @@ namespace Zone
         // 쓴다(프로세스 하나가 존 여러 개를 동시에 호스팅할 수 있으므로).
         for (const auto& def : zoneDefs_)
         {
-            World::Z2WZoneRegister registerPacket{};
+            Common::Z2WZoneRegister registerPacket{};
             registerPacket.zoneId = def.zoneId;
             registerPacket.xMin = def.xMin;
             registerPacket.xMax = def.xMax;
@@ -50,15 +50,15 @@ namespace Zone
         {
         case PacketId::W2ZEnterZone:
             // W2ZEnterZone.clientSessionId -- zoneId(uint32) 뒤라 offset 4.
-            return World::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
+            return Packet::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
 
         case PacketId::W2ZLeaveZone:
             // W2ZLeaveZone.clientSessionId (offset 0)
-            return World::PeekOwnerId<Network::SessionId>(payload);
+            return Packet::PeekOwnerId<Network::SessionId>(payload);
 
         case PacketId::W2ZRelay:
             // RelayEnvelope.clientSessionId (offset 0)
-            return World::PeekOwnerId<Network::SessionId>(payload);
+            return Packet::PeekOwnerId<Network::SessionId>(payload);
 
         default:
             return std::nullopt;

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace World
+namespace Common
 {
 #pragma pack(push, 1)
     // Gateway<->World, World<->Zone 두 홉 모두에서 재사용하는 "이 패킷이 어느 클라이언트

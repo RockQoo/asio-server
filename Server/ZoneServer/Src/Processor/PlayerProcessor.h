@@ -4,9 +4,9 @@
 #include "Game/Player.h"
 #include "Game/PlayerRegistry.h"
 #include "Processor/PlayerContext.h"
-#include "Packet/ClientPackets.h"
-#include "Packet/WorldPackets.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/ClientPackets.h"
+#include "Shared/Common/Src/Packet/WorldPackets.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/PacketId.h"
 
 namespace Zone
@@ -56,7 +56,7 @@ namespace Zone
         //
         // 입장 패킷의 콘텐츠(mails/currencies)는 World가 DB에서 읽어 캐시해둔 시작 상태이고,
         // 존이 DB를 직접 읽지 않는 이유는 ZoneLinkPackets.h의 표 주석 참고.
-        void OnPlayerEnter(W2ZEnterZone packet);
+        void OnPlayerEnter(Common::W2ZEnterZone packet);
         void OnPlayerLeave(const Network::SessionId clientSessionId);
 
         // 콘텐츠 패킷 진입점. 어느 존인지는 Player가 들고 있으므로 봉투가 알려줄 필요가 없다.
@@ -65,14 +65,14 @@ namespace Zone
 
         // 릴레이 봉투를 벗긴다. Echo는 공유 상태가 필요 없어 여기서 바로 돌려보낸다.
         void HandleForwardToZone(const Network::SessionId clientSessionId, const std::span<const byte> payload);
-        void ReplyEcho(const World::RelayEnvelope& header, const std::span<const byte> innerPayload) const;
+        void ReplyEcho(const Common::RelayEnvelope& header, const std::span<const byte> innerPayload) const;
         // 자기 패킷은 여기서, 콘텐츠 패킷은 각 콘텐츠의 Register가 등록한다.
         void Register();
 
         // HandleClientPacket이 이미 Player를 찾아 넘겨주므로 여기서 다시 "이 사람이 존재하는가"를
         // 확인할 필요가 없고, 페이로드도 이미 해석돼 들어온다(RegisterPacketHandler 주석 참고).
-        void HandleMove(const PlayerContext& context, const C2ZMove& packet);
-        void HandleChat(const PlayerContext& context, const C2ZChat& packet);
+        void HandleMove(const PlayerContext& context, const Common::C2ZMove& packet);
+        void HandleChat(const PlayerContext& context, const Common::C2ZChat& packet);
 
         void SendToPlayer(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                           const std::span<const byte> payload) const;

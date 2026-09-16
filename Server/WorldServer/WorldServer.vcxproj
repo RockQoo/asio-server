@@ -119,10 +119,6 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />
     <ClInclude Include="Src\Packet\EnterZoneBody.h" />
-    <ClInclude Include="Src\Packet\RelayEnvelope.h" />
-    <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
-    <ClInclude Include="Src\Packet\ToolResultCode.h" />
-    <ClInclude Include="Src\Packet\ToolLinkPackets.h" />
     <ClInclude Include="Src\Processor\DbProcessor.h" />
     <ClInclude Include="Src\Processor\LoginProcessor.h" />
     <ClInclude Include="Src\Processor\MainProcessor.h" />
@@ -133,7 +129,6 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Test\TestKeys.h" />
     <ClInclude Include="Src\World\PlayerManager.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
-    <ClInclude Include="Src\Packet\OwnerIdPeek.h" />
     <ClInclude Include="Src\Worker\ProcessorId.h" />
     <ClInclude Include="Src\Db\DbCommand.h" />
     <ClInclude Include="Src\Db\DbConnection.h" />

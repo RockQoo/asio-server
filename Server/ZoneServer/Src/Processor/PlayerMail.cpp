@@ -37,12 +37,12 @@ namespace Zone
 
     void PlayerMail::Register(PlayerPacketDispatcher& packetDispatcher)
     {
-        RegisterPacketHandler<C2ZMailAdd>(packetDispatcher, PacketId::C2ZMailAdd, &PlayerMail::HandleMailAdd);
-        RegisterPacketHandler<C2ZMailDel>(packetDispatcher, PacketId::C2ZMailDel, &PlayerMail::HandleMailDel);
-        RegisterPacketHandler<C2ZMailBuy>(packetDispatcher, PacketId::C2ZMailBuy, &PlayerMail::HandleMailBuy);
+        RegisterPacketHandler<Common::C2ZMailAdd>(packetDispatcher, PacketId::C2ZMailAdd, &PlayerMail::HandleMailAdd);
+        RegisterPacketHandler<Common::C2ZMailDel>(packetDispatcher, PacketId::C2ZMailDel, &PlayerMail::HandleMailDel);
+        RegisterPacketHandler<Common::C2ZMailBuy>(packetDispatcher, PacketId::C2ZMailBuy, &PlayerMail::HandleMailBuy);
     }
 
-    void PlayerMail::HandleMailAdd(const PlayerContext& context, const C2ZMailAdd& packet)
+    void PlayerMail::HandleMailAdd(const PlayerContext& context, const Common::C2ZMailAdd& packet)
     {
         // 스코프를 벗어나는 순간 소멸자가 결말을 낸다 -- 성공이면 World와 클라이언트로 전송,
         // 실패면 역순 롤백. 별도의 커밋 호출이 없다.
@@ -70,7 +70,7 @@ namespace Zone
         }
     }
 
-    void PlayerMail::HandleMailDel(const PlayerContext& context, const C2ZMailDel& packet)
+    void PlayerMail::HandleMailDel(const PlayerContext& context, const Common::C2ZMailDel& packet)
     {
         UnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailDel);
 
@@ -89,7 +89,7 @@ namespace Zone
         }
     }
 
-    void PlayerMail::HandleMailBuy(const PlayerContext& context, const C2ZMailBuy& packet)
+    void PlayerMail::HandleMailBuy(const PlayerContext& context, const Common::C2ZMailBuy& packet)
     {
         UnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailBuy);
 

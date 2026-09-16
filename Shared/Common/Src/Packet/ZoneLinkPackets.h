@@ -2,14 +2,14 @@
 
 #include "Shared/Common/Src/Ids.h"
 
-namespace World
+namespace Common
 {
 #pragma pack(push, 1)
     // 존이 자기 담당 사각형을 알려온다. World는 이 사각형만으로 라우팅하므로 존 배치 규칙
     // (격자든 CSV든)을 알 필요가 없다 -- 배치를 바꿔도 World 코드는 그대로다.
     struct Z2WZoneRegister
     {
-        Common::ZoneId zoneId;
+        ZoneId zoneId;
         float xMin;
         float xMax;
         float yMin;
@@ -18,15 +18,15 @@ namespace World
 
     // 플레이어 한 명을 이 존에 들여보낸다. **이건 고정 머리뿐이고** 뒤에 그 사람의 콘텐츠가
     // 가변 길이로 붙는다(포맷 표는 이 파일 아래쪽). 신규 입장과 핸드오프가 같은 패킷이다.
-    struct W2ZEnterZone
+    struct W2ZEnterZoneHead
     {
         // **목표 존.** 한 Zone 프로세스가 존 여러 개를 호스팅하므로 어디로 들어갈지 명시한다.
-        Common::ZoneId zoneId;
+        ZoneId zoneId;
         uint64_t clientSessionId;
 
         // 로그인이 확정한 DB의 player_id(RUID). **clientSessionId 파생값이 아니다** --
         // 예전에는 uint32였고 세션 id를 잘라 넣고 있어서 재접속할 때마다 값이 바뀌었다.
-        Common::PlayerId playerId;
+        PlayerId playerId;
 
         float x;
         float y;
@@ -37,9 +37,9 @@ namespace World
     // 실제 라우팅 대상은 x/y로 정해진다. 그래서 구조체를 따로 둔다(ToEnterZone이 그 경계다).
     struct Z2WZoneTransfer
     {
-        Common::ZoneId zoneId;  // 보내는 쪽(현재) 존
+        ZoneId zoneId;  // 보내는 쪽(현재) 존
         uint64_t clientSessionId;
-        Common::PlayerId playerId;
+        PlayerId playerId;
         float x;
         float y;
     };
@@ -53,10 +53,10 @@ namespace World
     // 핸드오프 요청을 입장 요청으로 바꾼다. **zoneId의 뜻이 "보낸 존"에서 "목표 존"으로
     // 뒤집히는 지점**이라, 목표를 인자로 받아 반드시 덮어쓰게 했다 -- 같은 레이아웃이라고
     // 그냥 재해석하면 존이 자기가 보낸 zoneId로 되돌아오는 버그가 조용히 생긴다.
-    [[nodiscard]] inline W2ZEnterZone ToEnterZone(const Z2WZoneTransfer& transfer,
-                                                  const Common::ZoneId targetZoneId) noexcept
+    [[nodiscard]] inline W2ZEnterZoneHead ToEnterZoneHead(const Z2WZoneTransfer& transfer,
+                                                          const ZoneId targetZoneId) noexcept
     {
-        return W2ZEnterZone{targetZoneId, transfer.clientSessionId, transfer.playerId,
+        return W2ZEnterZoneHead{targetZoneId, transfer.clientSessionId, transfer.playerId,
                             transfer.x, transfer.y};
     }
 

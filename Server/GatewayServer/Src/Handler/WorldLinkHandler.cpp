@@ -4,7 +4,7 @@
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Network/SessionManager.h"
-#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 
 namespace Gateway
 {
@@ -44,13 +44,13 @@ namespace Gateway
     void WorldLinkHandler::HandleToClient(const Network::Session::SPtr& /*worldSession*/,
                                            const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(World::RelayEnvelope))
+        if (payload.size() < sizeof(Common::RelayEnvelope))
         {
             return;
         }
 
-        World::RelayEnvelope envelopeHeader{};
-        std::memcpy(&envelopeHeader, payload.data(), sizeof(World::RelayEnvelope));
+        Common::RelayEnvelope envelopeHeader{};
+        std::memcpy(&envelopeHeader, payload.data(), sizeof(Common::RelayEnvelope));
 
         const auto clientSession = sessionManager_.Find(envelopeHeader.clientSessionId);
         if (!clientSession)
@@ -58,7 +58,7 @@ namespace Gateway
             return;
         }
 
-        const auto innerPayload = payload.subspan(sizeof(World::RelayEnvelope));
+        const auto innerPayload = payload.subspan(sizeof(Common::RelayEnvelope));
         clientSession->SendPacket(envelopeHeader.innerPacketId, innerPayload);
     }
 }

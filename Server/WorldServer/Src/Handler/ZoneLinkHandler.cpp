@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "Handler/ZoneLinkHandler.h"
 
-#include "Packet/OwnerIdPeek.h"
-#include "Packet/ZoneLinkPackets.h"
+#include "Shared/Core/Src/Packet/OwnerIdPeek.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Processor/MainProcessor.h"
 
 #include "Shared/Core/Src/Base/RUID.h"
@@ -22,21 +22,21 @@ namespace World
         {
         case PacketId::Z2WZoneRegister:
             // Z2WZoneRegister.zoneId (offset 0)
-            return PeekOwnerId<uint32_t>(payload);
+            return Packet::PeekOwnerId<uint32_t>(payload);
 
         case PacketId::Z2WRelay:
             // RelayEnvelope.clientSessionId (offset 0)
-            return PeekOwnerId<Network::SessionId>(payload);
+            return Packet::PeekOwnerId<Network::SessionId>(payload);
 
         case PacketId::Z2WZoneTransfer:
             // Z2WZoneTransfer.clientSessionId -- zoneId(uint32) 뒤라 offset 4다.
             // 구조체가 #pragma pack(1)이라 패딩이 없다는 것에 기대고 있다.
-            return PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
+            return Packet::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
 
         case PacketId::Z2WUnitOfWorkStream:
             // Task::UnitOfWork::Serialize가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
             // 그 앞에 Zone이 붙인 playerId(int64) + requestId(int64)가 있어 offset 16이다.
-            return PeekOwnerId<uint64_t>(payload, sizeof(Common::PlayerId) + sizeof(Base::RUID));
+            return Packet::PeekOwnerId<uint64_t>(payload, sizeof(Common::PlayerId) + sizeof(Base::RUID));
 
         default:
             return std::nullopt;

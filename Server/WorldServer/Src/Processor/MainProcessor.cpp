@@ -3,7 +3,7 @@
 
 #include "Db/AutoSpCommands.h"
 #include "Packet/EnterZoneBody.h"
-#include "Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Processor/LoginProcessor.h"
 #include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/TaskKind.h"
@@ -184,7 +184,7 @@ namespace World
             return;
         }
 
-        W2ZLeaveZone leave{};
+        Common::W2ZLeaveZone leave{};
         leave.clientSessionId = clientSessionId;
         zoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
                                           std::as_bytes(std::span(&leave, 1)));
@@ -195,13 +195,13 @@ namespace World
     void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySession,
                                          const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(RelayEnvelope))
+        if (payload.size() < sizeof(Common::RelayEnvelope))
         {
             return;
         }
 
-        RelayEnvelope envelopeHeader{};
-        std::memcpy(&envelopeHeader, payload.data(), sizeof(RelayEnvelope));
+        Common::RelayEnvelope envelopeHeader{};
+        std::memcpy(&envelopeHeader, payload.data(), sizeof(Common::RelayEnvelope));
 
         const auto innerPacketId = static_cast<PacketId>(envelopeHeader.innerPacketId);
 
@@ -210,7 +210,7 @@ namespace World
         if (Common::DirectionOf(innerPacketId) == Common::EPacketDirection::C2W)
         {
             loginProcessor_.HandleClientPacket(gatewaySession, envelopeHeader.clientSessionId, innerPacketId,
-                                               payload.subspan(sizeof(RelayEnvelope)));
+                                               payload.subspan(sizeof(Common::RelayEnvelope)));
             return;
         }
 
@@ -244,13 +244,13 @@ namespace World
     void MainProcessor::HandleZoneRegister(const Network::Session::SPtr& zoneSession,
                                            const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(Z2WZoneRegister))
+        if (payload.size() < sizeof(Common::Z2WZoneRegister))
         {
             return;
         }
 
-        Z2WZoneRegister registerPacket{};
-        std::memcpy(&registerPacket, payload.data(), sizeof(Z2WZoneRegister));
+        Common::Z2WZoneRegister registerPacket{};
+        std::memcpy(&registerPacket, payload.data(), sizeof(Common::Z2WZoneRegister));
 
         zoneLinkRegistry_.Write()->Add(registerPacket.zoneId, zoneSession,
                                        registerPacket.xMin, registerPacket.xMax,
@@ -266,13 +266,13 @@ namespace World
                                              const std::span<const byte> payload)
     {
         // 헤더의 clientSessionId만 들여다보고 나머지는 그대로 Gateway로 재전송한다.
-        if (payload.size() < sizeof(RelayEnvelope))
+        if (payload.size() < sizeof(Common::RelayEnvelope))
         {
             return;
         }
 
-        RelayEnvelope envelopeHeader{};
-        std::memcpy(&envelopeHeader, payload.data(), sizeof(RelayEnvelope));
+        Common::RelayEnvelope envelopeHeader{};
+        std::memcpy(&envelopeHeader, payload.data(), sizeof(Common::RelayEnvelope));
 
         const auto client = playerManager_->Find(envelopeHeader.clientSessionId);
         if (!client || !client->gatewaySession)
@@ -286,13 +286,13 @@ namespace World
     void MainProcessor::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSession*/,
                                            const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(Z2WZoneTransfer))
+        if (payload.size() < sizeof(Common::Z2WZoneTransfer))
         {
             return;
         }
 
-        Z2WZoneTransfer transfer{};
-        std::memcpy(&transfer, payload.data(), sizeof(Z2WZoneTransfer));
+        Common::Z2WZoneTransfer transfer{};
+        std::memcpy(&transfer, payload.data(), sizeof(Common::Z2WZoneTransfer));
 
         const auto targetZoneId = zoneLinkRegistry_->FindZoneContaining(transfer.x, transfer.y);
         if (!targetZoneId)
@@ -323,7 +323,7 @@ namespace World
         const auto sourceZoneLink = zoneLinkRegistry_->Find(transfer.zoneId);
         if (sourceZoneLink && sourceZoneLink->zoneSession != targetZoneLink->zoneSession)
         {
-            W2ZLeaveZone leaveZoneNotifyPacket{};
+            Common::W2ZLeaveZone leaveZoneNotifyPacket{};
             leaveZoneNotifyPacket.clientSessionId = transfer.clientSessionId;
             sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
                                                     std::as_bytes(std::span(&leaveZoneNotifyPacket, 1)));
@@ -332,7 +332,7 @@ namespace World
         playerManager_.Write()->SetZone(transfer.clientSessionId, *targetZoneId);
 
         // 여기서 zoneId의 뜻이 "보낸 존"에서 "목표 존"으로 바뀜다 -- 타입도 같이 바뀜다.
-        const W2ZEnterZone enterZone = ToEnterZone(transfer, *targetZoneId);
+        const Common::W2ZEnterZoneHead enterZone = Common::ToEnterZoneHead(transfer, *targetZoneId);
 
         // **캐시의 콘텐츠를 다시 실어 보낸다.** 이게 없으면 전입한 존이 빈 우편함·빈 지갑으로
         // 시작해서, 존 경계를 넘을 때마다 그 사람의 우편이 사라진다.
@@ -348,7 +348,7 @@ namespace World
             .KV("X", enterZone.x).KV("Y", enterZone.y);
     }
 
-    std::vector<byte> MainProcessor::EnterZoneBodyFor(const W2ZEnterZone& enterZone) const
+    std::vector<byte> MainProcessor::EnterZoneBodyFor(const Common::W2ZEnterZoneHead& enterZone) const
     {
         const auto info = playerManager_->Find(enterZone.clientSessionId);
         if (!info)
@@ -363,7 +363,7 @@ namespace World
         return BuildEnterZoneBody(enterZone, info->mails, info->currencies);
     }
 
-    void MainProcessor::ReturnToSourceZone(Z2WZoneTransfer transfer) const
+    void MainProcessor::ReturnToSourceZone(Common::Z2WZoneTransfer transfer) const
     {
         // transfer.zoneId는 핸드오프를 요청한(= 보낸) 존이다. 되돌리는 것이라 목표도 같다.
         const auto sourceZoneLink = zoneLinkRegistry_->Find(transfer.zoneId);
@@ -383,7 +383,7 @@ namespace World
         transfer.x = std::clamp(transfer.x, sourceZoneLink->xMin, sourceZoneLink->xMax - Epsilon);
         transfer.y = std::clamp(transfer.y, sourceZoneLink->yMin, sourceZoneLink->yMax - Epsilon);
 
-        const W2ZEnterZone enterZone = ToEnterZone(transfer, transfer.zoneId);
+        const Common::W2ZEnterZoneHead enterZone = Common::ToEnterZoneHead(transfer, transfer.zoneId);
 
         playerManager_.Write()->SetZone(enterZone.clientSessionId, enterZone.zoneId);
         sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(enterZone));
@@ -501,7 +501,7 @@ namespace World
         basicGroup_.Post(EProcessorId::Main,
             [this, clientPacketId, payloadCopy = std::move(payloadCopy)]
             {
-                RelayEnvelope header{};
+                Common::RelayEnvelope header{};
                 header.innerPacketId = static_cast<uint16_t>(clientPacketId);
 
                 size_t sentCount = 0;

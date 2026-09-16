@@ -1,12 +1,11 @@
 #pragma once
 
-#include "Currency/Model.h"
-#include "Mail/Model.h"
-
-#include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
+#include "Shared/Common/Src/CurrencyInfo.h"
+#include "Shared/Common/Src/MailInfo.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 
-namespace Zone
+namespace Common
 {
     // World가 존에게 보내는 요청 중 **가변 길이 본문**을 가진 것. 고정 레이아웃만 있는 것은
     // World쪽 ZoneLinkPackets.h의 구조체를 그대로 memcpy하면 되므로 여기 둘 필요가 없다.
@@ -27,20 +26,20 @@ namespace Zone
     // World의 Packet/ZoneLinkPackets.h에 있는 표다.
     struct W2ZEnterZone
     {
-        World::W2ZEnterZone head{};
+        W2ZEnterZoneHead head{};
 
-        std::vector<Common::MailInfo> mails;
-        std::vector<Common::CurrencyInfo> currencies;
+        std::vector<MailInfo> mails;
+        std::vector<CurrencyInfo> currencies;
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
         {
-            if (payload.size() < sizeof(World::W2ZEnterZone))
+            if (payload.size() < sizeof(W2ZEnterZoneHead))
             {
                 return false;
             }
-            std::memcpy(&head, payload.data(), sizeof(World::W2ZEnterZone));
+            std::memcpy(&head, payload.data(), sizeof(W2ZEnterZoneHead));
 
-            Packet::BinaryReader binaryReader(payload.subspan(sizeof(World::W2ZEnterZone)));
+            Packet::BinaryReader binaryReader(payload.subspan(sizeof(W2ZEnterZoneHead)));
 
             uint16_t mailCount{};
             if (!binaryReader.Read(mailCount))
@@ -51,7 +50,7 @@ namespace Zone
             mails.reserve(mailCount);
             for (uint16_t i = 0; i < mailCount; ++i)
             {
-                Common::MailInfo info{};
+                MailInfo info{};
                 if (!binaryReader.Read(info.mailId) || !binaryReader.ReadString(info.title)
                     || !binaryReader.ReadString(info.body) || !binaryReader.Read(info.sendUt)
                     || !binaryReader.Read(info.endUt))
@@ -70,7 +69,7 @@ namespace Zone
             currencies.reserve(currencyCount);
             for (uint16_t i = 0; i < currencyCount; ++i)
             {
-                Common::CurrencyInfo info{};
+                CurrencyInfo info{};
                 if (!binaryReader.Read(info.type) || !binaryReader.Read(info.amount))
                 {
                     return false;

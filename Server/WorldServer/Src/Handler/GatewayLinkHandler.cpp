@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Handler/GatewayLinkHandler.h"
 
-#include "Packet/OwnerIdPeek.h"
+#include "Shared/Core/Src/Packet/OwnerIdPeek.h"
 #include "Processor/MainProcessor.h"
 
 #include "Shared/Core/Src/Network/Session.h"
@@ -30,7 +30,7 @@ namespace World
         // 와이어 포맷 해석은 전부 MainProcessor가 배정된 스레드에서 한다.
         const auto packetId = static_cast<PacketId>(header.id);
 
-        const auto ownerId = PeekOwnerId<Network::SessionId>(payload);
+        const auto ownerId = Packet::PeekOwnerId<Network::SessionId>(payload);
         if (!ownerId)
         {
             LOG.Warning(ELogCategory::Gateway, "ownerId를 읽을 수 없는 패킷, 버림")
