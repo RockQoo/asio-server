@@ -20,5 +20,6 @@ namespace World
 
     private:
         static void HandleQueueTest(Packet::BinaryReader& binaryReader);
+        static void HandleLaneProbe(Packet::BinaryReader& binaryReader);
     };
 }

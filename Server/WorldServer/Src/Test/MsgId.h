@@ -14,6 +14,7 @@ namespace World
     enum class EMsgId : uint16_t
     {
         QueueTest,
+        LaneProbe,  // 같은 주인의 일이 어느 스레드에서 도는지 보는 관측용(F2/F3)
     };
 
     using MsgRouter = Message::Router<EProcessorId, EMsgId>;
