@@ -66,11 +66,11 @@ namespace Zone
 
         case PacketId::W2ZLeaveZone:
             {
-                if (payload.size() < sizeof(World::LeaveZoneNotifyPacket))
+                if (payload.size() < sizeof(World::W2ZLeaveZone))
                 {
                     return;
                 }
-                World::LeaveZoneNotifyPacket leave{};
+                World::W2ZLeaveZone leave{};
                 std::memcpy(&leave, payload.data(), sizeof(leave));
                 OnPlayerLeave(leave.clientSessionId);
             }
@@ -88,14 +88,14 @@ namespace Zone
     void PlayerProcessor::HandleForwardToZone(const Network::SessionId clientSessionId,
                                               const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(World::ClientEnvelopeHeader))
+        if (payload.size() < sizeof(World::RelayEnvelope))
         {
             return;
         }
 
-        World::ClientEnvelopeHeader header{};
-        std::memcpy(&header, payload.data(), sizeof(World::ClientEnvelopeHeader));
-        const auto innerPayload = payload.subspan(sizeof(World::ClientEnvelopeHeader));
+        World::RelayEnvelope header{};
+        std::memcpy(&header, payload.data(), sizeof(World::RelayEnvelope));
+        const auto innerPayload = payload.subspan(sizeof(World::RelayEnvelope));
 
         const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
         if (innerPacketId == PacketId::C2ZEcho)
@@ -107,7 +107,7 @@ namespace Zone
         HandleClientPacket(clientSessionId, innerPacketId, innerPayload);
     }
 
-    void PlayerProcessor::ReplyEcho(const World::ClientEnvelopeHeader& header,
+    void PlayerProcessor::ReplyEcho(const World::RelayEnvelope& header,
                                     const std::span<const byte> innerPayload) const
     {
         const auto worldSession = worldLink_.Get();
@@ -118,7 +118,7 @@ namespace Zone
 
         // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
         // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
-        World::ClientEnvelopeHeader replyHeader = header;
+        World::RelayEnvelope replyHeader = header;
         replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
 
         Packet::BinaryWriter binaryWriter;
@@ -128,8 +128,8 @@ namespace Zone
     }
     void PlayerProcessor::OnPlayerEnter(W2ZEnterZone packet)
     {
-        const auto clientSessionId = packet.state.clientSessionId;
-        const auto zoneId = packet.state.zoneId;
+        const auto clientSessionId = packet.head.clientSessionId;
+        const auto zoneId = packet.head.zoneId;
 
         // 핸드오프로 다시 들어온 경우 이미 이 프로세스에 Player가 있을 수 있다. 그때는 우편함을
         // 새로 만들지 않고 위치만 옮긴다 -- 우편함을 다시 만들면 그 사람의 우편이 사라진다.
@@ -154,17 +154,17 @@ namespace Zone
             }
 
             player->SetZoneId(zoneId);
-            player->Move().Write()->Teleport(packet.state.x, packet.state.y);
+            player->Move().Write()->Teleport(packet.head.x, packet.head.y);
         }
         else
         {
             // 신규 입장이거나 **프로세스를 넘는 핸드오프**(세로 이동)다. 둘 다 이 프로세스에는
             // 그 사람이 없으므로 모델을 새로 만든다 -- **시작 상태는 전부 생성자로 들어간다.**
             // 존은 DB를 직접 읽지 않으므로 이 패킷(=World 캐시)이 유일한 출처다.
-            auto mailBox = mailRegistry_.Add(clientSessionId, packet.state.playerId, std::move(packet.mails));
+            auto mailBox = mailRegistry_.Add(clientSessionId, packet.head.playerId, std::move(packet.mails));
 
-            player = std::make_shared<Player>(clientSessionId, packet.state.playerId, zoneId,
-                                              packet.state.x, packet.state.y,
+            player = std::make_shared<Player>(clientSessionId, packet.head.playerId, zoneId,
+                                              packet.head.x, packet.head.y,
                                               std::move(mailBox), packet.currencies);
             playerRegistry_.Add(player);
         }
@@ -248,7 +248,7 @@ namespace Zone
             return;
         }
 
-        World::ClientEnvelopeHeader header{};
+        World::RelayEnvelope header{};
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 

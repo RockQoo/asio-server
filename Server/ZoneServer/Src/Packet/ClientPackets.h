@@ -22,15 +22,15 @@ namespace Zone
 
     struct C2ZMove
     {
-        MovePacket move{};
+        Position move{};
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
         {
-            if (payload.size() < sizeof(MovePacket))
+            if (payload.size() < sizeof(Position))
             {
                 return false;
             }
-            std::memcpy(&move, payload.data(), sizeof(MovePacket));
+            std::memcpy(&move, payload.data(), sizeof(Position));
             return true;
         }
     };

@@ -76,7 +76,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
   변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 Core가
   콘텐츠를 몰라야 해서 Core/Gateway/World/Zone/Stress가 각자 따로 갖는다(같은 문서 참고).
-- **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `Header`/`MovePacket`/
+- **멤버 변수**: trailing underscore + camelCase(`socket_`). 단 `Header`/`Position`/
   `PlayerState`/`Config` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.

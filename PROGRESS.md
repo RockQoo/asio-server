@@ -136,7 +136,7 @@
   툴 쪽은 Blazor Web App + Minimal API +
   SqlKata/Microsoft.Data.SqlClient 구성.
   - **우편은 새 패킷을 만들지 않는다**: 기존 `PacketId::C2ZMailAdd`/`C2ZMailDel`을
-    `ClientEnvelopeHeader`로 감싸 `W2ZRelay`으로 주입한다. 존 입장에서는 클라이언트가
+    `RelayEnvelope`로 감싸 `W2ZRelay`으로 주입한다. 존 입장에서는 클라이언트가
     직접 보낸 것과 바이트 단위로 구분이 안 되므로, Mail/`UnitOfWork`/DB 레인 경로가 그대로
     재사용된다(운영 전용 우회로를 만들면 "운영툴 우편만 만료가 안 되는" 사고가 난다).
   - **대량 쿠폰 발급**: 캠페인 코드 5자리를 네임스페이스로 써서 중복 검사 범위를 캠페인
@@ -294,7 +294,7 @@
    5. [남음] playerId -> clientSessionId 색인 (중복 로그인, 검사+삽입이 원자적이어야 함)
    6. [완료] 존이 올린 UnitOfWork 를 BASIC 레인에서 캐시에 반영 + playerId 를 주인으로 SP 호출
              [남음] 캐시와 대조해 위조를 걸러내는 단계
-   7. [완료] player_id int64 확대 -- 와이어(PlayerZoneStatePacket / Z2CEnterZoneNotify)까지
+   7. [완료] player_id int64 확대 -- 와이어(W2ZEnterZone / Z2CEnterZoneNotify)까지
              [남음] StressClient 로그인 대응
    ```
 
@@ -313,7 +313,7 @@
    살아 있는 `Player` 를 그대로 옮기므로 보내지 않는다(판정 기준은 zoneId 가 아니라 링크 세션).
 
    **7번이 열렸다**: `player_id` 가 `uint32_t` -> `Common::PlayerId`(int64) 가 되면서 와이어
-   포맷이 바뀌었다(`PlayerZoneStatePacket` / `Z2CEnterZoneNotify`). Zone `Player` -> 프로토콜
+   포맷이 바뀌었다(`W2ZEnterZone` / `Z2CEnterZoneNotify`). Zone `Player` -> 프로토콜
    -> `Client`(C#) / `ProtocolClient` / `StressClient` 를 한 커밋에 같이 고쳤다.
 
    그 과정에서 `Z2CEnterZoneNotify` 에 `clientSessionId` 가 추가됐다. 예전에는 playerId 가

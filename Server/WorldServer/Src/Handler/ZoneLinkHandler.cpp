@@ -21,15 +21,15 @@ namespace World
         switch (packetId)
         {
         case PacketId::Z2WZoneRegister:
-            // ZoneRegisterPacket.zoneId (offset 0)
+            // Z2WZoneRegister.zoneId (offset 0)
             return PeekOwnerId<uint32_t>(payload);
 
         case PacketId::Z2WRelay:
-            // ClientEnvelopeHeader.clientSessionId (offset 0)
+            // RelayEnvelope.clientSessionId (offset 0)
             return PeekOwnerId<Network::SessionId>(payload);
 
         case PacketId::Z2WZoneTransfer:
-            // PlayerZoneStatePacket.clientSessionId -- zoneId(uint32) 뒤라 offset 4다.
+            // Z2WZoneTransfer.clientSessionId -- zoneId(uint32) 뒤라 offset 4다.
             // 구조체가 #pragma pack(1)이라 패딩이 없다는 것에 기대고 있다.
             return PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
 

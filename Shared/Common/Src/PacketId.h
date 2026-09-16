@@ -22,7 +22,7 @@ namespace Common
         // ---- C2Z : 클라이언트 -> Zone (1 ~ 999) ----
         C2ZEcho = 1,     // 상태 확인용. 공유 상태가 없어 Zone의 LB 스레드가 즉시 되돌려준다
         C2ZChat = 2,     // 길이 접두 문자열
-        C2ZMove = 3,     // MovePacket. 담당 TaskWorker에서 처리
+        C2ZMove = 3,     // Position. 담당 TaskWorker에서 처리
         C2ZMailAdd = 4,  // title/body/durationSec, Task::UnitOfWork 경유
         C2ZMailDel = 5,  // mailId, Task::UnitOfWork 경유
         C2ZMailBuy = 6,  // title/body/durationSec/price. 우편 지급 + 골드 차감을 한 트랜잭션으로
@@ -31,7 +31,7 @@ namespace Common
         // ---- Z2C : Zone -> 클라이언트 (1000 ~ 1999) ----
         Z2CEchoAck = 1001,          // C2ZEcho의 응답. 본문은 받은 것 그대로
         Z2CChatNotify = 1002,       // sessionId + 메시지. 존 내부 브로드캐스트
-        Z2CMoveNotify = 1003,       // sessionId + MovePacket. 존 내부 브로드캐스트
+        Z2CMoveNotify = 1003,       // sessionId + Position. 존 내부 브로드캐스트
         Z2CEnterZoneNotify = 1004,  // 존 배정(신규 입장 또는 핸드오프 전입) 통지
         // 1005/1006(MailAddAck/MailDelAck)은 Z2CTaskResult로 통합되어 폐기됨 -- 번호는 재사용하지 않는다
         Z2CTaskResult = 1007,       // errorCode(4) + requestPacketId(2) + UnitOfWork 태스크 스트림.
@@ -53,19 +53,19 @@ namespace Common
         // ---- G2W : Gateway -> World (4000 ~ 4999) ----
         G2WClientConnected = 4001,     // 클라이언트 accept 직후. payload = clientSessionId(8바이트)
         G2WClientDisconnected = 4002,  // 클라이언트 접속 종료. payload = clientSessionId(8바이트)
-        G2WRelay = 4003,               // ClientEnvelopeHeader + 클라이언트 원본 패킷 그대로
+        G2WRelay = 4003,               // RelayEnvelope + 클라이언트 원본 패킷 그대로
 
         // ---- W2G : World -> Gateway (5000 ~ 5999) ----
-        W2GRelay = 5001,  // ClientEnvelopeHeader + 클라이언트에게 보낼 원본 패킷 그대로
+        W2GRelay = 5001,  // RelayEnvelope + 클라이언트에게 보낼 원본 패킷 그대로
 
         // ---- W2Z : World -> Zone (6000 ~ 6999) ----
         W2ZEnterZone = 6001,  // 플레이어를 이 존에 입장(신규 배정 또는 핸드오프 전입)시킴
         W2ZLeaveZone = 6002,   // 접속 종료로 이 존에서 플레이어를 제거하라는 지시
-        W2ZRelay = 6003,             // ClientEnvelopeHeader + 클라이언트 원본 패킷 그대로
+        W2ZRelay = 6003,             // RelayEnvelope + 클라이언트 원본 패킷 그대로
 
         // ---- Z2W : Zone -> World (7000 ~ 7999) ----
         Z2WZoneRegister = 7001,         // Zone 접속 직후, 이 Zone이 담당하는 x구간을 알림
-        Z2WRelay = 7002,                // ClientEnvelopeHeader + 클라이언트에게 보낼 원본 패킷 그대로
+        Z2WRelay = 7002,                // RelayEnvelope + 클라이언트에게 보낼 원본 패킷 그대로
         Z2WZoneTransfer = 7003,  // 존 경계를 넘는 이동. Zone이 로컬 상태를 먼저 지우고 요청한다
         Z2WUnitOfWorkStream = 7004,     // Mail 등 변경 이벤트 묶음(Task::UnitOfWork가 직렬화)
 
@@ -110,7 +110,7 @@ namespace Common
         }
     }
 
-    // ClientEnvelopeHeader::innerPacketId 검증용. 중계 서버(Gateway/World)는 봉투 안을
+    // RelayEnvelope::innerPacketId 검증용. 중계 서버(Gateway/World)는 봉투 안을
     // 해석하지 않지만, "클라이언트가 주고받는 패킷이 들어 있다"는 것만은 값 하나로 확인할 수
     // 있다 -- 겉봉투 방향(예: Z2WRelay)과 안쪽 내용물 방향(예: Z2CMoveNotify)은 별개라
     // 안쪽에 서버 내부 링크 id가 실리면 조작이거나 버그다.

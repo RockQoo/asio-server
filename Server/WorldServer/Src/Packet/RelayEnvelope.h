@@ -10,7 +10,7 @@ namespace World
     // World)는 innerPacketId/바디의 내용을 해석할 필요가 없다 -- clientSessionId만 보고
     // 어디로 그대로 전달할지만 결정하면 된다(그래서 대부분의 중계 코드는 페이로드를 그대로
     // 재전송한다).
-    struct ClientEnvelopeHeader
+    struct RelayEnvelope
     {
         uint64_t clientSessionId;
         uint16_t innerPacketId;

@@ -70,12 +70,12 @@ namespace World
 
         // W2ZEnterZone 본문을 캐시의 콘텐츠와 함께 만든다(포맷: Packet/ZoneLinkPackets.h).
         // 핸드오프와 되돌림이 같은 바이트를 보내야 존 쪽 파서가 하나로 끝난다.
-        [[nodiscard]] std::vector<byte> EnterZoneBodyFor(const PlayerZoneStatePacket& state) const;
+        [[nodiscard]] std::vector<byte> EnterZoneBodyFor(const W2ZEnterZone& enterZone) const;
 
         // 이동 대상 존을 못 찾았을 때 플레이어를 원래 존으로 되돌린다. 보낸 존이 이미 자기
         // 상태에서 지운 뒤라, 되돌리지 않으면 그 플레이어는 어느 존에도 없는 상태가 된다.
         // state를 값으로 받는 이유: 좌표를 원래 존 안쪽으로 보정해서 그대로 다시 보낸다.
-        void ReturnToSourceZone(PlayerZoneStatePacket state) const;
+        void ReturnToSourceZone(Z2WZoneTransfer transfer) const;
 
         PlayerManager::Mutexed& playerManager_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;

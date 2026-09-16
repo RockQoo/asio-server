@@ -139,7 +139,7 @@ namespace World
     void ToolProcessor::SendCommandResult(const Network::Session::SPtr& toolSession, const uint32_t requestId,
                                        const EToolResultCode resultCode, const uint32_t affectedCount) const
     {
-        ToolCommandResultPacket ack{};
+        W2TCommandResult ack{};
         ack.requestId = requestId;
         ack.resultCode = static_cast<uint16_t>(resultCode);
         ack.affectedCount = affectedCount;
@@ -165,7 +165,7 @@ namespace World
         // MainProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
         // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
         // 왔는지 구분할 수 없고, 구분할 필요도 없다.
-        ClientEnvelopeHeader envelopeHeader{};
+        RelayEnvelope envelopeHeader{};
         envelopeHeader.clientSessionId = clientSessionId;
         envelopeHeader.innerPacketId = static_cast<uint16_t>(innerPacketId);
 
@@ -211,7 +211,7 @@ namespace World
                 .KV("VersionOk", versionOk).KV("SecretOk", secretOk);
         }
 
-        ToolHelloResultPacket ack{};
+        W2THelloResult ack{};
         ack.requestId = requestId;
         ack.accepted = accepted ? uint8_t{1} : uint8_t{0};
         ack.protocolVersion = kToolLinkProtocolVersion;
@@ -252,7 +252,7 @@ namespace World
                     return;
                 }
 
-                ClientEnvelopeHeader envelopeHeader{};
+                RelayEnvelope envelopeHeader{};
                 envelopeHeader.clientSessionId = clientSessionId;
                 envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
 
@@ -349,14 +349,14 @@ namespace World
     void ToolProcessor::HandleMailDelete(const Network::Session::SPtr& toolSession,
                                                  const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(ToolMailDeletePacket))
+        if (payload.size() < sizeof(T2WMailDelete))
         {
             SendCommandResult(toolSession, 0, EToolResultCode::BadRequest, 0);
             return;
         }
 
-        ToolMailDeletePacket request{};
-        std::memcpy(&request, payload.data(), sizeof(ToolMailDeletePacket));
+        T2WMailDelete request{};
+        std::memcpy(&request, payload.data(), sizeof(T2WMailDelete));
 
         if (!playerManager_->Find(request.clientSessionId))
         {
@@ -435,19 +435,19 @@ namespace World
     void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
                                                  const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(ToolClientListPacket))
+        if (payload.size() < sizeof(T2WClientList))
         {
             SendCommandResult(toolSession, 0, EToolResultCode::BadRequest, 0);
             return;
         }
 
-        ToolClientListPacket request{};
-        std::memcpy(&request, payload.data(), sizeof(ToolClientListPacket));
+        T2WClientList request{};
+        std::memcpy(&request, payload.data(), sizeof(T2WClientList));
 
         // 읽기 락 한 번으로 모은다. 샤딩이던 시절에는 샤드 스레드들이 공유 버퍼에 밀어 넣고
         // 마지막 스레드가 취합했는데, 그 취합 버퍼를 지키려고 여기에만 Mutexed가 하나 더
         // 있었다 -- 매니저 자체가 Mutexed가 되면서 둘 다 없어졌다.
-        std::vector<ToolClientEntry> collected;
+        std::vector<W2TClientListEntry> collected;
         uint32_t totalCount = 0;
 
         playerManager_->ForEach(
@@ -462,7 +462,7 @@ namespace World
                     return;
                 }
 
-                ToolClientEntry entry{};
+                W2TClientListEntry entry{};
                 entry.clientSessionId = clientSessionId;
                 // 운영툴은 C# 라 StrongId 를 모른다 -- 이 링크가 Value() 를 쓰는 경계다.
                 entry.zoneId = info.zoneId.Value();

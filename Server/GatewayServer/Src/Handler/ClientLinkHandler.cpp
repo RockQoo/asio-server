@@ -46,7 +46,7 @@ namespace Gateway
             return;
         }
 
-        World::ClientEnvelopeHeader envelopeHeader{};
+        World::RelayEnvelope envelopeHeader{};
         envelopeHeader.clientSessionId = session->Id();
         envelopeHeader.innerPacketId = header.id;
 

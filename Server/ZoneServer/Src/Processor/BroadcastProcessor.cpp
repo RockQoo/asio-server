@@ -30,7 +30,7 @@ namespace Zone
 
                 for (const auto clientSessionId : targets)
                 {
-                    World::ClientEnvelopeHeader header{};
+                    World::RelayEnvelope header{};
                     header.clientSessionId = clientSessionId;
                     header.innerPacketId = static_cast<uint16_t>(innerPacketId);
 

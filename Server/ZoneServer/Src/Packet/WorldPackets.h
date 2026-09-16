@@ -27,20 +27,20 @@ namespace Zone
     // World의 Packet/ZoneLinkPackets.h에 있는 표다.
     struct W2ZEnterZone
     {
-        World::PlayerZoneStatePacket state{};
+        World::W2ZEnterZone head{};
 
         std::vector<Common::MailInfo> mails;
         std::vector<Common::CurrencyInfo> currencies;
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
         {
-            if (payload.size() < sizeof(World::PlayerZoneStatePacket))
+            if (payload.size() < sizeof(World::W2ZEnterZone))
             {
                 return false;
             }
-            std::memcpy(&state, payload.data(), sizeof(World::PlayerZoneStatePacket));
+            std::memcpy(&head, payload.data(), sizeof(World::W2ZEnterZone));
 
-            Packet::BinaryReader binaryReader(payload.subspan(sizeof(World::PlayerZoneStatePacket)));
+            Packet::BinaryReader binaryReader(payload.subspan(sizeof(World::W2ZEnterZone)));
 
             uint16_t mailCount{};
             if (!binaryReader.Read(mailCount))

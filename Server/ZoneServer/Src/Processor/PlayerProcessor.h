@@ -65,7 +65,7 @@ namespace Zone
 
         // 릴레이 봉투를 벗긴다. Echo는 공유 상태가 필요 없어 여기서 바로 돌려보낸다.
         void HandleForwardToZone(const Network::SessionId clientSessionId, const std::span<const byte> payload);
-        void ReplyEcho(const World::ClientEnvelopeHeader& header, const std::span<const byte> innerPayload) const;
+        void ReplyEcho(const World::RelayEnvelope& header, const std::span<const byte> innerPayload) const;
         // 자기 패킷은 여기서, 콘텐츠 패킷은 각 콘텐츠의 Register가 등록한다.
         void Register();
 

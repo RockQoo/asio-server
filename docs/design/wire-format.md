@@ -77,7 +77,7 @@ requestId(uint32) + String(campaignCode) + chunkSeq(uint32) + couponCount(uint32
 
 ### ClientListReply (W2T)
 ```
-requestId(uint32) + count(uint32) + count개의 ToolClientEntry
+requestId(uint32) + count(uint32) + count개의 W2TClientListEntry
 ```
 `count`는 `MaxBodySize`에 맞춰 잘라서 보낸다(상한 `kMaxClientListEntries`).
 

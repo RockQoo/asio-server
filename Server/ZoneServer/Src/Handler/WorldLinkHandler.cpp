@@ -28,7 +28,7 @@ namespace Zone
         // 쓴다(프로세스 하나가 존 여러 개를 동시에 호스팅할 수 있으므로).
         for (const auto& def : zoneDefs_)
         {
-            World::ZoneRegisterPacket registerPacket{};
+            World::Z2WZoneRegister registerPacket{};
             registerPacket.zoneId = def.zoneId;
             registerPacket.xMin = def.xMin;
             registerPacket.xMax = def.xMax;
@@ -49,15 +49,15 @@ namespace Zone
         switch (packetId)
         {
         case PacketId::W2ZEnterZone:
-            // PlayerZoneStatePacket.clientSessionId -- zoneId(uint32) 뒤라 offset 4.
+            // W2ZEnterZone.clientSessionId -- zoneId(uint32) 뒤라 offset 4.
             return World::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
 
         case PacketId::W2ZLeaveZone:
-            // LeaveZoneNotifyPacket.clientSessionId (offset 0)
+            // W2ZLeaveZone.clientSessionId (offset 0)
             return World::PeekOwnerId<Network::SessionId>(payload);
 
         case PacketId::W2ZRelay:
-            // ClientEnvelopeHeader.clientSessionId (offset 0)
+            // RelayEnvelope.clientSessionId (offset 0)
             return World::PeekOwnerId<Network::SessionId>(payload);
 
         default:

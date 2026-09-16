@@ -62,7 +62,7 @@ namespace Zone
         //   1) 순회 중 members_에서 지우면 반복자가 깨진다.
         //   2) 핸드오프 요청은 소켓 전송(= asio post)을 일으키는데, 그때 MoveModel 락을 쥐고
         //      있으면 안 된다(cpp-patterns의 "락을 쥔 채 post 금지").
-        std::vector<std::pair<Network::SessionId, MovePacket>> crossed;
+        std::vector<std::pair<Network::SessionId, Position>> crossed;
 
         for (const auto& [clientSessionId, player] : members_)
         {
@@ -80,7 +80,7 @@ namespace Zone
                 // 아직 위치를 확정하지 않는다 -- 대상 존을 찾지 못해 World가 되돌려 보낼 수도
                 // 있으므로, 확정은 새 존의 EnterZoneRequest가 도착할 때 Teleport로 한다.
                 move->CancelRequest();
-                crossed.emplace_back(clientSessionId, MovePacket{requestedX, requestedY});
+                crossed.emplace_back(clientSessionId, Position{requestedX, requestedY});
                 continue;
             }
 
@@ -111,12 +111,12 @@ namespace Zone
             return;
         }
 
-        EnterZoneNotifyPacket notify{};
+        Z2CEnterZoneNotify notify{};
         notify.playerId = playerId;
         notify.clientSessionId = clientSessionId;
         notify.zoneId = def_.zoneId;
 
-        World::ClientEnvelopeHeader header{};
+        World::RelayEnvelope header{};
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEnterZoneNotify);
 
@@ -135,14 +135,14 @@ namespace Zone
             return;
         }
 
-        World::PlayerZoneStatePacket state{};
-        state.zoneId = def_.zoneId;  // 보내는 쪽(현재) 존 -- World 쪽 로그용, 라우팅은 좌표로 결정됨
-        state.clientSessionId = clientSessionId;
-        state.playerId = playerId;
-        state.x = x;
-        state.y = y;
+        World::Z2WZoneTransfer transfer{};
+        transfer.zoneId = def_.zoneId;  // 보내는 쪽(현재) 존 -- World 쪽 로그용, 라우팅은 좌표로 결정됨
+        transfer.clientSessionId = clientSessionId;
+        transfer.playerId = playerId;
+        transfer.x = x;
+        transfer.y = y;
         worldSession->SendPacket(PacketId::Z2WZoneTransfer,
-                                 std::as_bytes(std::span(&state, 1)));
+                                 std::as_bytes(std::span(&transfer, 1)));
 
         LOG.Info(ELogCategory::Zone, "존 경계 넘음, World에 핸드오프 요청")
             .KV("Zone", def_.zoneId).KV("ClientSessionId", clientSessionId).KV("X", x).KV("Y", y);

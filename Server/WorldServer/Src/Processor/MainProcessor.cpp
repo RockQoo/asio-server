@@ -184,7 +184,7 @@ namespace World
             return;
         }
 
-        LeaveZoneNotifyPacket leave{};
+        W2ZLeaveZone leave{};
         leave.clientSessionId = clientSessionId;
         zoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
                                           std::as_bytes(std::span(&leave, 1)));
@@ -195,13 +195,13 @@ namespace World
     void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySession,
                                          const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(ClientEnvelopeHeader))
+        if (payload.size() < sizeof(RelayEnvelope))
         {
             return;
         }
 
-        ClientEnvelopeHeader envelopeHeader{};
-        std::memcpy(&envelopeHeader, payload.data(), sizeof(ClientEnvelopeHeader));
+        RelayEnvelope envelopeHeader{};
+        std::memcpy(&envelopeHeader, payload.data(), sizeof(RelayEnvelope));
 
         const auto innerPacketId = static_cast<PacketId>(envelopeHeader.innerPacketId);
 
@@ -210,7 +210,7 @@ namespace World
         if (Common::DirectionOf(innerPacketId) == Common::EPacketDirection::C2W)
         {
             loginProcessor_.HandleClientPacket(gatewaySession, envelopeHeader.clientSessionId, innerPacketId,
-                                               payload.subspan(sizeof(ClientEnvelopeHeader)));
+                                               payload.subspan(sizeof(RelayEnvelope)));
             return;
         }
 
@@ -244,13 +244,13 @@ namespace World
     void MainProcessor::HandleZoneRegister(const Network::Session::SPtr& zoneSession,
                                            const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(ZoneRegisterPacket))
+        if (payload.size() < sizeof(Z2WZoneRegister))
         {
             return;
         }
 
-        ZoneRegisterPacket registerPacket{};
-        std::memcpy(&registerPacket, payload.data(), sizeof(ZoneRegisterPacket));
+        Z2WZoneRegister registerPacket{};
+        std::memcpy(&registerPacket, payload.data(), sizeof(Z2WZoneRegister));
 
         zoneLinkRegistry_.Write()->Add(registerPacket.zoneId, zoneSession,
                                        registerPacket.xMin, registerPacket.xMax,
@@ -266,13 +266,13 @@ namespace World
                                              const std::span<const byte> payload)
     {
         // 헤더의 clientSessionId만 들여다보고 나머지는 그대로 Gateway로 재전송한다.
-        if (payload.size() < sizeof(ClientEnvelopeHeader))
+        if (payload.size() < sizeof(RelayEnvelope))
         {
             return;
         }
 
-        ClientEnvelopeHeader envelopeHeader{};
-        std::memcpy(&envelopeHeader, payload.data(), sizeof(ClientEnvelopeHeader));
+        RelayEnvelope envelopeHeader{};
+        std::memcpy(&envelopeHeader, payload.data(), sizeof(RelayEnvelope));
 
         const auto client = playerManager_->Find(envelopeHeader.clientSessionId);
         if (!client || !client->gatewaySession)
@@ -286,22 +286,22 @@ namespace World
     void MainProcessor::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSession*/,
                                            const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(PlayerZoneStatePacket))
+        if (payload.size() < sizeof(Z2WZoneTransfer))
         {
             return;
         }
 
-        PlayerZoneStatePacket state{};
-        std::memcpy(&state, payload.data(), sizeof(PlayerZoneStatePacket));
+        Z2WZoneTransfer transfer{};
+        std::memcpy(&transfer, payload.data(), sizeof(Z2WZoneTransfer));
 
-        const auto targetZoneId = zoneLinkRegistry_->FindZoneContaining(state.x, state.y);
+        const auto targetZoneId = zoneLinkRegistry_->FindZoneContaining(transfer.x, transfer.y);
         if (!targetZoneId)
         {
             // 어느 존도 담당하지 않는 좌표다(존 격자에 구멍이 있거나, 그 행을 담당하는 Zone
             // 프로세스가 안 떠 있는 경우). 보낸 존은 이미 자기 상태에서 플레이어를 지웠으므로
             // 여기서 그냥 return하면 그 플레이어는 **아무 존에도 없는 상태로 사라진다**.
             // 그래서 이동을 취소하고 원래 존 안쪽으로 되돌려 넣는다.
-            ReturnToSourceZone(state);
+            ReturnToSourceZone(transfer);
             return;
         }
 
@@ -320,17 +320,19 @@ namespace World
         // 살아 있는 Player를 그대로 옮기는데, 여기서 퇴장을 보내면 우편함째 지워버린다.
         // 판정 기준은 zoneId가 아니라 **링크 세션**이다 -- 한 Zone 프로세스가 존 여러 개를
         // 호스팅하므로 존이 다르다고 프로세스가 다른 게 아니다.
-        const auto sourceZoneLink = zoneLinkRegistry_->Find(state.zoneId);
+        const auto sourceZoneLink = zoneLinkRegistry_->Find(transfer.zoneId);
         if (sourceZoneLink && sourceZoneLink->zoneSession != targetZoneLink->zoneSession)
         {
-            LeaveZoneNotifyPacket leaveZoneNotifyPacket{};
-            leaveZoneNotifyPacket.clientSessionId = state.clientSessionId;
+            W2ZLeaveZone leaveZoneNotifyPacket{};
+            leaveZoneNotifyPacket.clientSessionId = transfer.clientSessionId;
             sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
                                                     std::as_bytes(std::span(&leaveZoneNotifyPacket, 1)));
         }
 
-        playerManager_.Write()->SetZone(state.clientSessionId, *targetZoneId);
-        state.zoneId = *targetZoneId;  // 목표 존으로 덮어써서 그대로 W2ZEnterZone에 재사용
+        playerManager_.Write()->SetZone(transfer.clientSessionId, *targetZoneId);
+
+        // 여기서 zoneId의 뜻이 "보낸 존"에서 "목표 존"으로 바뀜다 -- 타입도 같이 바뀜다.
+        const W2ZEnterZone enterZone = ToEnterZone(transfer, *targetZoneId);
 
         // **캐시의 콘텐츠를 다시 실어 보낸다.** 이게 없으면 전입한 존이 빈 우편함·빈 지갑으로
         // 시작해서, 존 경계를 넘을 때마다 그 사람의 우편이 사라진다.
@@ -339,54 +341,56 @@ namespace World
         // 오는 데서 나온다. 존이 "우편 추가" 스트림을 보낸 뒤 핸드오프를 요청하면, 같은 TCP
         // 링크라 도착 순서가 유지되고 같은 strand에서 순서대로 처리되므로 여기서 읽는 캐시에
         // 그 우편이 이미 들어 있다.
-        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(state));
+        targetZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(enterZone));
 
         LOG.Info(ELogCategory::Zone, "존 핸드오프(라우팅 테이블만 교체, 클라이언트 재접속 없음)")
-            .KV("ClientSessionId", state.clientSessionId).KV("ToZoneId", *targetZoneId)
-            .KV("X", state.x).KV("Y", state.y);
+            .KV("ClientSessionId", enterZone.clientSessionId).KV("ToZoneId", *targetZoneId)
+            .KV("X", enterZone.x).KV("Y", enterZone.y);
     }
 
-    std::vector<byte> MainProcessor::EnterZoneBodyFor(const PlayerZoneStatePacket& state) const
+    std::vector<byte> MainProcessor::EnterZoneBodyFor(const W2ZEnterZone& enterZone) const
     {
-        const auto info = playerManager_->Find(state.clientSessionId);
+        const auto info = playerManager_->Find(enterZone.clientSessionId);
         if (!info)
         {
             // 캐시가 없다 = 그 사이 접속이 끊겼다. 존이 빈 모델로 시작하지만 곧 퇴장 통지가
             // 뒤따르므로, 여기서 끊는 것보다 형식을 맞춰 보내는 편이 존 쪽 분기가 단순하다.
             LOG.Warning(ELogCategory::Zone, "핸드오프 대상의 캐시가 없다")
-                .KV("ClientSessionId", state.clientSessionId);
-            return BuildEnterZoneBody(state, {}, {});
+                .KV("ClientSessionId", enterZone.clientSessionId);
+            return BuildEnterZoneBody(enterZone, {}, {});
         }
 
-        return BuildEnterZoneBody(state, info->mails, info->currencies);
+        return BuildEnterZoneBody(enterZone, info->mails, info->currencies);
     }
 
-    void MainProcessor::ReturnToSourceZone(PlayerZoneStatePacket state) const
+    void MainProcessor::ReturnToSourceZone(Z2WZoneTransfer transfer) const
     {
-        // state.zoneId는 핸드오프를 요청한(= 보낸) 존이다.
-        const auto sourceZoneLink = zoneLinkRegistry_->Find(state.zoneId);
+        // transfer.zoneId는 핸드오프를 요청한(= 보낸) 존이다. 되돌리는 것이라 목표도 같다.
+        const auto sourceZoneLink = zoneLinkRegistry_->Find(transfer.zoneId);
         if (!sourceZoneLink)
         {
             // 보낸 존까지 끊긴 상황이라 되돌릴 곳이 없다. 클라이언트는 연결은 유지되지만 어느
             // 존에도 없는 상태가 되므로, 원인을 남겨 둔다.
             LOG.Warning(ELogCategory::Zone, "이동 대상 존도 원래 존도 없어 플레이어를 되돌릴 수 없음")
-                .KV("ClientSessionId", state.clientSessionId)
-                .KV("FromZoneId", state.zoneId).KV("X", state.x).KV("Y", state.y);
+                .KV("ClientSessionId", transfer.clientSessionId)
+                .KV("FromZoneId", transfer.zoneId).KV("X", transfer.x).KV("Y", transfer.y);
             return;
         }
 
         // 원래 존 사각형 안쪽으로 최소한만 밀어 넣는다. xMax/yMax는 배타적 경계라 그대로 쓰면
         // 다시 "구간 밖"으로 판정되므로 살짝 안쪽을 쓴다.
         constexpr float Epsilon = 0.001f;
-        state.x = std::clamp(state.x, sourceZoneLink->xMin, sourceZoneLink->xMax - Epsilon);
-        state.y = std::clamp(state.y, sourceZoneLink->yMin, sourceZoneLink->yMax - Epsilon);
+        transfer.x = std::clamp(transfer.x, sourceZoneLink->xMin, sourceZoneLink->xMax - Epsilon);
+        transfer.y = std::clamp(transfer.y, sourceZoneLink->yMin, sourceZoneLink->yMax - Epsilon);
 
-        playerManager_.Write()->SetZone(state.clientSessionId, state.zoneId);
-        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(state));
+        const W2ZEnterZone enterZone = ToEnterZone(transfer, transfer.zoneId);
+
+        playerManager_.Write()->SetZone(enterZone.clientSessionId, enterZone.zoneId);
+        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(enterZone));
 
         LOG.Warning(ELogCategory::Zone, "이동 대상 존이 없어 원래 존으로 되돌림(월드 경계 밖)")
-            .KV("ClientSessionId", state.clientSessionId).KV("ZoneId", state.zoneId)
-            .KV("X", state.x).KV("Y", state.y);
+            .KV("ClientSessionId", enterZone.clientSessionId).KV("ZoneId", enterZone.zoneId)
+            .KV("X", enterZone.x).KV("Y", enterZone.y);
     }
 
     void MainProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zoneSession*/,
@@ -497,7 +501,7 @@ namespace World
         basicGroup_.Post(EProcessorId::Main,
             [this, clientPacketId, payloadCopy = std::move(payloadCopy)]
             {
-                ClientEnvelopeHeader header{};
+                RelayEnvelope header{};
                 header.innerPacketId = static_cast<uint16_t>(clientPacketId);
 
                 size_t sentCount = 0;

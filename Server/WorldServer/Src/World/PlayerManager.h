@@ -22,7 +22,7 @@ namespace World
         // ---- 계정 ----
         // 로그인으로 확정된 DB의 player_id(RUID). 인증 전에는 0이다.
         //
-        // **존으로 나가는 PlayerZoneStatePacket::playerId 와 같은 값이다.** 예전에는 그쪽이
+        // **존으로 나가는 W2ZEnterZone::playerId 와 같은 값이다.** 예전에는 그쪽이
         // uint32 라 clientSessionId 를 잘라 넣고 있었고, 재접속할 때마다 값이 바뀌었다.
         Common::PlayerId playerId{};
         std::string playerName;

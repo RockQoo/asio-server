@@ -62,7 +62,7 @@
 </table>
 
 <div class="callout">
-    <h4>봉투(ClientEnvelopeHeader)가 하는 일</h4>
+    <h4>봉투(RelayEnvelope)가 하는 일</h4>
     Zone은 클라이언트와 직접 연결되지 않는다. 그래서 "누구에게 보내는 것인가"를
     <code>clientSessionId</code>로 적어 World까지 들려 보내고, Gateway가 그걸 보고
     실제 소켓을 고른다. 덕분에 <b>Zone은 소켓을 하나도 모른다</b>.

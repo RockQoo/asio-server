@@ -9,34 +9,34 @@ namespace World
     // 않고 BinaryWriter/BinaryReader로 직접 쓰고 읽으며, 그 와이어 포맷은 이 파일 아래쪽
     // 주석에 모아 적어둔다(ZoneLinkPackets.h의 UnitOfWorkStream과 같은 방식).
 #pragma pack(push, 1)
-    struct ToolHelloResultPacket
+    struct W2THelloResult
     {
         uint32_t requestId;
         uint8_t accepted;          // 0 = 거부(시크릿 불일치 또는 프로토콜 버전 불일치)
         uint32_t protocolVersion;  // World가 지원하는 버전 -- 툴이 자기 버전과 비교해 로그를 남긴다
     };
 
-    struct ToolCommandResultPacket
+    struct W2TCommandResult
     {
         uint32_t requestId;
         uint16_t resultCode;     // EToolResultCode
         uint32_t affectedCount;  // 실제로 처리된 대상 수(전체 우편/공지에서 몇 명에게 나갔는지)
     };
 
-    struct ToolMailDeletePacket
+    struct T2WMailDelete
     {
         uint32_t requestId;
         uint64_t clientSessionId;
         Common::MailId mailId;
     };
 
-    struct ToolClientListPacket
+    struct T2WClientList
     {
         uint32_t requestId;
     };
 
     // ClientListReply 본문에 반복되는 항목
-    struct ToolClientEntry
+    struct W2TClientListEntry
     {
         uint64_t clientSessionId;
         uint32_t zoneId;

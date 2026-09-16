@@ -8,13 +8,13 @@ namespace Zone
     // Chat은 의도적으로 고정 구조체가 없다 -- 크기가 가변적이라서 BinaryWriter::WriteString /
     // BinaryReader::ReadString으로 길이 접두 문자열을 직접 쓰고 읽는다.
 #pragma pack(push, 1)
-    struct MovePacket
+    struct Position
     {
         float x;
         float y;
     };
 
-    struct EnterZoneNotifyPacket
+    struct Z2CEnterZoneNotify
     {
         // 로그인이 확정한 DB의 player_id(RUID). **재접속해도 같다.**
         Common::PlayerId playerId;

@@ -7,7 +7,7 @@ namespace World
 #pragma pack(push, 1)
     // 존이 자기 담당 사각형을 알려온다. World는 이 사각형만으로 라우팅하므로 존 배치 규칙
     // (격자든 CSV든)을 알 필요가 없다 -- 배치를 바꿔도 World 코드는 그대로다.
-    struct ZoneRegisterPacket
+    struct Z2WZoneRegister
     {
         Common::ZoneId zoneId;
         float xMin;
@@ -16,13 +16,11 @@ namespace World
         float yMax;
     };
 
-    // W2ZEnterZone과 Z2WZoneTransfer가 공유하는 **고정 머리** -- 둘 다 "이 플레이어가 이
-    // 좌표에서 이 존에 있어야 한다"는 같은 정보를 담기 때문에 구조체를 나누지 않았다.
-    // zoneId 의미: W2ZEnterZone에서는 "목표 존"(그 존 서버 프로세스가 여러 존을 호스팅할 수
-    // 있으므로 어느 zoneId로 들어가야 하는지 명시 필요), Z2WZoneTransfer에서는 "보내는 쪽
-    // (현재) 존"(World 쪽 로그용 -- 실제 라우팅 대상은 x로 결정된다).
-    struct PlayerZoneStatePacket
+    // 플레이어 한 명을 이 존에 들여보낸다. **이건 고정 머리뿐이고** 뒤에 그 사람의 콘텐츠가
+    // 가변 길이로 붙는다(포맷 표는 이 파일 아래쪽). 신규 입장과 핸드오프가 같은 패킷이다.
+    struct W2ZEnterZone
     {
+        // **목표 존.** 한 Zone 프로세스가 존 여러 개를 호스팅하므로 어디로 들어갈지 명시한다.
         Common::ZoneId zoneId;
         uint64_t clientSessionId;
 
@@ -34,15 +32,37 @@ namespace World
         float y;
     };
 
-    struct LeaveZoneNotifyPacket
+    // 존이 "이 플레이어가 내 사각형을 벗어났다"고 올린다. **레이아웃은 W2ZEnterZone과 같지만
+    // zoneId의 뜻이 반대다** -- 목표 존이 아니라 보내는 쪽(현재) 존이고, World 로그용일 뿐
+    // 실제 라우팅 대상은 x/y로 정해진다. 그래서 구조체를 따로 둔다(ToEnterZone이 그 경계다).
+    struct Z2WZoneTransfer
+    {
+        Common::ZoneId zoneId;  // 보내는 쪽(현재) 존
+        uint64_t clientSessionId;
+        Common::PlayerId playerId;
+        float x;
+        float y;
+    };
+
+    struct W2ZLeaveZone
     {
         uint64_t clientSessionId;
     };
 #pragma pack(pop)
 
+    // 핸드오프 요청을 입장 요청으로 바꾼다. **zoneId의 뜻이 "보낸 존"에서 "목표 존"으로
+    // 뒤집히는 지점**이라, 목표를 인자로 받아 반드시 덮어쓰게 했다 -- 같은 레이아웃이라고
+    // 그냥 재해석하면 존이 자기가 보낸 zoneId로 되돌아오는 버그가 조용히 생긴다.
+    [[nodiscard]] inline W2ZEnterZone ToEnterZone(const Z2WZoneTransfer& transfer,
+                                                  const Common::ZoneId targetZoneId) noexcept
+    {
+        return W2ZEnterZone{targetZoneId, transfer.clientSessionId, transfer.playerId,
+                            transfer.x, transfer.y};
+    }
+
     // ---- W2ZEnterZone 의 가변 길이 꼬리 ----
     //
-    // 고정 머리(PlayerZoneStatePacket) 뒤에 **World 가 캐시하고 있는 그 플레이어의 콘텐츠**가
+    // 고정 머리(W2ZEnterZone) 뒤에 **World 가 캐시하고 있는 그 플레이어의 콘텐츠**가
     // 이어진다. 존은 이걸 받아 Mail/Currency 모델을 채운 상태로 Player 를 만든다.
     //
     //   uint16  mailCount

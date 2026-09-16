@@ -12,7 +12,7 @@ namespace Common
     // Zone<->World)는 재연결이 없어서 그대로 끝난다. 즉 **한 사람의 긴 채팅 한 줄이 그 링크에
     // 붙은 전원을 끊을 수 있다** -- 실제로 재현해서 확인했다.
     //
-    // 클라이언트 패킷은 홉을 지날 때마다 릴레이 봉투(World::ClientEnvelopeHeader, 10바이트)에
+    // 클라이언트 패킷은 홉을 지날 때마다 릴레이 봉투(World::RelayEnvelope, 10바이트)에
     // 한 번 더 감싸이므로, 콘텐츠가 쓸 수 있는 실질 예산은 8192보다 그만큼 작다.
     inline constexpr size_t kRelayEnvelopeBytes = 10;
 

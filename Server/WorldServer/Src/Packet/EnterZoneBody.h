@@ -23,13 +23,13 @@ namespace World
     // 잘리는 편이 덜 이상하고, 잘린 우편도 DB 와 World 캐시에는 그대로 남아 있다 -- 존이 그
     // 화면에 못 보여줄 뿐이다. 근본 해결(페이징)은 범위 밖이라 잘린 사실을 로그로 남긴다.
     [[nodiscard]] inline std::vector<byte> BuildEnterZoneBody(
-        const PlayerZoneStatePacket& state,
+        const W2ZEnterZone& enterZone,
         const std::unordered_map<Common::MailId, Common::MailInfo>& mails,
         const std::unordered_map<Common::ECurrencyType, int64_t>& currencies)
     {
         // 재화는 종류 수가 고정이라 먼저 자리를 잡아두고, 남는 예산을 우편에 준다.
         const size_t currencyBytes = sizeof(uint16_t) + currencies.size() * (sizeof(Common::ECurrencyType) + sizeof(int64_t));
-        const size_t fixedBytes = sizeof(PlayerZoneStatePacket) + sizeof(uint16_t) + currencyBytes;
+        const size_t fixedBytes = sizeof(W2ZEnterZone) + sizeof(uint16_t) + currencyBytes;
 
         // 예산이 음수가 되지 않게 가드한다 -- 재화 종류가 폭발하면 우편을 0통 싣는다.
         const size_t maxBodyBytes = Packet::Header::MaxBodySize();
@@ -65,12 +65,12 @@ namespace World
         if (selected.size() < mails.size())
         {
             LOG.Warning(ELogCategory::Zone, "EnterZone 본문이 상한을 넘어 오래된 우편을 잘라낸다")
-                .KV("ClientSessionId", state.clientSessionId)
+                .KV("ClientSessionId", enterZone.clientSessionId)
                 .KV("Total", mails.size()).KV("Sent", selected.size());
         }
 
         Packet::BinaryWriter binaryWriter;
-        binaryWriter.Write(state);
+        binaryWriter.Write(enterZone);
 
         binaryWriter.Write(static_cast<uint16_t>(selected.size()));
         for (const auto* const info : selected)

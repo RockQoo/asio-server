@@ -140,7 +140,7 @@ namespace Stress
         // 1번의 y 구간은 [10,20)인데 y=0으로 움직여 3번 존으로 핸드오프됐다). 핸드오프는
         // 프로세스를 넘고 우편함이 존 로컬이라, 그 순간 mailId가 1부터 다시 시작해
         // "불일치"로 잡힌다 -- 서버 버그가 아니라 이 도구가 자기 존을 몰라서 생긴 오탐이었다.
-        Zone::EnterZoneNotifyPacket notify{};
+        Zone::Z2CEnterZoneNotify notify{};
         if (payload.size() >= sizeof(notify))
         {
             std::memcpy(&notify, payload.data(), sizeof(notify));
@@ -334,7 +334,7 @@ namespace Stress
             const auto yMin = static_cast<float>(kZoneRows - row) * kZoneSize - kZoneSize;
 
             // 경계에 붙지 않도록 1~9 사이에서만 흔든다(xMax/yMax는 배타적 경계다).
-            Zone::MovePacket move{};
+            Zone::Position move{};
             move.x = xMin + 1.0f + static_cast<float>(index_ % 8);
             move.y = yMin + 1.0f + static_cast<float>((index_ / 8) % 8);
             session_->SendPacket(PacketId::C2ZMove, std::as_bytes(std::span(&move, 1)));

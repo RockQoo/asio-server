@@ -318,18 +318,18 @@ namespace World
             return;
         }
 
-        PlayerZoneStatePacket enterState{};
-        enterState.zoneId = entry->zoneId;
-        enterState.clientSessionId = clientSessionId;
+        W2ZEnterZone enterZone{};
+        enterZone.zoneId = entry->zoneId;
+        enterZone.clientSessionId = clientSessionId;
         // **로그인이 확정한 값을 그대로 싣는다.** 예전에는 clientSessionId 를 uint32 로 잘라
         // 넣고 있어서, 존과 클라이언트가 보는 playerId 가 재접속할 때마다 바뀌었다.
-        enterState.playerId = Common::PlayerId{playerId};
-        enterState.x = entry->x;
-        enterState.y = entry->y;
+        enterZone.playerId = Common::PlayerId{playerId};
+        enterZone.x = entry->x;
+        enterZone.y = entry->y;
 
         // **캐시에 넣기 전에 보낼 바이트를 먼저 만든다** -- 아래에서 맵을 move로 넘겨버리므로,
         // 순서를 바꾸면 빈 맵을 실어 보내게 된다.
-        const auto enterBody = BuildEnterZoneBody(enterState, mails, currencies);
+        const auto enterBody = BuildEnterZoneBody(enterZone, mails, currencies);
 
         // 캐시를 채우고 인증을 확정한다. 쓰기 락을 두 번 잡지 않도록 한 번에 묶는다.
         {
@@ -355,7 +355,7 @@ namespace World
                                      const Network::SessionId clientSessionId, const EErrorCode errorCode,
                                      const Base::RUID playerId, const std::string_view playerName) const
     {
-        ClientEnvelopeHeader header{};
+        RelayEnvelope header{};
         header.clientSessionId = clientSessionId;
         header.innerPacketId = static_cast<uint16_t>(PacketId::W2CLogin);
 

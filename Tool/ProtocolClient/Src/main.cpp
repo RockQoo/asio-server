@@ -178,7 +178,7 @@ namespace
                 {
                 case PacketId::Z2CEnterZoneNotify:
                     {
-                        Zone::EnterZoneNotifyPacket notify{};
+                        Zone::Z2CEnterZoneNotify notify{};
                         if (payload.size() >= sizeof(notify))
                         {
                             std::memcpy(&notify, payload.data(), sizeof(notify));
@@ -201,11 +201,11 @@ namespace
                         // 요청(C2ZMove)과 달리 브로드캐스트에는 sessionId가 앞에 붙는다.
                         Packet::BinaryReader binaryReader(payload);
                         uint32_t moverId{};
-                        Zone::MovePacket move{};
-                        if (binaryReader.Read(moverId) && binaryReader.Read(move))
+                        Zone::Position position{};
+                        if (binaryReader.Read(moverId) && binaryReader.Read(position))
                         {
                             std::cout << "[recv] MoveNotify from " << moverId
-                                      << " x=" << move.x << " y=" << move.y << '\n';
+                                      << " x=" << position.x << " y=" << position.y << '\n';
                         }
                     }
                     break;
@@ -364,10 +364,10 @@ int main(const int argc, char** argv)
             }
             else if (command == "move")
             {
-                Zone::MovePacket move{};
-                iss >> move.x >> move.y;
+                Zone::Position position{};
+                iss >> position.x >> position.y;
                 SendPacket(socket, PacketId::C2ZMove,
-                           std::as_bytes(std::span(&move, 1)));
+                           std::as_bytes(std::span(&position, 1)));
             }
             else if (command == "chat")
             {

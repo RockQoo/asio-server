@@ -23,7 +23,7 @@ namespace World
     // 는 전부 배정된 레인에서 돈다. authenticatedSessions_에 락이 없는 것도 그래서다.
     //
     // **우편/공지의 "내용"을 새로 정의하지 않는다** -- 기존 클라이언트 패킷(C2ZMailAdd 등)을
-    // ClientEnvelopeHeader로 감싸 존에 주입하므로 Zone/Mail/UnitOfWork 경로가 평소와 한 글자도
+    // RelayEnvelope로 감싸 존에 주입하므로 Zone/Mail/UnitOfWork 경로가 평소와 한 글자도
     // 다르지 않게 흐른다. 우회로를 만들면 "운영툴로 넣은 우편만 만료가 안 된다"는 사고가 난다.
     //
     // 와이어 포맷: docs/design/wire-format.md

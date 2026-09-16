@@ -44,13 +44,13 @@ namespace Gateway
     void WorldLinkHandler::HandleToClient(const Network::Session::SPtr& /*worldSession*/,
                                            const std::span<const byte> payload)
     {
-        if (payload.size() < sizeof(World::ClientEnvelopeHeader))
+        if (payload.size() < sizeof(World::RelayEnvelope))
         {
             return;
         }
 
-        World::ClientEnvelopeHeader envelopeHeader{};
-        std::memcpy(&envelopeHeader, payload.data(), sizeof(World::ClientEnvelopeHeader));
+        World::RelayEnvelope envelopeHeader{};
+        std::memcpy(&envelopeHeader, payload.data(), sizeof(World::RelayEnvelope));
 
         const auto clientSession = sessionManager_.Find(envelopeHeader.clientSessionId);
         if (!clientSession)
@@ -58,7 +58,7 @@ namespace Gateway
             return;
         }
 
-        const auto innerPayload = payload.subspan(sizeof(World::ClientEnvelopeHeader));
+        const auto innerPayload = payload.subspan(sizeof(World::RelayEnvelope));
         clientSession->SendPacket(envelopeHeader.innerPacketId, innerPayload);
     }
 }
