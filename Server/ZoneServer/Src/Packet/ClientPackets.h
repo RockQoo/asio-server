@@ -15,7 +15,7 @@ namespace Zone
     // ReadString/Read를 늘어놓은 뒤 실패하면 InvalidPayload를 UnitOfWork에 넣었다. 그러면
     // 콘텐츠 코드 절반이 바이트 해석이고, "형식이 틀렸다"와 "내용이 틀렸다"(잔액 부족 등)가
     // 같은 자리에서 섞인다. 파싱을 디스패치 앞으로 빼면 핸들러는 이미 해석된 값만 받는다
-    // -- PlayerProcessor::RegisterHandler 주석 참고.
+    // -- Processor/PlayerContext.h 의 RegisterPacketHandler 주석 참고.
     //
     // Parse는 **형식만** 본다. 값의 타당성(음수 가격, 말이 안 되는 만료 시간 등)은 콘텐츠
     // 판단이라 핸들러가 EErrorCode로 돌려준다.

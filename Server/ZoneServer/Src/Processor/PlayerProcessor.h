@@ -67,7 +67,7 @@ namespace Zone
         void HandleForwardToZone(const Network::SessionId clientSessionId, const std::span<const byte> payload);
         void ReplyEcho(const World::ClientEnvelopeHeader& header, const std::span<const byte> innerPayload) const;
         // 자기 패킷은 여기서, 콘텐츠 패킷은 각 콘텐츠의 Register가 등록한다.
-        void RegisterPacketHandlers();
+        void Register();
 
         // HandleClientPacket이 이미 Player를 찾아 넘겨주므로 여기서 다시 "이 사람이 존재하는가"를
         // 확인할 필요가 없고, 페이로드도 이미 해석돼 들어온다(RegisterPacketHandler 주석 참고).

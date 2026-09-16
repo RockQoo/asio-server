@@ -41,7 +41,7 @@ namespace World
         void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
     private:
-        void RegisterHandlers();
+        void Register();
 
         void HandleHello(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
         void HandleNotice(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);

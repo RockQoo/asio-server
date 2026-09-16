@@ -50,7 +50,7 @@ namespace World
         , dbProcessor_(dbProcessor)
         , sharedSecret_(std::move(sharedSecret))
     {
-        RegisterHandlers();
+        Register();
     }
 
     std::vector<Network::SessionId> ToolProcessor::SnapshotOnlineClients() const
@@ -67,7 +67,7 @@ namespace World
         return targets;
     }
 
-    void ToolProcessor::RegisterHandlers()
+    void ToolProcessor::Register()
     {
         dispatcher_.Register(PacketId::T2WHello, this, &ToolProcessor::HandleHello);
         dispatcher_.Register(PacketId::T2WNotice, this, &ToolProcessor::HandleNotice);

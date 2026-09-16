@@ -29,7 +29,7 @@ namespace Gateway
         void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
     private:
-        void RegisterHandlers();
+        void Register();
         void HandleToClient(const Network::Session::SPtr& worldSession, const std::span<const byte> payload);
 
         Network::SessionManager& sessionManager_;

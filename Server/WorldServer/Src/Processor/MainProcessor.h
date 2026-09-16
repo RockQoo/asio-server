@@ -50,7 +50,7 @@ namespace World
         void BroadcastToAll(const PacketId clientPacketId, const std::span<const byte> payload);
 
     private:
-        void RegisterHandlers();
+        void Register();
 
         // --- Gateway 링크 ---
         void HandleClientConnected(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);

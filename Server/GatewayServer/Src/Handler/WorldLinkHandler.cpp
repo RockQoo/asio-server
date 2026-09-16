@@ -12,10 +12,10 @@ namespace Gateway
         : sessionManager_(sessionManager)
         , worldLink_(worldLink)
     {
-        RegisterHandlers();
+        Register();
     }
 
-    void WorldLinkHandler::RegisterHandlers()
+    void WorldLinkHandler::Register()
     {
         dispatcher_.Register(PacketId::W2GRelay, this, &WorldLinkHandler::HandleToClient);
     }

@@ -27,10 +27,10 @@ namespace Zone
         , worldLink_(worldLink)
         , mailRegistry_(mailRegistry)
     {
-        RegisterPacketHandlers();
+        Register();
     }
 
-    void PlayerProcessor::RegisterPacketHandlers()
+    void PlayerProcessor::Register()
     {
         RegisterPacketHandler<C2ZMove>(packetDispatcher_, PacketId::C2ZMove,
             [this](const PlayerContext& context, const C2ZMove& packet) { HandleMove(context, packet); });

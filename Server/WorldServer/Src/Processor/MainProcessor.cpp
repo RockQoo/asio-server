@@ -107,10 +107,10 @@ namespace World
         , dbProcessor_(dbProcessor)
         , loginProcessor_(loginProcessor)
     {
-        RegisterHandlers();
+        Register();
     }
 
-    void MainProcessor::RegisterHandlers()
+    void MainProcessor::Register()
     {
         gatewayDispatcher_.Register(PacketId::G2WClientConnected, this, &MainProcessor::HandleClientConnected);
         gatewayDispatcher_.Register(PacketId::G2WClientDisconnected, this, &MainProcessor::HandleClientDisconnected);
