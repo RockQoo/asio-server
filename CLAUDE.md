@@ -70,7 +70,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   — 확정 전 수치나 진행 중인 계획을 공개 문서에 두면 틀린 정보를 보여주게 된다.
   **거꾸로, 커밋되는 파일에서 `docs/local/` 아래의 개별 파일을 경로로 가리키지 않는다.**
   clone한 사람에게는 없는 파일이라 깨진 링크가 된다(그래서 아래 구조 트리에도 없다).
-- **네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
+- **네임스페이스는 `Shared/Core`와 `Shared/Common`만 쓴다.** 실행 파일 프로젝트
+  (Gateway/World/Zone)는 네임스페이스를 두지 않고, 이름이 겹치거나 전역에서 뜻이 모호해지면
+  **서버 이름을 접두사로** 붙인다 -- `WorldApp`/`ZoneConfig`/`EZoneProcessorId`/`ZoneDef`/
+  `ZoneUnitOfWork`. 서버끼리 헤더를 안 보므로 겹쳐도 무해하고, 겹쳐서 터지더라도 조용한
+  버그가 아니라 컴파일 에러다. 링크 핸들러는 패킷 이름과 같은 방향 표기를 쓴다
+  (`C2GHandler`/`W2GHandler`/`G2WHandler`/`Z2WHandler`/`W2ZHandler`) -- 다섯 개가 전부
+  유일한 이름이라 접두사가 필요 없다(`C2G`는 패킷 대역이 아니라 **홉**이다).
+- **`Shared/` 안의 네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
   (`Shared/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Base`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
   `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라

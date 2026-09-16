@@ -1,0 +1,63 @@
+#include "pch.h"
+#include "App/GatewayApp.h"
+
+#include "Test/TestKeys.h"
+
+GatewayApp::GatewayApp(GatewayConfig config)
+    : config_(std::move(config))
+    , ioPool_(config_.ioThreadCount)
+    , clientHandler_(sessionManager_, worldLink_)
+    , worldLinkHandler_(sessionManager_, worldLink_)
+    , signals_(ioPool_.At(0), SIGINT, SIGTERM)
+{
+}
+
+void GatewayApp::Run()
+{
+    worldConnector_ = std::make_shared<Network::Connector>(ioPool_.At(0), config_.worldHost, config_.worldPort, worldLinkHandler_);
+    worldConnector_->Start();
+
+    clientListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.clientPort, clientHandler_);
+    clientListener_->Start();
+
+    SetupSignalHandling();
+
+    RegisterTestKeys(keyBinder_);
+    keyBinder_.Start();
+
+    LOG.Info(ELogCategory::General, "GatewayServer 대기 시작")
+        .KV("ClientPort", config_.clientPort)
+        .KV("WorldHost", config_.worldHost).KV("WorldPort", config_.worldPort);
+
+    ioPool_.Run();
+    ioPool_.Join();
+
+    keyBinder_.Stop();
+
+    LOG.Info(ELogCategory::General, "GatewayServer 종료 완료");
+}
+
+void GatewayApp::Stop()
+{
+    if (clientListener_)
+    {
+        clientListener_->Stop();
+    }
+    if (worldConnector_)
+    {
+        worldConnector_->Stop();
+    }
+    ioPool_.Stop();
+}
+
+void GatewayApp::SetupSignalHandling()
+{
+    signals_.async_wait([this](const std::error_code ec, const int signalNumber)
+    {
+        if (!ec)
+        {
+            LOG.Info(ELogCategory::General, "시그널 수신, 종료 절차 시작").KV("Signal", signalNumber);
+            Stop();
+        }
+    });
+}

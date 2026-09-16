@@ -1,7 +1,7 @@
 #include "pch.h"
-#include "App/App.h"
+#include "App/WorldApp.h"
 
-#include "App/Config.h"
+#include "App/WorldConfig.h"
 #include "Cli/DbCheck.h"
 #include "Cli/IdTest.h"
 
@@ -18,12 +18,12 @@ int main(const int argc, char* argv[])
     {
         // argv[1] 이 --dbcheck/--idtest 같은 모드 스위치일 수 있으므로 -- 로 시작하면 건너뛴다.
         const bool hasConfigArg = argc > 1 && std::string_view(argv[1]).substr(0, 2) != "--";
-        auto config = World::LoadConfig(hasConfigArg ? argv[1] : "config/world.cfg");
+        auto config = LoadConfig(hasConfigArg ? argv[1] : "config/world.cfg");
 
         // 서버를 띄우지 않고 DB 연결만 확인하는 모드.
         if (argc > 1 && std::string_view(argv[1]) == "--dbcheck")
         {
-            return World::RunDbCheck(config.dbConnectionString);
+            return RunDbCheck(config.dbConnectionString);
         }
 
         // RUID 검증 모드. 인자가 모자라면 사용법만 찍고 끝낸다.
@@ -46,7 +46,7 @@ int main(const int argc, char* argv[])
                 return EXIT_FAILURE;
             }
 
-            return World::RunIdTest(config.dbConnectionString, nodeId, threadCount, perThread, randomMode);
+            return RunIdTest(config.dbConnectionString, nodeId, threadCount, perThread, randomMode);
         }
 
         // 노드 번호는 World 대역(1~99)의 첫 번호를 쓴다. World를 여러 대로 늘리면 2, 3...으로
@@ -59,7 +59,7 @@ int main(const int argc, char* argv[])
         // 초기화하는데, 여기서 먼저 잡아버리면 두 번째 호출이 되어 Ruid::Init이 중단시킨다.
         Base::Ruid::Init(Base::kNodeIdWorldBegin);
 
-        World::App app(std::move(config));
+        WorldApp app(std::move(config));
         app.Run();
     }
     catch (const std::exception& ex)

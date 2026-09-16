@@ -117,11 +117,10 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\World\WorldLink.h" />
-    <ClInclude Include="Src\Handler\ClientLinkHandler.h" />
-    <ClInclude Include="Src\Handler\WorldLinkHandler.h" />
-    <ClInclude Include="Src\App\App.h" />
-    <ClInclude Include="Src\App\Config.h" />
+    <ClInclude Include="Src\Handler\C2GHandler.h" />
+    <ClInclude Include="Src\Handler\W2GHandler.h" />
+    <ClInclude Include="Src\App\GatewayApp.h" />
+    <ClInclude Include="Src\App\GatewayConfig.h" />
     <ClInclude Include="Src\Test\TestKeys.h" />
   </ItemGroup>
   <ItemGroup>
@@ -129,11 +128,11 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Src\Handler\ClientLinkHandler.cpp" />
-    <ClCompile Include="Src\Handler\WorldLinkHandler.cpp" />
-    <ClCompile Include="Src\App\App.cpp" />
+    <ClCompile Include="Src\Handler\C2GHandler.cpp" />
+    <ClCompile Include="Src\Handler\W2GHandler.cpp" />
+    <ClCompile Include="Src\App\GatewayApp.cpp" />
     <ClCompile Include="Src\main.cpp" />
-    <ClCompile Include="Src\App\Config.cpp" />
+    <ClCompile Include="Src\App\GatewayConfig.cpp" />
     <ClCompile Include="Src\Test\TestKeys.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -2,10 +2,11 @@
 
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Processor/Group.h"
-#include "Game/Def.h"
+#include "App/ZoneDef.h"
 #include "Processor/ZoneProcessor.h"
 #include "Processor/BroadcastProcessor.h"
-#include "Worker/ProcessorId.h"
+#include "Processor/ProcessorId.h"
+#include "Shared/Core/Src/Network/SessionHolder.h"
 
 namespace Network
 {
@@ -17,72 +18,68 @@ namespace Timer
     class RepeatingTimer;
 }
 
-namespace Zone
+
+struct PoolSizes
 {
-    class WorldLink;
+    // 플레이어 레인(BASIC). owner = clientSessionId라 실질 병렬도가 접속자 수만큼이다.
+    size_t playerThreadCount{8};
 
-    struct PoolSizes
+    // 존 레인(TICK). **담당 존 수만큼**이 원칙이다 -- 존 하나의 공간 상태는 직렬 단위가
+    // 하나여야 하고(여럿이 만지면 락이 필요한데 그 락이 이동 경로 전체에 걸려 결국 다시
+    // 직렬이 된다), 그래서 스레드를 늘려도 존 하나는 빨라지지 않는다. 존이 버거우면
+    // 스레드가 아니라 존을 쪼갠다.
+    size_t zoneThreadCount{2};
+
+    // 팬아웃 전송(BROADCAST). World 링크가 하나라 어차피 그 소켓에서 직렬화되므로 크게
+    // 잡을 이유가 없다. 그래도 별도로 두는 이유는, 인구가 많은 존의 팬아웃(대상 수만큼
+    // 프레임을 쓴다)이 플레이어 레인을 붙잡지 않게 하려는 것이다.
+    size_t broadcastThreadCount{1};
+};
+
+// 존 레인 · 브로드캐스트 레인을 소유하고, 존별 tick 타이머를 건다.
+// 플레이어 레인(BASIC)은 여기가 아니라 App이 소유한다 -- 존과 무관한
+// 레인이라 존 매니저에 두면 소유 관계가 거꾸로 된다.
+class WorkerManager
+{
+public:
+    WorkerManager(std::vector<ZoneDef> zoneDefs, const PoolSizes& poolSizes,
+                      const std::chrono::microseconds slowWarnThreshold, Network::SessionHolder& worldLink);
+    ~WorkerManager();
+
+    WorkerManager(const WorkerManager&) = delete;
+    WorkerManager& operator=(const WorkerManager&) = delete;
+
+    void Start(Network::IoContextPool& ioPool, const std::chrono::milliseconds tickInterval);
+    void Stop();
+
+    // 존 레인으로 메시지를 보낸다. ownerId가 zoneId이므로 같은 존의 일은 항상 같은
+    // 스레드에서 순서대로 처리되고, 그래서 Instance에 락이 없다.
+    template <typename F>
+    void PostToZone(const Common::ZoneId zoneId, F&& work)
     {
-        // 플레이어 레인(BASIC). owner = clientSessionId라 실질 병렬도가 접속자 수만큼이다.
-        size_t playerThreadCount{8};
+        zoneGroup_.Post(EZoneProcessorId::Zone, zoneId.Value(), std::forward<F>(work));
+    }
 
-        // 존 레인(TICK). **담당 존 수만큼**이 원칙이다 -- 존 하나의 공간 상태는 직렬 단위가
-        // 하나여야 하고(여럿이 만지면 락이 필요한데 그 락이 이동 경로 전체에 걸려 결국 다시
-        // 직렬이 된다), 그래서 스레드를 늘려도 존 하나는 빨라지지 않는다. 존이 버거우면
-        // 스레드가 아니라 존을 쪼갠다.
-        size_t zoneThreadCount{2};
+    // zoneProcessors_는 생성자에서 다 만들어지고 이후 구조가 바뀌지 않으므로, 조회 자체는
+    // 어느 레인에서 해도 안전하다. 다만 **돌려받은 Instance의 메서드는 존 레인에서만**
+    // 불러야 한다(예외: BroadcastTargets()는 락 없이 읽는 스냅샷이라 어디서든 가능).
+    [[nodiscard]] bool HasZone(const Common::ZoneId zoneId) const { return zoneProcessors_.contains(zoneId); }
+    [[nodiscard]] ZoneProcessor& GetZoneProcessor(const Common::ZoneId zoneId) { return *zoneProcessors_.at(zoneId); }
 
-        // 팬아웃 전송(BROADCAST). World 링크가 하나라 어차피 그 소켓에서 직렬화되므로 크게
-        // 잡을 이유가 없다. 그래도 별도로 두는 이유는, 인구가 많은 존의 팬아웃(대상 수만큼
-        // 프레임을 쓴다)이 플레이어 레인을 붙잡지 않게 하려는 것이다.
-        size_t broadcastThreadCount{1};
-    };
-
-    // 존 레인 · 브로드캐스트 레인을 소유하고, 존별 tick 타이머를 건다.
-    // 플레이어 레인(BASIC)은 여기가 아니라 App이 소유한다 -- 존과 무관한
-    // 레인이라 존 매니저에 두면 소유 관계가 거꾸로 된다.
-    class WorkerManager
+    void LogStats() const
     {
-    public:
-        WorkerManager(std::vector<Def> zoneDefs, const PoolSizes& poolSizes,
-                          const std::chrono::microseconds slowWarnThreshold, WorldLink& worldLink);
-        ~WorkerManager();
+        zoneGroup_.LogStats();
+        broadcastGroup_.LogStats();
+    }
 
-        WorkerManager(const WorkerManager&) = delete;
-        WorkerManager& operator=(const WorkerManager&) = delete;
+    [[nodiscard]] BroadcastProcessor& Broadcaster() noexcept { return broadcastProcessor_; }
+    [[nodiscard]] const std::vector<ZoneDef>& ZoneDefs() const noexcept { return zoneDefs_; }
 
-        void Start(Network::IoContextPool& ioPool, const std::chrono::milliseconds tickInterval);
-        void Stop();
-
-        // 존 레인으로 메시지를 보낸다. ownerId가 zoneId이므로 같은 존의 일은 항상 같은
-        // 스레드에서 순서대로 처리되고, 그래서 Instance에 락이 없다.
-        template <typename F>
-        void PostToZone(const Common::ZoneId zoneId, F&& work)
-        {
-            zoneGroup_.Post(EProcessorId::Zone, zoneId.Value(), std::forward<F>(work));
-        }
-
-        // zoneProcessors_는 생성자에서 다 만들어지고 이후 구조가 바뀌지 않으므로, 조회 자체는
-        // 어느 레인에서 해도 안전하다. 다만 **돌려받은 Instance의 메서드는 존 레인에서만**
-        // 불러야 한다(예외: BroadcastTargets()는 락 없이 읽는 스냅샷이라 어디서든 가능).
-        [[nodiscard]] bool HasZone(const Common::ZoneId zoneId) const { return zoneProcessors_.contains(zoneId); }
-        [[nodiscard]] ZoneProcessor& GetZoneProcessor(const Common::ZoneId zoneId) { return *zoneProcessors_.at(zoneId); }
-
-        void LogStats() const
-        {
-            zoneGroup_.LogStats();
-            broadcastGroup_.LogStats();
-        }
-
-        [[nodiscard]] BroadcastProcessor& Broadcaster() noexcept { return broadcastProcessor_; }
-        [[nodiscard]] const std::vector<Def>& ZoneDefs() const noexcept { return zoneDefs_; }
-
-    private:
-        std::vector<Def> zoneDefs_;
-        Processor::Group<EProcessorId> zoneGroup_;
-        Processor::Group<EProcessorId> broadcastGroup_;
-        BroadcastProcessor broadcastProcessor_;
-        std::unordered_map<Common::ZoneId, std::unique_ptr<ZoneProcessor>> zoneProcessors_;
-        std::vector<std::unique_ptr<Timer::RepeatingTimer>> tickTimers_;
-    };
-}
+private:
+    std::vector<ZoneDef> zoneDefs_;
+    Processor::Group<EZoneProcessorId> zoneGroup_;
+    Processor::Group<EZoneProcessorId> broadcastGroup_;
+    BroadcastProcessor broadcastProcessor_;
+    std::unordered_map<Common::ZoneId, std::unique_ptr<ZoneProcessor>> zoneProcessors_;
+    std::vector<std::unique_ptr<Timer::RepeatingTimer>> tickTimers_;
+};

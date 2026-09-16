@@ -1,7 +1,7 @@
 #include "pch.h"
-#include "App/App.h"
+#include "App/ZoneApp.h"
 
-#include "App/Config.h"
+#include "App/ZoneConfig.h"
 
 #include "Shared/Core/Src/Base/RUID.h"
 
@@ -26,7 +26,7 @@ namespace
     // ParseZoneList가 그 존을 거부한다(월드 밖에 존을 만들어 조용히 어긋나는 것보다 낫다).
     constexpr uint32_t kZoneRows = 2;
 
-    // "1,2" 같은 콤마 구분 zoneId 목록을 파싱해 Def 목록으로 만든다. 한 프로세스가 zoneId
+    // "1,2" 같은 콤마 구분 zoneId 목록을 파싱해 ZoneDef 목록으로 만든다. 한 프로세스가 zoneId
     // 여러 개를 동시에 호스팅할 수 있다는 걸 보여주는 게 목적이라, 실행 인자 하나로 "이
     // 프로세스가 담당할 존 목록"을 그대로 config로 넘긴다.
     //
@@ -39,7 +39,7 @@ namespace
     // 있다"와 "아직 아무 존에도 없다"가 같은 값이 된다.
     struct ZoneListParseResult
     {
-        std::vector<Zone::Def> zones;
+        std::vector<ZoneDef> zones;
         // 무시한 인자 토큰. 로거 초기화가 파싱보다 뒤라서(로그 파일명이 존 목록으로 정해진다)
         // 여기서 바로 못 찍고, main이 초기화 후에 경고로 남긴다.
         std::vector<std::string> rejectedTokens;
@@ -74,7 +74,7 @@ namespace
                 continue;
             }
 
-            Zone::Def def{};
+            ZoneDef def{};
             def.zoneId = Common::ZoneId{zoneId};
             def.xMin = static_cast<float>(column) * kZoneSize;
             def.xMax = def.xMin + kZoneSize;
@@ -147,9 +147,9 @@ int main(const int argc, char* argv[])
     {
         // 담당 존 목록만 인자로 받는다 -- 프로세스마다 달라야 하는 유일한 값이라, 그래야
         // 여러 존 프로세스가 같은 설정 파일을 공유할 수 있다.
-        auto config = Zone::LoadConfig(argc > 2 ? argv[2] : "config/zone.cfg", zones);
+        auto config = LoadConfig(argc > 2 ? argv[2] : "config/zone.cfg", zones);
 
-        Zone::App app(std::move(config));
+        ZoneApp app(std::move(config));
         app.Run();
     }
     catch (const std::exception& ex)

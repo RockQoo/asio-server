@@ -8,7 +8,7 @@
 
 namespace Mail
 {
-    // 우편 추가 기록. **데이터만 갖는다** -- 직렬화도 롤백도 Zone::UnitOfWork가 taskKind로
+    // 우편 추가 기록. **데이터만 갖는다** -- 직렬화도 롤백도 ZoneUnitOfWork가 taskKind로
     // 분기해서 한다(ITask 주석 참고).
     //
     // 우편은 통째로 들고 있는다. 삭제를 되돌릴 때 제목/본문/기간까지 그대로 복원해야 하고,
