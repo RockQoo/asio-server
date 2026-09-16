@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Common/Src/PacketId.h"
+
 #include "Shared/Common/Src/Ids.h"
 
 namespace Common
@@ -9,6 +11,7 @@ namespace Common
     // (격자든 CSV든)을 알 필요가 없다 -- 배치를 바꿔도 World 코드는 그대로다.
     struct Z2WZoneRegister
     {
+        static constexpr PacketId kPacketId = PacketId::Z2WZoneRegister;
         ZoneId zoneId;
         float xMin;
         float xMax;
@@ -37,6 +40,7 @@ namespace Common
     // 실제 라우팅 대상은 x/y로 정해진다. 그래서 구조체를 따로 둔다(ToEnterZone이 그 경계다).
     struct Z2WZoneTransfer
     {
+        static constexpr PacketId kPacketId = PacketId::Z2WZoneTransfer;
         ZoneId zoneId;  // 보내는 쪽(현재) 존
         uint64_t clientSessionId;
         PlayerId playerId;
@@ -46,6 +50,7 @@ namespace Common
 
     struct W2ZLeaveZone
     {
+        static constexpr PacketId kPacketId = PacketId::W2ZLeaveZone;
         uint64_t clientSessionId;
     };
 #pragma pack(pop)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Common/Src/PacketId.h"
+
 #include "Shared/Common/Src/CurrencyInfo.h"
 #include "Shared/Common/Src/MailInfo.h"
 #include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
@@ -26,6 +28,7 @@ namespace Common
     // World의 Packet/ZoneLinkPackets.h에 있는 표다.
     struct W2ZEnterZone
     {
+        static constexpr PacketId kPacketId = PacketId::W2ZEnterZone;
         W2ZEnterZoneHead head{};
 
         std::vector<MailInfo> mails;

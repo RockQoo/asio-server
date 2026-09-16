@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Common/Src/PacketId.h"
+
 #include "Shared/Common/Src/Packet/ZonePackets.h"
 
 #include "Shared/Core/Src/Packet/BinaryReader.h"
@@ -22,6 +24,7 @@ namespace Common
 
     struct C2ZMove
     {
+        static constexpr PacketId kPacketId = PacketId::C2ZMove;
         Position move{};
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
@@ -37,6 +40,7 @@ namespace Common
 
     struct C2ZChat
     {
+        static constexpr PacketId kPacketId = PacketId::C2ZChat;
         std::string message;
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
@@ -60,6 +64,7 @@ namespace Common
         // 끊는다. 채팅과 다른 이유: 채팅은 UnitOfWork가 없어 돌려줄 길이 없다.
     struct C2ZMailAdd
     {
+        static constexpr PacketId kPacketId = PacketId::C2ZMailAdd;
         std::string title;
         std::string body;
         int64_t durationSec{};
@@ -74,6 +79,7 @@ namespace Common
 
     struct C2ZMailDel
     {
+        static constexpr PacketId kPacketId = PacketId::C2ZMailDel;
         MailId mailId;
 
         [[nodiscard]] bool Parse(const std::span<const byte> payload)
@@ -93,6 +99,7 @@ namespace Common
 
     struct C2ZMailBuy
     {
+        static constexpr PacketId kPacketId = PacketId::C2ZMailBuy;
         std::string title;
         std::string body;
         int64_t durationSec{};

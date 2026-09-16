@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Common/Src/PacketId.h"
+
 #include "Shared/Common/Src/Ids.h"
 
 namespace Common
@@ -16,6 +18,7 @@ namespace Common
 
     struct Z2CEnterZoneNotify
     {
+        static constexpr PacketId kPacketId = PacketId::Z2CEnterZoneNotify;
         // 로그인이 확정한 DB의 player_id(RUID). **재접속해도 같다.**
         PlayerId playerId;
 

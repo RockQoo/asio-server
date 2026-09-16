@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Common/Src/PacketId.h"
+
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Base/RUID.h"
 
@@ -11,6 +13,7 @@ namespace Common
 #pragma pack(push, 1)
     struct W2THelloResult
     {
+        static constexpr PacketId kPacketId = PacketId::W2THelloResult;
         uint32_t requestId;
         uint8_t accepted;          // 0 = 거부(시크릿 불일치 또는 프로토콜 버전 불일치)
         uint32_t protocolVersion;  // World가 지원하는 버전 -- 툴이 자기 버전과 비교해 로그를 남긴다
@@ -18,6 +21,7 @@ namespace Common
 
     struct W2TCommandResult
     {
+        static constexpr PacketId kPacketId = PacketId::W2TCommandResult;
         uint32_t requestId;
         uint16_t resultCode;     // EToolResultCode
         uint32_t affectedCount;  // 실제로 처리된 대상 수(전체 우편/공지에서 몇 명에게 나갔는지)
@@ -25,6 +29,7 @@ namespace Common
 
     struct T2WMailDelete
     {
+        static constexpr PacketId kPacketId = PacketId::T2WMailDelete;
         uint32_t requestId;
         uint64_t clientSessionId;
         MailId mailId;
@@ -32,6 +37,7 @@ namespace Common
 
     struct T2WClientList
     {
+        static constexpr PacketId kPacketId = PacketId::T2WClientList;
         uint32_t requestId;
     };
 

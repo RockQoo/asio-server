@@ -97,6 +97,31 @@ World::W2ZEnterZone   // 보내는 쪽이 채우는 고정 머리
 Zone::W2ZEnterZone    // 받는 쪽이 파싱한 전체(머리 + 가변 꼬리)
 ```
 
+### 구조체는 자기 패킷 id 를 `static constexpr kPacketId` 로 들고 있는다
+
+```cpp
+struct C2WLogin
+{
+    static constexpr PacketId kPacketId = PacketId::C2WLogin;
+    // 관련 데이터
+    void Set(...);
+};
+```
+
+**`static` 이어야 한다.** 비정적 멤버로 두면 두 가지가 생긴다:
+
+1. **와이어에 실린다.** 구조체 자체가 곧 패킷 본문이라(`as_bytes(span(&packet,1))`),
+   `uint16` 2바이트가 본문 앞에 박히고 프레임 헤더의 `Header::id` 와 같은 값이 두 번 나간다.
+   C# 클라이언트/운영툴은 이 레이아웃을 손으로 미러링하므로 조용히 어긋난다.
+2. **`const` 멤버면 복사 대입이 삭제된다.** `packet.x = ...` 도, `std::vector` 의
+   `erase`/`sort` 도 막힌다.
+
+`static` 은 객체에 안 들어가서 `sizeof` 도 `is_trivially_copyable` 도 그대로다 --
+`BinaryWriter::Write` 의 concept 을 계속 통과하고, 집합 초기화 `T{a, b, c}` 도 그대로 된다.
+
+이 값이 있어야 보내는 쪽이 id 를 따로 받지 않고 `packet` 하나만 받을 수 있고,
+`DirectionOf(TPacket::kPacketId)` 로 **방향을 컴파일 타임에 검증**할 수 있다.
+
 ### 레이아웃이 같아도 뜻이 다르면 구조체를 나눈다
 
 `W2ZEnterZone`과 `Z2WZoneTransfer`는 필드가 완전히 같지만 `zoneId`의 뜻이 반대다(목표 존 /
