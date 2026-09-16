@@ -31,6 +31,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 스프라이트 아틀라스와 존 타일. **콘텐츠 파이프라인(.mgcb)을 쓰지 않으므로**
+         가공 없이 실행 파일 옆으로 복사만 하고, SpriteAtlas 가 런타임에 읽는다.
+         글리프를 GDI+로 굽는 것과 같은 방침이다. -->
+    <None Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- MonoGame.Content.Builder.Task는 의도적으로 빼 두었다. 이 클라이언트는 콘텐츠
          파이프라인(.mgcb)을 전혀 쓰지 않고 한글 글리프를 런타임에 GDI+로 직접 굽는다.
          SpriteFont로 한글을 넣으려면 CharacterRegions에 U+AC00~U+D7A3(11172자)을 통째로

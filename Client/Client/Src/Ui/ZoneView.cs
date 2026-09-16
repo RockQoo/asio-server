@@ -25,6 +25,31 @@ public sealed class ZoneView
     /// <summary>이 시간(초) 이상 이동 통지가 없는 플레이어는 흐리게 그린다.</summary>
     private const double StaleAfterSeconds = 5.0;
 
+    /// <summary>
+    /// 몸통 스프라이트를 화면에 그릴 때의 배율. 아틀라스 프레임이 192px 인데 플레이어 마커는
+    /// 지름 22px 수준이라, 아틀라스의 scale(2)로 나눈 뒤 다시 줄인다.
+    /// </summary>
+    private const float SpriteScale = 0.22f;
+
+    /// <summary>
+    /// 몸통 종류. <b>서버에는 외형 정보가 없다</b> — playerId 로 고르는 임시 규칙이라,
+    /// 같은 사람은 항상 같은 모습으로 보이고 서버는 아무것도 몰라도 된다.
+    /// 외형이 실제 데이터가 되면 이 배열이 아니라 서버가 보낸 값으로 고른다.
+    /// </summary>
+    private static readonly string[] BodyFrames =
+        ["player_body", "player_body_viking", "player_body_bald"];
+
+    private static readonly string[] WeaponFrames =
+        ["weapon_sword", "weapon_axe", "weapon_club", "weapon_bow"];
+
+    private static readonly string[] HeadgearFrames =
+        ["armor_helmet", "armor_hat", "armor_helmet_copper", "armor_hat_blue"];
+
+    private SpriteAtlas? atlas_;
+
+    /// <summary>리소스를 못 읽었으면 null 이 들어오고, 그때는 예전처럼 도형으로 그린다.</summary>
+    public void SetAtlas(SpriteAtlas? atlas) => atlas_ = atlas;
+
     public Rectangle Bounds { get; private set; }
 
     public void Layout(Rectangle bounds) => Bounds = bounds;
@@ -187,18 +212,28 @@ public sealed class ZoneView
                 : isStale ? new Color(90, 100, 120) : new Color(120, 170, 240);
 
             var center = WorldToScreen(player.X, player.Y);
-            painter.FillCircle(center, PlayerRadius, body);
-
-            // 방향 작대기. 서버에는 dir 필드가 없어서, 직전 좌표에서 새 좌표로의 변화량으로
-            // 클라이언트가 만들어낸 값이다(RemotePlayer.ApplyMove 참고).
-            var tip = center + new Vector2(
-                MathF.Cos(player.DirRadians) * DirLength,
-                -MathF.Sin(player.DirRadians) * DirLength);
-            painter.Line(center, tip, isMe ? Color.White : new Color(220, 230, 245), 2.5f);
-
-            if (isMe)
+            if (atlas_ is not null)
             {
-                painter.FillCircle(center, 4.0f, new Color(20, 30, 26));
+                DrawSpritePlayer(painter, atlas_, player, center, isMe, isStale);
+            }
+            else
+            {
+                painter.FillCircle(center, PlayerRadius, body);
+            }
+
+            if (atlas_ is null)
+            {
+                // 방향 작대기. 서버에는 dir 필드가 없어서, 직전 좌표에서 새 좌표로의 변화량으로
+                // 클라이언트가 만들어낸 값이다(RemotePlayer.ApplyMove 참고).
+                var tip = center + new Vector2(
+                    MathF.Cos(player.DirRadians) * DirLength,
+                    -MathF.Sin(player.DirRadians) * DirLength);
+                painter.Line(center, tip, isMe ? Color.White : new Color(220, 230, 245), 2.5f);
+
+                if (isMe)
+                {
+                    painter.FillCircle(center, 4.0f, new Color(20, 30, 26));
+                }
             }
 
             var label = isMe ? $"나 ({player.PlayerId})" : player.PlayerId.ToString();
@@ -206,6 +241,52 @@ public sealed class ZoneView
             painter.SmallText(label,
                               new Vector2(center.X - (labelWidth * 0.5f), center.Y + PlayerRadius + 3),
                               isStale ? new Color(120, 130, 145) : new Color(210, 220, 235));
+        }
+    }
+
+    /// <summary>
+    /// 몸통 → 무기 → 머리 장비 순서로 겹쳐 그린다(아틀라스 README 의 레이어 순서).
+    ///
+    /// <para>
+    /// 피벗을 맞추는 방식이 층마다 다르다 — 몸통은 자기 피벗이 곧 캐릭터 좌표이고,
+    /// 무기는 <b>무기 피벗을 몸통의 무기 소켓에</b>, 머리 장비는 <b>자기 피벗을 몸통의 머리
+    /// 중심에</b> 맞춘다. 앵커는 아틀라스 원본 픽셀 기준이라 화면 배율을 곱해서 옮긴다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>무기만 공격 방향으로 돈다.</b> 몸통을 같이 돌리면 머리가 뒤집히고, 이 아틀라스의
+    /// 몸통은 정면 한 방향뿐이다.
+    /// </para>
+    /// </summary>
+    private void DrawSpritePlayer(Painter painter, SpriteAtlas atlas, RemotePlayer player,
+                                  Vector2 center, bool isMe, bool isStale)
+    {
+        var scale = SpriteScale / atlas.Scale;
+
+        // 흐려진 플레이어는 어둡게, 나는 살짝 밝게 -- 도형일 때 색으로 하던 구분을 유지한다.
+        var tint = isStale ? new Color(140, 150, 165) : Color.White;
+
+        var key = (int)(player.PlayerId % 997);
+        var bodyFrame = BodyFrames[key % BodyFrames.Length];
+        var weaponFrame = WeaponFrames[(key / 3) % WeaponFrames.Length];
+        var headFrame = HeadgearFrames[(key / 7) % HeadgearFrames.Length];
+
+        atlas.Draw(painter, bodyFrame, center, scale, 0.0f, tint);
+
+        // 몸통 피벗에서 소켓까지의 거리를 화면 배율로 옮긴다. 아틀라스 앵커는 프레임 좌상단
+        // 기준이고 피벗은 (96,96)이라 그 차이가 곧 오프셋이다.
+        var bodyPivot = new Vector2(96.0f, 96.0f);
+        var weaponOffset = (atlas.WeaponSocket - bodyPivot) * scale;
+        var headOffset = (atlas.HeadAnchor - bodyPivot) * scale;
+
+        // y 는 화면이 아래로 증가하고 월드 방향은 위로 증가라 부호를 뒤집는다.
+        atlas.Draw(painter, weaponFrame, center + weaponOffset, scale, -player.DirRadians, tint);
+        atlas.Draw(painter, headFrame, center + headOffset, scale, 0.0f, tint);
+
+        if (isMe)
+        {
+            // 내 캐릭터임을 알리는 고리. 아틀라스에 있는 것을 쓴다.
+            atlas.Draw(painter, "ui_target_ring", center, scale * 1.15f, 0.0f, new Color(120, 220, 160));
         }
     }
 }

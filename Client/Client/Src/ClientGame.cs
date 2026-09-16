@@ -121,6 +121,9 @@ public sealed class ClientGame : Game
     private readonly InputState input_ = new();
     private readonly WorldModel world_ = new();
     private readonly ZoneView zoneView_ = new();
+
+    /// <summary>캐릭터·장비 스프라이트. 리소스가 없으면 null 이고 ZoneView 가 도형으로 그린다.</summary>
+    private SpriteAtlas? spriteAtlas_;
     private readonly ChatPanel chatPanel_ = new();
     private readonly MailPanel mailPanel_ = new();
     private readonly Hud hud_ = new();
@@ -234,6 +237,12 @@ public sealed class ClientGame : Game
         font_ = new GlyphAtlas(GraphicsDevice, "맑은 고딕", 15.0f);
         smallFont_ = new GlyphAtlas(GraphicsDevice, "맑은 고딕", 12.5f);
         painter_ = new Painter(GraphicsDevice, spriteBatch_, font_, smallFont_);
+
+        // 실행 파일 옆 Assets/. 없으면 null 이 되고 도형 렌더링으로 돌아간다 --
+        // 리소스가 빠졌다고 클라이언트가 죽지는 않는다.
+        spriteAtlas_ = SpriteAtlas.TryLoad(GraphicsDevice,
+            Path.Combine(AppContext.BaseDirectory, "Assets"));
+        zoneView_.SetAtlas(spriteAtlas_);
     }
 
     protected override void Update(GameTime gameTime)
@@ -711,6 +720,7 @@ public sealed class ClientGame : Game
 
     protected override void UnloadContent()
     {
+        spriteAtlas_?.Dispose();
         painter_?.Dispose();
         font_?.Dispose();
         smallFont_?.Dispose();

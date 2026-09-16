@@ -1,0 +1,240 @@
+{
+  "texture": "atlas_game.png",
+  "scale": 2,
+  "frames": {
+    "player_body": {
+      "x": 0,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "player_body_viking": {
+      "x": 224,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "player_body_bald": {
+      "x": 448,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "monster_body_skeleton": {
+      "x": 672,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "monster_body": {
+      "x": 896,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "monster_body_lizardman": {
+      "x": 1120,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "weapon_sword": {
+      "x": 1344,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "weapon_bow": {
+      "x": 1568,
+      "y": 0,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "weapon_axe": {
+      "x": 0,
+      "y": 224,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "weapon_club": {
+      "x": 224,
+      "y": 224,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "weapon_sword_copper": {
+      "x": 448,
+      "y": 224,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "weapon_axe_copper": {
+      "x": 672,
+      "y": 224,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "weapon_club_ash": {
+      "x": 896,
+      "y": 224,
+      "w": 192,
+      "h": 192,
+      "px": 25,
+      "py": 96
+    },
+    "armor_helmet": {
+      "x": 1120,
+      "y": 224,
+      "w": 96,
+      "h": 96,
+      "px": 48,
+      "py": 72
+    },
+    "armor_hat": {
+      "x": 1344,
+      "y": 224,
+      "w": 96,
+      "h": 96,
+      "px": 48,
+      "py": 72
+    },
+    "armor_helmet_copper": {
+      "x": 1568,
+      "y": 224,
+      "w": 96,
+      "h": 96,
+      "px": 48,
+      "py": 72
+    },
+    "armor_hat_blue": {
+      "x": 0,
+      "y": 448,
+      "w": 96,
+      "h": 96,
+      "px": 48,
+      "py": 72
+    },
+    "arrow": {
+      "x": 224,
+      "y": 448,
+      "w": 96,
+      "h": 32,
+      "px": 8,
+      "py": 16
+    },
+    "fx_swing_arc": {
+      "x": 448,
+      "y": 448,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "fx_hit_spark": {
+      "x": 672,
+      "y": 448,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "fx_dead_mark": {
+      "x": 896,
+      "y": 448,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    },
+    "ui_icon_melee": {
+      "x": 1120,
+      "y": 448,
+      "w": 64,
+      "h": 64,
+      "px": 32,
+      "py": 32
+    },
+    "ui_icon_ranged": {
+      "x": 1344,
+      "y": 448,
+      "w": 64,
+      "h": 64,
+      "px": 32,
+      "py": 32
+    },
+    "ui_target_ring": {
+      "x": 1568,
+      "y": 448,
+      "w": 192,
+      "h": 192,
+      "px": 96,
+      "py": 96
+    }
+  },
+  "anchors": {
+    "head": {
+      "x": 96,
+      "y": 72
+    },
+    "weapon_socket": {
+      "x": 130,
+      "y": 115
+    }
+  },
+  "layers": [
+    "body",
+    "weapon",
+    "headgear"
+  ],
+  "variants": {
+    "player": [
+      "player_body",
+      "player_body_viking",
+      "player_body_bald"
+    ],
+    "monster": [
+      "monster_body_skeleton",
+      "monster_body",
+      "monster_body_lizardman"
+    ],
+    "weapons": [
+      "weapon_sword",
+      "weapon_bow",
+      "weapon_axe",
+      "weapon_club",
+      "weapon_sword_copper",
+      "weapon_axe_copper",
+      "weapon_club_ash"
+    ],
+    "headgear": [
+      "armor_helmet",
+      "armor_hat",
+      "armor_helmet_copper",
+      "armor_hat_blue"
+    ]
+  }
+}
