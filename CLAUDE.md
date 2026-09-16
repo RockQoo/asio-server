@@ -283,7 +283,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
 | `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 **살아 있는 우편·재화 캐시**다 — 로그인 때 DB에서 채우고, 존이 올린 UnitOfWork를 BASIC 레인에서 계속 반영한다. 프로세스를 넘는 핸드오프가 이 캐시를 그대로 실어 보낸다 |
-| | `Login::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **레인을 네 번 갈아타고 도중에 주인이 바뀐다**(이름 해시 → `playerId`) |
+| | `Login::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **BASIC→DB→BASIC으로 레인을 갈아타지만 주인은 `clientSessionId` 하나로 고정**이다 — `playerId`를 알게 된 뒤에도 바꾸지 않는다(갈아타면 앞 구간과 직렬화가 끊긴다). 존 입장 뒤의 UnitOfWork만 `playerId`가 주인 |
 | | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
 | | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
 | `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
