@@ -385,3 +385,34 @@
    그때 진행한다.
 6. **README 성능 표 채우기**: 지연 백분위 계측을 붙였으므로 1,000세션·10,000세션 시나리오를
    다시 돌려 `README.md` 5절의 P50/P95/P99 칸을 실측치로 교체한다(현재 "재측정 중" 상태).
+7. **프로토콜 코드젠(yml -> Gen 파일) — 방향만 정해두고 보류.** 지금 패킷 id·에러 코드·
+   존 배치 상수가 **C++ 헤더와 C# 두 곳에 손으로 복제**돼 있고, 지키는 수단이 "C++ 와 이름·값이
+   1:1 로 같아야 한다"는 주석뿐이다. 이미 어긋나 있다 — `PacketId.h` 의 `C2ZMailBuy = 6` 이
+   `Client` 에도 `GmTool.Core` 에도 없다(아직 안 써서 드러나지 않았을 뿐이다).
+   `ZoneLayout.cs` 와 `ParseZoneList` 의 `kZoneSize`/`kZonesPerRow`/`kZoneRows` 도 같은 상태다.
+
+   **정한 방향**: 정의 파일(yml)을 원본으로 두고 **C++ 헤더까지 포함해 전부 생성물로** 만든다.
+   C++ 을 원본으로 두고 C# 만 생성하면 언어 하나가 특별해지고 파서가 헤더 문법에 얽매인다.
+
+   ```
+   Shared/Protocol/Def/*.yml   (packet_id / error_code / task_kind / currency_type / zone_layout)
+             |
+             v   bat\gen_protocol.bat
+   Shared/Protocol/Src/*.g.h  +  Client/Src/Protocol/*.g.cs  +  GmTool.Core/Protocol/*.g.cs
+   ```
+
+   - **범위는 enum·상수까지**다. 패킷 **본문**(필드 레이아웃과 Read/Write)은 계속 손으로 쓴다 --
+     정의 파일에서 직렬화 코드까지 뽑는 방식은 `ZonePackets.h`/`ClientPackets.h` 를 통째로
+     옮겨야 해서 비용이 몇 배다. 필요해지면 그때 올린다.
+   - 생성기는 **.NET 10 파일 기반 앱**(csproj 없이 `dotnet run Foo.cs`)으로 둔다. 새 솔루션도
+     NuGet 복원도 안 생겨서 "C++ 솔루션에 NuGet 을 끌어들이지 않는다"를 안 건드린다.
+   - **생성 결과물은 커밋한다.** clone 한 사람이 bat 을 돌리지 않아도 빌드되고, diff 에서
+     패킷 변경이 눈에 보인다.
+   - **같이 옮겨야 하는 것**: `PacketId.h` 가 생성물이 되면 지금 거기 있는 규약 주석(방향 3글자,
+     1000 단위 대역, 폐기 번호 재사용 금지, `G2WClientConnected` 가 왜 C2W 가 아닌지)이 yml
+     맨 위로 가야 한다. `.claude/rules/packet-naming.md` 와 `CLAUDE.md` 가 `PacketId.h` 를
+     가리키고 있으므로 같은 커밋에서 고친다.
+
+   **순서**: 부하 병목 수정(1번)과 로그인 잔여분(1-B)보다 뒤다. 다만 패킷이 더 늘기 전에
+   하는 게 이사 비용이 싸다 -- 3번(AOI/몬스터)에서 패킷이 여러 개 추가되므로 **그 앞**이 좋다.
+   3번의 "존 배치를 CSV 데이터로 빼기"와도 자리가 겹친다(`zone_layout.yml` 이 그 입구다).
