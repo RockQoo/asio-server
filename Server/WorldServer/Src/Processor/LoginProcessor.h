@@ -19,23 +19,22 @@ namespace World
     // 아니라, 클라이언트 패킷이 Gateway 릴레이 봉투에 실려 들어오므로 MainProcessor가
     // 봉투를 열어 이쪽으로 넘긴다(그래서 등록도 Listener가 아니라 그 핸들러가 한다).
     //
-    // **스레드 규약이 이 클래스의 전부다.** 한 번의 로그인이 레인을 세 번 갈아탄다:
+    // **스레드 규약이 이 클래스의 전부다.** 한 번의 로그인이 레인을 세 번 갈아타지만,
+    // **주인은 처음부터 끝까지 clientSessionId 하나다**:
     //
     //   BASIC(Login, owner=clientSessionId)   패킷 파싱 / 중복 로그인 거절
-    //     -> DB(Db, owner=hash(playerName))   usp_players_select + 비밀번호 검증
+    //     -> DB(Db,    owner=clientSessionId) usp_players_select + 비밀번호 검증
     //                                         없으면 RUID 발급 + usp_players_upsert (자동 가입)
-    //     -> DB(Db, owner=playerId)           usp_players_load -- 우편/재화 적재
+    //     -> DB(Db,    owner=clientSessionId) usp_players_load -- 우편/재화 적재
     //     -> BASIC(Login, owner=clientSessionId)  PlayerManager 갱신 + 존 입장 + 결과 전송
     //
-    // **적재 단계의 owner가 playerId인 이유**: 이 시점에는 playerId를 알고, 그게 이 플레이어의
-    // 영속 키다. 이후 그 사람의 DB 작업(UnitOfWork)과 같은 레인으로 묶여 순서가 보장된다.
+    // **playerId를 알게 된 뒤에도 주인을 바꾸지 않는 이유**: 중간에 갈아타면 그 지점부터 앞
+    // 구간과 직렬화가 끊겨, 같은 세션의 로그인 단계들이 서로 다른 strand에서 겹친다. 존 입장
+    // 뒤의 UnitOfWork만 playerId가 주인이다(MainProcessor) -- 그건 세션이 아니라 계정에 묶이는
+    // 일이라 재접속해도 같은 레인을 유지해야 하고, 로그인은 그 세션 안에서만 의미가 있다.
     //
     // DB 왕복이 **반드시 DB 그룹**이어야 하는 이유: 쿼리 한 번이 BASIC 레인에 걸리면 그 레인에
     // 배정된 모든 플레이어의 패킷이 그동안 멈춘다(config/world.cfg의 db_threads 주석).
-    //
-    // **DB 레인의 owner가 playerId가 아니라 이름 해시인 이유**: 로그인이 끝나기 전에는
-    // playerId를 모른다. 이름으로 해시하면 같은 이름의 동시 첫 로그인이 한 DB 스레드로
-    // 직렬화되어, usp_players_upsert의 HOLDLOCK과 이중으로 안전망이 된다.
     class LoginProcessor
     {
     public:

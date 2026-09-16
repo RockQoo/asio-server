@@ -372,7 +372,7 @@ Gateway/World/Zone 4계층 분리, 존 핸드오프(재접속 없음), 메시지
 시각 클라이언트(Client), **로그인(`C2WLogin`) + 자동 가입 + World 콘텐츠 캐시**,
 **DB 쓰기 경로**(UnitOfWork -> BASIC 레인에서 캐시 반영 -> `playerId`를 주인으로 DB 레인, UoW 하나 =
 트랜잭션 하나)까지 완료. 부하 테스트로 발견된 처리량 병목 수정이 진행 중(계획은 `docs/local/`).
-남은 것: 중복 로그인 차단, `player_id`의 `int64` 확대(존 쪽), Actor/Monster/AOI. 자세한 표는
+남은 것: 중복 로그인 차단(playerId 색인이 선행), Actor/Monster/AOI. 자세한 표는
 `README.md` "로드맵", 다음 할 일은 `PROGRESS.md` 3절 참고.
 
 ---

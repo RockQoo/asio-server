@@ -65,20 +65,21 @@ Post(프로세서, work)            주인 없음 → 남는 스레드가 집어
 <div class="panel">
 <pre><code>Basic(Login, owner=clientSessionId)    C2WLogin 파싱 / 중복 로그인 거절
       ↓
-Db(Db, owner=hash(playerName))         usp_players_select → 비밀번호 검증
+Db(Db, owner=clientSessionId)          usp_players_select → 비밀번호 검증
                                        없으면 RUID 발급 + usp_players_upsert (자동 가입)
       ↓
-Db(Db, owner=playerId)                 usp_players_load → 우편 · 재화
+Db(Db, owner=clientSessionId)          usp_players_load → 우편 · 재화
       ↓
 Basic(Login, owner=clientSessionId)    캐시 적재 → W2CLogin → W2ZEnterZone(콘텐츠 동봉)</code></pre>
 
 <b>계정이 없는 것은 실패가 아니다</b> — 그 자리에서 만들고 성공으로 돌려준다. 그래서 에러 코드에
 "없는 계정"이 없고, 있어서도 안 된다.
 
-<p style="margin:10px 0 0"><b>주인이 두 번 바뀐다.</b> 계정 조회 단계에는 아직 playerId를 모르므로
-이름을 해시해 쓰고(같은 이름의 동시 첫 로그인이 한 레인으로 직렬화되어 SP의 <code>HOLDLOCK</code>과
-이중 안전망이 된다), 계정이 확정된 뒤에는 <b>영속 키인 playerId</b>로 바꾼다 — 이후 그 사람의
-UnitOfWork와 같은 레인으로 묶인다.</p>
+<p style="margin:10px 0 0"><b>레인은 갈아타도 주인은 안 바뀐다.</b> playerId를 알게 된 뒤에도
+clientSessionId를 그대로 쓴다 — 중간에 갈아타면 그 지점부터 앞 구간과 직렬화가 끊겨, 같은 세션의
+로그인 단계들이 서로 다른 strand에서 겹친다. <b>존 입장 뒤의 UnitOfWork만 playerId가 주인</b>이다.
+그건 세션이 아니라 계정에 묶이는 일이라 재접속해도 같은 레인을 유지해야 하고, 로그인은 그 세션
+안에서만 의미가 있어 기준이 다르다.</p>
 </div>
 
 <div class="callout">

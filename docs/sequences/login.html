@@ -73,9 +73,9 @@
         </div>
 
         <div class="msg m-lane" style="grid-column: 6 / 8; grid-row: 7;">
-            <span class="lbl">④ Post(Db, hash(playerName))</span>
+            <span class="lbl">④ Post(Db, clientSessionId)</span>
             <span class="line"></span>
-            <span class="desc">아직 playerId를 모르니 이름으로 해시한다</span>
+            <span class="desc">레인만 바뀌고 주인은 그대로다</span>
         </div>
 
         <div class="msg m-db" style="grid-column: 7 / 9; grid-row: 8;">
@@ -103,9 +103,9 @@
         </div>
 
         <div class="act" style="grid-column: 6 / 8; grid-row: 12;">
-            <b>owner가 playerId로 바뀐다</b>
-            계정이 확정됐으니 이제 영속 키를 쓴다.
-            이후 이 사람의 UnitOfWork와 같은 레인으로 묶인다.
+            <b>레인은 갈아타도 owner는 그대로다</b>
+            계정이 확정돼 playerId를 알게 됐지만 주인은 바꾸지 않는다.
+            갈아타면 앞 구간과 직렬화가 끊긴다. UnitOfWork만 playerId가 주인이다.
         </div>
 
         <div class="msg m-lane" style="grid-column: 5 / 7; grid-row: 13;">
@@ -150,7 +150,7 @@
 
 <div class="panel">
 <b>레인을 네 번 갈아탄다.</b> ③에서 Login 레인, ④에서 Db 레인, ⑦ 뒤에 같은 Db 레인이지만
-<b>주인이 바뀌고</b>, ⑧에서 다시 Login 레인으로 돌아온다.
+⑧에서 다시 Login 레인으로 돌아온다. <b>주인(clientSessionId)은 내내 그대로다</b> — 바뀌는 것은 레인뿐이다.
 
 <p style="margin:10px 0 0">DB 왕복이 <b>반드시 Db 그룹</b>이어야 하는 이유는 블로킹이기 때문이다.
 실측으로 한 번에 8ms 걸린다 — 라우팅 레인에서 하면 그 레인에 걸린 모든 플레이어가 그동안 멈춘다.</p>

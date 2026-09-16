@@ -98,8 +98,8 @@
   `PlayerManager`는 한동안 샤딩이었는데, "그 샤드는 그 번호 스레드만 만진다"는 전제가 World에
   성립하지 않았다(운영툴의 단일 대상 명령이 남의 샤드를 읽고 있었다).
 - **로그인(`C2WLogin`)**: 계정 확인 → 없으면 자동 가입 → `usp_players_load`로 우편·재화를 한
-  왕복에 읽어 캐시 → `W2ZEnterZone`에 실어 존까지. 레인을 네 번 갈아타고 **도중에 주인이
-  바뀐다**(이름 해시 → playerId). TCP 연결이 곧 플레이어이던 동작이 여기서 끝났다.
+  왕복에 읽어 캐시 → `W2ZEnterZone`에 실어 존까지. 레인을 네 번 갈아타되 **주인은 clientSessionId 하나로
+  고정**이다. TCP 연결이 곧 플레이어이던 동작이 여기서 끝났다.
   DB **읽기만** 되고 쓰기(UnitOfWork→SP)는 아직 로그만 남긴다.
 - **Mail 시스템**: `Model`/`Registry`/`ExpiryService`(만료 자동삭제, 별도
   유지보수 타이머). `Thread::Mutexed`(Core, `.Write()->`=쓰기/`->`=읽기)가 "평소엔 락 없음,
