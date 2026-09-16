@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Core/Src/Packet/BinaryWriter.h"
+
 namespace Common
 {
 #pragma pack(push, 1)
@@ -16,4 +18,39 @@ namespace Common
         uint16_t innerPacketId;
     };
 #pragma pack(pop)
+
+    // 봉투를 벗긴 결과. 봉투 자체와 그 뒤에 이어 붙은 원본 패킷을 같이 돌려준다.
+    // **innerPayload 는 인자로 받은 버퍼를 가리킨다** -- 복사가 아니라 subspan 이므로
+    // 그 버퍼보다 오래 들고 있으면 안 된다.
+    struct RelayView
+    {
+        RelayEnvelope envelope{};
+        std::span<const byte> innerPayload;
+    };
+
+    // 봉투를 씌운다. 중계 홉 네 개(G2WRelay/W2GRelay/W2ZRelay/Z2WRelay)가 전부 이 모양이라
+    // 여기 한 곳에 둔다 -- 예전에는 같은 네 줄이 Handler 와 Processor 열 곳에 흩어져 있었다.
+    [[nodiscard]] inline std::vector<byte> WrapRelay(const uint64_t clientSessionId,
+                                                     const uint16_t innerPacketId,
+                                                     const std::span<const byte> innerPayload)
+    {
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(RelayEnvelope{clientSessionId, innerPacketId});
+        binaryWriter.WriteBytes(innerPayload);
+        return binaryWriter.MoveBuffer();
+    }
+
+    // 봉투를 벗긴다. 봉투가 다 안 왔으면 nullopt -- 호출부가 그대로 버리면 된다.
+    [[nodiscard]] inline std::optional<RelayView> UnwrapRelay(const std::span<const byte> payload)
+    {
+        if (payload.size() < sizeof(RelayEnvelope))
+        {
+            return std::nullopt;
+        }
+
+        RelayView view;
+        std::memcpy(&view.envelope, payload.data(), sizeof(RelayEnvelope));
+        view.innerPayload = payload.subspan(sizeof(RelayEnvelope));
+        return view;
+    }
 }

@@ -28,14 +28,9 @@ void BroadcastProcessor::Broadcast(const Common::ZoneId zoneId, std::vector<Netw
 
             for (const auto clientSessionId : targets)
             {
-                Common::RelayEnvelope header{};
-                header.clientSessionId = clientSessionId;
-                header.innerPacketId = static_cast<uint16_t>(innerPacketId);
-
-                Packet::BinaryWriter binaryWriter;
-                binaryWriter.Write(header);
-                binaryWriter.WriteBytes(payload);
-                worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
+                worldSession->SendPacket(
+                    PacketId::Z2WRelay,
+                    Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), payload));
             }
         });
 }

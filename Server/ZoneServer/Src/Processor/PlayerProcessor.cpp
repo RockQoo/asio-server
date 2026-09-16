@@ -86,23 +86,20 @@ void PlayerProcessor::DispatchFromWorld(const PacketId packetId, const Network::
 void PlayerProcessor::HandleForwardToZone(const Network::SessionId clientSessionId,
                                           const std::span<const byte> payload)
 {
-    if (payload.size() < sizeof(Common::RelayEnvelope))
+    const auto relay = Common::UnwrapRelay(payload);
+    if (!relay)
     {
         return;
     }
 
-    Common::RelayEnvelope header{};
-    std::memcpy(&header, payload.data(), sizeof(Common::RelayEnvelope));
-    const auto innerPayload = payload.subspan(sizeof(Common::RelayEnvelope));
-
-    const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
+    const auto innerPacketId = static_cast<PacketId>(relay->envelope.innerPacketId);
     if (innerPacketId == PacketId::C2ZEcho)
     {
-        ReplyEcho(header, innerPayload);
+        ReplyEcho(relay->envelope, relay->innerPayload);
         return;
     }
 
-    HandleClientPacket(clientSessionId, innerPacketId, innerPayload);
+    HandleClientPacket(clientSessionId, innerPacketId, relay->innerPayload);
 }
 
 void PlayerProcessor::ReplyEcho(const Common::RelayEnvelope& header,
@@ -116,13 +113,10 @@ void PlayerProcessor::ReplyEcho(const Common::RelayEnvelope& header,
 
     // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
     // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
-    Common::RelayEnvelope replyHeader = header;
-    replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
-
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(replyHeader);
-    binaryWriter.WriteBytes(innerPayload);
-    worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
+    worldSession->SendPacket(
+        PacketId::Z2WRelay,
+        Common::WrapRelay(header.clientSessionId, static_cast<uint16_t>(PacketId::Z2CEchoAck),
+                          innerPayload));
 }
 void PlayerProcessor::OnPlayerEnter(Common::W2ZEnterZone packet)
 {
@@ -246,14 +240,9 @@ void PlayerProcessor::SendToPlayer(const Network::SessionId clientSessionId, con
         return;
     }
 
-    Common::RelayEnvelope header{};
-    header.clientSessionId = clientSessionId;
-    header.innerPacketId = static_cast<uint16_t>(innerPacketId);
-
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(header);
-    binaryWriter.WriteBytes(payload);
-    worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
+    worldSession->SendPacket(
+        PacketId::Z2WRelay,
+        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), payload));
 }
 
 void PlayerProcessor::BroadcastToZone(const Common::ZoneId zoneId, const PacketId innerPacketId,

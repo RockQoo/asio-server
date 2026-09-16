@@ -353,15 +353,13 @@ void LoginProcessor::SendResult(const Network::Session::SPtr& gatewaySession,
                                  const Network::SessionId clientSessionId, const EErrorCode errorCode,
                                  const Base::RUID playerId, const std::string_view playerName) const
 {
-    Common::RelayEnvelope header{};
-    header.clientSessionId = clientSessionId;
-    header.innerPacketId = static_cast<uint16_t>(PacketId::W2CLogin);
-
     Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(header);
     binaryWriter.Write(static_cast<int32_t>(errorCode));
     binaryWriter.Write(playerId);
     binaryWriter.WriteString(playerName);
 
-    gatewaySession->SendPacket(PacketId::W2GRelay, binaryWriter.GetBuffer());
+    gatewaySession->SendPacket(
+        PacketId::W2GRelay,
+        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(PacketId::W2CLogin),
+                          binaryWriter.GetBuffer()));
 }

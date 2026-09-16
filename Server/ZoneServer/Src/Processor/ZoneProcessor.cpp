@@ -114,14 +114,10 @@ void ZoneProcessor::SendEnterZoneNotify(const Network::SessionId clientSessionId
     notify.clientSessionId = clientSessionId;
     notify.zoneId = def_.zoneId;
 
-    Common::RelayEnvelope header{};
-    header.clientSessionId = clientSessionId;
-    header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEnterZoneNotify);
-
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(header);
-    binaryWriter.Write(notify);
-    worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
+    worldSession->SendPacket(
+        PacketId::Z2WRelay,
+        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(PacketId::Z2CEnterZoneNotify),
+                          std::as_bytes(std::span(&notify, 1))));
 }
 
 void ZoneProcessor::RequestZoneTransfer(const Network::SessionId clientSessionId, const Common::PlayerId playerId,

@@ -44,14 +44,8 @@ void C2GHandler::OnPacket(const Network::Session::SPtr& session,
         return;
     }
 
-    Common::RelayEnvelope envelopeHeader{};
-    envelopeHeader.clientSessionId = session->Id();
-    envelopeHeader.innerPacketId = header.id;
-
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(envelopeHeader);
-    binaryWriter.WriteBytes(payload);
-    worldSession->SendPacket(PacketId::G2WRelay, binaryWriter.GetBuffer());
+    worldSession->SendPacket(PacketId::G2WRelay,
+                             Common::WrapRelay(session->Id(), header.id, payload));
 }
 
 void C2GHandler::OnClosed(const Network::Session::SPtr& session, const std::error_code& /*reason*/)

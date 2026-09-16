@@ -271,12 +271,8 @@ void ZoneUnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<con
 
     // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다
     // (ZoneProcessor::SendToPlayer와 같은 경로).
-    Common::RelayEnvelope header{};
-    header.clientSessionId = clientSessionId_;
-    header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CTaskResult);
-
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(header);
-    binaryWriter.WriteBytes(innerBinaryWriter.GetBuffer());
-    worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
+    worldSession->SendPacket(
+        PacketId::Z2WRelay,
+        Common::WrapRelay(clientSessionId_, static_cast<uint16_t>(PacketId::Z2CTaskResult),
+                          innerBinaryWriter.GetBuffer()));
 }

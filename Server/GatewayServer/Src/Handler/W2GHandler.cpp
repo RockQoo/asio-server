@@ -42,20 +42,17 @@ void W2GHandler::OnClosed(const Network::Session::SPtr& /*session*/, const std::
 void W2GHandler::HandleToClient(const Network::Session::SPtr& /*worldSession*/,
                                        const std::span<const byte> payload)
 {
-    if (payload.size() < sizeof(Common::RelayEnvelope))
+    const auto relay = Common::UnwrapRelay(payload);
+    if (!relay)
     {
         return;
     }
 
-    Common::RelayEnvelope envelopeHeader{};
-    std::memcpy(&envelopeHeader, payload.data(), sizeof(Common::RelayEnvelope));
-
-    const auto clientSession = sessionManager_.Find(envelopeHeader.clientSessionId);
+    const auto clientSession = sessionManager_.Find(relay->envelope.clientSessionId);
     if (!clientSession)
     {
         return;
     }
 
-    const auto innerPayload = payload.subspan(sizeof(Common::RelayEnvelope));
-    clientSession->SendPacket(envelopeHeader.innerPacketId, innerPayload);
+    clientSession->SendPacket(relay->envelope.innerPacketId, relay->innerPayload);
 }

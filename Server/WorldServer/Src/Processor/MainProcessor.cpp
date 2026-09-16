@@ -193,28 +193,26 @@ void MainProcessor::HandleClientDisconnected(const Network::Session::SPtr& /*gat
 void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySession,
                                      const std::span<const byte> payload)
 {
-    if (payload.size() < sizeof(Common::RelayEnvelope))
+    const auto relay = Common::UnwrapRelay(payload);
+    if (!relay)
     {
         return;
     }
 
-    Common::RelayEnvelope envelopeHeader{};
-    std::memcpy(&envelopeHeader, payload.data(), sizeof(Common::RelayEnvelope));
-
-    const auto innerPacketId = static_cast<PacketId>(envelopeHeader.innerPacketId);
+    const auto innerPacketId = static_cast<PacketId>(relay->envelope.innerPacketId);
 
     // **C2W 대역만 World가 끝점이다.** 봉투를 벗겨 직접 처리하고 존으로 넘기지 않는다.
     // 대역으로 가르므로 로그인 말고 다른 C2W 패킷이 생겨도 이 분기는 그대로다.
     if (Common::DirectionOf(innerPacketId) == Common::EPacketDirection::C2W)
     {
-        loginProcessor_.HandleClientPacket(gatewaySession, envelopeHeader.clientSessionId, innerPacketId,
-                                           payload.subspan(sizeof(Common::RelayEnvelope)));
+        loginProcessor_.HandleClientPacket(gatewaySession, relay->envelope.clientSessionId, innerPacketId,
+                                           relay->innerPayload);
         return;
     }
 
     // 여기부터는 clientSessionId만 보고 나머지는 손대지 않은 채 Zone에 재전송한다.
     // World는 게임 패킷의 내용을 해석할 필요가 없다.
-    const auto client = playerManager_->Find(envelopeHeader.clientSessionId);
+    const auto client = playerManager_->Find(relay->envelope.clientSessionId);
     if (!client)
     {
         return;
@@ -225,8 +223,8 @@ void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySessio
     if (!client->authenticated)
     {
         LOG.Warning(ELogCategory::Gateway, "로그인 전 게임 패킷, 버림")
-            .KV("ClientSessionId", envelopeHeader.clientSessionId)
-            .KV("InnerPacketId", envelopeHeader.innerPacketId);
+            .KV("ClientSessionId", relay->envelope.clientSessionId)
+            .KV("InnerPacketId", relay->envelope.innerPacketId);
         return;
     }
 
@@ -263,16 +261,14 @@ void MainProcessor::HandleZoneRegister(const Network::Session::SPtr& zoneSession
 void MainProcessor::HandleForwardToWorld(const Network::Session::SPtr& /*zoneSession*/,
                                          const std::span<const byte> payload)
 {
-    // 헤더의 clientSessionId만 들여다보고 나머지는 그대로 Gateway로 재전송한다.
-    if (payload.size() < sizeof(Common::RelayEnvelope))
+    // 헤더의 clientSessionId만 들여다보고 나머지는 **봉투째** 그대로 Gateway로 재전송한다.
+    const auto relay = Common::UnwrapRelay(payload);
+    if (!relay)
     {
         return;
     }
 
-    Common::RelayEnvelope envelopeHeader{};
-    std::memcpy(&envelopeHeader, payload.data(), sizeof(Common::RelayEnvelope));
-
-    const auto client = playerManager_->Find(envelopeHeader.clientSessionId);
+    const auto client = playerManager_->Find(relay->envelope.clientSessionId);
     if (!client || !client->gatewaySession)
     {
         return;
@@ -499,9 +495,6 @@ void MainProcessor::BroadcastToAll(const PacketId clientPacketId, const std::spa
     basicGroup_.Post(EWorldProcessorId::Main,
         [this, clientPacketId, payloadCopy = std::move(payloadCopy)]
         {
-            Common::RelayEnvelope header{};
-            header.innerPacketId = static_cast<uint16_t>(clientPacketId);
-
             size_t sentCount = 0;
             size_t registeredCount = 0;
 
@@ -514,11 +507,10 @@ void MainProcessor::BroadcastToAll(const PacketId clientPacketId, const std::spa
                         return;
                     }
 
-                    header.clientSessionId = clientSessionId;
-                    Packet::BinaryWriter envelopeBinaryWriter;
-                    envelopeBinaryWriter.Write(header);
-                    envelopeBinaryWriter.WriteBytes(payloadCopy);
-                    info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeBinaryWriter.GetBuffer());
+                    info.gatewaySession->SendPacket(
+                        PacketId::W2GRelay,
+                        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(clientPacketId),
+                                          payloadCopy));
                     ++sentCount;
                 });
 

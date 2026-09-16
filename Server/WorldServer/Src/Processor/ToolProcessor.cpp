@@ -163,14 +163,9 @@ bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId,
     // MainProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
     // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
     // 왔는지 구분할 수 없고, 구분할 필요도 없다.
-    Common::RelayEnvelope envelopeHeader{};
-    envelopeHeader.clientSessionId = clientSessionId;
-    envelopeHeader.innerPacketId = static_cast<uint16_t>(innerPacketId);
-
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(envelopeHeader);
-    binaryWriter.WriteBytes(innerPayload);
-    zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, binaryWriter.GetBuffer());
+    zoneLink->zoneSession->SendPacket(
+        PacketId::W2ZRelay,
+        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), innerPayload));
     return true;
 }
 
@@ -250,14 +245,10 @@ void ToolProcessor::HandleNotice(const Network::Session::SPtr& toolSession,
                 return;
             }
 
-            Common::RelayEnvelope envelopeHeader{};
-            envelopeHeader.clientSessionId = clientSessionId;
-            envelopeHeader.innerPacketId = static_cast<uint16_t>(PacketId::W2CNotice);
-
-            Packet::BinaryWriter envelopeBinaryWriter;
-            envelopeBinaryWriter.Write(envelopeHeader);
-            envelopeBinaryWriter.WriteBytes(noticePayload);
-            info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeBinaryWriter.GetBuffer());
+            info.gatewaySession->SendPacket(
+                PacketId::W2GRelay,
+                Common::WrapRelay(clientSessionId, static_cast<uint16_t>(PacketId::W2CNotice),
+                                  noticePayload));
             ++sentCount;
         });
 
