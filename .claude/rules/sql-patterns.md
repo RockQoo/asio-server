@@ -165,7 +165,7 @@ GO
 ### ① 왜 `@is_trans_outside` 인가
 
 트랜잭션 경계가 **두 곳**에서 잡힐 수 있기 때문이다. 호출부가 SP 여러 개를 한 묶음으로 보낼
-때는 ODBC 커넥션 수준에서 트랜잭션이 이미 열려 있고(`AutoDbCommand` 의 `useTransaction`),
+때는 ODBC 커넥션 수준에서 트랜잭션이 이미 열려 있고(`AutoSpCommands` 의 `useTransaction`),
 SP 하나만 보낼 때는 열려 있지 않다. 이걸 SP 가 모르면:
 
 - 바깥이 이미 트랜잭션인데 SP 가 또 열면 **중첩 트랜잭션**이 된다. T-SQL 의 중첩 `COMMIT` 은

@@ -7,17 +7,16 @@
 #include "Shared/Protocol/Src/ErrorCode.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Db/DbCommand.h"
+#include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
 
 namespace World
 {
-    // PlayerManager::Mutexed 를 쓰므로 전방 선언으로는 부족하다.
-    class DbConnectionPool;
 
     // C2W 대역(로그인)의 처리기. **IPacketHandler가 아니다** -- 운영툴처럼 자기 포트를 갖는 게
-    // 아니라, 클라이언트 패킷이 Gateway 릴레이 봉투에 실려 들어오므로 GatewayLinkHandler가
+    // 아니라, 클라이언트 패킷이 Gateway 릴레이 봉투에 실려 들어오므로 MainProcessor가
     // 봉투를 열어 이쪽으로 넘긴다(그래서 등록도 Listener가 아니라 그 핸들러가 한다).
     //
     // **스레드 규약이 이 클래스의 전부다.** 한 번의 로그인이 레인을 세 번 갈아탄다:
@@ -41,11 +40,9 @@ namespace World
     {
     public:
         LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                       Processor::Group<EProcessorId>& basicGroup,
-                       Processor::Group<EProcessorId>& dbGroup,
-                       DbConnectionPool& dbPool);
+                       Processor::Group<EProcessorId>& basicGroup, DbProcessor& dbProcessor);
 
-        // GatewayLinkHandler가 봉투 안 id의 방향이 C2W일 때 부른다.
+        // MainProcessor가 봉투 안 id의 방향이 C2W일 때 부른다.
         // **BASIC 레인(owner=clientSessionId)에서 불린다** -- I/O 스레드가 아니다.
         void HandleClientPacket(const Network::Session::SPtr& gatewaySession,
                                 const Network::SessionId clientSessionId, const PacketId packetId,
@@ -55,7 +52,7 @@ namespace World
         void HandleLogin(const Network::Session::SPtr& gatewaySession,
                          const Network::SessionId clientSessionId, const std::span<const byte> payload);
 
-        // 아래 넷은 **DB 레인**에서 불린다(AutoDbCommand의 콜백). BASIC 상태를 만지지 않고,
+        // 아래 넷은 **DB 레인**에서 불린다(DbProcessor의 콜백). BASIC 상태를 만지지 않고,
         // 결과만 PostFailure/PostSuccess로 BASIC에 되던진다.
         void OnAccountSelected(const Network::Session::SPtr& gatewaySession,
                                const Network::SessionId clientSessionId, const std::string& playerName,
@@ -100,7 +97,6 @@ namespace World
         PlayerManager::Mutexed& playerManager_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
         Processor::Group<EProcessorId>& basicGroup_;
-        Processor::Group<EProcessorId>& dbGroup_;
-        DbConnectionPool& dbPool_;
+        DbProcessor& dbProcessor_;
     };
 }

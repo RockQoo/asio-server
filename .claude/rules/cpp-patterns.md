@@ -147,13 +147,13 @@ ODBC `sql.h`의 `SQL_*`/`MAX_*` 수백 개를 더 본다. 충돌하면 치환된
 Player player;                         // OK
 UnitOfWork unitOfWork(...);            // OK
 
-AutoDbCommand select(...);             // X -- select 는 SQL 동작이지 이 객체가 아니다
-AutoDbCommand autoDbCommand(...);      // O
+AutoSpCommands select(...);            // X -- select 는 SQL 동작이지 이 객체가 아니다
+AutoSpCommands autoSpCommands(...);    // O
 ```
 
 **왜**: 역할로 이름을 지으면 같은 타입이 함수마다 다른 이름으로 불린다(`select`/`upsert`/`load`가
-전부 `AutoDbCommand`였다). 그러면 "이 파일에서 AutoDbCommand 를 어디서 쓰나"를 이름으로 찾을 수
-없고, 소멸자에서 일이 끝나는 타입(`AutoDbCommand`/`UnitOfWork`)은 **그 변수가 무엇인지 모르면
+전부 `AutoSpCommands`였다). 그러면 "이 파일에서 AutoSpCommands 를 어디서 쓰나"를 이름으로 찾을 수
+없고, 소멸자에서 일이 끝나는 타입(`AutoSpCommands`/`UnitOfWork`)은 **그 변수가 무엇인지 모르면
 스코프의 끝이 무슨 의미인지도 모른다.**
 
 ### 같은 타입이 한 스코프에 여럿이면 구분어를 앞에 붙인다
@@ -265,14 +265,14 @@ switch (subTask)
 case Protocol::EMailTask::Added:
     {
         playerManager.Write()->AddMail(clientSessionId, MailInfo{mailId, title, body, sendUt, endUt});
-        autoDbCommand.Add(DbCommand{"dbo.usp_mails_upsert", {mailId.Value(), ...}});
+        autoSpCommands.Add(DbCommand{"dbo.usp_mails_upsert", {mailId.Value(), ...}});
     }
     break;
 
 case Protocol::EMailTask::Removed:
     {
         playerManager.Write()->RemoveMail(clientSessionId, mailId);
-        autoDbCommand.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
+        autoSpCommands.Add(DbCommand{"dbo.usp_mails_delete", {mailId.Value(), NowUt()}});
     }
     break;
 }

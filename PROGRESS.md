@@ -60,7 +60,7 @@
   띄웠지만 09-12에 로컬 설치본으로 옮겼다(아래 참고).
   스키마 규약은 `.claude/rules/sql-patterns.md` — 테이블 복수형, 클러스터 인덱스 필수,
   SP는 `[콘텐츠명]_[행위]`, INSERT/UPDATE는 upsert 하나로, DELETE는 `delete_ut` 소프트 삭제.
-- **ODBC 기반 DB 계층**(`Server/WorldServer/Src/Db/`): 실무 서버의 `AutoDbCommand`와 같은
+- **ODBC 기반 DB 계층**(`Server/WorldServer/Src/Db/`): 실무 서버의 `AutoSpCommands`와 같은
   모양 — `(ownerId, isTran, callback)`을 받아 SP 커맨드를 쌓았다가 **소멸 시 DB 큐 그룹으로**
   한 번에 보낸다. **UnitOfWork 하나 = 트랜잭션 하나**이고 여러 UoW를 모으지 않는다.
   커넥션은 레인 스레드마다 `thread_local` 1개라 "커넥션 수 = 소비자 수 1:1"이 그대로 성립하고
@@ -128,7 +128,7 @@
   다이어그램**(`docs/sequences/`)으로 바꿨다 -- 누가 누구에게 보냈는지가 드러나지 않던 것이
   이유다. 서버별 설명은 `docs/*.html`, 설계 근거는 `docs/design/`, README는 진입점으로 축소.
 - **운영툴(`Tool/GmTool`, C#/.NET 10/SQL Server)**: 서버 쪽은 WorldServer에 세 번째 accept
-  포트(9300)와 `Tool/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
+  포트(9300)와 `Processor/ToolProcessor`를 추가했다 — `GatewayLinkHandler`/`ZoneLinkHandler`와
   **같은 스레드 규약**(I/O 스레드는 바이트 복사만 → Basic 그룹으로 Post)을 따른다.
   `authenticatedSessions_`는 툴 세션이 주인이라 지금도 락이 없지만, **운영툴이 만지는
   플레이어 테이블은 남의 것**이라 `PlayerManager`가 `Mutexed`여야 했다(당시엔 샤딩만 믿고

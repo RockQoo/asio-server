@@ -118,12 +118,12 @@
 ⑦에서 잔액이 충분했다면 <code>DecCurrencyTask</code>가 하나 더 쌓이고, 소멸자는 롤백 대신
 <b>Task 2개를 한 번에</b> 내보낸다:
 
-<pre><code>Z2WUnitOfWorkStream  →  World DB 레인  →  AutoDbCommand(ownerId, useTransaction = true)
+<pre><code>Z2WUnitOfWorkStream  →  World DB 레인  →  AutoSpCommands(ownerId, useTransaction = true)
                                               ├ usp_mails_upsert       (@is_trans_outside = 1)
                                               ├ usp_currencies_upsert  (@is_trans_outside = 1)
                                               └ COMMIT   /  예외면 ROLLBACK</code></pre>
 
-<b>UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
+<b>UnitOfWork 하나 = AutoSpCommands 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
 <code>@is_trans_outside</code>는 "바깥이 이미 트랜잭션을 열었다"를 SP에 알리는 파라미터다 —
 모르면 SP가 자기 트랜잭션을 또 열어 중첩이 되고, 그러면 안쪽 COMMIT이 실제로 커밋하지 않는다.
 </div>
@@ -131,7 +131,7 @@
 <div class="callout todo">
     <h4>지금 상태</h4>
     메모리 쪽(①~⑫)은 전부 동작하고 롤백도 실측했다. DB 쪽은 <b>배선만 남았다</b> —
-    <code>ZoneLinkHandler</code>가 Task를 훑기만 하고 <code>AutoDbCommand</code>를 만들지 않는다.
+    <code>MainProcessor</code>가 Task를 훑기만 하고 <code>AutoSpCommands</code>를 만들지 않는다.
     자세한 건 <a href="mail-add-to-db.html">C2ZMailAdd 경로</a>의 ⑫ 참고.
 </div>
 
@@ -149,7 +149,7 @@
     <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Mail/MailTask.h</code></td></tr>
     <tr><td>⑦</td><td><code>Server/ZoneServer/Src/Currency/Model.cpp</code> — <code>SetTracked</code></td></tr>
     <tr><td>⑩~⑫</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code>, <code>Shared/Core/Src/Task/UnitOfWork.cpp</code></td></tr>
-    <tr><td>DB</td><td><code>Server/WorldServer/Src/Db/AutoDbCommand.h</code>, <code>Sql/mails.sql</code></td></tr>
+    <tr><td>DB</td><td><code>Server/WorldServer/Src/Db/AutoSpCommands.h</code>, <code>Sql/mails.sql</code></td></tr>
 </table>
 
 <p class="foot">asio-server · 시퀀스 다이어그램</p>

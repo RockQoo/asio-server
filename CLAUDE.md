@@ -141,11 +141,13 @@ C:\Work\asio-server\
 │   │   ├── Src/App/Config.{h,cpp}    Config 구조체 + LoadConfig -- main은 한 줄로 받아 App에 넘긴다
 │   │   ├── Src/Cli/                  실행 인자 모드: DbCheck / IdTest
 │   │   │                             main에 있던 것을 뺐다(403 -> 72줄). 세 서버 모두 App/Config.{h,cpp} 구조가 같다
-│   │   ├── Src/Test/                 F키 테스트 하네스: TestKeys(F1→TestFunc1) + TestProcessor
+│   │   ├── Src/Processor/            레인에서 도는 프로세서 클래스를 한곳에 모은다 -- MainProcessor
+│   │   │                             (라우팅), LoginProcessor, DbProcessor, ToolProcessor,
+│   │   │                             TestProcessor. EProcessorId 의 태그와 1:1이다
+│   │   ├── Src/Test/                 F키 하네스의 보내는 쪽: TestKeys(F1→TestFunc1) + MsgId
 │   │   │                             (PushMsg(msgId, 프로세서id, ownerId, 인자...)로 보낸다)
-│   │   ├── Src/World/                PlayerManager(로그인 캐시 + 라우팅), ZoneLinkRegistry
-│   │   │                             — World는 "남는 스레드"가 기본이라 둘 다 Mutexed
-│   │   └── Src/Login/                LoginProcessor — C2WLogin → 계정 조회/자동 가입 → 콘텐츠 적재
+│   │   └── Src/World/                PlayerManager(로그인 캐시 + 라우팅), ZoneLinkRegistry
+│   │                                 — 공지처럼 주인이 없는 경로가 있어 둘 다 Mutexed
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
 │           ├── Worker/               TaskWorker(범용 실행기), WorkerManager
@@ -283,8 +285,10 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Common::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
 | `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 **살아 있는 우편·재화 캐시**다 — 로그인 때 DB에서 채우고, 존이 올린 UnitOfWork를 BASIC 레인에서 계속 반영한다. 프로세스를 넘는 핸드오프가 이 캐시를 그대로 실어 보낸다 |
-| | `Login::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **BASIC→DB→BASIC으로 레인을 갈아타지만 주인은 `clientSessionId` 하나로 고정**이다 — `playerId`를 알게 된 뒤에도 바꾸지 않는다(갈아타면 앞 구간과 직렬화가 끊긴다). 존 입장 뒤의 UnitOfWork만 `playerId`가 주인 |
-| | `Db::AutoDbCommand` | SP 커맨드를 모았다가 소멸 시 한 번에. **UoW 하나 = 트랜잭션 하나** |
+| | `World::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **BASIC→DB→BASIC으로 레인을 갈아타지만 주인은 `clientSessionId` 하나로 고정**이다 — `playerId`를 알게 된 뒤에도 바꾸지 않는다(갈아타면 앞 구간과 직렬화가 끊긴다). 존 입장 뒤의 UnitOfWork만 `playerId`가 주인 |
+| | `World::MainProcessor` | BASIC 레인(`Main`)의 라우팅 처리기. Gateway/Zone 링크가 I/O 스레드에서 던진 일이 실제로 도는 곳 -- 링크 핸들러는 주인만 뽑아 넘기고 상태를 만지지 않는다 |
+| | `World::DbProcessor` | DB 레인(`Db`)의 처리기. 커넥션 획득 + 트랜잭션 + **실패 정책(Fire-and-Forget)** + 콜백이 여기 한곳에 있다 |
+| | `World::AutoSpCommands` | SP 커맨드를 모았다가 소멸 시 `DbProcessor`로 한 번에. **UoW 하나 = 트랜잭션 하나** |
 | | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
 | `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
 | | `PlayerProcessor` | 플레이어 레인의 진입점 — 입장/퇴장 + 패킷 라우팅. Move/Chat만 직접 처리한다(모델 변경도 DB 저장도 없어 UoW를 열지 않는다) |
@@ -296,7 +300,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `Mail::Model` / `Currency::Model` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
 | | `Zone::UnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 각 태스크가 자기 역연산으로 되돌리고(분기 switch 없음), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
 | `GatewayServer` | `ClientLinkHandler`/`WorldLinkHandler` | 클라이언트↔World 양방향 릴레이만, 게임 로직 없음 |
-| `WorldServer` | `Tool::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
+| `WorldServer` | `World::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
 
 ---
 

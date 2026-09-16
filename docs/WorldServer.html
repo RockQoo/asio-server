@@ -89,7 +89,7 @@ UnitOfWork와 같은 레인으로 묶인다.</p>
 
 <div class="callout">
     <h4>World가 클라이언트 패킷을 들여다보는 유일한 자리</h4>
-    <code>GatewayLinkHandler::HandleFromClient</code>는 봉투 안 id의 <b>방향이 C2W면</b> 존으로
+    <code>MainProcessor::HandleFromClient</code>는 봉투 안 id의 <b>방향이 C2W면</b> 존으로
     넘기지 않고 <code>LoginProcessor</code>로 보낸다. 대역으로 가르므로 로그인 말고 다른 C2W 패킷이
     생겨도 이 분기는 그대로다.
     <p style="margin:8px 0 0"><b>인증 전에는 게임 패킷이 존까지 가지 않는다.</b> TCP 연결만으로
@@ -115,8 +115,10 @@ UnitOfWork와 같은 레인으로 묶인다.</p>
     <tr><th>타입</th><th>역할</th><th>락</th></tr>
     <tr><td><code>PlayerManager</code></td><td>접속 중인 플레이어 전원 — 라우팅(게이트웨이 링크, zoneId) + 계정(playerId, 인증) + 콘텐츠 캐시(우편·재화)</td><td><b>Mutexed</b> — 어느 스레드에서든 읽힌다</td></tr>
     <tr><td><code>ZoneLinkRegistry</code></td><td>zoneId → (zoneSession, 담당 사각형)</td><td><b>Mutexed</b> — 같은 이유</td></tr>
+    <tr><td><code>MainProcessor</code></td><td>BASIC 레인(<code>Main</code>)의 라우팅 처리기. 링크 핸들러가 I/O 스레드에서 던진 일이 실제로 도는 곳</td><td>없음 — 레인 규약</td></tr>
     <tr><td><code>LoginProcessor</code></td><td>C2W 대역 처리. 계정 조회·자동 가입·콘텐츠 적재·존 입장</td><td>없음 — 레인 규약</td></tr>
-    <tr><td><code>AutoDbCommand</code></td><td>SP 커맨드를 모았다가 <b>소멸 시</b> 한 번에 실행. 콜백은 DB 레인에서</td><td>—</td></tr>
+    <tr><td><code>DbProcessor</code></td><td>DB 레인(<code>Db</code>)의 처리기. 커넥션 획득 + 트랜잭션 + <b>실패 정책(Fire-and-Forget)</b> + 콜백</td><td>없음 — 레인 규약</td></tr>
+    <tr><td><code>AutoSpCommands</code></td><td>SP 커맨드를 모았다가 <b>소멸 시</b> <code>DbProcessor</code>로 한 번에. 실행·실패 정책은 그쪽</td><td>—</td></tr>
     <tr><td><code>DbConnection</code></td><td>ODBC 커넥션 하나. <b>레인 스레드마다 thread_local 1개</b></td><td>없음 — 1:1이라 공유가 없다</td></tr>
     <tr><td><code>ToolProcessor</code></td><td>운영툴 전용 포트(9300)의 핸들러</td><td>없음 — 다른 링크와 같은 스레드 규약</td></tr>
 </table>
@@ -147,12 +149,12 @@ UnitOfWork와 같은 레인으로 묶인다.</p>
 
 <pre><code>Z2WUnitOfWorkStream  →  basicGroup_.Post(Main, clientSessionId)
                           ├ PlayerManager 캐시 반영 (AddMail / RemoveMail / SetCurrency)
-                          └ AutoDbCommand(playerId, useTransaction = true)
+                          └ AutoSpCommands(playerId, useTransaction = true)
                               ├ usp_mails_upsert       (@is_trans_outside = 1)
                               ├ usp_currencies_upsert  (@is_trans_outside = 1)
                               └ COMMIT   /  예외면 ROLLBACK</code></pre>
 
-<b>UnitOfWork 하나 = AutoDbCommand 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
+<b>UnitOfWork 하나 = AutoSpCommands 하나 = 트랜잭션 하나.</b> 여러 UoW를 모으지 않는다.
 <br><br>
 <b>주인이 두 번 바뀐다.</b> Zone과 World Basic 레인까지는 <code>clientSessionId</code>가 주인이고,
 Db 레인에서만 <code>playerId</code>로 갈아탄다 — DB 작업은 세션이 아니라 <b>계정</b>에 묶이는 일이라
@@ -184,15 +186,17 @@ Db 레인에서만 <code>playerId</code>로 갈아탄다 — DB 작업은 세션
 ├ Worker/ProcessorId.h        Main / Login / Tool / Test / Db
 ├ World/PlayerManager         누가 어느 존에 있고 무엇을 갖고 있는가
 ├ World/ZoneLinkRegistry      어느 존이 어느 사각형인가
-├ Handler/GatewayLinkHandler  클라 패킷 → C2W면 로그인, 아니면 담당 존
-├ Handler/ZoneLinkHandler     존 패킷 → 클라 / DB
-├ Login/LoginProcessor        로그인 · 자동 가입 · 콘텐츠 적재
+├ Handler/GatewayLinkHandler  I/O 스레드 -- 주인만 뽑아 BASIC으로 (상태를 만지지 않는다)
+├ Handler/ZoneLinkHandler     I/O 스레드 -- 패킷마다 다른 위치의 주인을 뽑는다
+├ Processor/MainProcessor     BASIC 레인 -- 위 둘이 던진 일이 실제로 도는 곳
+├ Processor/LoginProcessor    로그인 · 자동 가입 · 콘텐츠 적재
+├ Processor/DbProcessor       DB 레인 -- 커넥션 · 트랜잭션 · 실패 정책
+├ Processor/ToolProcessor     운영툴(9300)
+├ Processor/TestProcessor     메시지 핸들러(받는 쪽)
 ├ Packet/EnterZoneBody.h      W2ZEnterZone 가변 본문(콘텐츠 동봉)
-├ Tool/ToolProcessor          운영툴(9300)
 ├ Test/MsgId.h                EMsgId + PushMsg(msgId, 프로세서id, ownerId, 인자...)
-├ Test/TestProcessor          메시지 핸들러(받는 쪽)
-├ Test/TestKeys               F키 바인딩(TestFunc1)
-└ Db/                         AutoDbCommand · DbConnection · PasswordHash</code></pre>
+├ Test/TestKeys               F키 바인딩(보내는 쪽, TestFunc1~3)
+└ Db/                         AutoSpCommands · DbConnection · PasswordHash</code></pre>
 
 <p class="foot">asio-server · 서버별 문서</p>
 </main>

@@ -7,6 +7,7 @@
 #include "Shared/Core/Src/Thread/Mutexed.h"
 #include "Shared/Protocol/Src/PacketId.h"
 #include "Packet/ToolResultCode.h"
+#include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
@@ -30,8 +31,7 @@ namespace World
     {
     public:
         ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                      Processor::Group<EProcessorId>& basicGroup,
-                      Processor::Group<EProcessorId>& dbGroup,
+                      Processor::Group<EProcessorId>& basicGroup, DbProcessor& dbProcessor,
                       std::string sharedSecret);
 
         void OnSessionOpened(const Network::Session::SPtr& session) override;
@@ -77,7 +77,7 @@ namespace World
         PlayerManager::Mutexed& playerManager_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
         Processor::Group<EProcessorId>& basicGroup_;
-        Processor::Group<EProcessorId>& dbGroup_;
+        DbProcessor& dbProcessor_;
         std::string sharedSecret_;
 
         // **왜 여기만 락인가**: 운영툴 명령은 대상이 전역이라 ownerId를 하나로 고정할 수 없고

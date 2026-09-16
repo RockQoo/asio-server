@@ -42,7 +42,7 @@ namespace Protocol
         // ---- C2W : 클라이언트 -> World (2000 ~ 2999) ----
         // **이 대역만 World가 끝점이다.** Gateway는 여전히 내용을 모르는 릴레이지만, World는
         // 봉투 안의 id가 이 대역이면 존으로 넘기지 않고 직접 처리한다
-        // (GatewayLinkHandler::HandleFromClient -> LoginProcessor).
+        // (MainProcessor::HandleFromClient -> LoginProcessor).
         C2WLogin = 2001,  // playerName + password(둘 다 길이 접두). 계정이 없으면 그 자리에서 만든다
 
         // ---- W2C : World -> 클라이언트 (3000 ~ 3999) ----

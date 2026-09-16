@@ -6,7 +6,7 @@
 ## 왜 이 문서가 있나
 
 ```cpp
-void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoDbCommand& autoDbCommand,
+void ApplyMailTask(PlayerManager::Mutexed& playerManager, AutoSpCommands& autoSpCommands,
                    const Protocol::EMailTask subTask, const Network::SessionId clientSessionId,
                    const Protocol::PlayerId playerId, const std::span<const byte> taskPayload)
 ```

@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Tool/ToolProcessor.h"
+#include "Processor/ToolProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Packet/RelayEnvelope.h"
@@ -42,13 +42,12 @@ namespace World
     }
 
     ToolProcessor::ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                                 Processor::Group<EProcessorId>& basicGroup,
-                                 Processor::Group<EProcessorId>& dbGroup,
+                                 Processor::Group<EProcessorId>& basicGroup, DbProcessor& dbProcessor,
                                  std::string sharedSecret)
         : playerManager_(playerManager)
         , zoneLinkRegistry_(zoneLinkRegistry)
         , basicGroup_(basicGroup)
-        , dbGroup_(dbGroup)
+        , dbProcessor_(dbProcessor)
         , sharedSecret_(std::move(sharedSecret))
     {
         RegisterHandlers();
@@ -163,7 +162,7 @@ namespace World
             return false;
         }
 
-        // GatewayLinkHandler::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
+        // MainProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
         // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
         // 왔는지 구분할 수 없고, 구분할 필요도 없다.
         ClientEnvelopeHeader envelopeHeader{};
@@ -413,15 +412,15 @@ namespace World
             couponCodes.push_back(std::move(code));
         }
 
-        // 캠페인 코드로 해시해 고정된 DbWorker에 위임한다 -- 같은 캠페인의 청크는 항상 같은
-        // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(ZoneLinkHandler의
+        // 캠페인 코드로 해시해 고정된 DB 레인에 위임한다 -- 같은 캠페인의 청크는 항상 같은
+        // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(MainProcessor의
         // UnitOfWork 태스크가 clientSessionId로 해시하는 것과 같은 owner-hash 원리).
         const auto ownerHash = std::hash<std::string>{}(campaignCode);
-        dbGroup_.Post(EProcessorId::Db, ownerHash,
+        dbProcessor_.Post(ownerHash,
             [campaignCode, chunkSeq, couponCodes = std::move(couponCodes)]
             {
                 // TODO: 실제로는 여기서 쿠폰 테이블에 벌크 INSERT를 실행한다(WorldServer의 DB
-                // 연동 자체가 아직 TODO -- Db/DbWorker.h 주석 참고). 현재 쿠폰의 권위 저장소는
+                // 연동 자체가 아직 TODO -- Processor/DbProcessor.h 참고). 현재 쿠폰의 권위 저장소는
                 // 운영툴 쪽 MySQL이고, 이 경로는 "게임 서버도 같은 청크를 순서대로 받아 적재할
                 // 수 있다"는 구조만 미리 갖춰둔 것이다.
                 LOG.Info(ELogCategory::Tool, "쿠폰 청크 수신 (DB 적재는 TODO)")

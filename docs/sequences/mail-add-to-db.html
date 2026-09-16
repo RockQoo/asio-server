@@ -126,14 +126,14 @@
         <div class="act" style="grid-column: 11 / 13; grid-row: 15;">
             <b>⑫ HandleUnitOfWorkStream</b>
             taskKind를 카테고리/동작 2단으로 분기해 Task를 하나씩 읽고,
-            <b>World 캐시(PlayerManager)에 반영</b>한 뒤 같은 내용을 AutoDbCommand에 쌓는다.
+            <b>World 캐시(PlayerManager)에 반영</b>한 뒤 같은 내용을 AutoSpCommands에 쌓는다.
             DB에 쓸 <code>player_id</code>는 로그인이 확정한 값을 캐시에서 꺼낸다.
         </div>
 
         <div class="msg m-db" style="grid-column: 12 / 14; grid-row: 16;">
             <span class="lbl">⑬ usp_mails_upsert <em>(owner=playerId)</em></span>
             <span class="line"></span>
-            <span class="desc">AutoDbCommand 소멸 = DB 레인으로 한 번에. <b>UoW 하나 = 트랜잭션 하나</b></span>
+            <span class="desc">AutoSpCommands 소멸 = DB 레인으로 한 번에. <b>UoW 하나 = 트랜잭션 하나</b></span>
         </div>
     </div>
 
@@ -182,7 +182,7 @@
     <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Handler/PlayerMail.cpp</code> — <code>HandleMailAdd</code></td></tr>
     <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code> — 소멸자</td></tr>
     <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>HandleUnitOfWorkStream</code></td></tr>
-    <tr><td>⑬</td><td><code>Sql/mails.sql</code>(<code>usp_mails_upsert</code>), <code>Server/WorldServer/Src/Db/AutoDbCommand.h</code></td></tr>
+    <tr><td>⑬</td><td><code>Sql/mails.sql</code>(<code>usp_mails_upsert</code>), <code>Server/WorldServer/Src/Db/AutoSpCommands.h</code></td></tr>
 </table>
 
 <p class="foot">asio-server · 시퀀스 다이어그램</p>

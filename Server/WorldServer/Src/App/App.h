@@ -9,9 +9,11 @@
 #include "Db/DbConnection.h"
 #include "Handler/GatewayLinkHandler.h"
 #include "Handler/ZoneLinkHandler.h"
-#include "Login/LoginProcessor.h"
+#include "Processor/DbProcessor.h"
+#include "Processor/LoginProcessor.h"
+#include "Processor/MainProcessor.h"
 #include "Test/MsgId.h"
-#include "Tool/ToolProcessor.h"
+#include "Processor/ToolProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
@@ -34,11 +36,6 @@ namespace World
         void Run();
         void Stop();
 
-        // 접속 중인 모든 클라이언트에게 Zone을 거치지 않고 직접 브로드캐스트한다 -- World가
-        // 전체 클라이언트 레지스트리를 들고 있기 때문에 가능하다. 콘솔 REPL 스레드에서
-        // 호출되므로(I/O 스레드가 아닌 또 다른 생산자) 이 역시 playerManager_를 직접 만지지
-        // 않고 WorldWorker로 넘긴다.
-        void BroadcastToAll(const PacketId clientPacketId, const std::span<const byte> payload);
 
     private:
         void SetupSignalHandling();
@@ -60,9 +57,11 @@ namespace World
         // 기동 시점에 DB가 안 떠 있어도 서버는 뜨고, 로그인만 LoginDbFailure로 실패한다.
         DbConnectionPool dbPool_;
 
-        // gatewayLinkHandler_가 참조로 물고 있으므로 **반드시 그보다 먼저 선언한다**
-        // (멤버 초기화 순서 = 선언 순서).
+        // **선언 순서가 곧 의존 순서다**(멤버 초기화 순서 = 선언 순서). 링크 핸들러 둘은
+        // mainProcessor_를, mainProcessor_는 loginProcessor_와 dbProcessor_를 참조로 물고 있다.
+        DbProcessor dbProcessor_;
         LoginProcessor loginProcessor_;
+        MainProcessor mainProcessor_;
         GatewayLinkHandler gatewayLinkHandler_;
         ZoneLinkHandler zoneLinkHandler_;
         ToolProcessor toolProcessor_;

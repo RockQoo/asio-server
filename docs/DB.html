@@ -35,7 +35,7 @@
 
 <h2>트랜잭션 — UnitOfWork 하나 = 트랜잭션 하나</h2>
 <div class="panel">
-<pre><code>AutoDbCommand(pool, dbGroup, ownerId, useTransaction = true)
+<pre><code>AutoSpCommands(dbProcessor, ownerId, useTransaction = true)
     .Add({ "dbo.usp_mails_upsert",      { mailId, playerId, ... } })
     .Add({ "dbo.usp_currencies_upsert", { playerId, type, value } })
                        ↓ 소멸 시 한 번에
@@ -106,7 +106,7 @@ DB에 반영하는 구조(UnitOfWork)라, <b>DB가 id를 정하면 그 응답에
 
 <div class="callout">
     <h4>쓰기 경로 — 존의 UnitOfWork가 그대로 트랜잭션이 된다</h4>
-    <code>ZoneLinkHandler::HandleUnitOfWorkStream</code>이 스트림당 <code>AutoDbCommand</code> 하나를
+    <code>MainProcessor::HandleUnitOfWorkStream</code>이 스트림당 <code>AutoSpCommands</code> 하나를
     만들고, Task 루프가 <code>Add()</code>만 한다. 스코프를 벗어나면 쌓인 SP가 DB 레인으로 한 번에
     나가고 위 트랜잭션이 그대로 성립한다.
     <p style="margin:8px 0 0"><b>주인은 <code>playerId</code>다</b> — 세션이 아니라 계정에 묶이는
@@ -151,7 +151,7 @@ DbResult    = 결과 집합 목록   ← SP 하나가 낸 전부</code></pre>
 
 <h2>코드 위치</h2>
 <pre><code>Server/WorldServer/Src/Db/
-├ AutoDbCommand    UoW 하나 = 트랜잭션 하나 (RAII)
+├ AutoSpCommands   UoW 하나 = 트랜잭션 하나 (RAII, 모으기만)
 ├ DbConnection     ODBC 커넥션, 트랜잭션, SP 호출
 ├ DbCommand        SP 이름 + 파라미터 (임의 SQL 통로 없음)
 └ PasswordHash     CNG PBKDF2-HMAC-SHA256

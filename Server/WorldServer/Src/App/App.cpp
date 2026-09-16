@@ -1,12 +1,10 @@
 #include "pch.h"
 #include "App/App.h"
-#include "Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Test/TestKeys.h"
-#include "Test/TestProcessor.h"
+#include "Processor/TestProcessor.h"
 
 namespace World
 {
@@ -16,10 +14,12 @@ namespace World
         , basicGroup_("Basic", config_.basicThreadCount, config_.slowTaskWarnThreshold)
         , dbGroup_("Db", config_.dbThreadCount, config_.slowTaskWarnThreshold)
         , dbPool_(config_.dbConnectionString)
-        , loginProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, dbPool_)
-        , gatewayLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, loginProcessor_)
-        , zoneLinkHandler_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, dbPool_)
-        , toolProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbGroup_, config_.toolSharedSecret)
+        , dbProcessor_(dbPool_, dbGroup_)
+        , loginProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbProcessor_)
+        , mainProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbProcessor_, loginProcessor_)
+        , gatewayLinkHandler_(basicGroup_, mainProcessor_)
+        , zoneLinkHandler_(basicGroup_, mainProcessor_)
+        , toolProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbProcessor_, config_.toolSharedSecret)
         , signals_(ioPool_.At(0), SIGINT, SIGTERM)
     {
         // **전역 핸들을 여기서 세운다.** 이 시점부터 PushMsg가 이 App의 라우터를 찾는다.
@@ -105,54 +105,6 @@ namespace World
             toolListener_->Stop();
         }
         ioPool_.Stop();
-    }
-
-    void App::BroadcastToAll(const PacketId clientPacketId, const std::span<const byte> payload)
-    {
-        // 콘솔 REPL 스레드에서 호출되므로(I/O 스레드가 아닌 또 다른 생산자) 여기서 바로 돌지
-        // 않고 BASIC 그룹으로 넘긴다. payload는 호출자의 지역 버퍼를 가리키므로, 비동기
-        // 메시지로 넘어가기 전에 복사해서 소유권을 옮긴다.
-        //
-        // **한 메시지로 끝난다** -- 레지스트리가 Mutexed가 되면서 읽기 락 하나로 전체를 순회할
-        // 수 있게 됐다. 샤딩이던 시절에는 "전부 순회할 수 있는 스레드"가 없어서 샤드마다
-        // 메시지를 던지고 결과를 취합해야 했다.
-        //
-        // **ownerId를 주지 않는다** -- 대상이 전 클라이언트라 주인이 없고, 공지끼리 순서를
-        // 맞출 필요도 없다. 주인을 억지로 0으로 주면 공지가 항상 0번 strand로만 가서, 전체
-        // 순회라는 무거운 일이 레인 하나에 쌓인다. 남는 스레드가 집어가게 둔다.
-        std::vector<byte> payloadCopy(payload.begin(), payload.end());
-
-        basicGroup_.Post(EProcessorId::Main,
-            [this, clientPacketId, payloadCopy = std::move(payloadCopy)]
-            {
-                ClientEnvelopeHeader header{};
-                header.innerPacketId = static_cast<uint16_t>(clientPacketId);
-
-                size_t sentCount = 0;
-                size_t registeredCount = 0;
-
-                playerManager_->ForEach(
-                    [&](const Network::SessionId clientSessionId, const PlayerInfo& info)
-                    {
-                        ++registeredCount;
-                        if (!info.gatewaySession)
-                        {
-                            return;
-                        }
-
-                        header.clientSessionId = clientSessionId;
-                        Packet::BinaryWriter envelopeBinaryWriter;
-                        envelopeBinaryWriter.Write(header);
-                        envelopeBinaryWriter.WriteBytes(payloadCopy);
-                        info.gatewaySession->SendPacket(PacketId::W2GRelay, envelopeBinaryWriter.GetBuffer());
-                        ++sentCount;
-                    });
-
-                LOG.Info(ELogCategory::General, "전체 브로드캐스트 처리")
-                    .KV("PacketId", static_cast<uint16_t>(clientPacketId))
-                    .KV("RegisteredClients", registeredCount)
-                    .KV("SentTo", sentCount);
-            });
     }
 
     void App::SetupSignalHandling()
