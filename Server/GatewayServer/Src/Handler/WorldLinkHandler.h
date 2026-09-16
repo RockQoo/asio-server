@@ -22,18 +22,18 @@ namespace Gateway
     public:
         WorldLinkHandler(Network::SessionManager& sessionManager, WorldLink& worldLink);
 
-        void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
-        void OnPacket(const std::shared_ptr<Network::Session>& session,
+        void OnSessionOpened(const Network::Session::SPtr& session) override;
+        void OnPacket(const Network::Session::SPtr& session,
                       const Packet::Header& header,
                       const std::span<const byte> payload) override;
-        void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
+        void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
     private:
         void RegisterHandlers();
-        void HandleToClient(const std::shared_ptr<Network::Session>& worldSession, const std::span<const byte> payload);
+        void HandleToClient(const Network::Session::SPtr& worldSession, const std::span<const byte> payload);
 
         Network::SessionManager& sessionManager_;
         WorldLink& worldLink_;
-        Packet::Dispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::Dispatcher<PacketId, Network::Session::SPtr> dispatcher_;
     };
 }

@@ -78,13 +78,13 @@ namespace World
         dispatcher_.Register(PacketId::T2WClientList, this, &ToolProcessor::HandleClientList);
     }
 
-    void ToolProcessor::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void ToolProcessor::OnSessionOpened(const Network::Session::SPtr& session)
     {
         LOG.Info(ELogCategory::Tool, "운영툴 연결 수락(인증 대기)")
             .KV("SessionId", session->Id()).KV("Remote", session->RemoteAddress());
     }
 
-    void ToolProcessor::OnPacket(const std::shared_ptr<Network::Session>& session,
+    void ToolProcessor::OnPacket(const Network::Session::SPtr& session,
                                  const Packet::Header& header,
                                  const std::span<const byte> payload)
     {
@@ -122,7 +122,7 @@ namespace World
         });
     }
 
-    void ToolProcessor::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
+    void ToolProcessor::OnClosed(const Network::Session::SPtr& session, const std::error_code& /*reason*/)
     {
         const auto sessionId = session->Id();
         basicGroup_.Post(EProcessorId::Tool, sessionId, [this, sessionId]
@@ -137,7 +137,7 @@ namespace World
         return authenticatedSessions_->contains(toolSessionId);
     }
 
-    void ToolProcessor::SendCommandResult(const std::shared_ptr<Network::Session>& toolSession, const uint32_t requestId,
+    void ToolProcessor::SendCommandResult(const Network::Session::SPtr& toolSession, const uint32_t requestId,
                                        const EToolResultCode resultCode, const uint32_t affectedCount) const
     {
         ToolCommandResultPacket ack{};
@@ -177,7 +177,7 @@ namespace World
         return true;
     }
 
-    void ToolProcessor::HandleHello(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleHello(const Network::Session::SPtr& toolSession,
                                          const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -226,7 +226,7 @@ namespace World
         }
     }
 
-    void ToolProcessor::HandleNotice(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleNotice(const Network::Session::SPtr& toolSession,
                                              const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -269,7 +269,7 @@ namespace World
         SendCommandResult(toolSession, requestId, EToolResultCode::Ok, sentCount);
     }
 
-    void ToolProcessor::HandleMailSend(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleMailSend(const Network::Session::SPtr& toolSession,
                                                const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -347,7 +347,7 @@ namespace World
         SendCommandResult(toolSession, requestId, EToolResultCode::Ok, 1);
     }
 
-    void ToolProcessor::HandleMailDelete(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleMailDelete(const Network::Session::SPtr& toolSession,
                                                  const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(ToolMailDeletePacket))
@@ -385,7 +385,7 @@ namespace World
         SendCommandResult(toolSession, request.requestId, EToolResultCode::Ok, 1);
     }
 
-    void ToolProcessor::HandleCouponChunkPush(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleCouponChunkPush(const Network::Session::SPtr& toolSession,
                                                const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -433,7 +433,7 @@ namespace World
         SendCommandResult(toolSession, requestId, EToolResultCode::Ok, couponCount);
     }
 
-    void ToolProcessor::HandleClientList(const std::shared_ptr<Network::Session>& toolSession,
+    void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
                                                  const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(ToolClientListPacket))

@@ -16,7 +16,7 @@ namespace Gateway
     {
     }
 
-    void ClientLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void ClientLinkHandler::OnSessionOpened(const Network::Session::SPtr& session)
     {
         sessionManager_.Add(session);
 
@@ -36,7 +36,7 @@ namespace Gateway
             .KV("Remote", session->RemoteAddress());
     }
 
-    void ClientLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
+    void ClientLinkHandler::OnPacket(const Network::Session::SPtr& session,
                                          const Packet::Header& header,
                                          const std::span<const byte> payload)
     {
@@ -56,7 +56,7 @@ namespace Gateway
         worldSession->SendPacket(PacketId::G2WRelay, binaryWriter.GetBuffer());
     }
 
-    void ClientLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
+    void ClientLinkHandler::OnClosed(const Network::Session::SPtr& session, const std::error_code& /*reason*/)
     {
         sessionManager_.Remove(session->Id());
 

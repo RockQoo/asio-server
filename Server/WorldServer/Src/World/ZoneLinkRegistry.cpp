@@ -5,7 +5,7 @@
 
 namespace World
 {
-    void ZoneLinkRegistry::Add(const Protocol::ZoneId zoneId, const std::shared_ptr<Network::Session>& zoneSession,
+    void ZoneLinkRegistry::Add(const Protocol::ZoneId zoneId, const Network::Session::SPtr& zoneSession,
                                 const float xMin, const float xMax, const float yMin, const float yMax)
     {
         zones_[zoneId] = ZoneLinkInfo{zoneSession, xMin, xMax, yMin, yMax};

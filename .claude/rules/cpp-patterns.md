@@ -575,6 +575,67 @@ std::string_view message`로 바꾸고 호출부의 불필요한 `std::move`도 
 값을 다시 읽는다. "클래스니까 `const&`가 싸다"는 **힙을 들고 있거나 사용자 정의 복사 생성자가
 있는 타입**에만 해당한다. 어셈블리 근거: `docs/design/parameter-passing.md`
 
+## 스마트 포인터로만 소유되는 타입은 중첩 별칭을 둔다 (`SPtr`/`UPtr`/`WPtr`)
+
+**어떤 타입이 항상 특정 스마트 포인터로만 소유된다면, 그 클래스 안에 별칭을 둔다.**
+이름은 셋으로 고정한다 — 자리마다 다른 이름(`Ptr`/`Ref`/`Handle`)을 쓰면 별칭의 값이 없다.
+
+| 별칭 | 대상 |
+|---|---|
+| `SPtr` | `std::shared_ptr<T>` |
+| `UPtr` | `std::unique_ptr<T>` |
+| `WPtr` | `std::weak_ptr<T>` |
+
+```cpp
+class Session final : public std::enable_shared_from_this<Session>
+{
+public:
+    using SPtr = std::shared_ptr<Session>;
+    ...
+};
+
+// 호출부
+void OnPacket(const Network::Session::SPtr& session, ...);
+Packet::Dispatcher<PacketId, Network::Session::SPtr> dispatcher_;
+```
+
+**왜**: `Session`은 `enable_shared_from_this`라 `shared_ptr`로만 소유된다 — 비동기 완료
+핸들러가 도는 동안 자기 생존을 보장해야 하기 때문이다. 그 규약이 지금까지는 클래스 주석에만
+있었고 시그니처에는 `std::shared_ptr<Network::Session>`이라는 긴 철자만 반복됐다.
+별칭을 두면 **규약이 타입 이름에 붙는다.**
+
+### 전방 선언과 같이 쓸 수 없다
+
+**중첩 별칭은 클래스의 멤버라, 이름을 찾으려면 정의가 필요하다.** 전방 선언만으로는
+`C2027 use of undefined type`이 난다.
+
+```cpp
+namespace Network { class Session; }        // 불완전 타입
+
+std::shared_ptr<Network::Session> a;        // OK  -- shared_ptr는 불완전 타입을 허용한다
+Network::Session::SPtr            b;        // C2027
+```
+
+그래서 별칭을 도입하면 **전방 선언하던 곳이 전부 include로 바뀐다.** `Session`의 경우
+`IPacketHandler.h` 등 7곳이 그렇게 됐다.
+
+**이 저장소에서는 그 비용이 거의 없어서 받아들였다** — 6개 `pch.h` 전부가 이미
+`<asio.hpp>`를 include하므로, `Session.h`를 더 끌어와도 추가로 컴파일되는 것이 없다.
+남는 비용은 헤더 결합(그 헤더가 바뀌면 재빌드 파급)뿐이고 `Session.h`는 안정적인 파일이다.
+
+**pch에 무거운 의존이 없는 프로젝트라면 계산이 달라진다.** 그때는 별칭을 포기하거나,
+네임스페이스 스코프 별칭(`namespace Network { class Session; using SessionPtr = ...; }`)을
+쓴다 — 후자는 불완전 타입으로도 되지만, 이 저장소는 `Mutexed` 중첩 별칭과 모양을 맞추려고
+중첩 쪽을 택했다.
+
+### 언제 두나
+
+- **둔다**: 소유 방식이 그 타입의 규약인 것(`Session`은 `shared_ptr` 전용).
+- **두지 않는다**: 소유 방식이 쓰는 쪽 사정인 것. `std::unique_ptr<Timer::RepeatingTimer>`는
+  그냥 그 자리에서 unique로 들고 있을 뿐이라 별칭이 규약을 말하지 않는다.
+- 별칭을 둔 뒤에는 **그 타입에 raw `std::shared_ptr<T>`를 새로 쓰지 않는다** — 두 철자가
+  섞이면 grep이 한쪽을 놓친다.
+
 ## 네임스페이스가 이미 말해주는 접두사는 타입 이름에서 뗀다
 
 `namespace Zone`의 `ZoneServerConfig`는 호출부에서 `Zone::ZoneServerConfig`가 되어 "Zone"을

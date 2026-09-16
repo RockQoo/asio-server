@@ -4,7 +4,7 @@
 namespace World
 {
     void PlayerManager::Add(const Network::SessionId clientSessionId,
-                            const std::shared_ptr<Network::Session>& gatewaySession)
+                            const Network::Session::SPtr& gatewaySession)
     {
         PlayerInfo info{};
         info.gatewaySession = gatewaySession;

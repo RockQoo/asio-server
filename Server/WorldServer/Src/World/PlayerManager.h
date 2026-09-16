@@ -3,12 +3,8 @@
 #include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
-
-namespace Network
-{
-    class Session;
-}
 
 namespace World
 {
@@ -32,7 +28,7 @@ namespace World
         // ---- 라우팅 ----
         // 이 클라이언트에게 보낼 때 쓸 게이트웨이 링크. **클라이언트의 소켓이 아니다** --
         // Gateway가 여러 대면 "이 사람은 몇 번 게이트웨이 경유"를 가리키게 된다.
-        std::shared_ptr<Network::Session> gatewaySession;
+        Network::Session::SPtr gatewaySession;
         Protocol::ZoneId zoneId{};
 
         // ---- 계정 ----
@@ -73,7 +69,7 @@ namespace World
     public:
         using Mutexed = Thread::Mutexed<PlayerManager>;
 
-        void Add(const Network::SessionId clientSessionId, const std::shared_ptr<Network::Session>& gatewaySession);
+        void Add(const Network::SessionId clientSessionId, const Network::Session::SPtr& gatewaySession);
         void Remove(const Network::SessionId clientSessionId);
         void SetZone(const Network::SessionId clientSessionId, const Protocol::ZoneId zoneId);
 
@@ -108,7 +104,7 @@ namespace World
         // 릴레이 경로가 쓰는 가벼운 조회 -- 패킷마다 불리므로 우편함까지 복사하면 안 된다.
         struct Route
         {
-            std::shared_ptr<Network::Session> gatewaySession;
+            Network::Session::SPtr gatewaySession;
             Protocol::ZoneId zoneId{};
             bool authenticated{};
         };

@@ -147,13 +147,13 @@ namespace World
         }
     }
 
-    void ZoneLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void ZoneLinkHandler::OnSessionOpened(const Network::Session::SPtr& session)
     {
         LOG.Info(ELogCategory::Zone, "Zone 연결 수락")
             .KV("SessionId", session->Id()).KV("Remote", session->RemoteAddress());
     }
 
-    void ZoneLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
+    void ZoneLinkHandler::OnPacket(const Network::Session::SPtr& session,
                                    const Packet::Header& header,
                                    const std::span<const byte> payload)
     {
@@ -178,7 +178,7 @@ namespace World
             });
     }
 
-    void ZoneLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
+    void ZoneLinkHandler::OnClosed(const Network::Session::SPtr& session, const std::error_code& /*reason*/)
     {
         // 세션 종료 통지도 I/O 스레드에서 오므로, 여기서 레지스트리를 직접 건드리지 않고
         // BASIC 그룹으로 넘긴다. 주인은 끊긴 세션 자신이다 -- 등록/해제가 같은 스레드에서
@@ -193,7 +193,7 @@ namespace World
         });
     }
 
-    void ZoneLinkHandler::HandleZoneRegister(const std::shared_ptr<Network::Session>& zoneSession,
+    void ZoneLinkHandler::HandleZoneRegister(const Network::Session::SPtr& zoneSession,
                                               const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(ZoneRegisterPacket))
@@ -214,7 +214,7 @@ namespace World
             .KV("YMin", registerPacket.yMin).KV("YMax", registerPacket.yMax);
     }
 
-    void ZoneLinkHandler::HandleForwardToWorld(const std::shared_ptr<Network::Session>& /*zoneSession*/,
+    void ZoneLinkHandler::HandleForwardToWorld(const Network::Session::SPtr& /*zoneSession*/,
                                                 const std::span<const byte> payload)
     {
         // 헤더의 clientSessionId만 들여다보고 나머지는 그대로 Gateway로 재전송한다.
@@ -235,7 +235,7 @@ namespace World
         client->gatewaySession->SendPacket(PacketId::W2GRelay, payload);
     }
 
-    void ZoneLinkHandler::HandleZoneTransfer(const std::shared_ptr<Network::Session>& /*zoneSession*/,
+    void ZoneLinkHandler::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSession*/,
                                                       const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(PlayerZoneStatePacket))
@@ -341,7 +341,7 @@ namespace World
             .KV("X", state.x).KV("Y", state.y);
     }
 
-    void ZoneLinkHandler::HandleUnitOfWorkStream(const std::shared_ptr<Network::Session>& /*zoneSession*/,
+    void ZoneLinkHandler::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zoneSession*/,
                                                  const std::span<const byte> payload)
     {
         // **여기는 BASIC 레인이고 주인은 clientSessionId다.** 그래서 이 클라이언트의 접속 종료

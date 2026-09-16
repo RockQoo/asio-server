@@ -28,11 +28,11 @@ namespace Stress
         void Start();
         void Stop();
 
-        void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
-        void OnPacket(const std::shared_ptr<Network::Session>& session,
+        void OnSessionOpened(const Network::Session::SPtr& session) override;
+        void OnPacket(const Network::Session::SPtr& session,
                       const Packet::Header& header,
                       const std::span<const byte> payload) override;
-        void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
+        void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
         [[nodiscard]] bool IsDone() const noexcept { return done_.load(std::memory_order_acquire); }
         [[nodiscard]] std::chrono::steady_clock::time_point LastProgressAt() const noexcept;
@@ -67,7 +67,7 @@ namespace Stress
         Stats& stats_;
 
         std::shared_ptr<Network::Connector> connector_;
-        std::shared_ptr<Network::Session> session_;
+        Network::Session::SPtr session_;
         std::unique_ptr<Timer::RepeatingTimer> broadcastTimer_;
 
         // 이 세션의 io_context 스레드 안에서만 접근된다(OnPacket/OnSessionOpened/OnClosed는 전부

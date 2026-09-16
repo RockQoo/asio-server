@@ -98,14 +98,14 @@ namespace Stress
         }
     }
 
-    void Session::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void Session::OnSessionOpened(const Network::Session::SPtr& session)
     {
         session_ = session;
         stats_.RecordConnected();
         MarkProgress();
     }
 
-    void Session::OnPacket(const std::shared_ptr<Network::Session>& /*session*/,
+    void Session::OnPacket(const Network::Session::SPtr& /*session*/,
                                  const Packet::Header& header,
                                  const std::span<const byte> payload)
     {
@@ -126,7 +126,7 @@ namespace Stress
         }
     }
 
-    void Session::OnClosed(const std::shared_ptr<Network::Session>& /*session*/, const std::error_code& /*reason*/)
+    void Session::OnClosed(const Network::Session::SPtr& /*session*/, const std::error_code& /*reason*/)
     {
         stats_.RecordSessionEnded();
     }

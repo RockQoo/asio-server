@@ -31,13 +31,13 @@ namespace World
         dispatcher_.Register(PacketId::G2WRelay, this, &GatewayLinkHandler::HandleFromClient);
     }
 
-    void GatewayLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void GatewayLinkHandler::OnSessionOpened(const Network::Session::SPtr& session)
     {
         LOG.Info(ELogCategory::Gateway, "Gateway 연결 수락")
             .KV("SessionId", session->Id()).KV("Remote", session->RemoteAddress());
     }
 
-    void GatewayLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
+    void GatewayLinkHandler::OnPacket(const Network::Session::SPtr& session,
                                       const Packet::Header& header,
                                       const std::span<const byte> payload)
     {
@@ -64,12 +64,12 @@ namespace World
             });
     }
 
-    void GatewayLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& /*reason*/)
+    void GatewayLinkHandler::OnClosed(const Network::Session::SPtr& session, const std::error_code& /*reason*/)
     {
         LOG.Info(ELogCategory::Gateway, "Gateway 연결 종료").KV("SessionId", session->Id());
     }
 
-    void GatewayLinkHandler::HandleClientConnected(const std::shared_ptr<Network::Session>& gatewaySession,
+    void GatewayLinkHandler::HandleClientConnected(const Network::Session::SPtr& gatewaySession,
                                                     const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -88,7 +88,7 @@ namespace World
             .KV("ClientSessionId", clientSessionId);
     }
 
-    void GatewayLinkHandler::HandleClientDisconnected(const std::shared_ptr<Network::Session>& /*gatewaySession*/,
+    void GatewayLinkHandler::HandleClientDisconnected(const Network::Session::SPtr& /*gatewaySession*/,
                                                        const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -119,7 +119,7 @@ namespace World
         LOG.Info(ELogCategory::Gateway, "클라이언트 접속 종료").KV("ClientSessionId", clientSessionId);
     }
 
-    void GatewayLinkHandler::HandleFromClient(const std::shared_ptr<Network::Session>& gatewaySession,
+    void GatewayLinkHandler::HandleFromClient(const Network::Session::SPtr& gatewaySession,
                                                const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(ClientEnvelopeHeader))

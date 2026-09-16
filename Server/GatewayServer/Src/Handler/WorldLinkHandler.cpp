@@ -20,20 +20,20 @@ namespace Gateway
         dispatcher_.Register(PacketId::W2GRelay, this, &WorldLinkHandler::HandleToClient);
     }
 
-    void WorldLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void WorldLinkHandler::OnSessionOpened(const Network::Session::SPtr& session)
     {
         worldLink_.Set(session);
         LOG.Info(ELogCategory::World, "World 연결 성공").KV("SessionId", session->Id());
     }
 
-    void WorldLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& session,
+    void WorldLinkHandler::OnPacket(const Network::Session::SPtr& session,
                                      const Packet::Header& header,
                                      const std::span<const byte> payload)
     {
         dispatcher_.Dispatch(static_cast<PacketId>(header.id), session, payload);
     }
 
-    void WorldLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& /*session*/, const std::error_code& reason)
+    void WorldLinkHandler::OnClosed(const Network::Session::SPtr& /*session*/, const std::error_code& reason)
     {
         // 최초 연결 실패는 Connector가 알아서 재시도하지만, 한 번 연결된 뒤 끊기는 경우의
         // 재연결은 학습 범위 밖으로 남겨둔다(재연결하려면 Connector를 다시 Start()해야 함).
@@ -41,7 +41,7 @@ namespace Gateway
         LOG.Warning(ELogCategory::World, "World 연결 끊김").KV("Message", reason.message());
     }
 
-    void WorldLinkHandler::HandleToClient(const std::shared_ptr<Network::Session>& /*worldSession*/,
+    void WorldLinkHandler::HandleToClient(const Network::Session::SPtr& /*worldSession*/,
                                            const std::span<const byte> payload)
     {
         if (payload.size() < sizeof(World::ClientEnvelopeHeader))

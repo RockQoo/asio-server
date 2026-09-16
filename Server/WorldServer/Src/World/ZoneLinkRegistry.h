@@ -1,19 +1,15 @@
 #pragma once
 
 #include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Protocol/Src/Ids.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
-
-namespace Network
-{
-    class Session;
-}
 
 namespace World
 {
     struct ZoneLinkInfo
     {
-        std::shared_ptr<Network::Session> zoneSession;
+        Network::Session::SPtr zoneSession;
         float xMin{};
         float xMax{};
         float yMin{};
@@ -42,7 +38,7 @@ namespace World
     public:
         using Mutexed = Thread::Mutexed<ZoneLinkRegistry>;
 
-        void Add(const Protocol::ZoneId zoneId, const std::shared_ptr<Network::Session>& zoneSession,
+        void Add(const Protocol::ZoneId zoneId, const Network::Session::SPtr& zoneSession,
                  const float xMin, const float xMax, const float yMin, const float yMax);
         void Remove(const Protocol::ZoneId zoneId);
 

@@ -33,11 +33,11 @@ namespace World
                          Processor::Group<EProcessorId>& basicGroup,
                          Processor::Group<EProcessorId>& dbGroup, DbConnectionPool& dbPool);
 
-        void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
-        void OnPacket(const std::shared_ptr<Network::Session>& session,
+        void OnSessionOpened(const Network::Session::SPtr& session) override;
+        void OnPacket(const Network::Session::SPtr& session,
                       const Packet::Header& header,
                       const std::span<const byte> payload) override;
-        void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
+        void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
     private:
         void RegisterHandlers();
@@ -50,9 +50,9 @@ namespace World
         [[nodiscard]] static std::optional<uint64_t> OwnerIdOf(const PacketId packetId,
                                                                 const std::span<const byte> payload);
 
-        void HandleZoneRegister(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
-        void HandleForwardToWorld(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
-        void HandleZoneTransfer(const std::shared_ptr<Network::Session>& zoneSession, const std::span<const byte> payload);
+        void HandleZoneRegister(const Network::Session::SPtr& zoneSession, const std::span<const byte> payload);
+        void HandleForwardToWorld(const Network::Session::SPtr& zoneSession, const std::span<const byte> payload);
+        void HandleZoneTransfer(const Network::Session::SPtr& zoneSession, const std::span<const byte> payload);
 
         // W2ZEnterZone 본문을 캐시의 콘텐츠와 함께 만든다(포맷: Packet/ZoneLinkPackets.h).
         // 핸드오프와 되돌림이 같은 바이트를 보내야 존 쪽 파서가 하나로 끝난다.
@@ -62,7 +62,7 @@ namespace World
         // BASIC 레인에서 불리고(owner = clientSessionId), DB 작업은 AutoDbCommand가 모았다가
         // 스코프 끝에서 playerId를 주인으로 DB 레인에 한 번에 넘긴다 -- UnitOfWork 하나가
         // 트랜잭션 하나다.
-        void HandleUnitOfWorkStream(const std::shared_ptr<Network::Session>& zoneSession,
+        void HandleUnitOfWorkStream(const Network::Session::SPtr& zoneSession,
                                     const std::span<const byte> payload);
 
         // 이동 대상 존을 못 찾았을 때 플레이어를 원래 존으로 되돌린다. 보낸 존이 이미 자기
@@ -75,6 +75,6 @@ namespace World
         Processor::Group<EProcessorId>& basicGroup_;
         Processor::Group<EProcessorId>& dbGroup_;
         DbConnectionPool& dbPool_;
-        Packet::Dispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::Dispatcher<PacketId, Network::Session::SPtr> dispatcher_;
     };
 }

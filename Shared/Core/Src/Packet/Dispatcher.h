@@ -4,7 +4,7 @@ namespace Packet
 {
     // 패킷 타입 -> 핸들러를 연결해주는 범용 라우터.
     // TPacketId는 보통 `enum class : uint16_t` 형태이고, TContext는 핸들러가 전달받을 값
-    // (예: shared_ptr<Session>)이다.
+    // (예: Network::Session::SPtr)이다.
     template <typename TPacketId, typename TContext>
     class Dispatcher
     {

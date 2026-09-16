@@ -27,7 +27,7 @@ namespace World
     {
     }
 
-    void LoginProcessor::HandleClientPacket(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::HandleClientPacket(const Network::Session::SPtr& gatewaySession,
                                             const Network::SessionId clientSessionId, const PacketId packetId,
                                             const std::span<const byte> payload)
     {
@@ -45,7 +45,7 @@ namespace World
         }
     }
 
-    void LoginProcessor::HandleLogin(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::HandleLogin(const Network::Session::SPtr& gatewaySession,
                                      const Network::SessionId clientSessionId, const std::span<const byte> payload)
     {
         Packet::BinaryReader binaryReader(payload);
@@ -95,7 +95,7 @@ namespace World
         autoDbCommand.Add(DbCommand{"dbo.usp_players_select", {playerName}});
     }
 
-    void LoginProcessor::OnAccountSelected(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::OnAccountSelected(const Network::Session::SPtr& gatewaySession,
                                            const Network::SessionId clientSessionId, const std::string& playerName,
                                            const std::string& password, const bool succeeded, const DbResult& dbResult)
     {
@@ -155,7 +155,7 @@ namespace World
         autoDbCommand.Add(DbCommand{"dbo.usp_players_upsert", {requestedPlayerId, playerName, storedHash}});
     }
 
-    void LoginProcessor::OnAccountCreated(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::OnAccountCreated(const Network::Session::SPtr& gatewaySession,
                                            const Network::SessionId clientSessionId, const std::string& playerName,
                                            const Common::RUID requestedPlayerId, const bool succeeded,
                                            const DbResult& dbResult)
@@ -188,7 +188,7 @@ namespace World
         LoadPlayerContent(gatewaySession, clientSessionId, playerName, *confirmedPlayerId);
     }
 
-    void LoginProcessor::LoadPlayerContent(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::LoadPlayerContent(const Network::Session::SPtr& gatewaySession,
                                             const Network::SessionId clientSessionId,
                                             const std::string& playerName, const Common::RUID playerId)
     {
@@ -208,7 +208,7 @@ namespace World
         autoDbCommand.Add(DbCommand{"dbo.usp_players_load", {playerId}});
     }
 
-    void LoginProcessor::OnPlayerLoaded(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::OnPlayerLoaded(const Network::Session::SPtr& gatewaySession,
                                          const Network::SessionId clientSessionId,
                                          const std::string& playerName, const Common::RUID playerId,
                                          const bool succeeded, const DbResult& dbResult)
@@ -269,7 +269,7 @@ namespace World
                     std::move(mails), std::move(currencies));
     }
 
-    void LoginProcessor::PostFailure(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::PostFailure(const Network::Session::SPtr& gatewaySession,
                                       const Network::SessionId clientSessionId, const EErrorCode errorCode)
     {
         // 전송뿐이라 BASIC을 거치지 않아도 되지만, 로그인의 모든 결말이 같은 레인에서 나가야
@@ -281,7 +281,7 @@ namespace World
             });
     }
 
-    void LoginProcessor::PostSuccess(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::PostSuccess(const Network::Session::SPtr& gatewaySession,
                                       const Network::SessionId clientSessionId, const std::string& playerName,
                                       const Common::RUID playerId,
                                       std::unordered_map<Protocol::MailId, MailInfo> mails,
@@ -296,7 +296,7 @@ namespace World
             });
     }
 
-    void LoginProcessor::CompleteLogin(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::CompleteLogin(const Network::Session::SPtr& gatewaySession,
                                         const Network::SessionId clientSessionId, const std::string& playerName,
                                         const Common::RUID playerId,
                                         std::unordered_map<Protocol::MailId, MailInfo> mails,
@@ -354,7 +354,7 @@ namespace World
             .KV("X", entry->x).KV("Y", entry->y).KV("BodyBytes", enterBody.size());
     }
 
-    void LoginProcessor::SendResult(const std::shared_ptr<Network::Session>& gatewaySession,
+    void LoginProcessor::SendResult(const Network::Session::SPtr& gatewaySession,
                                      const Network::SessionId clientSessionId, const EErrorCode errorCode,
                                      const Common::RUID playerId, const std::string_view playerName) const
     {

@@ -1,9 +1,6 @@
 #pragma once
 
-namespace Network
-{
-    class Session;
-}
+#include "Shared/Core/Src/Network/Session.h"
 
 namespace Zone
 {
@@ -14,7 +11,7 @@ namespace Zone
     class WorldLink
     {
     public:
-        void Set(const std::shared_ptr<Network::Session>& session)
+        void Set(const Network::Session::SPtr& session)
         {
             std::unique_lock lock(mutex_);
             session_ = session;
@@ -26,7 +23,7 @@ namespace Zone
             session_.reset();
         }
 
-        [[nodiscard]] std::shared_ptr<Network::Session> Get() const
+        [[nodiscard]] Network::Session::SPtr Get() const
         {
             std::shared_lock lock(mutex_);
             return session_;
@@ -34,6 +31,6 @@ namespace Zone
 
     private:
         mutable std::shared_mutex mutex_;
-        std::shared_ptr<Network::Session> session_;
+        Network::Session::SPtr session_;
     };
 }

@@ -25,7 +25,7 @@ namespace Zone
     {
     }
 
-    void WorldLinkHandler::OnSessionOpened(const std::shared_ptr<Network::Session>& session)
+    void WorldLinkHandler::OnSessionOpened(const Network::Session::SPtr& session)
     {
         worldLink_.Set(session);
 
@@ -70,7 +70,7 @@ namespace Zone
         }
     }
 
-    void WorldLinkHandler::OnPacket(const std::shared_ptr<Network::Session>& /*session*/,
+    void WorldLinkHandler::OnPacket(const Network::Session::SPtr& /*session*/,
                                     const Packet::Header& header,
                                     const std::span<const byte> payload)
     {
@@ -95,7 +95,7 @@ namespace Zone
             });
     }
 
-    void WorldLinkHandler::OnClosed(const std::shared_ptr<Network::Session>& /*session*/, const std::error_code& reason)
+    void WorldLinkHandler::OnClosed(const Network::Session::SPtr& /*session*/, const std::error_code& reason)
     {
         worldLink_.Clear();
         LOG.Warning(ELogCategory::Zone, "World 연결 끊김").KV("Message", reason.message());

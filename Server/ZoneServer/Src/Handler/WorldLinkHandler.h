@@ -34,11 +34,11 @@ namespace Zone
                          Processor::Group<EProcessorId>& playerGroup,
                          WorldLink& worldLink, std::vector<Def> zoneDefs);
 
-        void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
-        void OnPacket(const std::shared_ptr<Network::Session>& session,
+        void OnSessionOpened(const Network::Session::SPtr& session) override;
+        void OnPacket(const Network::Session::SPtr& session,
                       const Packet::Header& header,
                       const std::span<const byte> payload) override;
-        void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
+        void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
     private:
         // I/O 스레드에서 부른다. 세 패킷 모두 주인이 클라이언트 세션이고, 그 값이 페이로드

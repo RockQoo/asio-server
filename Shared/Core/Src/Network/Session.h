@@ -16,6 +16,10 @@ namespace Network
     class Session final : public std::enable_shared_from_this<Session>
     {
     public:
+        // 이 타입은 shared_ptr로만 소유된다(위 주석). 그래서 별칭이 규약을 이름에 드러낸다.
+        // **전방 선언만으로는 쓸 수 없다** -- 멤버 별칭이라 이 헤더를 include해야 한다.
+        using SPtr = std::shared_ptr<Session>;
+
         Session(asio::io_context& ioContext, const SessionId id, IPacketHandler& handler);
         ~Session();
 

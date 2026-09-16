@@ -2,6 +2,7 @@
 
 #include "Shared/Core/Src/Common/RUID.h"
 #include "Shared/Core/Src/Common/Types.h"
+#include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Protocol/Src/ErrorCode.h"
 #include "Shared/Protocol/Src/PacketId.h"
@@ -9,11 +10,6 @@
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
 #include "Worker/ProcessorId.h"
-
-namespace Network
-{
-    class Session;
-}
 
 namespace World
 {
@@ -51,48 +47,48 @@ namespace World
 
         // GatewayLinkHandler가 봉투 안 id의 방향이 C2W일 때 부른다.
         // **BASIC 레인(owner=clientSessionId)에서 불린다** -- I/O 스레드가 아니다.
-        void HandleClientPacket(const std::shared_ptr<Network::Session>& gatewaySession,
+        void HandleClientPacket(const Network::Session::SPtr& gatewaySession,
                                 const Network::SessionId clientSessionId, const PacketId packetId,
                                 const std::span<const byte> payload);
 
     private:
-        void HandleLogin(const std::shared_ptr<Network::Session>& gatewaySession,
+        void HandleLogin(const Network::Session::SPtr& gatewaySession,
                          const Network::SessionId clientSessionId, const std::span<const byte> payload);
 
         // 아래 넷은 **DB 레인**에서 불린다(AutoDbCommand의 콜백). BASIC 상태를 만지지 않고,
         // 결과만 PostFailure/PostSuccess로 BASIC에 되던진다.
-        void OnAccountSelected(const std::shared_ptr<Network::Session>& gatewaySession,
+        void OnAccountSelected(const Network::Session::SPtr& gatewaySession,
                                const Network::SessionId clientSessionId, const std::string& playerName,
                                const std::string& password, const bool succeeded, const DbResult& dbResult);
-        void OnAccountCreated(const std::shared_ptr<Network::Session>& gatewaySession,
+        void OnAccountCreated(const Network::Session::SPtr& gatewaySession,
                               const Network::SessionId clientSessionId, const std::string& playerName,
                               const Common::RUID requestedPlayerId, const bool succeeded, const DbResult& dbResult);
 
         // 계정이 확정된 뒤 우편/재화를 적재한다. 여기서부터 owner가 playerId로 바뀐다.
-        void LoadPlayerContent(const std::shared_ptr<Network::Session>& gatewaySession,
+        void LoadPlayerContent(const Network::Session::SPtr& gatewaySession,
                                const Network::SessionId clientSessionId, const std::string& playerName,
                                const Common::RUID playerId);
-        void OnPlayerLoaded(const std::shared_ptr<Network::Session>& gatewaySession,
+        void OnPlayerLoaded(const Network::Session::SPtr& gatewaySession,
                             const Network::SessionId clientSessionId, const std::string& playerName,
                             const Common::RUID playerId, const bool succeeded, const DbResult& dbResult);
 
         // DB 레인 -> BASIC 레인으로 결말을 넘긴다.
-        void PostFailure(const std::shared_ptr<Network::Session>& gatewaySession,
+        void PostFailure(const Network::Session::SPtr& gatewaySession,
                          const Network::SessionId clientSessionId, const EErrorCode errorCode);
-        void PostSuccess(const std::shared_ptr<Network::Session>& gatewaySession,
+        void PostSuccess(const Network::Session::SPtr& gatewaySession,
                          const Network::SessionId clientSessionId, const std::string& playerName,
                          const Common::RUID playerId,
                          std::unordered_map<Protocol::MailId, MailInfo> mails,
                          std::unordered_map<uint8_t, int64_t> currencies);
 
         // BASIC 레인. 캐시를 채우고 인증을 확정한 뒤, 콘텐츠를 실어 존에 입장시킨다.
-        void CompleteLogin(const std::shared_ptr<Network::Session>& gatewaySession,
+        void CompleteLogin(const Network::Session::SPtr& gatewaySession,
                            const Network::SessionId clientSessionId, const std::string& playerName,
                            const Common::RUID playerId,
                            std::unordered_map<Protocol::MailId, MailInfo> mails,
                            std::unordered_map<uint8_t, int64_t> currencies);
 
-        void SendResult(const std::shared_ptr<Network::Session>& gatewaySession,
+        void SendResult(const Network::Session::SPtr& gatewaySession,
                         const Network::SessionId clientSessionId, const EErrorCode errorCode,
                         const Common::RUID playerId, const std::string_view playerName) const;
 

@@ -4,7 +4,7 @@
 
 namespace Network
 {
-    void SessionManager::Add(const std::shared_ptr<Session>& session)
+    void SessionManager::Add(const Session::SPtr& session)
     {
         std::unique_lock lock(mutex_);
         sessions_.emplace(session->Id(), session);
@@ -16,7 +16,7 @@ namespace Network
         sessions_.erase(id);
     }
 
-    std::shared_ptr<Session> SessionManager::Find(const SessionId id) const
+    Session::SPtr SessionManager::Find(const SessionId id) const
     {
         std::shared_lock lock(mutex_);
         const auto it = sessions_.find(id);
@@ -29,7 +29,7 @@ namespace Network
         return sessions_.size();
     }
 
-    void SessionManager::ForEach(const std::function<void(const std::shared_ptr<Session>&)>& func) const
+    void SessionManager::ForEach(const std::function<void(const Session::SPtr&)>& func) const
     {
         std::shared_lock lock(mutex_);
         for (const auto& [id, session] : sessions_)

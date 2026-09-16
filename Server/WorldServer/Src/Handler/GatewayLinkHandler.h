@@ -33,23 +33,23 @@ namespace World
         GatewayLinkHandler(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                            Processor::Group<EProcessorId>& basicGroup, LoginProcessor& loginProcessor);
 
-        void OnSessionOpened(const std::shared_ptr<Network::Session>& session) override;
-        void OnPacket(const std::shared_ptr<Network::Session>& session,
+        void OnSessionOpened(const Network::Session::SPtr& session) override;
+        void OnPacket(const Network::Session::SPtr& session,
                       const Packet::Header& header,
                       const std::span<const byte> payload) override;
-        void OnClosed(const std::shared_ptr<Network::Session>& session, const std::error_code& reason) override;
+        void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
     private:
         void RegisterHandlers();
 
-        void HandleClientConnected(const std::shared_ptr<Network::Session>& gatewaySession, const std::span<const byte> payload);
-        void HandleClientDisconnected(const std::shared_ptr<Network::Session>& gatewaySession, const std::span<const byte> payload);
-        void HandleFromClient(const std::shared_ptr<Network::Session>& gatewaySession, const std::span<const byte> payload);
+        void HandleClientConnected(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);
+        void HandleClientDisconnected(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);
+        void HandleFromClient(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);
 
         PlayerManager::Mutexed& playerManager_;
         ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
         Processor::Group<EProcessorId>& basicGroup_;
         LoginProcessor& loginProcessor_;
-        Packet::Dispatcher<PacketId, std::shared_ptr<Network::Session>> dispatcher_;
+        Packet::Dispatcher<PacketId, Network::Session::SPtr> dispatcher_;
     };
 }
