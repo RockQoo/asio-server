@@ -131,7 +131,7 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="Src\Game\Player.h" />
     <ClInclude Include="Src\Game\PlayerRegistry.h" />
     <ClInclude Include="Src\Game\Def.h" />
-    <ClInclude Include="Src\Game\Instance.h" />
+    <ClInclude Include="Src\Processor\ZoneProcessor.h" />
     <ClInclude Include="Src\World\WorldLink.h" />
     <ClInclude Include="Src\Mail\Model.h" />
     <ClInclude Include="Src\Mail\Registry.h" />
@@ -139,11 +139,11 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="Src\Task\UnitOfWork.h" />
     <ClInclude Include="Src\Mail\ExpiryService.h" />
     <ClInclude Include="Src\Worker\ProcessorId.h" />
-    <ClInclude Include="Src\Handler\PlayerProcessor.h" />
-    <ClInclude Include="Src\Handler\PlayerContext.h" />
-    <ClInclude Include="Src\Handler\PlayerMail.h" />
+    <ClInclude Include="Src\Processor\PlayerProcessor.h" />
+    <ClInclude Include="Src\Processor\PlayerContext.h" />
+    <ClInclude Include="Src\Processor\PlayerMail.h" />
     <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h" />
-    <ClInclude Include="Src\Worker\BroadcastDispatcher.h" />
+    <ClInclude Include="Src\Processor\BroadcastProcessor.h" />
     <ClInclude Include="Src\Worker\WorkerManager.h" />
     <ClInclude Include="Src\Handler\WorldLinkHandler.h" />
     <ClInclude Include="Src\App\App.h" />
@@ -157,16 +157,16 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     </ClCompile>
     <ClCompile Include="Src\Currency\Model.cpp" />
     <ClCompile Include="Src\Currency\CurrencyTask.cpp" />
-    <ClCompile Include="Src\Game\Instance.cpp" />
+    <ClCompile Include="Src\Processor\ZoneProcessor.cpp" />
     <ClCompile Include="Src\Mail\Model.cpp" />
     <ClCompile Include="Src\Mail\Registry.cpp" />
     <ClCompile Include="Src\Mail\MailTask.cpp" />
     <ClCompile Include="Src\Task\UnitOfWork.cpp" />
     <ClCompile Include="Src\Mail\ExpiryService.cpp" />
     <ClCompile Include="Src\Game\PlayerRegistry.cpp" />
-    <ClCompile Include="Src\Handler\PlayerProcessor.cpp" />
-    <ClCompile Include="Src\Handler\PlayerMail.cpp" />
-    <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp" />
+    <ClCompile Include="Src\Processor\PlayerProcessor.cpp" />
+    <ClCompile Include="Src\Processor\PlayerMail.cpp" />
+    <ClCompile Include="Src\Processor\BroadcastProcessor.cpp" />
     <ClCompile Include="Src\Worker\WorkerManager.cpp" />
     <ClCompile Include="Src\Handler\WorldLinkHandler.cpp" />
     <ClCompile Include="Src\App\App.cpp" />

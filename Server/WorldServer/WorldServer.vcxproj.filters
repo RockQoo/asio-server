@@ -58,7 +58,13 @@
     <ClInclude Include="Src\Packet\ToolLinkPackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Processor\DbProcessor.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Processor\LoginProcessor.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\MainProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\ToolProcessor.h">
@@ -133,7 +139,13 @@
     <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Processor\DbProcessor.cpp">
+      <Filter>Processor</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Processor\LoginProcessor.cpp">
+      <Filter>Processor</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Processor\MainProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\ToolProcessor.cpp">

@@ -18,7 +18,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
     <span class="badge b-gateway">Gateway I/O</span>
     <span class="badge b-world">World Main 레인</span>
     <span class="badge b-player">Zone 1 · Player 레인</span>
-    <span class="badge b-zone">Zone 1 · ZoneSpace 레인(틱)</span>
+    <span class="badge b-zone">Zone 1 · Zone 레인(틱)</span>
     <span class="badge b-player">Zone 3 · 다른 프로세스</span>
 </div>
 
@@ -30,7 +30,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
         <div class="actor a-gateway">GatewayServer<small>I/O 스레드</small></div>
         <div class="actor a-world">WorldServer<small>Main 레인</small></div>
         <div class="actor a-player">Zone 1<small>Player 레인</small></div>
-        <div class="actor a-zone">Zone 1<small>ZoneSpace 레인(틱)</small></div>
+        <div class="actor a-zone">Zone 1<small>Zone 레인(틱)</small></div>
         <div class="actor a-player">Zone 3<small>다른 프로세스</small></div>
     </div>
 
@@ -174,10 +174,10 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
 <h2>관련 코드</h2>
 <table>
     <tr><th>단계</th><th>파일</th></tr>
-    <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/PlayerProcessor.cpp</code> — <code>HandleMove</code></td></tr>
-    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Game/Instance.cpp</code> — <code>Tick</code> / <code>RequestZoneTransfer</code></td></tr>
+    <tr><td>④</td><td><code>Server/ZoneServer/Src/Processor/PlayerProcessor.cpp</code> — <code>HandleMove</code></td></tr>
+    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Processor/ZoneProcessor.cpp</code> — <code>Tick</code> / <code>RequestZoneTransfer</code></td></tr>
     <tr><td>⑦~⑨</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>HandleZoneTransferRequest</code></td></tr>
-    <tr><td>⑩~⑬</td><td><code>Server/ZoneServer/Src/Game/Instance.cpp</code> — <code>OnPlayerEnter</code> / <code>SendEnterZoneNotify</code></td></tr>
+    <tr><td>⑩~⑬</td><td><code>Server/ZoneServer/Src/Processor/ZoneProcessor.cpp</code> — <code>OnPlayerEnter</code> / <code>SendEnterZoneNotify</code></td></tr>
     <tr><td>격자 규칙</td><td><code>Server/ZoneServer/Src/main.cpp</code> — <code>ParseZoneList</code></td></tr>
 </table>
 

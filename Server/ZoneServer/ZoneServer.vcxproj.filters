@@ -31,6 +31,7 @@
     <Filter Include="Task">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Processor" />
     <Filter Include="Test" />
   </ItemGroup>
   <ItemGroup>
@@ -71,8 +72,8 @@
     <ClInclude Include="Src\Game\Def.h">
       <Filter>Game</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Game\Instance.h">
-      <Filter>Game</Filter>
+    <ClInclude Include="Src\Processor\ZoneProcessor.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\World\WorldLink.h">
       <Filter>World</Filter>
@@ -101,20 +102,20 @@
     <ClInclude Include="Src\Game\PlayerRegistry.h">
       <Filter>Game</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Handler\PlayerProcessor.h">
-      <Filter>Handler</Filter>
+    <ClInclude Include="Src\Processor\PlayerProcessor.h">
+      <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Handler\PlayerContext.h">
-      <Filter>Handler</Filter>
+    <ClInclude Include="Src\Processor\PlayerContext.h">
+      <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Handler\PlayerMail.h">
-      <Filter>Handler</Filter>
+    <ClInclude Include="Src\Processor\PlayerMail.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h">
       <Filter>Packet</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Worker\BroadcastDispatcher.h">
-      <Filter>Worker</Filter>
+    <ClInclude Include="Src\Processor\BroadcastProcessor.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Worker\WorkerManager.h">
       <Filter>Worker</Filter>
@@ -140,8 +141,8 @@
     <ClCompile Include="Src\Currency\CurrencyTask.cpp">
       <Filter>Currency</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Game\Instance.cpp">
-      <Filter>Game</Filter>
+    <ClCompile Include="Src\Processor\ZoneProcessor.cpp">
+      <Filter>Processor</Filter>
     </ClCompile>
     <ClCompile Include="Src\Mail\MailTask.cpp">
       <Filter>Mail</Filter>
@@ -161,14 +162,14 @@
     <ClCompile Include="Src\Game\PlayerRegistry.cpp">
       <Filter>Game</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Handler\PlayerProcessor.cpp">
-      <Filter>Handler</Filter>
+    <ClCompile Include="Src\Processor\PlayerProcessor.cpp">
+      <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Handler\PlayerMail.cpp">
-      <Filter>Handler</Filter>
+    <ClCompile Include="Src\Processor\PlayerMail.cpp">
+      <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Worker\BroadcastDispatcher.cpp">
-      <Filter>Worker</Filter>
+    <ClCompile Include="Src\Processor\BroadcastProcessor.cpp">
+      <Filter>Processor</Filter>
     </ClCompile>
     <ClCompile Include="Src\Worker\WorkerManager.cpp">
       <Filter>Worker</Filter>

@@ -104,7 +104,7 @@ namespace Zone
         innerBinaryWriter.WriteBytes(stream);
 
         // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다
-        // (Instance::SendToPlayer와 같은 경로).
+        // (ZoneProcessor::SendToPlayer와 같은 경로).
         World::ClientEnvelopeHeader header{};
         header.clientSessionId = clientSessionId_;
         header.innerPacketId = static_cast<uint16_t>(PacketId::Z2CTaskResult);

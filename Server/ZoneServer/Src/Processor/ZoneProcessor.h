@@ -24,10 +24,10 @@ namespace Zone
     //
     // **이동은 이 레인이 틱에서만 만진다.** 이동 패킷 자체는 플레이어 레인이 받아 검증하고
     // MoveModel에 요청만 기록하므로, 패킷이 폭주해도 이 레인의 틱 주기가 흔들리지 않는다.
-    class Instance
+    class ZoneProcessor
     {
     public:
-        Instance(const Def& def, WorldLink& worldLink);
+        ZoneProcessor(const Def& def, WorldLink& worldLink);
 
         // --- 존 레인에서만 호출 ---
         void OnPlayerEnter(const std::shared_ptr<Player>& player);

@@ -10,9 +10,6 @@ namespace Zone
         // 이 프로세스가 담당하는 존 목록 -- 리스트 길이만큼 이 프로세스가 존을 동시에 호스팅한다.
         std::vector<Def> zones;
 
-        // 수신(LB) 레인 크기. 존 개수와 무관하다.
-        size_t lbThreadCount{4};
-
         // 플레이어 레인 / 존 레인 / 브로드캐스트 레인 크기.
         PoolSizes poolSizes;
 

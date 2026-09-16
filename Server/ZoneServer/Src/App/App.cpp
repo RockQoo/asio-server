@@ -10,14 +10,13 @@ namespace Zone
     App::App(Config config)
         : config_(std::move(config))
         , ioPool_(config_.ioThreadCount)
-        , lbGroup_("Lb", config_.lbThreadCount, config_.slowTaskWarnThreshold)
         , playerGroup_("Player", config_.poolSizes.playerThreadCount, config_.slowTaskWarnThreshold)
         // 샤드 개수를 플레이어 레인 스레드 수와 맞춘다 -- 둘 다 `% N`으로 나누므로 같아야
         // "그 샤드를 만지는 스레드가 항상 하나"가 성립한다(PlayerRegistry.h 주석 참고).
         , playerRegistry_(playerGroup_.ThreadCount())
         , zoneWorkers_(config_.zones, config_.poolSizes, config_.slowTaskWarnThreshold, worldLink_)
         , playerProcessor_(playerRegistry_, zoneWorkers_, zoneWorkers_.Broadcaster(), worldLink_, mailRegistry_)
-        , worldLinkHandler_(playerProcessor_, lbGroup_, playerGroup_, worldLink_, config_.zones)
+        , worldLinkHandler_(playerProcessor_, playerGroup_, worldLink_, config_.zones)
         , mailExpiryService_(mailRegistry_, worldLink_)
         , signals_(ioPool_.At(0), SIGINT, SIGTERM)
     {
@@ -27,7 +26,6 @@ namespace Zone
 
     void App::Run()
     {
-        lbGroup_.Start();
         playerGroup_.Start();
         zoneWorkers_.Start(ioPool_, config_.tickInterval);
 
@@ -51,7 +49,6 @@ namespace Zone
         statsTimer_ = std::make_unique<Timer::RepeatingTimer>(ioPool_.Next());
         statsTimer_->Start(config_.statsDumpInterval, [this]
         {
-            lbGroup_.LogStats();
             playerGroup_.LogStats();
             zoneWorkers_.LogStats();
         });
@@ -74,7 +71,6 @@ namespace Zone
         LOG.Info(ELogCategory::General, "ZoneServer 대기 시작")
             .KV("ZoneIds", zoneIdList)
             .KV("IoThreads", config_.ioThreadCount)
-            .KV("LbThreads", lbGroup_.ThreadCount())
             .KV("PlayerThreads", playerGroup_.ThreadCount())
             .KV("ZoneThreads", config_.poolSizes.zoneThreadCount)
             .KV("BroadcastThreads", config_.poolSizes.broadcastThreadCount)
@@ -89,14 +85,13 @@ namespace Zone
             mailExpiryTimer_->Stop();
         }
 
-        // **종속 관계의 역순으로 내린다.** LB가 플레이어 레인에, 플레이어 레인이 존 레인과
-        // 브로드캐스트 레인에 일을 던지므로 그 순서로 세워야 이미 정지한 레인에 새 일이
+        // **종속 관계의 역순으로 내린다.** 플레이어 레인이 존 레인과 브로드캐스트 레인에
+        // 일을 던지므로 그 순서로 세워야 이미 정지한 레인에 새 일이
         // 들어가지 않는다(Group::Stop()은 큐에 남은 것을 소진한 뒤 join한다).
         // **레인을 세우기 전에 입력 스레드를 멈춘다** -- 안 그러면 F키 한 번이 이미 닫히는
         // 중인 레인으로 일을 밀어 넣는다.
         keyBinder_.Stop();
 
-        lbGroup_.Stop();
         playerGroup_.Stop();
         zoneWorkers_.Stop();  // 내부에서 타이머 취소 -> 존 레인 -> 브로드캐스트 순
 

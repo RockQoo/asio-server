@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Worker/BroadcastDispatcher.h"
+#include "Processor/BroadcastProcessor.h"
 #include "World/WorldLink.h"
 
 #include "Shared/Core/Src/Network/Session.h"
@@ -9,14 +9,14 @@
 
 namespace Zone
 {
-    BroadcastDispatcher::BroadcastDispatcher(Processor::Group<EProcessorId>& broadcastGroup,
+    BroadcastProcessor::BroadcastProcessor(Processor::Group<EProcessorId>& broadcastGroup,
                                              WorldLink& worldLink)
         : broadcastGroup_(broadcastGroup)
         , worldLink_(worldLink)
     {
     }
 
-    void BroadcastDispatcher::Broadcast(const Protocol::ZoneId zoneId, std::vector<Network::SessionId> targets,
+    void BroadcastProcessor::Broadcast(const Protocol::ZoneId zoneId, std::vector<Network::SessionId> targets,
                                         const PacketId innerPacketId, std::vector<byte> payload)
     {
         broadcastGroup_.Post(EProcessorId::Broadcast, zoneId.Value(),

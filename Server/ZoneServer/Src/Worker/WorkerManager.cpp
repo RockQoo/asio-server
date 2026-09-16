@@ -12,11 +12,11 @@ namespace Zone
         : zoneDefs_(std::move(zoneDefs))
         , zoneGroup_("Zone", poolSizes.zoneThreadCount, slowWarnThreshold)
         , broadcastGroup_("Broadcast", poolSizes.broadcastThreadCount, slowWarnThreshold)
-        , broadcastDispatcher_(broadcastGroup_, worldLink)
+        , broadcastProcessor_(broadcastGroup_, worldLink)
     {
         for (const auto& def : zoneDefs_)
         {
-            zoneInstances_.emplace(def.zoneId, std::make_unique<Instance>(def, worldLink));
+            zoneProcessors_.emplace(def.zoneId, std::make_unique<ZoneProcessor>(def, worldLink));
         }
     }
 
@@ -46,7 +46,7 @@ namespace Zone
             {
                 PostToZone(zoneId, [this, zoneId, deltaSeconds]
                 {
-                    GetZoneInstance(zoneId).Tick(deltaSeconds);
+                    GetZoneProcessor(zoneId).Tick(deltaSeconds);
                 });
             });
 

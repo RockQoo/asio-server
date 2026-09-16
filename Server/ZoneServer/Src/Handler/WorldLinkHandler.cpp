@@ -1,24 +1,19 @@
 #include "pch.h"
 #include "Handler/WorldLinkHandler.h"
-#include "Handler/PlayerProcessor.h"
-#include "Packet/WorldPackets.h"
+#include "Processor/PlayerProcessor.h"
 #include "World/WorldLink.h"
 #include "Server/WorldServer/Src/Packet/OwnerIdPeek.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 #include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
 
 namespace Zone
 {
     WorldLinkHandler::WorldLinkHandler(PlayerProcessor& playerProcessor,
-                                       Processor::Group<EProcessorId>& lbGroup,
                                        Processor::Group<EProcessorId>& playerGroup,
                                        WorldLink& worldLink, std::vector<Def> zoneDefs)
         : playerProcessor_(playerProcessor)
-        , lbGroup_(lbGroup)
         , playerGroup_(playerGroup)
         , worldLink_(worldLink)
         , zoneDefs_(std::move(zoneDefs))
@@ -74,8 +69,8 @@ namespace Zone
                                     const Packet::Header& header,
                                     const std::span<const byte> payload)
     {
-        // 여기는 I/O 스레드(Session의 strand)다. ownerId만 훔쳐보고 바이트를 복사해 LB 레인에
-        // 넘긴다 -- payload는 이 함수가 끝나면 I/O 스레드가 재사용할 버퍼를 가리킨다.
+        // 여기는 I/O 스레드(Session의 strand)다. ownerId만 훔쳐보고 바이트를 복사해 플레이어
+        // 레인에 넘긴다 -- payload는 이 함수가 끝나면 I/O 스레드가 재사용할 버퍼를 가리킨다.
         const auto packetId = static_cast<PacketId>(header.id);
 
         const auto ownerId = OwnerIdOf(packetId, payload);
@@ -88,10 +83,11 @@ namespace Zone
 
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
 
-        lbGroup_.Post(EProcessorId::Lb, *ownerId,
-            [this, packetId, ownerId = *ownerId, payloadCopy = std::move(payloadCopy)]
+        playerGroup_.Post(EProcessorId::Player, *ownerId,
+            [this, clientSessionId = static_cast<Network::SessionId>(*ownerId),
+             packetId, payloadCopy = std::move(payloadCopy)]
             {
-                DecodeAndDispatch(packetId, ownerId, payloadCopy);
+                playerProcessor_.DispatchFromWorld(packetId, clientSessionId, payloadCopy);
             });
     }
 
@@ -99,110 +95,5 @@ namespace Zone
     {
         worldLink_.Clear();
         LOG.Warning(ELogCategory::Zone, "World 연결 끊김").KV("Message", reason.message());
-    }
-
-    void WorldLinkHandler::DecodeAndDispatch(const PacketId packetId, const Network::SessionId ownerId,
-                                             const std::vector<byte>& payload)
-    {
-        // 여기부터는 LB 레인. 패킷 id 파싱과 1차 분기만 하고, 콘텐츠 해석은 플레이어 레인 몫이다.
-        switch (packetId)
-        {
-        case PacketId::W2ZEnterZone:
-            HandleEnterZoneRequest(payload);
-            break;
-        case PacketId::W2ZLeaveZone:
-            HandleLeaveZoneNotify(payload);
-            break;
-        case PacketId::W2ZRelay:
-            HandleForwardToZone(ownerId, payload);
-            break;
-        default:
-            break;
-        }
-    }
-
-    void WorldLinkHandler::HandleEnterZoneRequest(const std::span<const byte> payload)
-    {
-        // 파싱은 여기(LB 레인)서 끝낸다 -- 플레이어 레인에 넘어가는 것은 이미 해석된 구조체다.
-        // 포맷의 유일한 계약은 World의 Packet/ZoneLinkPackets.h 표이고, 쓰는 쪽은
-        // Packet/EnterZoneBody.h다.
-        W2ZEnterZone packet;
-        if (!packet.Parse(payload))
-        {
-            LOG.Warning(ELogCategory::Zone, "EnterZone 본문이 잘렸거나 형식이 맞지 않아 버린다")
-                .KV("PayloadBytes", payload.size());
-            return;
-        }
-
-        playerGroup_.Post(EProcessorId::Player, packet.state.clientSessionId,
-            [this, packet = std::move(packet)]() mutable
-            {
-                playerProcessor_.OnPlayerEnter(std::move(packet));
-            });
-    }
-
-    void WorldLinkHandler::HandleLeaveZoneNotify(const std::span<const byte> payload)
-    {
-        if (payload.size() < sizeof(World::LeaveZoneNotifyPacket))
-        {
-            return;
-        }
-
-        World::LeaveZoneNotifyPacket leave{};
-        std::memcpy(&leave, payload.data(), sizeof(World::LeaveZoneNotifyPacket));
-
-        playerGroup_.Post(EProcessorId::Player, leave.clientSessionId,
-            [this, clientSessionId = leave.clientSessionId]
-            {
-                playerProcessor_.OnPlayerLeave(clientSessionId);
-            });
-    }
-
-    void WorldLinkHandler::HandleForwardToZone(const Network::SessionId ownerId, const std::span<const byte> payload)
-    {
-        if (payload.size() < sizeof(World::ClientEnvelopeHeader))
-        {
-            return;
-        }
-
-        World::ClientEnvelopeHeader header{};
-        std::memcpy(&header, payload.data(), sizeof(World::ClientEnvelopeHeader));
-        const auto innerPayload = payload.subspan(sizeof(World::ClientEnvelopeHeader));
-
-        const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
-        if (innerPacketId == PacketId::C2ZEcho)
-        {
-            ReplyEcho(header, innerPayload);
-            return;
-        }
-
-        // Echo를 제외한 나머지는 내용을 들여다보지 않고 그대로 플레이어 레인에 넘긴다 --
-        // 와이어 포맷 파싱은 PlayerProcessor 쪽 몫이다.
-        std::vector<byte> innerPayloadCopy(innerPayload.begin(), innerPayload.end());
-        playerGroup_.Post(EProcessorId::Player, ownerId,
-            [this, ownerId, innerPacketId, innerPayloadCopy = std::move(innerPayloadCopy)]
-            {
-                playerProcessor_.HandleClientPacket(ownerId, innerPacketId, innerPayloadCopy);
-            });
-    }
-
-    void WorldLinkHandler::ReplyEcho(const World::ClientEnvelopeHeader& header,
-                                     const std::span<const byte> innerPayload) const
-    {
-        const auto worldSession = worldLink_.Get();
-        if (!worldSession)
-        {
-            return;
-        }
-
-        // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
-        // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
-        World::ClientEnvelopeHeader replyHeader = header;
-        replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
-
-        Packet::BinaryWriter binaryWriter;
-        binaryWriter.Write(replyHeader);
-        binaryWriter.WriteBytes(innerPayload);
-        worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 }

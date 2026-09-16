@@ -433,7 +433,7 @@ if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
 ## 존 콘텐츠는 큰 분류마다 파일 하나 (`PlayerMail`)
 
 존 서버의 클라이언트 요청 처리는 **콘텐츠 큰 분류 = 파일 한 쌍**이다. `PlayerProcessor`는
-입장/퇴장과 라우팅만 맡고, 우편이면 `Handler/PlayerMail.{h,cpp}`, 인벤토리면
+입장/퇴장과 라우팅만 맡고, 우편이면 `Processor/PlayerMail.{h,cpp}`, 인벤토리면
 `Handler/PlayerInventory.{h,cpp}`가 자기 패킷 등록과 핸들러를 전부 들고 있다.
 
 ```cpp
@@ -643,7 +643,7 @@ Network::Session::SPtr            b;        // C2027
 
 ```cpp
 Zone::ZoneServerConfig  ->  Zone::Config
-Zone::ZoneInstance      ->  Zone::Instance
+Zone::ZoneZoneProcessor ->  Zone::ZoneProcessor
 Packet::PacketHeader    ->  Packet::Header
 Processor::ProcessorGroup -> Processor::Group
 Mail::MailModel         ->  Mail::Model
@@ -702,7 +702,7 @@ kInvalidUniqueId   ->  kInvalidRUID
 전혀 다른(시각 41 + 노드 10 + 시퀀스 12비트) **이 프로젝트 고유의 것**이라, 이름이
 `UniqueId`면 "어디서 가져온 표준 유틸"로 읽힌다.
 
-**언제 안 붙이나**: 콘텐츠 타입(`Mail::Model`, `Zone::Instance`)과 인프라 타입
+**언제 안 붙이나**: 콘텐츠 타입(`Mail::Model`, `Zone::ZoneProcessor`)과 인프라 타입
 (`Session`, `Listener`)에는 붙이지 않는다. 이미 네임스페이스가 출처를 말해주고,
 전부 붙이면 접두사가 의미를 잃는다.
 

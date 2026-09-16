@@ -17,13 +17,12 @@ namespace Zone
         config.zones = std::move(zones);
 
         // 레인마다 크기를 정하는 기준이 다르다:
-        //   LB / Player -- owner가 clientSessionId라 실질 병렬도가 접속자 수만큼이다.
-        //                  스레드를 늘린 만큼 실제로 갈린다.
+        //   Player      -- owner가 clientSessionId라 실질 병렬도가 접속자 수만큼이다.
+        //                  스레드를 늘린 만큼 실제로 갈린다. 수신 파싱도 이 레인이 한다.
         //   Zone        -- **담당 존 수만큼.** 존 하나는 스레드 하나가 상한이라, 더 줘도
         //                  그 존이 빨라지지 않는다(버거우면 존을 쪼갠다). 그래서 설정에서
         //                  0을 주면 존 개수로 맞춘다 -- 프로세스마다 담당 존 수가 다르다.
         //   Broadcast   -- World 링크가 하나라 어차피 그 소켓에서 직렬화된다.
-        config.lbThreadCount = file.GetSize("lb_threads", config.lbThreadCount);
         config.poolSizes.playerThreadCount =
             file.GetSize("pools.player_threads", config.poolSizes.playerThreadCount);
         config.poolSizes.broadcastThreadCount =

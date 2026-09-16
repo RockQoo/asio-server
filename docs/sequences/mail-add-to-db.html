@@ -17,7 +17,7 @@
     <span class="badge b-client">Client</span>
     <span class="badge b-gateway">Gateway I/O</span>
     <span class="badge b-world">World Main 레인</span>
-    <span class="badge b-lb">Zone LB 레인</span>
+    <span class="badge b-lb">Zone I/O 스레드</span>
     <span class="badge b-player">Zone Player 레인</span>
     <span class="badge b-db">World DB 레인</span>
 </div>
@@ -29,7 +29,7 @@
         <div class="actor a-client">Client<small>게임 스레드</small></div>
         <div class="actor a-gateway">GatewayServer<small>I/O 스레드</small></div>
         <div class="actor a-world">WorldServer<small>Main 레인</small></div>
-        <div class="actor a-lb">ZoneServer<small>LB 레인</small></div>
+        <div class="actor a-lb">ZoneServer<small>I/O 스레드</small></div>
         <div class="actor a-player">ZoneServer<small>Player 레인</small></div>
         <div class="actor a-db">WorldServer<small>DB 레인</small></div>
         <div class="actor a-db">SQL Server<small>asio_game</small></div>
@@ -69,15 +69,16 @@
         </div>
 
         <div class="act" style="grid-column: 7 / 9; grid-row: 6;">
-            <b>파싱 + 주인 판정</b>
-            바이트를 복사해 <code>ownerId = clientSessionId</code>로
-            Player 큐 그룹에 넣는다. 게임 상태는 건드리지 않는다.
+            <b>주인 판정</b>
+            페이로드 앞에서 <code>ownerId = clientSessionId</code>만 훔쳐보고
+            바이트를 복사해 Player 큐 그룹에 넣는다. <b>와이어 해석은 하지 않는다</b> —
+            그건 배정된 레인에서 한다.
         </div>
 
         <div class="msg m-lb" style="grid-column: 8 / 10; grid-row: 7;">
             <span class="lbl">④ playerGroup_.Post</span>
             <span class="line"></span>
-            <span class="desc">프로세스 내부 큐 — 직렬화 없음<br>레인 = <code>clientSessionId % 8</code></span>
+            <span class="desc">프로세스 내부 큐 — 직렬화 없음<br>레인 = <code>clientSessionId % 8</code><br>파싱도 여기서 한다</span>
         </div>
 
         <div class="act" style="grid-column: 9 / 11; grid-row: 8;">
@@ -179,7 +180,7 @@
     <tr><td>①~②</td><td><code>Server/GatewayServer/Src/Handler/ClientLinkHandler.cpp</code></td></tr>
     <tr><td>③</td><td><code>Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp</code></td></tr>
     <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code></td></tr>
-    <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Handler/PlayerMail.cpp</code> — <code>HandleMailAdd</code></td></tr>
+    <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Processor/PlayerMail.cpp</code> — <code>HandleMailAdd</code></td></tr>
     <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code> — 소멸자</td></tr>
     <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>HandleUnitOfWorkStream</code></td></tr>
     <tr><td>⑬</td><td><code>Sql/mails.sql</code>(<code>usp_mails_upsert</code>), <code>Server/WorldServer/Src/Db/AutoSpCommands.h</code></td></tr>

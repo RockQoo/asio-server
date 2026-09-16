@@ -150,19 +150,20 @@ C:\Work\asio-server\
 │   │                                 — 공지처럼 주인이 없는 경로가 있어 둘 다 Mutexed
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
 │       └── Src/
-│           ├── Worker/               TaskWorker(범용 실행기), WorkerManager
-│           │                         (ZoneSpace/Broadcast 그룹 소유), BroadcastDispatcher
-│           ├── Handler/              WorldLinkHandler(World 연결의 IPacketHandler, 내부에 LB 풀),
-│           │                         PlayerProcessor(입장/퇴장 + 패킷 라우팅),
+│           ├── Processor/           레인에서 도는 프로세서 클래스. **EProcessorId 태그와 1:1**
+│           │                         PlayerProcessor(수신 파싱 + 입장/퇴장 + 패킷 라우팅),
+│           │                         ZoneProcessor(존별 권위 상태 -- 로스터/좌표/경계/틱),
+│           │                         BroadcastProcessor(팬아웃 전송),
 │           │                         PlayerMail(우편 요청 처리 -- 콘텐츠 큰 분류마다 파일 하나),
 │           │                         PlayerContext(핸들러가 받는 스택 컨텍스트 + 등록 도우미)
+│           ├── Worker/               WorkerManager(Zone/Broadcast 그룹 + 존별 tick 타이머 소유)
+│           ├── Handler/              WorldLinkHandler -- **I/O 스레드 전용**. 주인만 뽑아
+│           │                         플레이어 레인으로 넘긴다(LB 레인은 없앴다)
 │           ├── Packet/               ZonePackets(고정 레이아웃 와이어 구조체 -- 도구도 쓴다),
 │           │                         ClientPackets(C2Z 요청 구조체 + Parse. 디스패치 앞에서 파싱)
 │           ├── Currency/             Model(SetTracked 하나로 값 변경 통로를 좁힘)/CurrencyTask
 │           ├── Game/Player            플레이어 한 명 + 그 사람의 모델들(우편함은 Mutexed 핸들,
 │           │                          재화는 값 -- 모델마다 실제 접근 스레드 수에 맞춘다)
-│           ├── Game/Instance        존별 권위 상태(ZoneSpace 레인 전용 = 락 없음), Dispatcher로
-│           │                         패킷별 핸들러 등록(Player 조회 → 핸들러 콜백)
 │           ├── Mail/                 Model/MailTask/Registry(만료 스윕용 색인)/ExpiryService
 │           └── Task/UnitOfWork   UnitOfWork 파생 — World(DB)/클라이언트 전송 + 역연산 롤백
 ├── Client/                           게임 클라이언트 — C#/MonoGame, 별도 솔루션
@@ -172,7 +173,7 @@ C:\Work\asio-server\
 │       │                             + ZoneLayout(서버 ParseZoneList 규칙의 복제 — 짝을 맞춰야 함)
 │       ├── Net/                      GameLink(TCP+프레이밍, 수신은 큐에만 넣는다),
 │       │                             CouponClient(GmTool.Web HTTP)
-│       ├── Model/WorldModel          게임 스레드 전용 상태라 락이 없다(Instance와 같은 이유)
+│       ├── Model/WorldModel          게임 스레드 전용 상태라 락이 없다(ZoneProcessor와 같은 이유)
 │       ├── Text/GlyphAtlas           한글 글리프를 런타임에 GDI+로 굽는다(.mgcb 미사용)
 │       └── Ui/                       Painter/Widgets/ZoneView/ChatPanel/MailPanel/CouponPanel/Hud
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아니다)
@@ -218,9 +219,9 @@ C:\Work\asio-server\
 ```
 Client → GatewayServer(순수 릴레이) → WorldServer(라우팅 + DB) → ZoneServer(게임 로직)
                                       I/O 2                      I/O 2
-                                      Basic 8  기본 = 남는 스레드  LB 4        파싱/주인 판정
-                                        ├ Basic 라우팅            Player 8    owner=clientSessionId
-                                        ├ Login 로그인            ZoneSpace n owner=zoneId
+                                      Basic 8                   Player 8    owner=clientSessionId
+                                        ├ Main  라우팅                        (수신 파싱도 여기)
+                                        ├ Login 로그인            Zone n      owner=zoneId
                                         ├ Tool  운영툴            Broadcast 1 owner=zoneId
                                         └ Test  F키 테스트
                                       Db 4     owner=playerId (계정 단위 직렬화)
@@ -290,12 +291,12 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `World::DbProcessor` | DB 레인(`Db`)의 처리기. 커넥션 획득 + 트랜잭션 + **실패 정책(Fire-and-Forget)** + 콜백이 여기 한곳에 있다 |
 | | `World::AutoSpCommands` | SP 커맨드를 모았다가 소멸 시 `DbProcessor`로 한 번에. **UoW 하나 = 트랜잭션 하나** |
 | | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
-| `ZoneServer` | `Instance` | 존 하나의 권위 상태. `Dispatcher`로 패킷별 핸들러 등록(Player 조회 후 콜백) |
-| | `PlayerProcessor` | 플레이어 레인의 진입점 — 입장/퇴장 + 패킷 라우팅. Move/Chat만 직접 처리한다(모델 변경도 DB 저장도 없어 UoW를 열지 않는다) |
+| `ZoneServer` | `ZoneProcessor` | 존 하나의 권위 상태(로스터·좌표·경계·틱). 존 레인 전용이라 락이 없다 |
+| | `PlayerProcessor` | 플레이어 레인의 진입점 — **World 링크에서 온 패킷의 해석**부터 입장/퇴장 + 패킷 라우팅까지. Move/Chat만 직접 처리한다(모델 변경도 DB 저장도 없어 UoW를 열지 않는다) |
 | | `PlayerMail` | 우편 요청 처리(Add/Del/Buy). **콘텐츠 큰 분류 = 파일 한 쌍**이고 자기 패킷을 스스로 등록한다. 전부 static — 필요한 것은 `PlayerContext`로 들어온다 |
 | | `PlayerRegistry` | clientSessionId → Player. 레인 수만큼 샤딩돼 락이 없다 |
-| | `WorkerManager` | ZoneSpace/Broadcast 그룹 + 존별 tick 타이머 소유 |
-| | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. 내부에 LB 그룹 소유 |
+| | `WorkerManager` | Zone/Broadcast 그룹 + 존별 tick 타이머 소유 |
+| | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. **I/O 스레드 전용** — 주인만 뽑아 플레이어 레인으로 넘기고 상태를 만지지 않는다 |
 | | `Zone::Player` | 플레이어 한 명 + 그 사람의 모델들. 우편함만 `Mutexed` 핸들이고(만료 스윕이 다른 스레드) 재화는 값 — 모델마다 실제 접근 스레드 수에 맞춘다 |
 | | `Mail::Model` / `Currency::Model` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
 | | `Zone::UnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 각 태스크가 자기 역연산으로 되돌리고(분기 switch 없음), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
@@ -349,7 +350,7 @@ Z2CEnterZoneNotify)을 왕복시키는 REPL 더미 클라이언트, `StressClien
 - **개발 환경(Windows/NTFS)은 대소문자를 구분하지 않는다.** 새 폴더를 만들 때 기존 폴더와
   대소문자만 다른 이름(`core` vs `Core`처럼)을 쓰면 같은 폴더로 병합돼버린다. 실제로 이 문제로
   한 번 정리한 이력이 있음.
-- `WorkerManager::Start()`는 `Instance&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
+- `WorkerManager::Start()`는 `ZoneProcessor&` 참조를 캡처하는 람다를 타이머 콜백으로 쓴다.
   `Stop()`은 반드시 **타이머를 먼저 취소한 뒤** 워커를 정지시키는 순서를 지켜야 안전하다
   (순서를 바꾸면 안 됨).
 - `PlatformToolset`은 `v145`(VS 2026 툴셋) + `/std:c++23`이다. 개발 환경이 VS 2026 Community라

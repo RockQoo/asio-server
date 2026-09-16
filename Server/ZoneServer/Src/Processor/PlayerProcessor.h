@@ -3,16 +3,17 @@
 #include "Shared/Core/Src/Common/Types.h"
 #include "Game/Player.h"
 #include "Game/PlayerRegistry.h"
-#include "Handler/PlayerContext.h"
+#include "Processor/PlayerContext.h"
 #include "Packet/ClientPackets.h"
 #include "Packet/WorldPackets.h"
+#include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
 {
     class WorldLink;
     class WorkerManager;
-    class BroadcastDispatcher;
+    class BroadcastProcessor;
 }
 
 namespace Mail
@@ -32,29 +33,39 @@ namespace Zone
     // 이동은 네 단계로 나뉘고, 요점은 **이동 패킷이 존 레인을 건드리지 않는다**는 것이다:
     //   ① 디스패치 앞에서 파싱  ② MoveModel에 요청만 기록
     //   ③ 브로드캐스트는 즉시(틱을 기다리면 체감 지연이 커진다)
-    //   ④ 적분·경계 판정은 존 레인이 다음 틱에 (Instance::Tick)
+    //   ④ 적분·경계 판정은 존 레인이 다음 틱에 (ZoneProcessor::Tick)
     //
     // 흐름 전체: docs/sequences/zone-handoff.html
     class PlayerProcessor
     {
     public:
         PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
-                        BroadcastDispatcher& broadcastDispatcher, WorldLink& worldLink,
+                        BroadcastProcessor& broadcastProcessor, WorldLink& worldLink,
                         Mail::Registry& mailRegistry);
 
-        // 아래 둘은 전부 그 clientSessionId를 담당하는 플레이어 레인 스레드에서 호출된다.
+        // **World 링크에서 온 패킷의 유일한 진입점.** WorldLinkHandler가 I/O 스레드에서
+        // ownerId만 뽑아 이 레인으로 던지고, 패킷 해석부터 여기서 시작한다.
         //
-        // 패킷은 LB 레인에서 이미 파싱돼 들어온다. 그 안의 콘텐츠(mails/currencies)는 World가
-        // DB에서 읽어 캐시해둔 시작 상태이고, 존이 DB를 직접 읽지 않는 이유는
-        // ZoneLinkPackets.h의 표 주석 참고.
+        // 예전에는 해석이 LB 레인에 있었는데, 그쪽 ownerId도 여기와 같은 clientSessionId라
+        // 홉만 하나 늘리고 있었다(Worker/ProcessorId.h 참고).
+        void DispatchFromWorld(const PacketId packetId, const Network::SessionId clientSessionId,
+                               const std::span<const byte> payload);
+
+    private:
+        // 아래 셋은 전부 그 clientSessionId를 담당하는 플레이어 레인 스레드에서 호출된다.
+        //
+        // 입장 패킷의 콘텐츠(mails/currencies)는 World가 DB에서 읽어 캐시해둔 시작 상태이고,
+        // 존이 DB를 직접 읽지 않는 이유는 ZoneLinkPackets.h의 표 주석 참고.
         void OnPlayerEnter(W2ZEnterZone packet);
         void OnPlayerLeave(const Network::SessionId clientSessionId);
 
-        // 콘텐츠 패킷 진입점. 어느 존인지는 Player가 들고 있으므로 LB가 알려줄 필요가 없다.
+        // 콘텐츠 패킷 진입점. 어느 존인지는 Player가 들고 있으므로 봉투가 알려줄 필요가 없다.
         void HandleClientPacket(const Network::SessionId clientSessionId,
                                 const PacketId packetId, const std::span<const byte> payload);
 
-    private:
+        // 릴레이 봉투를 벗긴다. Echo는 공유 상태가 필요 없어 여기서 바로 돌려보낸다.
+        void HandleForwardToZone(const Network::SessionId clientSessionId, const std::span<const byte> payload);
+        void ReplyEcho(const World::ClientEnvelopeHeader& header, const std::span<const byte> innerPayload) const;
         // 자기 패킷은 여기서, 콘텐츠 패킷은 각 콘텐츠의 Register가 등록한다.
         void RegisterPacketHandlers();
 
@@ -74,7 +85,7 @@ namespace Zone
 
         PlayerRegistry& playerRegistry_;
         WorkerManager& zoneWorkers_;
-        BroadcastDispatcher& broadcastDispatcher_;
+        BroadcastProcessor& broadcastProcessor_;
         WorldLink& worldLink_;
         Mail::Registry& mailRegistry_;
 

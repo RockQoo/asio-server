@@ -6,7 +6,7 @@
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Game/PlayerRegistry.h"
 #include "Game/Def.h"
-#include "Handler/PlayerProcessor.h"
+#include "Processor/PlayerProcessor.h"
 #include "Handler/WorldLinkHandler.h"
 #include "Mail/ExpiryService.h"
 #include "Mail/Registry.h"
@@ -25,10 +25,9 @@ namespace Timer
 
 namespace Zone
 {
-    // 전체를 조립하는 곳. 레인이 넷이고 **주인이 서로 다르다**는 것이 이 파일에서 읽혀야 한다:
+    // 전체를 조립하는 곳. 레인이 셋이고 **주인이 서로 다르다**는 것이 이 파일에서 읽혀야 한다:
     //
-    //   LB     (owner = clientSessionId)  수신 파싱 · 1차 분기
-    //   Player (owner = clientSessionId)  우편 · 재화 · UnitOfWork · 이동 검증
+    //   Player (owner = clientSessionId)  수신 파싱 · 우편 · 재화 · UnitOfWork · 이동 검증
     //   Zone   (owner = zoneId)           로스터 · 위치 적분 · 경계 판정 (틱)
     //   Broadcast (owner = zoneId)        팬아웃 전송
     //
@@ -52,7 +51,6 @@ namespace Zone
 
         // 선언 순서 = 생성 순서. 큐 그룹이 레지스트리보다 먼저 와야 한다 --
         // playerRegistry_가 playerGroup_.ThreadCount()를 받아 샤드를 나누기 때문이다.
-        Processor::Group<EProcessorId> lbGroup_;
         Processor::Group<EProcessorId> playerGroup_;
 
         PlayerRegistry playerRegistry_;

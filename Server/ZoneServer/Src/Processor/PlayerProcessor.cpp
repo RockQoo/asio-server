@@ -1,28 +1,29 @@
 #include "pch.h"
-#include "Handler/PlayerProcessor.h"
-#include "Game/Instance.h"
-#include "Handler/PlayerMail.h"
+#include "Processor/PlayerProcessor.h"
+#include "Processor/ZoneProcessor.h"
+#include "Processor/PlayerMail.h"
 #include "Mail/Model.h"
 #include "Mail/Registry.h"
 #include "Packet/ZonePackets.h"
 #include "World/WorldLink.h"
-#include "Worker/BroadcastDispatcher.h"
+#include "Processor/BroadcastProcessor.h"
 #include "Worker/WorkerManager.h"
 
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
+#include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Protocol/Src/CurrencyType.h"
 #include "Shared/Protocol/Src/PacketId.h"
 
 namespace Zone
 {
     PlayerProcessor::PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
-                                     BroadcastDispatcher& broadcastDispatcher, WorldLink& worldLink,
+                                     BroadcastProcessor& broadcastProcessor, WorldLink& worldLink,
                                      Mail::Registry& mailRegistry)
         : playerRegistry_(playerRegistry)
         , zoneWorkers_(zoneWorkers)
-        , broadcastDispatcher_(broadcastDispatcher)
+        , broadcastProcessor_(broadcastProcessor)
         , worldLink_(worldLink)
         , mailRegistry_(mailRegistry)
     {
@@ -41,6 +42,90 @@ namespace Zone
         PlayerMail::Register(packetDispatcher_);
     }
 
+    void PlayerProcessor::DispatchFromWorld(const PacketId packetId, const Network::SessionId clientSessionId,
+                                            const std::span<const byte> payload)
+    {
+        // **여기부터 플레이어 레인이다**(owner = clientSessionId). 와이어 해석도 여기서 한다 --
+        // I/O 스레드는 주인만 뽑아 넘겼다.
+        switch (packetId)
+        {
+        case PacketId::W2ZEnterZone:
+            {
+                // 파싱 실패는 버린다. 포맷의 유일한 계약은 World의 Packet/ZoneLinkPackets.h 표이고,
+                // 쓰는 쪽은 Packet/EnterZoneBody.h다.
+                W2ZEnterZone packet;
+                if (!packet.Parse(payload))
+                {
+                    LOG.Warning(ELogCategory::Zone, "EnterZone 본문이 잘렸거나 형식이 맞지 않아 버린다")
+                        .KV("PayloadBytes", payload.size());
+                    return;
+                }
+                OnPlayerEnter(std::move(packet));
+            }
+            break;
+
+        case PacketId::W2ZLeaveZone:
+            {
+                if (payload.size() < sizeof(World::LeaveZoneNotifyPacket))
+                {
+                    return;
+                }
+                World::LeaveZoneNotifyPacket leave{};
+                std::memcpy(&leave, payload.data(), sizeof(leave));
+                OnPlayerLeave(leave.clientSessionId);
+            }
+            break;
+
+        case PacketId::W2ZRelay:
+            HandleForwardToZone(clientSessionId, payload);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    void PlayerProcessor::HandleForwardToZone(const Network::SessionId clientSessionId,
+                                              const std::span<const byte> payload)
+    {
+        if (payload.size() < sizeof(World::ClientEnvelopeHeader))
+        {
+            return;
+        }
+
+        World::ClientEnvelopeHeader header{};
+        std::memcpy(&header, payload.data(), sizeof(World::ClientEnvelopeHeader));
+        const auto innerPayload = payload.subspan(sizeof(World::ClientEnvelopeHeader));
+
+        const auto innerPacketId = static_cast<PacketId>(header.innerPacketId);
+        if (innerPacketId == PacketId::C2ZEcho)
+        {
+            ReplyEcho(header, innerPayload);
+            return;
+        }
+
+        HandleClientPacket(clientSessionId, innerPacketId, innerPayload);
+    }
+
+    void PlayerProcessor::ReplyEcho(const World::ClientEnvelopeHeader& header,
+                                    const std::span<const byte> innerPayload) const
+    {
+        const auto worldSession = worldLink_.Get();
+        if (!worldSession)
+        {
+            return;
+        }
+
+        // 받은 envelope을 그대로 쓰되 innerPacketId만 응답 방향으로 바꾼다 -- 요청과 응답이
+        // 같은 id를 공유하지 않는 것이 패킷 id 규약이다(본문은 받은 것 그대로).
+        World::ClientEnvelopeHeader replyHeader = header;
+        replyHeader.innerPacketId = static_cast<uint16_t>(PacketId::Z2CEchoAck);
+
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(replyHeader);
+        binaryWriter.WriteBytes(innerPayload);
+        worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
+    }
     void PlayerProcessor::OnPlayerEnter(W2ZEnterZone packet)
     {
         const auto clientSessionId = packet.state.clientSessionId;
@@ -63,7 +148,7 @@ namespace Zone
                 {
                     if (zoneWorkers_.HasZone(previousZoneId))
                     {
-                        zoneWorkers_.GetZoneInstance(previousZoneId).OnPlayerLeave(clientSessionId);
+                        zoneWorkers_.GetZoneProcessor(previousZoneId).OnPlayerLeave(clientSessionId);
                     }
                 });
             }
@@ -87,7 +172,7 @@ namespace Zone
         // 로스터는 존 레인 소유다 -- 여기서 직접 넣지 않고 그 존의 스레드로 넘긴다.
         zoneWorkers_.PostToZone(zoneId, [this, zoneId, player]
         {
-            zoneWorkers_.GetZoneInstance(zoneId).OnPlayerEnter(player);
+            zoneWorkers_.GetZoneProcessor(zoneId).OnPlayerEnter(player);
         });
     }
 
@@ -107,7 +192,7 @@ namespace Zone
         {
             if (zoneWorkers_.HasZone(zoneId))
             {
-                zoneWorkers_.GetZoneInstance(zoneId).OnPlayerLeave(clientSessionId);
+                zoneWorkers_.GetZoneProcessor(zoneId).OnPlayerLeave(clientSessionId);
             }
         });
     }
@@ -183,8 +268,8 @@ namespace Zone
         }
 
         // 존 레인이 발행해둔 불변 스냅샷을 집어간다 -- 로스터를 직접 순회하지 않으므로
-        // 존 레인과 동시에 돌아도 안전하다(Instance::BroadcastTargets 주석 참고).
-        const auto targets = zoneWorkers_.GetZoneInstance(zoneId).BroadcastTargets();
+        // 존 레인과 동시에 돌아도 안전하다(ZoneProcessor::BroadcastTargets 주석 참고).
+        const auto targets = zoneWorkers_.GetZoneProcessor(zoneId).BroadcastTargets();
         if (!targets || targets->empty())
         {
             return;
@@ -201,6 +286,6 @@ namespace Zone
         }
 
         std::vector<byte> payloadCopy(payload.begin(), payload.end());
-        broadcastDispatcher_.Broadcast(zoneId, std::move(filtered), innerPacketId, std::move(payloadCopy));
+        broadcastProcessor_.Broadcast(zoneId, std::move(filtered), innerPacketId, std::move(payloadCopy));
     }
 }

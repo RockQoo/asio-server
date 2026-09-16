@@ -211,7 +211,7 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 `Session::SendPacket`과 `Packet::BuildFrame`이고, 둘 다 `std::is_enum_v` 제약만 걸어서
 **Core는 여전히 어떤 enum인지 모른다**(콘텐츠를 모르는 라이브러리라는 원칙 유지).
 
-콘텐츠를 아는 쪽(`Instance::SendToPlayer`/`BroadcastToZone`, `BroadcastDispatcher::Broadcast`,
+콘텐츠를 아는 쪽(`ZoneProcessor::SendToPlayer`/`BroadcastToZone`, `BroadcastProcessor::Broadcast`,
 `ToolProcessor::InjectClientPacket`, `App::BroadcastToAll`,
 `Instance::HandleClientPacket`)은 아예 매개변수 타입을 `PacketId`로 바꿨다.
 남은 `static_cast`는 `ClientEnvelopeHeader::innerPacketId`(POD 필드가 `uint16_t`)에 넣는

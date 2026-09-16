@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Game/Instance.h"
+#include "Processor/ZoneProcessor.h"
 #include "Packet/ZonePackets.h"
 #include "World/WorldLink.h"
 
@@ -11,7 +11,7 @@
 
 namespace Zone
 {
-    Instance::Instance(const Def& def, WorldLink& worldLink)
+    ZoneProcessor::ZoneProcessor(const Def& def, WorldLink& worldLink)
         : def_(def)
         , worldLink_(worldLink)
     {
@@ -20,7 +20,7 @@ namespace Zone
                                 std::memory_order_release);
     }
 
-    void Instance::OnPlayerEnter(const std::shared_ptr<Player>& player)
+    void ZoneProcessor::OnPlayerEnter(const std::shared_ptr<Player>& player)
     {
         const auto clientSessionId = player->GetSessionId();
         members_[clientSessionId] = player;
@@ -33,7 +33,7 @@ namespace Zone
         SendEnterZoneNotify(clientSessionId, player->GetPlayerId());
     }
 
-    void Instance::OnPlayerLeave(const Network::SessionId clientSessionId)
+    void ZoneProcessor::OnPlayerLeave(const Network::SessionId clientSessionId)
     {
         if (members_.erase(clientSessionId) > 0)
         {
@@ -44,7 +44,7 @@ namespace Zone
         }
     }
 
-    void Instance::PublishBroadcastTargets()
+    void ZoneProcessor::PublishBroadcastTargets()
     {
         auto targets = std::make_shared<std::vector<Network::SessionId>>();
         targets->reserve(members_.size());
@@ -56,7 +56,7 @@ namespace Zone
         broadcastTargets_.store(std::move(targets), std::memory_order_release);
     }
 
-    void Instance::Tick(const float /*deltaSeconds*/)
+    void ZoneProcessor::Tick(const float /*deltaSeconds*/)
     {
         // 경계를 넘은 사람은 순회가 끝난 뒤에 처리한다. 이유가 둘이다:
         //   1) 순회 중 members_에서 지우면 반복자가 깨진다.
@@ -103,7 +103,7 @@ namespace Zone
         }
     }
 
-    void Instance::SendEnterZoneNotify(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId) const
+    void ZoneProcessor::SendEnterZoneNotify(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId) const
     {
         const auto worldSession = worldLink_.Get();
         if (!worldSession)
@@ -126,7 +126,7 @@ namespace Zone
         worldSession->SendPacket(PacketId::Z2WRelay, binaryWriter.GetBuffer());
     }
 
-    void Instance::RequestZoneTransfer(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
+    void ZoneProcessor::RequestZoneTransfer(const Network::SessionId clientSessionId, const Protocol::PlayerId playerId,
                                             const float x, const float y) const
     {
         const auto worldSession = worldLink_.Get();

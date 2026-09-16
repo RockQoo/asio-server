@@ -49,7 +49,7 @@ intervals.tick_ms = 100
 
 ```cpp
 Config config{};                                          // 구조체의 기본값
-config.lbThreadCount = file.GetSize("lb_threads", config.lbThreadCount);   // 그 값을 fallback 으로
+config.ioThreadCount = file.GetSize("io_threads", config.ioThreadCount);   // 그 값을 fallback 으로
 ```
 
 기본값이 구조체와 읽는 쪽 두 군데에 적히면 한쪽만 고쳤을 때 갈린다. 그래서 **읽는 쪽이
