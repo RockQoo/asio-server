@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/TaskKind.h"
 
 #include "Shared/Core/Src/Task/ITask.h"

@@ -13,7 +13,7 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Server/WorldServer/Src/Packet/RelayEnvelope.h"
 #include "Server/WorldServer/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/PacketId.h"
 
 namespace Zone

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/Common/Src/CurrencyInfo.h"
-#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/ErrorCode.h"
 
 namespace Task

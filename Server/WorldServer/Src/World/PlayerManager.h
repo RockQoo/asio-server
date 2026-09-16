@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Common/Src/MailInfo.h"
@@ -33,7 +34,7 @@ namespace World
         // 로그인 때 usp_players_load로 채우고, 존에 그대로 넘겨 동기화한다. 나중에 존이 올린
         // UnitOfWork 태스크를 여기에 대조해 위조를 걸러내는 자리이기도 하다.
         std::unordered_map<Common::MailId, Common::MailInfo> mails;
-        std::unordered_map<uint8_t, int64_t> currencies;  // 키는 Common::ECurrencyType
+        std::unordered_map<Common::ECurrencyType, int64_t> currencies;
     };
 
     // 접속 중인 플레이어 전원. 라우팅 테이블 + 콘텐츠 캐시 + 브로드캐스트 대상 목록을 겸한다.
@@ -65,7 +66,7 @@ namespace World
         void SetAuthenticated(const Network::SessionId clientSessionId, const Common::PlayerId playerId,
                               std::string playerName,
                               std::unordered_map<Common::MailId, Common::MailInfo> mails,
-                              std::unordered_map<uint8_t, int64_t> currencies);
+                              std::unordered_map<Common::ECurrencyType, int64_t> currencies);
 
         // ---- 존이 올린 UnitOfWork 태스크 반영 ----
         // 셋 다 BASIC 레인(owner = clientSessionId)에서만 불린다. 그 레인은 이 클라이언트의
@@ -76,7 +77,7 @@ namespace World
         // W2ZEnterZone으로 받는 시작 상태가 곧 이 캐시이기 때문이다.
         void AddMail(const Network::SessionId clientSessionId, Common::MailInfo mailInfo);
         void RemoveMail(const Network::SessionId clientSessionId, const Common::MailId mailId);
-        void SetCurrency(const Network::SessionId clientSessionId, const uint8_t currencyType,
+        void SetCurrency(const Network::SessionId clientSessionId, const Common::ECurrencyType currencyType,
                          const int64_t amount);
 
         // DB 작업의 주인이 될 player_id만 꺼낸다. FindRoute와 같은 이유로 우편함까지 복사하지

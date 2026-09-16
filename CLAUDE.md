@@ -148,10 +148,10 @@ C:\Work\asio-server\
 │       ├── TaskKind.h            UnitOfWork taskKind 인코딩(상위 8비트 카테고리 + 하위 8비트 동작)
 │       ├── ContentLimit.h        가변 길이 본문 상한(채팅/우편 길이·통 수) -- 없으면 프레임
 │       │                         상한을 넘겨 그 링크에 붙은 전원의 연결이 끊긴다
-│       ├── CurrencyType.h        재화 종류(0은 '종류 없음' 예약값)
+│       ├── Enum.h                콘텐츠 enum 모음(재화 종류 등). 값 목록 하나에 파일 하나를 만들지 않는다
 │       ├── Ids.h / StrongId.h    PlayerId/MailId/ZoneId -- 종류마다 자기 타입
 │       ├── MailInfo.h            우편 한 통. **World 캐시와 Zone 모델이 같은 타입을 쓴다**
-│       ├── CurrencyInfo.h        재화 하나의 잔액(와이어에서 종류가 uint8 이라 그대로 받는다)
+│       ├── CurrencyInfo.h        재화 하나의 잔액. 종류는 ECurrencyType 그대로 (밑바탕 타입이 고정이라 모르는 값도 담긴다)
 │       └── Common.cpp            빌드 앵커. 헤더뿐이라 .lib 에 심볼이 없으면 LNK4221 이 난다
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)

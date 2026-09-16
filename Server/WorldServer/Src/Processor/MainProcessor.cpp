@@ -5,7 +5,7 @@
 #include "Packet/EnterZoneBody.h"
 #include "Packet/RelayEnvelope.h"
 #include "Processor/LoginProcessor.h"
-#include "Shared/Common/Src/CurrencyType.h"
+#include "Shared/Common/Src/Enum.h"
 #include "Shared/Common/Src/TaskKind.h"
 
 #include "Shared/Core/Src/Base/RUID.h"
@@ -75,7 +75,7 @@ namespace World
                                const std::span<const byte> taskPayload)
         {
             Packet::BinaryReader binaryReader(taskPayload);
-            uint8_t currencyType{};
+            Common::ECurrencyType currencyType{};
             int64_t newValue{};
             int64_t oldValue{};
             if (!binaryReader.Read(currencyType) || !binaryReader.Read(newValue) || !binaryReader.Read(oldValue))
@@ -89,7 +89,7 @@ namespace World
             // DB는 새 값으로 UPDATE하면 되고, 이전 값은 감사/추적용이다 -- "누가 언제 얼마에서
             // 얼마로 바뀌었는지"가 한 행에 남으면 재화 사고를 추적할 수 있다. 지금 SP는 새 값만
             // 받으므로 이전 값은 로그로만 남긴다.
-            autoSpCommands.Add(DbCommand{"dbo.usp_currencies_upsert", {playerId.Value(), currencyType, newValue}});
+            autoSpCommands.Add(DbCommand{"dbo.usp_currencies_upsert", {playerId.Value(), static_cast<uint8_t>(currencyType), newValue}});
 
             LOG.Debug(ELogCategory::Db, "Currency 태스크 반영")
                 .KV("ClientSessionId", clientSessionId).KV("PlayerId", playerId)

@@ -93,7 +93,7 @@
     <ClInclude Include="Src\ContentLimit.h" />
     <ClInclude Include="Src\CurrencyInfo.h" />
     <ClInclude Include="Src\MailInfo.h" />
-    <ClInclude Include="Src\CurrencyType.h" />
+    <ClInclude Include="Src\Enum.h" />
     <ClInclude Include="Src\ErrorCode.h" />
     <ClInclude Include="Src\Ids.h" />
     <ClInclude Include="Src\PacketId.h" />

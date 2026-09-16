@@ -27,7 +27,7 @@ namespace World
     void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, const Common::PlayerId playerId,
                                          std::string playerName,
                                          std::unordered_map<Common::MailId, Common::MailInfo> mails,
-                                         std::unordered_map<uint8_t, int64_t> currencies)
+                                         std::unordered_map<Common::ECurrencyType, int64_t> currencies)
     {
         const auto it = players_.find(clientSessionId);
         if (it == players_.end())
@@ -65,7 +65,7 @@ namespace World
         }
     }
 
-    void PlayerManager::SetCurrency(const Network::SessionId clientSessionId, const uint8_t currencyType,
+    void PlayerManager::SetCurrency(const Network::SessionId clientSessionId, const Common::ECurrencyType currencyType,
                                     const int64_t amount)
     {
         if (const auto it = players_.find(clientSessionId); it != players_.end())

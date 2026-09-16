@@ -242,7 +242,7 @@ namespace World
             mails.emplace(mailId, Common::MailInfo{mailId, *title, *body, *sendUt, *endUt});
         }
 
-        std::unordered_map<uint8_t, int64_t> currencies;
+        std::unordered_map<Common::ECurrencyType, int64_t> currencies;
         for (const auto& row : SetAt(dbResult, 1))
         {
             const auto type = GetInt64(row, 0);
@@ -255,7 +255,7 @@ namespace World
                 return;
             }
 
-            currencies.emplace(static_cast<uint8_t>(*type), *amount);
+            currencies.emplace(static_cast<Common::ECurrencyType>(*type), *amount);
         }
 
         LOG.Info(ELogCategory::Db, "플레이어 콘텐츠 적재")
@@ -282,7 +282,7 @@ namespace World
                                       const Network::SessionId clientSessionId, const std::string& playerName,
                                       const Base::RUID playerId,
                                       std::unordered_map<Common::MailId, Common::MailInfo> mails,
-                                      std::unordered_map<uint8_t, int64_t> currencies)
+                                      std::unordered_map<Common::ECurrencyType, int64_t> currencies)
     {
         basicGroup_.Post(EProcessorId::Login, clientSessionId,
             [this, gatewaySession, clientSessionId, playerName, playerId,
@@ -297,7 +297,7 @@ namespace World
                                         const Network::SessionId clientSessionId, const std::string& playerName,
                                         const Base::RUID playerId,
                                         std::unordered_map<Common::MailId, Common::MailInfo> mails,
-                                        std::unordered_map<uint8_t, int64_t> currencies)
+                                        std::unordered_map<Common::ECurrencyType, int64_t> currencies)
     {
         // DB를 다녀오는 동안 접속이 끊겼을 수 있다. 그러면 등록이 이미 지워져 있다.
         if (!playerManager_->Find(clientSessionId))

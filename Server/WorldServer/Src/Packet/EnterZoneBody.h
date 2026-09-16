@@ -25,10 +25,10 @@ namespace World
     [[nodiscard]] inline std::vector<byte> BuildEnterZoneBody(
         const PlayerZoneStatePacket& state,
         const std::unordered_map<Common::MailId, Common::MailInfo>& mails,
-        const std::unordered_map<uint8_t, int64_t>& currencies)
+        const std::unordered_map<Common::ECurrencyType, int64_t>& currencies)
     {
         // 재화는 종류 수가 고정이라 먼저 자리를 잡아두고, 남는 예산을 우편에 준다.
-        const size_t currencyBytes = sizeof(uint16_t) + currencies.size() * (sizeof(uint8_t) + sizeof(int64_t));
+        const size_t currencyBytes = sizeof(uint16_t) + currencies.size() * (sizeof(Common::ECurrencyType) + sizeof(int64_t));
         const size_t fixedBytes = sizeof(PlayerZoneStatePacket) + sizeof(uint16_t) + currencyBytes;
 
         // 예산이 음수가 되지 않게 가드한다 -- 재화 종류가 폭발하면 우편을 0통 싣는다.

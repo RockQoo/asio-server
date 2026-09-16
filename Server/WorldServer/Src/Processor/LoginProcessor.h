@@ -75,14 +75,14 @@ namespace World
                          const Network::SessionId clientSessionId, const std::string& playerName,
                          const Base::RUID playerId,
                          std::unordered_map<Common::MailId, Common::MailInfo> mails,
-                         std::unordered_map<uint8_t, int64_t> currencies);
+                         std::unordered_map<Common::ECurrencyType, int64_t> currencies);
 
         // BASIC 레인. 캐시를 채우고 인증을 확정한 뒤, 콘텐츠를 실어 존에 입장시킨다.
         void CompleteLogin(const Network::Session::SPtr& gatewaySession,
                            const Network::SessionId clientSessionId, const std::string& playerName,
                            const Base::RUID playerId,
                            std::unordered_map<Common::MailId, Common::MailInfo> mails,
-                           std::unordered_map<uint8_t, int64_t> currencies);
+                           std::unordered_map<Common::ECurrencyType, int64_t> currencies);
 
         void SendResult(const Network::Session::SPtr& gatewaySession,
                         const Network::SessionId clientSessionId, const EErrorCode errorCode,

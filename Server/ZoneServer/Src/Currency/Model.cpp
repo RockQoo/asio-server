@@ -12,7 +12,7 @@ namespace Currency
         {
             // 모르는 종류는 조용히 버린다 -- 이 빌드가 아직 모르는 재화가 DB에 있을 수 있고,
             // 그것 때문에 입장을 막을 이유는 없다(Field가 nullptr을 돌려준다).
-            if (auto* const field = Field(static_cast<Common::ECurrencyType>(info.type)); field != nullptr)
+            if (auto* const field = Field(info.type); field != nullptr)
             {
                 *field = info.amount;
             }
