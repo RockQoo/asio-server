@@ -25,7 +25,7 @@ intervals.tick_ms = 100
 
 그런데 이 저장소는 **"외부 의존성은 벤더링한 standalone ASIO 하나뿐"**이 설명의 일부다.
 설정 파일 하나 읽자고 그 문장을 깨는 것보다, `key = value` 파서 40줄을 두는 쪽이 남는 게 많다.
-실무 서버도 설정은 자체 포맷을 쓰는 경우가 흔하다.
+게임 서버는 설정에 자체 포맷을 쓰는 경우가 흔하다.
 
 **중첩을 점으로 평탄화**하면 `[pools]` 같은 섹션 문법이 없어도 구조체와 1:1로 맞는다 —
 `pools.player_threads` → `config.poolSizes.playerThreadCount`.

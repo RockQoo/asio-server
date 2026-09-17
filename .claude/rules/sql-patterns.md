@@ -42,7 +42,7 @@ C++ 쪽 규약(PascalCase 타입, camelCase + trailing underscore 멤버)을 DB�
 
 ## 서버는 테이블에 직접 쿼리하지 않고 SP만 부른다
 
-실무 구조를 따른 것이고, 실질적인 이유가 하나 더 있다 — **`SET XACT_ABORT ON`을 SP 안에
+게임 서버에서 흔한 구조를 따른 것이고, 실질적인 이유가 하나 더 있다 — **`SET XACT_ABORT ON`을 SP 안에
 강제로 넣을 수 있다.** 이게 없으면 런타임 오류가 나도 트랜잭션이 열린 채 남아 다음 문장이
 반쯤 적용된다.
 
@@ -66,8 +66,8 @@ SELECT player_id, player_name, password_hash
  WHERE player_name = @player_name;
 ```
 
-읽기가 압도적으로 많은 게임 DB에서 조회가 쓰기를 막지 않게 하려는 것이고, 실무 서버가
-쓰던 방식이다.
+읽기가 압도적으로 많은 게임 DB에서 조회가 쓰기를 막지 않게 하려는 것이고, 운영 중인 게임 DB에서
+널리 쓰이는 방식이다.
 
 **대신 이 성질을 알고 쓴다**: `NOLOCK`은 `READ UNCOMMITTED`라 커밋 안 된 값을 읽을 수 있고,
 페이지 분할이 진행 중이면 드물게 행을 건너뛰거나 같은 행을 두 번 읽는다. 실질적으로 걸릴 수

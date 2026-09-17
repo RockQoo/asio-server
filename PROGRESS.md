@@ -60,8 +60,8 @@
   띄웠지만 09-12에 로컬 설치본으로 옮겼다(아래 참고).
   스키마 규약은 `.claude/rules/sql-patterns.md` — 테이블 복수형, 클러스터 인덱스 필수,
   SP는 `[콘텐츠명]_[행위]`, INSERT/UPDATE는 upsert 하나로, DELETE는 `delete_ut` 소프트 삭제.
-- **ODBC 기반 DB 계층**(`Server/WorldServer/Src/Db/`): 실무 서버의 `AutoSpCommands`와 같은
-  모양 — `(ownerId, isTran, callback)`을 받아 SP 커맨드를 쌓았다가 **소멸 시 DB 큐 그룹으로**
+- **ODBC 기반 DB 계층**(`Server/WorldServer/Src/Db/`): `AutoSpCommands`는 스코프 기반
+  커맨드 수집 모양이다 — `(ownerId, isTran, callback)`을 받아 SP 커맨드를 쌓았다가 **소멸 시 DB 큐 그룹으로**
   한 번에 보낸다. **UnitOfWork 하나 = 트랜잭션 하나**이고 여러 UoW를 모으지 않는다.
   커넥션은 레인 스레드마다 `thread_local` 1개라 "커넥션 수 = 소비자 수 1:1"이 그대로 성립하고
   이 계층에 락이 없다. 비밀번호는 CNG PBKDF2-HMAC-SHA256.
