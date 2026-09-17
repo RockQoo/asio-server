@@ -27,6 +27,13 @@ public sealed class SpriteAtlas : IDisposable
     private readonly Texture2D texture_;
     private readonly Dictionary<string, SpriteFrame> frames_;
 
+    /// <summary>
+    /// 존별 바닥 타일. <b>아틀라스에 넣지 않고 따로 둔다</b> — 512×512 seamless 라 반복해서
+    /// 깔아야 하는데, 아틀라스에 넣으면 옆 칸 그림이 같이 반복돼 들어온다.
+    /// 키는 zoneId(1부터), 없는 존은 그냥 빠져 있다.
+    /// </summary>
+    private readonly Dictionary<int, Texture2D> tiles_ = [];
+
     /// <summary>몸통 안에서 머리 중심의 위치. 머리 장비를 여기 맞춘다.</summary>
     public Vector2 HeadAnchor { get; }
 
@@ -92,7 +99,9 @@ public sealed class SpriteAtlas : IDisposable
             var weapon = ReadAnchor(root, "weapon_socket", new Vector2(130, 115));
             var scale = root.TryGetProperty("scale", out var scaleElement) ? scaleElement.GetSingle() : 1.0f;
 
-            return new SpriteAtlas(texture, frames, head, weapon, scale);
+            var atlas = new SpriteAtlas(texture, frames, head, weapon, scale);
+            atlas.LoadTiles(device, assetDirectory);
+            return atlas;
         }
         catch (Exception)
         {
@@ -122,6 +131,36 @@ public sealed class SpriteAtlas : IDisposable
         texture.SetData(pixels);
     }
 
+    /// <summary>
+    /// `tile_zone1.png` ~ `tile_zone4.png` 를 읽는다. 없는 파일은 조용히 건너뛴다 —
+    /// 존 하나만 타일이 없어도 그 존만 단색으로 그리면 되고, 그것 때문에 나머지를 버릴 이유가 없다.
+    /// </summary>
+    private void LoadTiles(GraphicsDevice device, string assetDirectory)
+    {
+        for (var zoneId = 1; zoneId <= 4; ++zoneId)
+        {
+            var path = Path.Combine(assetDirectory, $"tile_zone{zoneId}.png");
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var tile = Texture2D.FromStream(device, stream);
+                PremultiplyAlpha(tile);
+                tiles_[zoneId] = tile;
+            }
+            catch (Exception)
+            {
+                // 이 타일만 포기한다.
+            }
+        }
+    }
+
+    public bool TryGetTile(int zoneId, out Texture2D tile) => tiles_.TryGetValue(zoneId, out tile!);
+
     public bool Has(string frameName) => frames_.ContainsKey(frameName);
 
     /// <summary>
@@ -140,5 +179,12 @@ public sealed class SpriteAtlas : IDisposable
                                  rotation, frame.Pivot, scale, SpriteEffects.None, 0.0f);
     }
 
-    public void Dispose() => texture_.Dispose();
+    public void Dispose()
+    {
+        texture_.Dispose();
+        foreach (var tile in tiles_.Values)
+        {
+            tile.Dispose();
+        }
+    }
 }

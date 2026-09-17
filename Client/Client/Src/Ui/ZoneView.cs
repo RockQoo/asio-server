@@ -26,10 +26,14 @@ public sealed class ZoneView
     private const double StaleAfterSeconds = 5.0;
 
     /// <summary>
-    /// 몸통 스프라이트를 화면에 그릴 때의 배율. 아틀라스 프레임이 192px 인데 플레이어 마커는
-    /// 지름 22px 수준이라, 아틀라스의 scale(2)로 나눈 뒤 다시 줄인다.
+    /// 캐릭터 몸통의 월드 크기(unit). 리소스 요청서 §1의 "플레이어 몸통 0.75 × 0.75 unit".
     /// </summary>
-    private const float SpriteScale = 0.22f;
+    private const float BodyUnits = 0.75f;
+
+    /// <summary>
+    /// 몸통 프레임의 한 변(px). 2배 납품이라 192 이고, 화면 배율은 이 값에서 역산한다.
+    /// </summary>
+    private const float BodyFramePixels = 192.0f;
 
     /// <summary>
     /// 몸통 종류. <b>서버에는 외형 정보가 없다</b> — playerId 로 고르는 임시 규칙이라,
@@ -94,7 +98,40 @@ public sealed class ZoneView
                 (int)(bottomRight.X - topLeft.X), (int)(bottomRight.Y - topLeft.Y));
 
             var isMine = world.HasEnteredZone && world.MyZoneId == zoneId;
-            painter.FillRect(rect, isMine ? new Color(24, 40, 34) : new Color(20, 24, 34));
+
+            // 바닥 타일. 없으면 예전처럼 단색으로 채운다.
+            //
+            // **2×2 로 나눠 깐다.** 한 장을 존 전체로 늘리면 512 -> 670 이라 무늬가 뭉개지고,
+            // 타일이라는 게 안 보인다. 타일이 seamless 라 이어 붙여도 경계가 안 드러난다
+            // (납품 검수에서 이음매 색차 1~2/255 확인).
+            //
+            // **샘플러를 LinearWrap 으로 바꾸지 않는다.** 그러려면 SpriteBatch.Begin 블록을
+            // 따로 열어야 하고, 그러면 이 화면이 배치 두 개로 갈린다. 복사본을 직접 까는 쪽이
+            // 존 4개 × 4장 = 16 드로우라 더 싸다.
+            if (atlas_ is not null && atlas_.TryGetTile((int)zoneId, out var tile))
+            {
+                const int TilesPerZone = 2;
+                var cellWidth = rect.Width / (float)TilesPerZone;
+                var cellHeight = rect.Height / (float)TilesPerZone;
+                var tint = isMine ? new Color(190, 235, 210) : new Color(150, 160, 185);
+
+                for (var ty = 0; ty < TilesPerZone; ++ty)
+                {
+                    for (var tx = 0; tx < TilesPerZone; ++tx)
+                    {
+                        // 마지막 칸은 남는 픽셀까지 덮어 존 경계에 한 줄이 비지 않게 한다.
+                        var x = rect.X + (int)(tx * cellWidth);
+                        var y = rect.Y + (int)(ty * cellHeight);
+                        var w = (tx == TilesPerZone - 1) ? (rect.Right - x) : (int)MathF.Ceiling(cellWidth);
+                        var h = (ty == TilesPerZone - 1) ? (rect.Bottom - y) : (int)MathF.Ceiling(cellHeight);
+                        painter.SpriteBatch.Draw(tile, new Rectangle(x, y, w, h), tint);
+                    }
+                }
+            }
+            else
+            {
+                painter.FillRect(rect, isMine ? new Color(24, 40, 34) : new Color(20, 24, 34));
+            }
 
             var label = $"Zone {zoneId}";
             painter.Text(label, new Vector2(rect.X + 10, rect.Y + 8),
@@ -261,7 +298,17 @@ public sealed class ZoneView
     private void DrawSpritePlayer(Painter painter, SpriteAtlas atlas, RemotePlayer player,
                                   Vector2 center, bool isMe, bool isStale)
     {
-        var scale = SpriteScale / atlas.Scale;
+        // **뷰 크기에서 역산한다.** 상수를 박아두면 창 크기나 줌이 바뀔 때 같이 안 따라간다
+        // (실제로 처음에 0.22 를 박았다가 2.4배 작게 그리고 있었다).
+        //
+        //   px/unit  = 뷰 너비 / 월드 너비
+        //   몸통 표시 px = 0.75 unit × px/unit
+        //   배율     = 표시 px / 프레임 192px
+        //
+        // atlas.Scale(2배 납품)은 여기서 따로 나누지 않는다 -- 프레임 크기 192 에 이미 반영돼
+        // 있어서 또 나누면 절반이 된다.
+        var pixelsPerUnit = Bounds.Width / ZoneLayout.WorldMaxX;
+        var scale = (BodyUnits * pixelsPerUnit) / BodyFramePixels;
 
         // 흐려진 플레이어는 어둡게, 나는 살짝 밝게 -- 도형일 때 색으로 하던 구분을 유지한다.
         var tint = isStale ? new Color(140, 150, 165) : Color.White;
