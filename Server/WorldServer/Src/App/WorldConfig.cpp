@@ -40,6 +40,13 @@ WorldConfig LoadConfig(const std::string& path)
     // DB는 커넥션 풀 크기와 1:1이 원칙이다. 실제 DB 연동 전이라 개발 머신 기준 임시값.
     config.dbThreadCount = file.GetSize("db_threads", config.dbThreadCount);
 
+    // **Zone 과 같은 키 이름을 쓴다** -- 부하를 볼 때 두 서버의 설정을 나란히 놓고 고치는데,
+    // 이름이 갈리면 한쪽만 바꿔 놓고 양쪽을 바꿨다고 착각한다.
+    config.statsDumpInterval =
+        file.GetMilliseconds("intervals.stats_dump_ms", config.statsDumpInterval);
+    config.slowTaskWarnThreshold =
+        file.GetMicroseconds("slow_task_warn_us", config.slowTaskWarnThreshold);
+
     file.WarnUnusedKeys();
 
     // **시크릿과 연결 문자열은 설정 파일이 아니라 환경 변수로 덮는다.** config/*.cfg 는
