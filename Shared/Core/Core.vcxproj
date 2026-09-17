@@ -108,7 +108,6 @@
     <ClInclude Include="Src\Base\RUID.h" />
     <ClInclude Include="Src\Base\Types.h" />
     <ClInclude Include="Src\Base\CoreErrorCode.h" />
-    <ClInclude Include="Src\Base\EnumFlags.h" />
     <ClInclude Include="Src\Base\CoreException.h" />
     <ClInclude Include="Src\Log\LogLevel.h" />
     <ClInclude Include="Src\Log\LogCategory.h" />

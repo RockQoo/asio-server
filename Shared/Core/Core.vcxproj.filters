@@ -49,9 +49,6 @@
     <ClInclude Include="Src\Base\CoreErrorCode.h">
       <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Base\EnumFlags.h">
-      <Filter>Base</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Base\CoreException.h">
       <Filter>Base</Filter>
     </ClInclude>

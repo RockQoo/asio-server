@@ -51,13 +51,6 @@ namespace Log
             return *this;
         }
 
-        template <typename T>
-        Entry& V(const T& value)
-        {
-            AppendField(std::format("{}", value));
-            return *this;
-        }
-
     private:
         void AppendField(const std::string_view field)
         {

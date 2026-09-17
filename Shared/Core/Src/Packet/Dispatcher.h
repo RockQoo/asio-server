@@ -110,8 +110,6 @@ namespace Packet
             return handlers_.contains(id);
         }
 
-        [[nodiscard]] size_t HandlerCount() const noexcept { return handlers_.size(); }
-
     private:
         std::unordered_map<TPacketId, Handler> handlers_;
     };

@@ -91,8 +91,6 @@ public:
     // 중복 키가 있으면 그 배치가 통째로 실패하는데, 검증 도구 입장에서는 그게 곧 결과다.
     void ExecuteMany(const std::string& procedure, const std::span<const int64_t> values);
 
-    [[nodiscard]] bool IsOpen() const noexcept { return connection_ != nullptr; }
-
 private:
     void Connect();
     void Disconnect() noexcept;

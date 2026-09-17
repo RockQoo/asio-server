@@ -16,8 +16,6 @@ namespace Packet
         // (손상되었거나 악의적인 스트림으로부터 보호).
         [[nodiscard]] bool TryExtract(Header& outHeader, std::vector<byte>& outPayload);
 
-        [[nodiscard]] size_t BufferedSize() const noexcept { return writePos_ - readPos_; }
-
     private:
         void Compact();
 

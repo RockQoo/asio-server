@@ -21,7 +21,6 @@ namespace Base
         [[nodiscard]] static ConfigFile Load(const std::string& path);
 
         [[nodiscard]] bool IsLoaded() const noexcept { return loaded_; }
-        [[nodiscard]] const std::string& GetPath() const noexcept { return path_; }
 
         [[nodiscard]] std::string GetString(const std::string_view key, const std::string_view fallback) const;
         [[nodiscard]] uint16_t GetPort(const std::string_view key, const uint16_t fallback) const;

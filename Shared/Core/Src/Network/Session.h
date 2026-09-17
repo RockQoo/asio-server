@@ -43,7 +43,6 @@ namespace Network
 
         [[nodiscard]] asio::ip::tcp::socket& Socket() noexcept { return socket_; }
         [[nodiscard]] SessionId Id() const noexcept { return id_; }
-        [[nodiscard]] bool IsOpen() const noexcept { return socket_.is_open(); }
         [[nodiscard]] std::string RemoteAddress() const;
 
     private:

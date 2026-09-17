@@ -20,8 +20,6 @@ namespace Timer
         void Start(const std::chrono::milliseconds interval, Callback callback);
         void Stop();
 
-        [[nodiscard]] bool IsRunning() const noexcept { return running_.load(); }
-
         // 밀려서 건너뛴 주기의 누적 횟수. 0이 아니면 그 타이머가 붙은 레인이 주기를 못 지키고
         // 있다는 뜻이라, 틱 기반 콘텐츠(전투 등)의 이상을 그 콘텐츠 탓으로 오해하기 전에
         // 먼저 볼 값이다.

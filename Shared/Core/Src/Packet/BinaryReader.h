@@ -60,9 +60,6 @@ namespace Packet
             return bytes;
         }
 
-        [[nodiscard]] size_t Remaining() const noexcept { return data_.size() - position_; }
-        [[nodiscard]] bool AtEnd() const noexcept { return position_ >= data_.size(); }
-
     private:
         std::span<const byte> data_;
         size_t position_{0};
