@@ -11,6 +11,7 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Common/Src/ErrorCode.h"
 #include "Shared/Common/Src/TaskKind.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 
 namespace
 {
@@ -112,7 +113,7 @@ std::vector<byte> ZoneUnitOfWork::Serialize() const
         case Common::ETaskType::MailDel:
             // 삭제는 Prev(지워진 우편)를 내보낸다 -- 받는 쪽이 어느 우편이 사라졌는지
             // 알아야 하고, 클라이언트는 그 mailId를 자기 목록에서 지운다.
-            WriteMail(taskBinaryWriter, static_cast<const DelMailTask&>(*task).Info().Prev());
+            WriteMail(taskBinaryWriter, static_cast<const RemoveMailTask&>(*task).Info().Prev());
             break;
 
         case Common::ETaskType::CurrencyUpdate:
@@ -165,7 +166,7 @@ void ZoneUnitOfWork::RollbackAll() noexcept
                     }
                     // 추가를 되돌리는 건 삭제다. New의 mailId를 지운다.
                     const auto& info = static_cast<const AddMailTask&>(task).Info().New();
-                    if (const auto errorCode = models_.mailBox->Write()->DelMail(info.mailId, sink, false);
+                    if (const auto errorCode = models_.mailBox->Write()->RemoveMail(info.mailId, sink, false);
                         errorCode != EErrorCode::Success)
                     {
                         LOG.Error(ELogCategory::Zone, "우편 추가 롤백 실패 -- 메모리와 DB가 어긋난다")
@@ -182,7 +183,7 @@ void ZoneUnitOfWork::RollbackAll() noexcept
                     }
                     // 삭제를 되돌리려면 mailId까지 그대로 복원해야 해서 AddMail(서버가 id를
                     // 새로 배정)이 아니라 InsertMail(id 지정)을 쓴다. Prev가 지워진 원본이다.
-                    const auto& info = static_cast<const DelMailTask&>(task).Info().Prev();
+                    const auto& info = static_cast<const RemoveMailTask&>(task).Info().Prev();
                     if (const auto errorCode = models_.mailBox->Write()->InsertMail(info, sink);
                         errorCode != EErrorCode::Success)
                     {
@@ -271,8 +272,6 @@ void ZoneUnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<con
 
     // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다
     // (ZoneProcessor::SendToPlayer와 같은 경로).
-    worldSession->SendPacket(
-        PacketId::Z2WRelay,
-        Common::WrapRelay(clientSessionId_, static_cast<uint16_t>(PacketId::Z2CTaskResult),
-                          innerBinaryWriter.GetBuffer()));
+    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId_,
+                      PacketId::Z2CTaskResult, innerBinaryWriter.GetBuffer());
 }

@@ -5,6 +5,9 @@
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/LoginPackets.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
@@ -50,21 +53,24 @@ public:
 private:
     void Register();
 
+    // 아래 핸들러는 전부 **해석이 끝난 패킷 구조체**를 받는다 -- 역직렬화와 형식 검증은
+    // 디스패치 앞(Packet::Dispatcher)에서 끝난다.
+
     // --- Gateway 링크 ---
-    void HandleClientConnected(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);
-    void HandleClientDisconnected(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);
-    void HandleFromClient(const Network::Session::SPtr& gatewaySession, const std::span<const byte> payload);
+    void HandleClientConnected(const Network::Session::SPtr& gatewaySession, const Common::G2WClientConnected& packet);
+    void HandleClientDisconnected(const Network::Session::SPtr& gatewaySession, const Common::G2WClientDisconnected& packet);
+    void HandleFromClient(const Network::Session::SPtr& gatewaySession, const Common::G2WRelay& packet);
 
     // --- Zone 링크 ---
-    void HandleZoneRegister(const Network::Session::SPtr& zoneSession, const std::span<const byte> payload);
-    void HandleForwardToWorld(const Network::Session::SPtr& zoneSession, const std::span<const byte> payload);
-    void HandleZoneTransfer(const Network::Session::SPtr& zoneSession, const std::span<const byte> payload);
+    void HandleZoneRegister(const Network::Session::SPtr& zoneSession, const Common::Z2WZoneRegister& registerPacket);
+    void HandleForwardToWorld(const Network::Session::SPtr& zoneSession, const Common::Z2WRelay& packet);
+    void HandleZoneTransfer(const Network::Session::SPtr& zoneSession, const Common::Z2WZoneTransfer& transfer);
 
     // 존이 올린 태스크 목록을 World 캐시에 반영하고, 같은 내용을 DB에 쓴다.
     // DB 작업은 AutoSpCommands가 모았다가 스코프 끝에서 playerId를 주인으로 DB 레인에 한
     // 번에 넘긴다 -- UnitOfWork 하나가 트랜잭션 하나다.
     void HandleUnitOfWorkStream(const Network::Session::SPtr& zoneSession,
-                                const std::span<const byte> payload);
+                                const Common::Z2WUnitOfWorkStream& packet);
 
     // W2ZEnterZone 본문을 캐시의 콘텐츠와 함께 만든다(포맷: Packet/ZoneLinkPackets.h).
     // 핸드오프와 되돌림이 같은 바이트를 보내야 존 쪽 파서가 하나로 끝난다.

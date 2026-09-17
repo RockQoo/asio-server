@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/Common/Src/PacketId.h"
+
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 
 namespace Common
@@ -53,4 +55,43 @@ namespace Common
         view.innerPayload = payload.subspan(sizeof(RelayEnvelope));
         return view;
     }
+
+    // 중계 패킷 넷의 받는 쪽 구조체. **봉투는 공유하되 패킷 구조체는 id 마다 하나씩** 둔다 --
+    // `kPacketId` 는 값이 하나여야 해서 넷이 공유할 수 없고, 그것이 있어야 등록이
+    // `Register(this, &X::Handle)` 한 형태로 통일된다.
+    //
+    // **수명 주의**: `innerPayload`/`raw` 는 복사가 아니라 수신 버퍼를 가리키는 subspan 이다.
+    // 핸들러 스코프를 넘겨 들고 있으면 안 된다(패킷 구조체 공통 규약 -- packet-naming.md).
+    //
+    // `raw` 가 따로 있는 이유: 중계는 **봉투째 그대로** 다음 홉으로 넘기는 경우가 있어서
+    // (World 가 Gateway<->Zone 사이에서 그렇다) 원본 바이트가 필요하다. 없으면 다시
+    // `WrapRelay` 로 조립해야 해서 중계 경로에 할당이 생긴다.
+    template <PacketId TPacketId>
+    struct RelayPacket
+    {
+        static constexpr PacketId kPacketId = TPacketId;
+
+        RelayEnvelope envelope{};
+        std::span<const byte> innerPayload;  // 봉투 뒤 -- 안쪽으로 넘길 때
+        std::span<const byte> raw;           // 본문 전체 -- 봉투째 재전송할 때
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            const auto view = UnwrapRelay(payload);
+            if (!view)
+            {
+                return false;
+            }
+
+            envelope = view->envelope;
+            innerPayload = view->innerPayload;
+            raw = payload;
+            return true;
+        }
+    };
+
+    using G2WRelay = RelayPacket<PacketId::G2WRelay>;
+    using W2GRelay = RelayPacket<PacketId::W2GRelay>;
+    using W2ZRelay = RelayPacket<PacketId::W2ZRelay>;
+    using Z2WRelay = RelayPacket<PacketId::Z2WRelay>;
 }

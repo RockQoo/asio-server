@@ -9,6 +9,7 @@
 #include "Shared/Core/Src/Network/Session.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 
 // 운영툴이 주입하는 우편/공지는 "새로운 운영 전용 패킷"이 아니라 기존 클라이언트 패킷을
 // 그대로 재사용한다(ToolProcessor.h 클래스 주석 참고). main.cpp도 notice REPL 때문에 같은
@@ -51,6 +52,16 @@ ToolProcessor::ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegi
     Register();
 }
 
+void ToolProcessor::Register()
+{
+    dispatcher_.Register(this, &ToolProcessor::HandleHello);
+    dispatcher_.Register(this, &ToolProcessor::HandleNotice);
+    dispatcher_.Register(this, &ToolProcessor::HandleMailSend);
+    dispatcher_.Register(this, &ToolProcessor::HandleMailDelete);
+    dispatcher_.Register(this, &ToolProcessor::HandleCouponChunkPush);
+    dispatcher_.Register(this, &ToolProcessor::HandleClientList);
+}
+
 std::vector<Network::SessionId> ToolProcessor::SnapshotOnlineClients() const
 {
     // 목록을 먼저 값으로 떠서 락을 벗어난 뒤에 쓴다. 순회 중에 전송/주입을 하면 읽기 락을
@@ -63,16 +74,6 @@ std::vector<Network::SessionId> ToolProcessor::SnapshotOnlineClients() const
             targets.push_back(clientSessionId);
         });
     return targets;
-}
-
-void ToolProcessor::Register()
-{
-    dispatcher_.Register(PacketId::T2WHello, this, &ToolProcessor::HandleHello);
-    dispatcher_.Register(PacketId::T2WNotice, this, &ToolProcessor::HandleNotice);
-    dispatcher_.Register(PacketId::T2WMailSend, this, &ToolProcessor::HandleMailSend);
-    dispatcher_.Register(PacketId::T2WMailDelete, this, &ToolProcessor::HandleMailDelete);
-    dispatcher_.Register(PacketId::T2WCouponChunkPush, this, &ToolProcessor::HandleCouponChunkPush);
-    dispatcher_.Register(PacketId::T2WClientList, this, &ToolProcessor::HandleClientList);
 }
 
 void ToolProcessor::OnSessionOpened(const Network::Session::SPtr& session)
@@ -141,8 +142,7 @@ void ToolProcessor::SendCommandResult(const Network::Session::SPtr& toolSession,
     ack.requestId = requestId;
     ack.resultCode = static_cast<uint16_t>(resultCode);
     ack.affectedCount = affectedCount;
-    toolSession->SendPacket(PacketId::W2TCommandResult,
-                            std::as_bytes(std::span(&ack, 1)));
+    Common::SendPacket(toolSession, ack);
 }
 
 bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId, const PacketId innerPacketId,
@@ -163,30 +163,19 @@ bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId,
     // MainProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
     // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
     // 왔는지 구분할 수 없고, 구분할 필요도 없다.
-    zoneLink->zoneSession->SendPacket(
-        PacketId::W2ZRelay,
-        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), innerPayload));
+    Common::SendRelay(zoneLink->zoneSession, PacketId::W2ZRelay, clientSessionId,
+                      innerPacketId, innerPayload);
     return true;
 }
 
 void ToolProcessor::HandleHello(const Network::Session::SPtr& toolSession,
-                                     const std::span<const byte> payload)
+                                const Common::T2WHello& packet)
 {
-    Packet::BinaryReader binaryReader(payload);
-    uint32_t requestId{};
-    uint32_t protocolVersion{};
-    std::string sharedSecret;
-    std::string operatorName;
-    if (!binaryReader.Read(requestId) || !binaryReader.Read(protocolVersion)
-        || !binaryReader.ReadString(sharedSecret) || !binaryReader.ReadString(operatorName))
-    {
-        LOG.Warning(ELogCategory::Tool, "ToolHello 파싱 실패").KV("SessionId", toolSession->Id());
-        SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
-        return;
-    }
+    const auto requestId = packet.requestId;
+    const auto& operatorName = packet.operatorName;
 
-    const bool versionOk = protocolVersion == Common::kToolLinkProtocolVersion;
-    const bool secretOk = SecretEquals(sharedSecret, sharedSecret_);
+    const bool versionOk = packet.protocolVersion == Common::kToolLinkProtocolVersion;
+    const bool secretOk = SecretEquals(packet.sharedSecret, sharedSecret_);
     const bool accepted = versionOk && secretOk;
 
     if (accepted)
@@ -194,7 +183,7 @@ void ToolProcessor::HandleHello(const Network::Session::SPtr& toolSession,
         authenticatedSessions_.Write()->insert(toolSession->Id());
         LOG.Info(ELogCategory::Tool, "운영툴 인증 성공")
             .KV("SessionId", toolSession->Id()).KV("Operator", operatorName)
-            .KV("ProtocolVersion", protocolVersion);
+            .KV("ProtocolVersion", packet.protocolVersion);
     }
     else
     {
@@ -208,8 +197,7 @@ void ToolProcessor::HandleHello(const Network::Session::SPtr& toolSession,
     ack.requestId = requestId;
     ack.accepted = accepted ? uint8_t{1} : uint8_t{0};
     ack.protocolVersion = Common::kToolLinkProtocolVersion;
-    toolSession->SendPacket(PacketId::W2THelloResult,
-                            std::as_bytes(std::span(&ack, 1)));
+    Common::SendPacket(toolSession, ack);
 
     if (!accepted)
     {
@@ -219,12 +207,11 @@ void ToolProcessor::HandleHello(const Network::Session::SPtr& toolSession,
 }
 
 void ToolProcessor::HandleNotice(const Network::Session::SPtr& toolSession,
-                                         const std::span<const byte> payload)
+                                 const Common::T2WNotice& packet)
 {
-    Packet::BinaryReader binaryReader(payload);
-    uint32_t requestId{};
-    std::string message;
-    if (!binaryReader.Read(requestId) || !binaryReader.ReadString(message) || message.empty())
+    const auto requestId = packet.requestId;
+    const auto& message = packet.message;
+    if (message.empty())
     {
         SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
         return;
@@ -245,10 +232,8 @@ void ToolProcessor::HandleNotice(const Network::Session::SPtr& toolSession,
                 return;
             }
 
-            info.gatewaySession->SendPacket(
-                PacketId::W2GRelay,
-                Common::WrapRelay(clientSessionId, static_cast<uint16_t>(PacketId::W2CNotice),
-                                  noticePayload));
+            Common::SendRelay(info.gatewaySession, PacketId::W2GRelay, clientSessionId,
+                              PacketId::W2CNotice, noticePayload);
             ++sentCount;
         });
 
@@ -258,21 +243,14 @@ void ToolProcessor::HandleNotice(const Network::Session::SPtr& toolSession,
 }
 
 void ToolProcessor::HandleMailSend(const Network::Session::SPtr& toolSession,
-                                           const std::span<const byte> payload)
+                                   const Common::T2WMailSend& packet)
 {
-    Packet::BinaryReader binaryReader(payload);
-    uint32_t requestId{};
-    uint8_t targetKind{};
-    uint64_t clientSessionId{};
-    std::string title;
-    std::string body;
-    int64_t durationSec{};
-    if (!binaryReader.Read(requestId) || !binaryReader.Read(targetKind) || !binaryReader.Read(clientSessionId)
-        || !binaryReader.ReadString(title) || !binaryReader.ReadString(body) || !binaryReader.Read(durationSec))
-    {
-        SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
-        return;
-    }
+    const auto requestId = packet.requestId;
+    const auto targetKind = packet.targetKind;
+    const auto clientSessionId = packet.clientSessionId;
+    const auto& title = packet.title;
+    const auto& body = packet.body;
+    const auto durationSec = packet.durationSec;
 
     if (title.empty() || durationSec <= 0)
     {
@@ -336,17 +314,8 @@ void ToolProcessor::HandleMailSend(const Network::Session::SPtr& toolSession,
 }
 
 void ToolProcessor::HandleMailDelete(const Network::Session::SPtr& toolSession,
-                                             const std::span<const byte> payload)
+                                     const Common::T2WMailDelete& request)
 {
-    if (payload.size() < sizeof(Common::T2WMailDelete))
-    {
-        SendCommandResult(toolSession, 0, Common::EToolResultCode::BadRequest, 0);
-        return;
-    }
-
-    Common::T2WMailDelete request{};
-    std::memcpy(&request, payload.data(), sizeof(Common::T2WMailDelete));
-
     if (!playerManager_->Find(request.clientSessionId))
     {
         SendCommandResult(toolSession, request.requestId, Common::EToolResultCode::TargetNotFound, 0);
@@ -374,32 +343,12 @@ void ToolProcessor::HandleMailDelete(const Network::Session::SPtr& toolSession,
 }
 
 void ToolProcessor::HandleCouponChunkPush(const Network::Session::SPtr& toolSession,
-                                           const std::span<const byte> payload)
+                                          const Common::T2WCouponChunkPush& packet)
 {
-    Packet::BinaryReader binaryReader(payload);
-    uint32_t requestId{};
-    std::string campaignCode;
-    uint32_t chunkSeq{};
-    uint32_t couponCount{};
-    if (!binaryReader.Read(requestId) || !binaryReader.ReadString(campaignCode)
-        || !binaryReader.Read(chunkSeq) || !binaryReader.Read(couponCount))
-    {
-        SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
-        return;
-    }
-
-    std::vector<std::string> couponCodes;
-    couponCodes.reserve(couponCount);
-    for (uint32_t i = 0; i < couponCount; ++i)
-    {
-        std::string code;
-        if (!binaryReader.ReadString(code))
-        {
-            SendCommandResult(toolSession, requestId, Common::EToolResultCode::BadRequest, 0);
-            return;
-        }
-        couponCodes.push_back(std::move(code));
-    }
+    const auto requestId = packet.requestId;
+    const auto& campaignCode = packet.campaignCode;
+    const auto chunkSeq = packet.chunkSeq;
+    const auto& couponCodes = packet.couponCodes;
 
     // 캠페인 코드로 해시해 고정된 DB 레인에 위임한다 -- 같은 캠페인의 청크는 항상 같은
     // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(MainProcessor의
@@ -418,21 +367,13 @@ void ToolProcessor::HandleCouponChunkPush(const Network::Session::SPtr& toolSess
                 .KV("FirstCode", couponCodes.empty() ? std::string{"(없음)"} : couponCodes.front());
         });
 
-    SendCommandResult(toolSession, requestId, Common::EToolResultCode::Ok, couponCount);
+    SendCommandResult(toolSession, requestId, Common::EToolResultCode::Ok,
+                      static_cast<uint32_t>(couponCodes.size()));
 }
 
 void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
-                                             const std::span<const byte> payload)
+                                     const Common::T2WClientList& request)
 {
-    if (payload.size() < sizeof(Common::T2WClientList))
-    {
-        SendCommandResult(toolSession, 0, Common::EToolResultCode::BadRequest, 0);
-        return;
-    }
-
-    Common::T2WClientList request{};
-    std::memcpy(&request, payload.data(), sizeof(Common::T2WClientList));
-
     // 읽기 락 한 번으로 모은다. 샤딩이던 시절에는 샤드 스레드들이 공유 버퍼에 밀어 넣고
     // 마지막 스레드가 취합했는데, 그 취합 버퍼를 지키려고 여기에만 Mutexed가 하나 더
     // 있었다 -- 매니저 자체가 Mutexed가 되면서 둘 다 없어졌다.

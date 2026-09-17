@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 핸드오프 경로 | 가로(1↔2, 3↔4)는 같은 프로세스의 레인 간, **세로(1↔3, 2↔4)는 프로세스(TCP 링크)를 넘는다**(`docs/sequences/zone-handoff.html`) |
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Client`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Client` — C#/MonoGame, 별도 솔루션(`Client/Client.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
-| 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽고, 로딩은 각 서버의 `Src/App/Config.{h,cpp}`의 `LoadConfig`가 맡는다(`main`은 호출만). **기본값은 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). **싱글턴으로 만들지 않는다** -- 근거는 `docs/design/config-file.md`. 담당 존 목록만 실행 인자 |
+| 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽고, 로딩은 각 서버의 `Src/App/<서버>Config.{h,cpp}`(`GatewayConfig`/`WorldConfig`/`ZoneConfig`)의 `LoadConfig`가 맡는다(`main`은 호출만). **기본값은 그 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). **싱글턴으로 만들지 않는다** -- 근거는 `docs/design/config-file.md`. 담당 존 목록만 실행 인자 |
 | 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일). 진행 중인 부하 병목 수정 계획과 측정 수치는 `docs/local/`에 있다(gitignore 대상이라 경로를 여기 적지 않는다 — 필수 규칙 참고) |
 
 ---
@@ -90,7 +90,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   `PlayerState`/`Config` 같은 **POD 구조체의 public 필드**는 밑줄 없이 쓴다.
 - **인코딩**: UTF-8 **without BOM** + 6개 vcxproj 전부의 `/utf-8` 플래그로 한글 주석 파싱 — 플래그가
   빠지면 CP949로 오인식돼 파싱 에러가 나니 새 vcxproj/`ItemDefinitionGroup` 수정 시 확인할 것.
-- **include 경로**: 같은 프로젝트는 `Src` 기준 짧게(`#include "App/Config.h"`), 다른
+- **include 경로**: 같은 프로젝트는 `Src` 기준 짧게(`#include "App/WorldConfig.h"`), 다른
   프로젝트는 솔루션 루트 기준(`#include "Shared/Core/Src/Network/Session.h"`) — 접두사
   유무로 내 것/남의 것이 갈린다. **단 다른 프로젝트가 가져다 쓰는 헤더(`Shared/Core`와
   `Shared/Common` 전부)는 자기 헤더도 전체 경로**로 쓴다(남의 프로젝트 안에서 컴파일되므로).
@@ -113,6 +113,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   | DB 스키마/SP/트랜잭션 | `docs/DB.html` |
   | 측정 수치 | `docs/local/`의 측정 문서 (**공개 `docs/`에 두지 않는다**) |
   | 설계 근거(왜 이렇게 했나) | `docs/design/`(규칙: `docs/design/README.md`) |
+  | **파일/폴더를 옮기거나 이름을 바꿈** | 그 프로젝트의 **`.vcxproj.filters`**(빌드는 통과하므로 안 고쳐도 안 터지고, **솔루션 탐색기만 조용히 어긋난다**) + 문서가 그 경로를 백틱으로 가리키는 곳 |
 
   `docs/index.html`은 **문서 진입점**이라 여기가 틀리면 나머지가 맞아도 길을 잘못 든다 —
   구조 변경 커밋에서는 항상 먼저 확인할 것. `README.md`는 진입점 역할만 하므로 보통
@@ -142,8 +143,12 @@ C:\Work\asio-server\
 │   │       │                         Dispatcher<TId,TContext>, OwnerIdPeek(I/O 스레드에서
 │   │       │                         페이로드 앞의 정수 하나만 훔쳐봐 주인을 뽑는다)
 │   │       ├── Network/              IoContextPool, Listener(accept), Connector(outbound
-│   │       │                         connect, Listener와 대칭), Session, SessionManager
+│   │       │                         connect, Listener와 대칭), Session, SessionManager,
+│   │       │                         SessionHolder(링크 하나를 붙들어 두는 자리 -- Gateway와
+│   │       │                         Zone의 World 링크가 본문이 같아 여기로 합쳤다)
 │   │       ├── Processor/            Group(큐 그룹 = asio io_context + strand N개), Stats
+│   │       ├── Log/                  Logger/Proxy/Entry/LogLevel + **Core 전용** LogCategory
+│   │       │                         (General/Network/Packet/Thread -- 서버는 Common 것을 쓴다)
 │   │       ├── Timer/                RepeatingTimer
 │   │       ├── Thread/Mutexed.h      shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
 │   │       ├── Console/KeyBinder.h   콘솔 F키 → 콜백(토글). **전용 입력 스레드 하나**가 읽고,
@@ -171,19 +176,29 @@ C:\Work\asio-server\
 │       │                         그대로다(규약: .claude/rules/packet-naming.md)
 │       │                         RelayEnvelope(중계 봉투 -- Relay 4개가 공유),
 │       │                         ClientPackets(C2Z 요청 + Parse), ZonePackets(Z2C 통지),
-│       │                         ZoneLinkPackets/WorldPackets(W2Z·Z2W), ToolLinkPackets(T2W·W2T),
-│       │                         ToolResultCode. **서버 프로젝트 안에 두지 않는다** -- 두면
+│       │                         LoginPackets(C2W·W2C), ZoneLinkPackets/WorldPackets(W2Z·Z2W),
+│       │                         ToolLinkPackets(T2W·W2T), ToolResultCode,
+│       │                         Send.h(패킷 구조체 하나를 받아 바이트로 -- 고정 레이아웃은
+│       │                         memcpy, 가변은 자기 Serialize(). 방향은 컴파일 타임 검증).
+│       │                         **서버 프로젝트 안에 두지 않는다** -- 두면
 │       │                         다른 서버가 그 프로젝트를 include 하는 역방향이 된다
 │       └── Common.cpp            빌드 앵커. 헤더뿐이라 .lib 에 심볼이 없으면 LNK4221 이 난다
 ├── Server/                           서버 실행 파일 3종
 │   ├── GatewayServer/                클라이언트 accept + World로 순수 릴레이 (실행 파일)
 │   ├── WorldServer/                  라우팅(BASIC 레인) + DB 레인 (실행 파일)
-│   │   ├── Src/App/Config.{h,cpp}    Config 구조체 + LoadConfig -- main은 한 줄로 받아 App에 넘긴다
+│   │   ├── Src/App/WorldApp.{h,cpp}  WorldApp -- 소유·기동·정지
+│   │   ├── Src/App/WorldConfig.{h,cpp}  WorldConfig 구조체 + LoadConfig -- main은 한 줄로 받아 App에 넘긴다
 │   │   ├── Src/Cli/                  실행 인자 모드: DbCheck / IdTest
-│   │   │                             main에 있던 것을 뺐다(403 -> 72줄). 세 서버 모두 App/Config.{h,cpp} 구조가 같다
+│   │   │                             main에 있던 것을 뺐다(403 -> 72줄). 세 서버 모두 App/<서버>Config.{h,cpp} 구조가 같다
+│   │   ├── Src/Db/                   DbConnection(ODBC, 레인 스레드마다 thread_local 1개),
+│   │   │                             AutoSpCommands(UoW 하나 = 트랜잭션 하나), DbCommand, PasswordHash
+│   │   ├── Src/Handler/              G2WHandler / Z2WHandler -- I/O 스레드 전용 링크 핸들러
+│   │   ├── Src/Packet/               EnterZoneBody.h -- W2ZEnterZone **본문 조립**(우편·재화를
+│   │   │                             바이트 예산만큼 실어 보낸다). 와이어 계약 자체는
+│   │   │                             Shared/Common 이고 여기 있는 건 World 전용 조립 코드다
 │   │   ├── Src/Processor/            레인에서 도는 프로세서 클래스를 한곳에 모은다 -- MainProcessor
 │   │   │                             (라우팅), LoginProcessor, DbProcessor, ToolProcessor,
-│   │   │                             TestProcessor. EProcessorId 의 태그와 1:1이다
+│   │   │                             TestProcessor + ProcessorId.h. EProcessorId 의 태그와 1:1이다
 │   │   ├── Src/Test/                 F키 하네스의 보내는 쪽: TestKeys(F1→TestFunc1) + MsgId
 │   │   │                             (PushMsg(msgId, 프로세서id, ownerId, 인자...)로 보낸다)
 │   │   └── Src/World/                PlayerManager(로그인 캐시 + 라우팅), ZoneLinkRegistry
@@ -209,6 +224,7 @@ C:\Work\asio-server\
 │           ├── Worker/              WorkerManager(Zone/Broadcast 그룹 + 존별 tick 타이머 소유)
 │           ├── Handler/             W2ZHandler -- **I/O 스레드 전용**. 주인만 뽑아
 │           │                        플레이어 레인으로 넘긴다
+│           ├── Test/                F키 하네스(TestKeys) -- Gateway/World 와 같은 자리
 │           └── Task/ZoneUnitOfWork  Task::UnitOfWork 파생 -- World(DB)/클라이언트 전송 + 역연산 롤백
 ├── Client/                           게임 클라이언트 — C#/MonoGame, 별도 솔루션
 │   ├── Client.slnx                   (GmTool과 같은 이유로 C++ 솔루션에 넣지 않는다)
@@ -299,7 +315,7 @@ Client → GatewayServer(순수 릴레이) → WorldServer(라우팅 + DB) → Z
 owner=`clientSessionId`)과 "존 전체가 공유하는 것"(로스터·좌표·경계·틱, owner=`zoneId`)을
 다른 그룹으로 나눈다. **한 레인에 두면 주인을 하나로 못 정해 결국 존 키로 통일되고, 그러면
 그 존의 모든 콘텐츠가 스레드 하나로 직렬화된다** — 1만 세션 부하 테스트가 무너진 원인이
-정확히 그것이었다(`Server/ZoneServer/Src/Worker/ProcessorId.h`).
+정확히 그것이었다(`Server/ZoneServer/Src/Processor/ProcessorId.h`).
 
 주의: **한 메시지가 주인이 다른 데이터를 함께 만지면 이 보호가 깨진다.** 그때는 어피니티
 대신 모델 단위 락(`Thread::Mutexed`)이 필요하다 — 근거와 함정은

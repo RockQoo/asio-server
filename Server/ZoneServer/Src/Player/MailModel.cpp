@@ -59,7 +59,7 @@ EErrorCode MailModel::InsertMail(Common::MailInfo info, Task::UnitOfWork& unitOf
     return EErrorCode::Success;
 }
 
-EErrorCode MailModel::DelMail(const Common::MailId mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
+EErrorCode MailModel::RemoveMail(const Common::MailId mailId, Task::UnitOfWork& unitOfWork, const bool /*isTimeout*/)
 {
     const auto it = mails_.find(mailId);
     if (it == mails_.end())
@@ -72,7 +72,7 @@ EErrorCode MailModel::DelMail(const Common::MailId mailId, Task::UnitOfWork& uni
     // 지워진 원본이 Prev 다 -- 이게 없으면 삭제를 되돌릴 수 없다.
     auto removed = it->second;
     mails_.erase(it);
-    unitOfWork.AddTask<DelMailTask>(Common::MailInfo{}, std::move(removed));
+    unitOfWork.AddTask<RemoveMailTask>(Common::MailInfo{}, std::move(removed));
 
     return EErrorCode::Success;
 }

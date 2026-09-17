@@ -14,7 +14,7 @@ void PlayerManager::Remove(const Network::SessionId clientSessionId)
     players_.erase(clientSessionId);
 }
 
-void PlayerManager::SetZone(const Network::SessionId clientSessionId, const Common::ZoneId zoneId)
+void PlayerManager::SetZoneId(const Network::SessionId clientSessionId, const Common::ZoneId zoneId)
 {
     if (const auto it = players_.find(clientSessionId); it != players_.end())
     {

@@ -1,38 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Log">
-      <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000001}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="World">
-      <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000002}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Handler">
       <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000003}</UniqueIdentifier>
     </Filter>
     <Filter Include="App">
       <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Test" />
+    <Filter Include="Test">
+      <UniqueIdentifier>{a1a1a1a1-0003-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h">
-      <Filter>Log</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\World\WorldLink.h">
-      <Filter>World</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Handler\ClientLinkHandler.h">
+    <ClInclude Include="Src\Handler\C2GHandler.h">
       <Filter>Handler</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Handler\WorldLinkHandler.h">
+    <ClInclude Include="Src\Handler\W2GHandler.h">
       <Filter>Handler</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\App.h">
+    <ClInclude Include="Src\App\GatewayApp.h">
       <Filter>App</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\Config.h">
+    <ClInclude Include="Src\App\GatewayConfig.h">
       <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="Src\Test\TestKeys.h">
@@ -41,19 +31,19 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
-    <ClCompile Include="Src\Handler\ClientLinkHandler.cpp">
+    <ClCompile Include="Src\Handler\C2GHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Handler\WorldLinkHandler.cpp">
+    <ClCompile Include="Src\Handler\W2GHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
-    <ClCompile Include="Src\App\App.cpp">
-      <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\App\Config.cpp">
+    <ClCompile Include="Src\App\GatewayApp.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\App\GatewayConfig.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Test\TestKeys.cpp">
       <Filter>Test</Filter>
     </ClCompile>

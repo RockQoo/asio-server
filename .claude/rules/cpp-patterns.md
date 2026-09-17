@@ -642,19 +642,21 @@ Network::Session::SPtr            b;        // C2027
 
 ## 네임스페이스가 이미 말해주는 접두사는 타입 이름에서 뗀다
 
-`namespace Zone`의 `ZoneServerConfig`는 호출부에서 `Zone::ZoneServerConfig`가 되어 "Zone"을
+**이 규칙은 네임스페이스가 있는 `Shared/Core`·`Shared/Common` 에만 적용된다.** 실행 파일
+프로젝트(Gateway/World/Zone)는 네임스페이스를 두지 않으므로 반대로 **서버 이름을 접두사로
+붙인다**(`ZoneConfig`/`ZoneUnitOfWork`/`EZoneProcessorId`) — `CLAUDE.md` 필수 규칙 참고.
+
+`namespace Packet`의 `PacketHeader`는 호출부에서 `Packet::PacketHeader`가 되어 "Packet"을
 두 번 말한다. **타입 이름이 자기 네임스페이스 이름으로 시작하면 그만큼을 뗀다.**
 
 ```cpp
-Zone::ZoneServerConfig  ->  Zone::Config
-Zone::ZoneZoneProcessor ->  Zone::ZoneProcessor
-Packet::PacketHeader    ->  Packet::Header
-Processor::ProcessorGroup -> Processor::Group
-Mail::MailModel         ->  Mail::Model
+Packet::PacketHeader      ->  Packet::Header
+Processor::ProcessorGroup ->  Processor::Group
+Network::NetworkSession   ->  Network::Session
 ```
 
-**파일 이름도 같이 바꾼다**(`Game/ZoneDef.h` → `Game/Def.h`) — 한 파일에 타입 하나, 파일
-이름은 그 타입 이름이라는 규칙을 유지한다.
+**파일 이름도 같이 바꾼다**(`Packet/PacketHeader.h` → `Packet/Header.h`) — 한 파일에 타입
+하나, 파일 이름은 그 타입 이름이라는 규칙을 유지한다.
 
 ### 예외 — 여러 네임스페이스에 반복되는 역할 이름은 접두사를 남긴다
 
@@ -695,9 +697,11 @@ class Instance
 
 ### 파일 이름이 같아지면 obj가 충돌한다
 
-`Mail/Model.cpp`와 `Currency/Model.cpp`처럼 이름만 같은 `.cpp`가 한 프로젝트에 생기면 MSVC가
-**같은 obj 파일에 덮어쓴다**(`MSB8027`, 잘못된 빌드 결과). 그래서 6개 vcxproj 전부
-`ItemDefinitionGroup`의 `ClCompile`에 아래를 둔다 — obj를 소스 폴더 구조 그대로 쌓는다.
+이름만 같은 `.cpp`가 한 프로젝트에 생기면 MSVC가 **같은 obj 파일에 덮어쓴다**(`MSB8027`,
+잘못된 빌드 결과). 예전에 `Mail/Model.cpp`와 `Currency/Model.cpp`가 그랬다(지금은
+`Player/MailModel.cpp`·`Player/CurrencyModel.cpp`로 이름이 갈려 있다). 그래도 6개 vcxproj
+전부 `ItemDefinitionGroup`의 `ClCompile`에 아래를 둬서 막아둔다 — obj를 소스 폴더 구조
+그대로 쌓는다.
 
 ```xml
 <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>

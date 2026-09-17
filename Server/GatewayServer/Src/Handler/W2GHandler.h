@@ -3,6 +3,8 @@
 #include "Shared/Core/Src/Network/IPacketHandler.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 
 namespace Network
@@ -28,7 +30,7 @@ public:
 
 private:
     void Register();
-    void HandleToClient(const Network::Session::SPtr& worldSession, const std::span<const byte> payload);
+    void HandleToClient(const Network::Session::SPtr& worldSession, const Common::W2GRelay& packet);
 
     Network::SessionManager& sessionManager_;
     Network::SessionHolder& worldLink_;

@@ -123,6 +123,7 @@
     <ClInclude Include="Src\Packet\Dispatcher.h" />
     <ClInclude Include="Src\Packet\Args.h" />
     <ClInclude Include="Src\Packet\OwnerIdPeek.h" />
+    <ClInclude Include="Src\Packet\OwnerIdTable.h" />
     <ClInclude Include="Src\Network\IPacketHandler.h" />
     <ClInclude Include="Src\Network\Session.h" />
     <ClInclude Include="Src\Network\Listener.h" />
@@ -148,6 +149,7 @@
     <ClCompile Include="Src\Log\Logger.cpp" />
     <ClCompile Include="Src\Console\KeyBinder.cpp" />
     <ClCompile Include="Src\Packet\Buffer.cpp" />
+    <ClCompile Include="Src\Packet\Dispatcher.cpp" />
     <ClCompile Include="Src\Network\Session.cpp" />
     <ClCompile Include="Src\Network\Listener.cpp" />
     <ClCompile Include="Src\Network\Connector.cpp" />

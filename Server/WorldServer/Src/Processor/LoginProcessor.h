@@ -3,9 +3,12 @@
 #include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Base/Types.h"
 #include "Shared/Core/Src/Network/Session.h"
+#include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Common/Src/ErrorCode.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/LoginPackets.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Db/DbCommand.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
@@ -33,6 +36,16 @@
 //
 // DB 왕복이 **반드시 DB 그룹**이어야 하는 이유: 쿼리 한 번이 BASIC 레인에 걸리면 그 레인에
 // 배정된 모든 플레이어의 패킷이 그동안 멈춘다(config/world.cfg의 db_threads 주석).
+
+// 디스패처가 핸들러에 넘기는 것. MainProcessor가 릴레이 봉투에서 꺼낸 둘이다 -- 다른
+// 처리기들은 세션 하나로 충분해서 TContext가 Session::SPtr인데, 여기는 봉투 안의
+// clientSessionId가 따로 있어 묶어서 넘긴다.
+struct LoginContext
+{
+    Network::Session::SPtr gatewaySession;
+    Network::SessionId clientSessionId;
+};
+
 class LoginProcessor
 {
 public:
@@ -46,8 +59,10 @@ public:
                             const std::span<const byte> payload);
 
 private:
-    void HandleLogin(const Network::Session::SPtr& gatewaySession,
-                     const Network::SessionId clientSessionId, const std::span<const byte> payload);
+    // 이 처리기가 받는 C2W 패킷 목록. 생성자 다음에 둔다.
+    void Register();
+
+    void HandleLogin(const LoginContext& context, const Common::C2WLogin& packet);
 
     // 아래 넷은 **DB 레인**에서 불린다(DbProcessor의 콜백). BASIC 상태를 만지지 않고,
     // 결과만 PostFailure/PostSuccess로 BASIC에 되던진다.
@@ -95,4 +110,8 @@ private:
     ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
     Processor::Group<EWorldProcessorId>& basicGroup_;
     DbProcessor& dbProcessor_;
+
+    // 등록은 생성자에서 끝나고 이후로는 읽기 전용이라, 여러 BASIC 레인 스레드가 동시에
+    // Dispatch해도 안전하다.
+    Packet::Dispatcher<PacketId, LoginContext> clientDispatcher_;
 };

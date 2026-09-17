@@ -6,6 +6,7 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 
 BroadcastProcessor::BroadcastProcessor(Processor::Group<EZoneProcessorId>& broadcastGroup,
                                          Network::SessionHolder& worldLink)
@@ -28,9 +29,8 @@ void BroadcastProcessor::Broadcast(const Common::ZoneId zoneId, std::vector<Netw
 
             for (const auto clientSessionId : targets)
             {
-                worldSession->SendPacket(
-                    PacketId::Z2WRelay,
-                    Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), payload));
+                Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId,
+                                  innerPacketId, payload);
             }
         });
 }

@@ -30,10 +30,14 @@ PlayerProcessor::PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& 
 
 void PlayerProcessor::Register()
 {
-    RegisterPacketHandler<Common::C2ZMove>(packetDispatcher_, PacketId::C2ZMove,
-        [this](const PlayerContext& context, const Common::C2ZMove& packet) { HandleMove(context, packet); });
-    RegisterPacketHandler<Common::C2ZChat>(packetDispatcher_, PacketId::C2ZChat,
-        [this](const PlayerContext& context, const Common::C2ZChat& packet) { HandleChat(context, packet); });
+    // --- World 링크에서 오는 것(W2Z) ---
+    worldDispatcher_.Register(this, &PlayerProcessor::HandleEnterZone);
+    worldDispatcher_.Register(this, &PlayerProcessor::HandleLeaveZone);
+    worldDispatcher_.Register(this, &PlayerProcessor::HandleForwardToZone);
+
+    // --- 봉투를 벗긴 클라이언트 패킷(C2Z) ---
+    packetDispatcher_.Register(this, &PlayerProcessor::HandleMove);
+    packetDispatcher_.Register(this, &PlayerProcessor::HandleChat);
 
     // 콘텐츠 패킷은 콘텐츠가 스스로 등록한다 -- 우편 패킷을 하나 늘릴 때 이 파일을 고칠
     // 일이 없어야 콘텐츠마다 파일을 나눈 의미가 있다.
@@ -45,61 +49,32 @@ void PlayerProcessor::DispatchFromWorld(const PacketId packetId, const Network::
 {
     // **여기부터 플레이어 레인이다**(owner = clientSessionId). 와이어 해석도 여기서 한다 --
     // I/O 스레드는 주인만 뽑아 넘겼다.
-    switch (packetId)
-    {
-    case PacketId::W2ZEnterZone:
-        {
-            // 파싱 실패는 버린다. 포맷의 유일한 계약은 World의 Packet/ZoneLinkPackets.h 표이고,
-            // 쓰는 쪽은 Packet/EnterZoneBody.h다.
-            Common::W2ZEnterZone packet;
-            if (!packet.Parse(payload))
-            {
-                LOG.Warning(ELogCategory::Zone, "EnterZone 본문이 잘렸거나 형식이 맞지 않아 버린다")
-                    .KV("PayloadBytes", payload.size());
-                return;
-            }
-            OnPlayerEnter(std::move(packet));
-        }
-        break;
-
-    case PacketId::W2ZLeaveZone:
-        {
-            if (payload.size() < sizeof(Common::W2ZLeaveZone))
-            {
-                return;
-            }
-            Common::W2ZLeaveZone leave{};
-            std::memcpy(&leave, payload.data(), sizeof(leave));
-            OnPlayerLeave(leave.clientSessionId);
-        }
-        break;
-
-    case PacketId::W2ZRelay:
-        HandleForwardToZone(clientSessionId, payload);
-        break;
-
-    default:
-        break;
-    }
+    worldDispatcher_.Dispatch(packetId, clientSessionId, payload);
 }
 
-void PlayerProcessor::HandleForwardToZone(const Network::SessionId clientSessionId,
-                                          const std::span<const byte> payload)
+void PlayerProcessor::HandleEnterZone(const Network::SessionId& /*clientSessionId*/,
+                                      const Common::W2ZEnterZone& packet)
 {
-    const auto relay = Common::UnwrapRelay(payload);
-    if (!relay)
-    {
-        return;
-    }
+    OnPlayerEnter(packet);
+}
 
-    const auto innerPacketId = static_cast<PacketId>(relay->envelope.innerPacketId);
+void PlayerProcessor::HandleLeaveZone(const Network::SessionId& /*clientSessionId*/,
+                                      const Common::W2ZLeaveZone& packet)
+{
+    OnPlayerLeave(packet.clientSessionId);
+}
+
+void PlayerProcessor::HandleForwardToZone(const Network::SessionId& clientSessionId,
+                                          const Common::W2ZRelay& packet)
+{
+    const auto innerPacketId = static_cast<PacketId>(packet.envelope.innerPacketId);
     if (innerPacketId == PacketId::C2ZEcho)
     {
-        ReplyEcho(relay->envelope, relay->innerPayload);
+        ReplyEcho(packet.envelope, packet.innerPayload);
         return;
     }
 
-    HandleClientPacket(clientSessionId, innerPacketId, relay->innerPayload);
+    HandleClientPacket(clientSessionId, innerPacketId, packet.innerPayload);
 }
 
 void PlayerProcessor::ReplyEcho(const Common::RelayEnvelope& header,
@@ -116,12 +91,9 @@ void PlayerProcessor::ReplyEcho(const Common::RelayEnvelope& header,
     Common::Z2CEchoAck packet;
     packet.Set(innerPayload);
 
-    worldSession->SendPacket(
-        PacketId::Z2WRelay,
-        Common::WrapRelay(header.clientSessionId, static_cast<uint16_t>(packet.kPacketId),
-                          Common::ToBytes(packet)));
+    Common::SendRelay(worldSession, PacketId::Z2WRelay, header.clientSessionId, packet);
 }
-void PlayerProcessor::OnPlayerEnter(Common::W2ZEnterZone packet)
+void PlayerProcessor::OnPlayerEnter(const Common::W2ZEnterZone& packet)
 {
     const auto clientSessionId = packet.head.clientSessionId;
     const auto zoneId = packet.head.zoneId;
@@ -156,7 +128,9 @@ void PlayerProcessor::OnPlayerEnter(Common::W2ZEnterZone packet)
         // 신규 입장이거나 **프로세스를 넘는 핸드오프**(세로 이동)다. 둘 다 이 프로세스에는
         // 그 사람이 없으므로 모델을 새로 만든다 -- **시작 상태는 전부 생성자로 들어간다.**
         // 존은 DB를 직접 읽지 않으므로 이 패킷(=World 캐시)이 유일한 출처다.
-        auto mailBox = mailRegistry_.Add(clientSessionId, packet.head.playerId, std::move(packet.mails));
+        // 패킷이 디스패처 소유라 move 하지 않는다 -- 입장 시 한 번이고 통 수가 바이트
+        // 예산으로 잘려 있어(EnterZoneBody.h) 복사 비용이 크지 않다.
+        auto mailBox = mailRegistry_.Add(clientSessionId, packet.head.playerId, packet.mails);
 
         player = std::make_shared<Player>(clientSessionId, packet.head.playerId, zoneId,
                                           packet.head.x, packet.head.y,
@@ -240,9 +214,7 @@ void PlayerProcessor::SendToClientBytes(const Network::SessionId clientSessionId
         return;
     }
 
-    worldSession->SendPacket(
-        PacketId::Z2WRelay,
-        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(innerPacketId), payload));
+    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId, innerPacketId, payload);
 }
 
 void PlayerProcessor::BroadcastToZoneBytes(const Common::ZoneId zoneId, const PacketId innerPacketId,

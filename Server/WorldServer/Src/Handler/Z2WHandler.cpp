@@ -12,33 +12,20 @@ Z2WHandler::Z2WHandler(Processor::Group<EWorldProcessorId>& basicGroup, MainProc
     : basicGroup_(basicGroup)
     , mainProcessor_(mainProcessor)
 {
+    Register();
 }
 
-std::optional<uint64_t> Z2WHandler::OwnerIdOf(const PacketId packetId, const std::span<const byte> payload)
+void Z2WHandler::Register()
 {
-    switch (packetId)
-    {
-    case PacketId::Z2WZoneRegister:
-        // Z2WZoneRegister.zoneId (offset 0)
-        return Packet::PeekOwnerId<uint32_t>(payload);
+    // 이 링크가 받는 패킷 목록 + 그 주인이 페이로드 어디에 있나.
+    ownerIds_.Register<uint32_t>(PacketId::Z2WZoneRegister);                              // zoneId (offset 0)
+    ownerIds_.Register<Network::SessionId>(PacketId::Z2WRelay);                           // RelayEnvelope 맨 앞
+    ownerIds_.Register<Network::SessionId>(PacketId::Z2WZoneTransfer, sizeof(uint32_t));  // zoneId 뒤
 
-    case PacketId::Z2WRelay:
-        // RelayEnvelope.clientSessionId (offset 0)
-        return Packet::PeekOwnerId<Network::SessionId>(payload);
-
-    case PacketId::Z2WZoneTransfer:
-        // Z2WZoneTransfer.clientSessionId -- zoneId(uint32) 뒤라 offset 4다.
-        // 구조체가 #pragma pack(1)이라 패딩이 없다는 것에 기대고 있다.
-        return Packet::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
-
-    case PacketId::Z2WUnitOfWorkStream:
-        // Task::UnitOfWork::Serialize가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
-        // 그 앞에 Zone이 붙인 playerId(int64) + requestId(int64)가 있어 offset 16이다.
-        return Packet::PeekOwnerId<uint64_t>(payload, sizeof(Common::PlayerId) + sizeof(Base::RUID));
-
-    default:
-        return std::nullopt;
-    }
+    // Task::UnitOfWork::Serialize 가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
+    // 그 앞에 Zone 이 붙인 playerId(int64) + requestId(int64) 가 있다.
+    ownerIds_.Register<uint64_t>(PacketId::Z2WUnitOfWorkStream,
+                                 sizeof(Common::PlayerId) + sizeof(Base::RUID));
 }
 
 void Z2WHandler::OnSessionOpened(const Network::Session::SPtr& session)
@@ -55,7 +42,7 @@ void Z2WHandler::OnPacket(const Network::Session::SPtr& session,
     // 바이트를 복사해 넘긴다.
     const auto packetId = static_cast<PacketId>(header.id);
 
-    const auto ownerId = OwnerIdOf(packetId, payload);
+    const auto ownerId = ownerIds_.Find(packetId, payload);
     if (!ownerId)
     {
         LOG.Warning(ELogCategory::Zone, "ownerId를 읽을 수 없는 패킷, 버림")

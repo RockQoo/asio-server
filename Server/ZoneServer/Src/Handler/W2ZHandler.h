@@ -2,6 +2,7 @@
 
 #include "Shared/Core/Src/Base/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
+#include "Shared/Core/Src/Packet/OwnerIdTable.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "App/ZoneDef.h"
 #include "Processor/ProcessorId.h"
@@ -35,10 +36,11 @@ public:
     void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
 private:
-    // I/O 스레드에서 부른다. 세 패킷 모두 주인이 클라이언트 세션이고, 그 값이 페이로드
-    // 앞쪽에 있다(입장 요청만 zoneId 뒤라 offset 4).
-    [[nodiscard]] static std::optional<uint64_t> OwnerIdOf(const PacketId packetId,
-                                                            const std::span<const byte> payload);
+    // 이 링크가 받는 패킷 목록. 생성자 다음에 둔다.
+    void Register();
+
+    // 패킷 id -> 주인 오프셋. I/O 스레드에서 읽기만 한다(등록은 생성자에서 끝난다).
+    Packet::OwnerIdTable<PacketId> ownerIds_;
 
     PlayerProcessor& playerProcessor_;
     Processor::Group<EZoneProcessorId>& playerGroup_;

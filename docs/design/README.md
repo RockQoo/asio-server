@@ -30,10 +30,10 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 | 문서 | 대상 |
 |------|------|
 | [processor-group.md](processor-group.md) | `Shared/Core/Src/Processor/Group.h` |
-| [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Game/Player.h` |
+| [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Player/Player.h` |
 | [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `PlayerManager`, `ZoneLinkRegistry` |
-| [unit-of-work.md](unit-of-work.md) | `Task/UnitOfWork.h`, `Zone/Task/UnitOfWork.cpp` |
-| [wire-format.md](wire-format.md) | `Packet/ToolLinkPackets.h`, `Packet/ZoneLinkPackets.h` |
+| [unit-of-work.md](unit-of-work.md) | `Shared/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |
+| [wire-format.md](wire-format.md) | `Shared/Common/Src/Packet/ToolLinkPackets.h`, `.../ZoneLinkPackets.h` |
 | [unique-id.md](unique-id.md) | `Shared/Core/Src/Base/RUID.h` |
 | [config-file.md](config-file.md) | `Shared/Core/Src/Base/ConfigFile.h`, `config/*.cfg` |
 | [parameter-passing.md](parameter-passing.md) | `Shared/Common/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |

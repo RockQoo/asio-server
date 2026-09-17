@@ -1,7 +1,7 @@
 # 와이어 포맷 — 가변 길이 패킷의 바디 구조
 
-대상 코드: `Server/WorldServer/Src/Packet/ToolLinkPackets.h`,
-`Server/WorldServer/Src/Packet/ZoneLinkPackets.h`
+대상 코드: `Shared/Common/Src/Packet/ToolLinkPackets.h`,
+`Shared/Common/Src/Packet/ZoneLinkPackets.h`
 
 전부 리틀엔디언. 문자열은 `BinaryWriter::WriteString` = **길이(uint16) + UTF-8 바이트**이고,
 아래에서 `String(x)`로 표기한다. 고정 길이 패킷은 `#pragma pack(1)` 구조체를 그대로 보낸다.
@@ -31,8 +31,8 @@ mailId(uint32) + String(title) + String(body) + sendUt(int64) + endUt(int64)
 
 | 쪽 | 파일 |
 |----|------|
-| 쓰기 | `Server/ZoneServer/Src/Mail/Model.cpp` (payload) + `Task/UnitOfWork.cpp` (접두 + 전송) |
-| 읽기 | `Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp` |
+| 쓰기 | `Server/ZoneServer/Src/Player/MailModel.cpp` (payload) + `Task/ZoneUnitOfWork.cpp` (접두 + 전송) |
+| 읽기 | `Server/WorldServer/Src/Handler/Z2WHandler.cpp` |
 
 ## 운영툴 링크 (T2W / W2T)
 

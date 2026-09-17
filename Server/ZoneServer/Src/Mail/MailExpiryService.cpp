@@ -18,7 +18,7 @@ void MailExpiryService::SweepOnce(const int64_t nowUt)
         // 이 타이머는 존 워커 스레드가 아니라 별도 유지보수 스레드에서 돈다 -- 그 사이
         // 존 워커가 같은 플레이어의 AddMail/DelMail을 호출할 수 있으므로, Write()의
         // shared_mutex(unique_lock)가 두 스레드를 실제로 직렬화한다. 조회(TakeExpiredMailIds)
-        // 후 그 결과로 바로 삭제(DelMail)까지 이어가야 해서 잠금을 두 호출에 걸쳐 유지해야
+        // 후 그 결과로 바로 삭제(RemoveMail)까지 이어가야 해서 잠금을 두 호출에 걸쳐 유지해야
         // 하므로, 매번 새 프록시를 만드는 임시 Write() 대신 named 프록시로 잠금을 유지한다.
         const auto writeProxy = mailModel->Write();
         const auto expiredIds = writeProxy->TakeExpiredMailIds(nowUt);
@@ -42,7 +42,7 @@ void MailExpiryService::SweepOnce(const int64_t nowUt)
             // 방금 TakeExpiredMailIds가 알려준 id라 실패할 일이 없다 -- 그래도 반환값을
             // 버리지 않는 이유는, 실패했다면 조회와 삭제 사이에 누가 끼어들었다는 뜻이고
             // (불변식이 깨졌다는 신호) 조용히 넘기면 원인을 찾을 수 없기 때문이다.
-            if (const auto errorCode = writeProxy->DelMail(mailId, unitOfWork, true);
+            if (const auto errorCode = writeProxy->RemoveMail(mailId, unitOfWork, true);
                 errorCode != EErrorCode::Success)
             {
                 unitOfWork.SetError(errorCode);

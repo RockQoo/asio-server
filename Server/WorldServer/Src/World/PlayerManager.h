@@ -57,7 +57,7 @@ public:
 
     void Add(const Network::SessionId clientSessionId, const Network::Session::SPtr& gatewaySession);
     void Remove(const Network::SessionId clientSessionId);
-    void SetZone(const Network::SessionId clientSessionId, const Common::ZoneId zoneId);
+    void SetZoneId(const Network::SessionId clientSessionId, const Common::ZoneId zoneId);
 
     // 로그인 성공을 기록한다. 이 호출 뒤에야 그 세션의 게임 패킷이 존으로 흐른다.
     // 콘텐츠 캐시(mails/currencies)는 DB에서 읽어온 것을 그대로 옮겨 담는다.

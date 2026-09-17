@@ -4,6 +4,7 @@
 
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Base/RUID.h"
+#include "Shared/Core/Src/Packet/BinaryReader.h"
 
 namespace Common
 {
@@ -48,6 +49,94 @@ namespace Common
         uint32_t zoneId;
     };
 #pragma pack(pop)
+
+    // ---- 가변 길이 T2W 요청 ----
+    //
+    // **와이어 바이트는 예전과 한 바이트도 같다.** 예전에는 핸들러가 BinaryReader 로 직접
+    // 읽었고, 그 읽는 순서를 그대로 Parse 로 옮겼을 뿐이다. GmTool(C#)이 이 순서를
+    // 미러링하므로 필드 순서를 바꾸면 조용히 어긋난다(docs/design/wire-format.md 의 표가 계약).
+
+    struct T2WHello
+    {
+        static constexpr PacketId kPacketId = PacketId::T2WHello;
+        uint32_t requestId{};
+        uint32_t protocolVersion{};
+        std::string sharedSecret;
+        std::string operatorName;
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            return binaryReader.Read(requestId) && binaryReader.Read(protocolVersion)
+                && binaryReader.ReadString(sharedSecret) && binaryReader.ReadString(operatorName);
+        }
+    };
+
+    struct T2WNotice
+    {
+        static constexpr PacketId kPacketId = PacketId::T2WNotice;
+        uint32_t requestId{};
+        std::string message;
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            return binaryReader.Read(requestId) && binaryReader.ReadString(message);
+        }
+    };
+
+    struct T2WMailSend
+    {
+        static constexpr PacketId kPacketId = PacketId::T2WMailSend;
+        uint32_t requestId{};
+        uint8_t targetKind{};
+        uint64_t clientSessionId{};
+        std::string title;
+        std::string body;
+        int64_t durationSec{};
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            return binaryReader.Read(requestId) && binaryReader.Read(targetKind)
+                && binaryReader.Read(clientSessionId)
+                && binaryReader.ReadString(title) && binaryReader.ReadString(body)
+                && binaryReader.Read(durationSec);
+        }
+    };
+
+    struct T2WCouponChunkPush
+    {
+        static constexpr PacketId kPacketId = PacketId::T2WCouponChunkPush;
+        uint32_t requestId{};
+        std::string campaignCode;
+        uint32_t chunkSeq{};
+        std::vector<std::string> couponCodes;
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            uint32_t couponCount{};
+            if (!binaryReader.Read(requestId) || !binaryReader.ReadString(campaignCode)
+                || !binaryReader.Read(chunkSeq) || !binaryReader.Read(couponCount))
+            {
+                return false;
+            }
+
+            couponCodes.reserve(couponCount);
+            for (uint32_t i = 0; i < couponCount; ++i)
+            {
+                std::string code;
+                if (!binaryReader.ReadString(code))
+                {
+                    return false;
+                }
+                couponCodes.push_back(std::move(code));
+            }
+
+            return true;
+        }
+    };
 
     // 운영툴 링크의 프로토콜 버전. 와이어 포맷을 바꿀 때마다 올리고, GmTool 쪽
     // ToolLinkProtocol.ProtocolVersion과 값이 같아야 ToolHello가 통과한다 -- 서버만 고쳐놓고

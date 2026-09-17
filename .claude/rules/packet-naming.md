@@ -139,24 +139,48 @@ struct C2WLogin
 판단 기준: **그 타입 하나가 패킷 하나와 1:1인가.** 아니면 방향 접두사를 붙이지 않는다 --
 붙이면 그 이름이 곧 거짓이 된다.
 
-### 구조체가 아예 없는 패킷도 있다
+### 모든 패킷은 자기 구조체를 갖는다
 
-**`~Relay` 넷은 구조체를 만들지 않는다.** 봉투(`RelayEnvelope`) + **해석하지 않는** 원본
-패킷이라, "본문"이라는 게 없다. `Common::WrapRelay`/`UnwrapRelay` 가 그 자리를 대신한다.
+**예외가 없다.** 예전에는 `~Relay` 넷과 `Z2WUnitOfWorkStream`/`Z2CTaskResult`, 운영툴 대역의
+가변 길이 패킷을 빼놨었는데, 그 판단 근거가 **보내는 쪽 기준**(`Set()` 과 모양이 안 맞는다)
+이었고 받는 쪽은 따져보지 않은 것이었다.
 
-**`Z2CTaskResult` / `Z2WUnitOfWorkStream` 도 만들지 않는다.** 본문이 태스크 목록을 순회하며
-쌓는 스트림이라, `Set()` 으로 한 번에 받는 모양과 맞지 않는다. `ZoneUnitOfWork` 가 직접 쓴다.
+**고정 머리 + 가변 꼬리**인 패킷은 꼬리를 `std::span` 으로 들고, 순회는 받는 쪽이 한다.
 
-**운영툴 대역(T2W/W2T)의 가변 길이 패킷**은 `docs/design/wire-format.md` 의 표가 계약이고,
-GmTool(C#)이 그 표를 보고 짝을 맞춘다.
+```cpp
+struct Z2WUnitOfWorkStream
+{
+    static constexpr PacketId kPacketId = PacketId::Z2WUnitOfWorkStream;
+    PlayerId playerId{};
+    int64_t requestId{};
+    uint64_t ownerId{};
+    std::vector<TaskRecord> tasks;   // TaskRecord::payload 는 수신 버퍼를 가리키는 span
 
-그 밖의 가변 길이 본문은 구조체에 `Serialize()`/`Parse()` 를 둔다 -- `Common::ToBytes` 가
-`Serialize()` 유무를 concept 으로 보고 갈라주므로 **보내는 쪽 코드는 고정이든 가변이든 같다.**
+    [[nodiscard]] bool Parse(std::span<const byte> payload);
+};
+```
 
+중계 넷은 봉투(`RelayEnvelope`)를 **멤버로 재사용**하고 구조체만 id 마다 하나씩 둔다
+(`RelayPacket<TPacketId>` 템플릿 + `using G2WRelay = ...`). 봉투 자체는 여전히 넷이
+공유하므로 `kPacketId` 를 갖지 않는다 -- "패킷이 아닌 것에는 방향 접두사를 붙이지 않는다"
+규칙 그대로다.
 
-가변 길이 본문(`C2ZChat`의 문자열, `Z2WUnitOfWorkStream`의 태스크 목록)은 `BinaryWriter`/
-`BinaryReader`로 직접 쓰고 읽는다. 그때는 **바이트 포맷 표를 주석으로** 남기고(형식은
-`Packet/ZoneLinkPackets.h`와 `docs/design/wire-format.md`), 구조체를 억지로 만들지 않는다.
+**왜 예외를 없앴나**: 예외가 하나라도 있으면 받는 쪽 등록이 두 형태로 갈린다. 그리고 실제로
+그 예외 때문에 버그가 하나 있었다 -- `Z2WUnitOfWorkStream` 을 핸들러가 직접 순회했는데, 그
+루프가 이미 열린 트랜잭션(`AutoSpCommands`) 안이라 **스트림이 잘리면 앞쪽 태스크만
+커밋**됐다. 파싱을 구조체로 빼면 그런 형태가 만들어지지 않는다.
+
+### `span` 멤버를 가진 패킷 구조체는 핸들러 스코프를 넘기지 않는다
+
+`RelayPacket::innerPayload`/`raw`, `TaskRecord::payload` 는 복사가 아니라 **수신 버퍼를
+가리키는 subspan** 이다. 핸들러가 끝나면 그 버퍼는 사라진다 -- 들고 나가야 하면 복사한다.
+
+### `Parse()` 는 가변 길이 패킷만 쓴다
+
+`Common::FromBytes(packet, payload)` 가 `Parse()` 유무를 concept 으로 보고 갈라준다.
+**고정 레이아웃 패킷은 아무것도 안 써도 된다** -- 크기 검사 + memcpy 를 `FromBytes` 가 한다.
+`Common::ToBytes` 가 `Serialize()` 유무로 갈라주는 것과 정확히 대칭이고, 둘 다
+`Shared/Common/Src/Packet/Wire.h` 에 있다.
 
 ## 번호 대역
 
@@ -276,7 +300,7 @@ enum을 직접 선언하고, 클라이언트 패킷 정의를 "참고용"으로 
 시그니처가 길어질 뿐이었다.
 
 ```cpp
-dispatcher_.Register(PacketId::T2WHello, this, &ToolProcessor::HandleToolHello);
+dispatcher_.Register(this, &ToolProcessor::HandleHello);   // id 는 TPacket::kPacketId 에서
 void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId, ...);
 ```
 
@@ -306,7 +330,7 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 
 **적용 완료.** 링크별 4개 enum(`Zone::PacketId`, `World::GatewayLinkPacketId`,
 `World::ZoneLinkPacketId`, `World::ToolLinkPacketId`)은 삭제됐고 전부 `Common::PacketId`로
-합쳐졌다. `World::EToolResultCode`만 `Server/WorldServer/Src/Packet/ToolResultCode.h`로
+합쳐졌다. `World::EToolResultCode`만 `Shared/Common/Src/Packet/ToolResultCode.h`로
 따로 남았다(패킷 id가 아니라 결과 코드라 대역과 무관).
 
 같이 처리한 것:

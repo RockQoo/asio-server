@@ -1,7 +1,7 @@
 # 락 전략 — 네 가지를 상황별로 나눠 쓴다
 
 대상 코드: `Shared/Core/Src/Thread/Mutexed.h`, `Server/WorldServer/Src/World/PlayerManager.h`,
-`Server/WorldServer/Src/World/ZoneLinkRegistry.h`, `Server/ZoneServer/Src/Game/PlayerRegistry.h`
+`Server/WorldServer/Src/World/ZoneLinkRegistry.h`, `Server/ZoneServer/Src/Player/PlayerRegistry.h`
 
 ## 목적은 "락 없음"이 아니다
 

@@ -11,6 +11,7 @@
 #include "Shared/Core/Src/Base/RUID.h"
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 
 namespace
 {
@@ -110,14 +111,14 @@ MainProcessor::MainProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegi
 
 void MainProcessor::Register()
 {
-    gatewayDispatcher_.Register(PacketId::G2WClientConnected, this, &MainProcessor::HandleClientConnected);
-    gatewayDispatcher_.Register(PacketId::G2WClientDisconnected, this, &MainProcessor::HandleClientDisconnected);
-    gatewayDispatcher_.Register(PacketId::G2WRelay, this, &MainProcessor::HandleFromClient);
+    gatewayDispatcher_.Register(this, &MainProcessor::HandleClientConnected);
+    gatewayDispatcher_.Register(this, &MainProcessor::HandleClientDisconnected);
+    gatewayDispatcher_.Register(this, &MainProcessor::HandleFromClient);
 
-    zoneDispatcher_.Register(PacketId::Z2WZoneRegister, this, &MainProcessor::HandleZoneRegister);
-    zoneDispatcher_.Register(PacketId::Z2WRelay, this, &MainProcessor::HandleForwardToWorld);
-    zoneDispatcher_.Register(PacketId::Z2WZoneTransfer, this, &MainProcessor::HandleZoneTransfer);
-    zoneDispatcher_.Register(PacketId::Z2WUnitOfWorkStream, this, &MainProcessor::HandleUnitOfWorkStream);
+    zoneDispatcher_.Register(this, &MainProcessor::HandleZoneRegister);
+    zoneDispatcher_.Register(this, &MainProcessor::HandleForwardToWorld);
+    zoneDispatcher_.Register(this, &MainProcessor::HandleZoneTransfer);
+    zoneDispatcher_.Register(this, &MainProcessor::HandleUnitOfWorkStream);
 }
 
 void MainProcessor::DispatchFromGateway(const PacketId packetId, const Network::Session::SPtr& gatewaySession,
@@ -141,14 +142,9 @@ void MainProcessor::RemoveZoneLink(const Network::SessionId zoneSessionId)
 }
 
 void MainProcessor::HandleClientConnected(const Network::Session::SPtr& gatewaySession,
-                                          const std::span<const byte> payload)
+                                          const Common::G2WClientConnected& packet)
 {
-    Packet::BinaryReader binaryReader(payload);
-    Network::SessionId clientSessionId{};
-    if (!binaryReader.Read(clientSessionId))
-    {
-        return;
-    }
+    const auto clientSessionId = packet.clientSessionId;
 
     // **등록만 한다. 존 입장은 여기가 아니라 로그인 성공 시점이다**
     // (LoginProcessor::CompleteLogin). TCP 연결만으로 게임을 시작하던 예전 동작을 바꾼
@@ -160,14 +156,9 @@ void MainProcessor::HandleClientConnected(const Network::Session::SPtr& gatewayS
 }
 
 void MainProcessor::HandleClientDisconnected(const Network::Session::SPtr& /*gatewaySession*/,
-                                             const std::span<const byte> payload)
+                                             const Common::G2WClientDisconnected& packet)
 {
-    Packet::BinaryReader binaryReader(payload);
-    Network::SessionId clientSessionId{};
-    if (!binaryReader.Read(clientSessionId))
-    {
-        return;
-    }
+    const auto clientSessionId = packet.clientSessionId;
 
     const auto client = playerManager_->Find(clientSessionId);
     playerManager_.Write()->Remove(clientSessionId);
@@ -184,35 +175,38 @@ void MainProcessor::HandleClientDisconnected(const Network::Session::SPtr& /*gat
 
     Common::W2ZLeaveZone leave{};
     leave.clientSessionId = clientSessionId;
-    zoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
-                                      std::as_bytes(std::span(&leave, 1)));
+    Common::SendPacket(zoneLink->zoneSession, leave);
 
     LOG.Info(ELogCategory::Gateway, "클라이언트 접속 종료").KV("ClientSessionId", clientSessionId);
 }
 
 void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySession,
-                                     const std::span<const byte> payload)
+                                     const Common::G2WRelay& packet)
 {
-    const auto relay = Common::UnwrapRelay(payload);
-    if (!relay)
+    // Gateway 가 이미 걸렀지만 여기서도 본다 -- 다른 Gateway 구현이나 직접 접속 테스트처럼
+    // 그 홉을 안 거친 경로가 있고, 봉투 안쪽은 이 시점에 처음 열린다.
+    if (!Common::IsClientPacket(packet.envelope.innerPacketId))
     {
+        LOG.Warning(ELogCategory::Gateway, "봉투 안이 클라이언트 대역이 아니다, 버림")
+            .KV("ClientSessionId", packet.envelope.clientSessionId)
+            .KV("InnerPacketId", packet.envelope.innerPacketId);
         return;
     }
 
-    const auto innerPacketId = static_cast<PacketId>(relay->envelope.innerPacketId);
+    const auto innerPacketId = static_cast<PacketId>(packet.envelope.innerPacketId);
 
     // **C2W 대역만 World가 끝점이다.** 봉투를 벗겨 직접 처리하고 존으로 넘기지 않는다.
     // 대역으로 가르므로 로그인 말고 다른 C2W 패킷이 생겨도 이 분기는 그대로다.
     if (Common::DirectionOf(innerPacketId) == Common::EPacketDirection::C2W)
     {
-        loginProcessor_.HandleClientPacket(gatewaySession, relay->envelope.clientSessionId, innerPacketId,
-                                           relay->innerPayload);
+        loginProcessor_.HandleClientPacket(gatewaySession, packet.envelope.clientSessionId, innerPacketId,
+                                           packet.innerPayload);
         return;
     }
 
     // 여기부터는 clientSessionId만 보고 나머지는 손대지 않은 채 Zone에 재전송한다.
     // World는 게임 패킷의 내용을 해석할 필요가 없다.
-    const auto client = playerManager_->Find(relay->envelope.clientSessionId);
+    const auto client = playerManager_->Find(packet.envelope.clientSessionId);
     if (!client)
     {
         return;
@@ -223,8 +217,8 @@ void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySessio
     if (!client->authenticated)
     {
         LOG.Warning(ELogCategory::Gateway, "로그인 전 게임 패킷, 버림")
-            .KV("ClientSessionId", relay->envelope.clientSessionId)
-            .KV("InnerPacketId", relay->envelope.innerPacketId);
+            .KV("ClientSessionId", packet.envelope.clientSessionId)
+            .KV("InnerPacketId", packet.envelope.innerPacketId);
         return;
     }
 
@@ -234,20 +228,13 @@ void MainProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySessio
         return;
     }
 
-    zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, payload);
+    // **봉투째 그대로** 넘긴다 -- World 는 안쪽 내용을 해석할 필요가 없다.
+    zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, packet.raw);
 }
 
 void MainProcessor::HandleZoneRegister(const Network::Session::SPtr& zoneSession,
-                                       const std::span<const byte> payload)
+                                       const Common::Z2WZoneRegister& registerPacket)
 {
-    if (payload.size() < sizeof(Common::Z2WZoneRegister))
-    {
-        return;
-    }
-
-    Common::Z2WZoneRegister registerPacket{};
-    std::memcpy(&registerPacket, payload.data(), sizeof(Common::Z2WZoneRegister));
-
     zoneLinkRegistry_.Write()->Add(registerPacket.zoneId, zoneSession,
                                    registerPacket.xMin, registerPacket.xMax,
                                    registerPacket.yMin, registerPacket.yMax);
@@ -259,35 +246,21 @@ void MainProcessor::HandleZoneRegister(const Network::Session::SPtr& zoneSession
 }
 
 void MainProcessor::HandleForwardToWorld(const Network::Session::SPtr& /*zoneSession*/,
-                                         const std::span<const byte> payload)
+                                         const Common::Z2WRelay& packet)
 {
     // 헤더의 clientSessionId만 들여다보고 나머지는 **봉투째** 그대로 Gateway로 재전송한다.
-    const auto relay = Common::UnwrapRelay(payload);
-    if (!relay)
-    {
-        return;
-    }
-
-    const auto client = playerManager_->Find(relay->envelope.clientSessionId);
+    const auto client = playerManager_->Find(packet.envelope.clientSessionId);
     if (!client || !client->gatewaySession)
     {
         return;
     }
 
-    client->gatewaySession->SendPacket(PacketId::W2GRelay, payload);
+    client->gatewaySession->SendPacket(PacketId::W2GRelay, packet.raw);
 }
 
 void MainProcessor::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSession*/,
-                                       const std::span<const byte> payload)
+                                       const Common::Z2WZoneTransfer& transfer)
 {
-    if (payload.size() < sizeof(Common::Z2WZoneTransfer))
-    {
-        return;
-    }
-
-    Common::Z2WZoneTransfer transfer{};
-    std::memcpy(&transfer, payload.data(), sizeof(Common::Z2WZoneTransfer));
-
     const auto targetZoneId = zoneLinkRegistry_->FindZoneContaining(transfer.x, transfer.y);
     if (!targetZoneId)
     {
@@ -319,11 +292,10 @@ void MainProcessor::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSessi
     {
         Common::W2ZLeaveZone leaveZoneNotifyPacket{};
         leaveZoneNotifyPacket.clientSessionId = transfer.clientSessionId;
-        sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZLeaveZone,
-                                                std::as_bytes(std::span(&leaveZoneNotifyPacket, 1)));
+        Common::SendPacket(sourceZoneLink->zoneSession, leaveZoneNotifyPacket);
     }
 
-    playerManager_.Write()->SetZone(transfer.clientSessionId, *targetZoneId);
+    playerManager_.Write()->SetZoneId(transfer.clientSessionId, *targetZoneId);
 
     // 여기서 zoneId의 뜻이 "보낸 존"에서 "목표 존"으로 바뀜다 -- 타입도 같이 바뀜다.
     const Common::W2ZEnterZoneHead enterZone = Common::ToEnterZoneHead(transfer, *targetZoneId);
@@ -379,7 +351,7 @@ void MainProcessor::ReturnToSourceZone(Common::Z2WZoneTransfer transfer) const
 
     const Common::W2ZEnterZoneHead enterZone = Common::ToEnterZoneHead(transfer, transfer.zoneId);
 
-    playerManager_.Write()->SetZone(enterZone.clientSessionId, enterZone.zoneId);
+    playerManager_.Write()->SetZoneId(enterZone.clientSessionId, enterZone.zoneId);
     sourceZoneLink->zoneSession->SendPacket(PacketId::W2ZEnterZone, EnterZoneBodyFor(enterZone));
 
     LOG.Warning(ELogCategory::Zone, "이동 대상 존이 없어 원래 존으로 되돌림(월드 경계 밖)")
@@ -388,25 +360,17 @@ void MainProcessor::ReturnToSourceZone(Common::Z2WZoneTransfer transfer) const
 }
 
 void MainProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zoneSession*/,
-                                           const std::span<const byte> payload)
+                                           const Common::Z2WUnitOfWorkStream& packet)
 {
     // **여기는 BASIC 레인이고 주인은 clientSessionId다.** 그래서 이 클라이언트의 접속 종료
     // (HandleClientDisconnected)와 같은 strand에 들어가고, "이미 지워진 사람의 캐시를
     // 되살리는" 순서 역전이 생기지 않는다. 예전에는 이 스트림만 BASIC을 건너뛰고 DB 그룹으로
     // 직행해서, **World 캐시가 로그인 시점 스냅샷에 멈춰 있었다** -- 존에서 만든 우편이
     // 프로세스를 넘는 핸드오프에서 사라지던 원인이 그것이다.
-    Packet::BinaryReader binaryReader(payload);
-    Common::PlayerId zonePlayerId{};
-    Base::RUID requestId{};
-    uint64_t ownerId{};
-    uint16_t taskCount{};
-    if (!binaryReader.Read(zonePlayerId) || !binaryReader.Read(requestId)
-        || !binaryReader.Read(ownerId) || !binaryReader.Read(taskCount))
-    {
-        return;
-    }
-
-    const auto clientSessionId = static_cast<Network::SessionId>(ownerId);
+    //
+    // **스트림 해석은 이미 끝났다**(디스패치 앞에서). 잘린 스트림은 여기까지 오지 않으므로
+    // 아래 트랜잭션 안에서 중간에 빠져나갈 길이 없다 -- 그게 이 패킷에 구조체를 둔 이유다.
+    const auto clientSessionId = static_cast<Network::SessionId>(packet.ownerId);
 
     // **DB에 쓸 player_id는 캐시에서 꺼낸다.** 존이 실어 보낸 값을 그대로 쓰지 않는 이유는
     // 신뢰 경계다 -- DB 키는 로그인이 확정한 값만 쓴다.
@@ -415,18 +379,18 @@ void MainProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zoneS
     {
         // 접속이 이미 끊겨 캐시가 사라진 뒤다. 되돌릴 방법이 없으므로 사실만 남긴다.
         LOG.Error(ELogCategory::Db, "UnitOfWork 스트림의 플레이어를 찾을 수 없어 버린다")
-            .KV("ClientSessionId", clientSessionId).KV("RequestId", requestId)
-            .KV("TaskCount", taskCount);
+            .KV("ClientSessionId", clientSessionId).KV("RequestId", packet.requestId)
+            .KV("TaskCount", packet.tasks.size());
         return;
     }
 
     // 존이 실은 값과 캐시가 다르면 둘 중 하나가 어긋난 것이다. 지금은 캐시를 믿고 진행하되
     // 사실을 남긴다 -- **여기가 위조 검증이 들어갈 자리**다(태스크 내용을 캐시와 대조).
-    if (zonePlayerId != *playerId)
+    if (packet.playerId != *playerId)
     {
         LOG.Error(ELogCategory::Db, "존이 실은 playerId가 캐시와 다르다")
             .KV("ClientSessionId", clientSessionId)
-            .KV("FromZone", zonePlayerId).KV("FromCache", *playerId);
+            .KV("FromZone", packet.playerId).KV("FromCache", *playerId);
     }
 
     // **UnitOfWork 하나 = AutoSpCommands 하나 = 트랜잭션 하나.** 우편 지급과 골드 차감처럼
@@ -437,40 +401,28 @@ void MainProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zoneS
     // 도착 순서대로 직렬화된다(LoginProcessor::LoadPlayerContent 주석과 짝).
     AutoSpCommands autoSpCommands(dbProcessor_, static_cast<uint64_t>(playerId->Value()), true);
 
-    for (uint16_t i = 0; i < taskCount; ++i)
+    for (const auto& task : packet.tasks)
     {
-        uint16_t kind{};
-        uint32_t payloadLen{};
-        if (!binaryReader.Read(kind) || !binaryReader.Read(payloadLen))
-        {
-            break;
-        }
-
-        const auto taskPayload = binaryReader.ReadBytes(payloadLen);
-        if (!taskPayload)
-        {
-            break;
-        }
-
         // taskKind는 "상위 8비트 = 콘텐츠 카테고리 / 하위 8비트 = 세부 동작"이라
         // (Shared/Common/Src/TaskKind.h) 여기서 2단으로 분기한다. 콘텐츠가 늘면
         // case가 하나씩 붙을 뿐, 태스크를 실어 나르는 Task::UnitOfWork(Core)는
         // 여전히 이 의미를 몰라도 된다.
-        switch (Common::CategoryOf(kind))
+        switch (Common::CategoryOf(task.kind))
         {
         case Common::ETaskCategory::Mail:
             ApplyMailTask(playerManager_, autoSpCommands,
-                          static_cast<Common::EMailTask>(Common::SubTaskOf(kind)),
-                          clientSessionId, *playerId, *taskPayload);
+                          static_cast<Common::EMailTask>(Common::SubTaskOf(task.kind)),
+                          clientSessionId, *playerId, task.payload);
             break;
         case Common::ETaskCategory::Currency:
-            ApplyCurrencyTask(playerManager_, autoSpCommands, clientSessionId, *playerId, *taskPayload);
+            ApplyCurrencyTask(playerManager_, autoSpCommands, clientSessionId, *playerId, task.payload);
             break;
         default:
             // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면
             // 나머지 태스크는 정상 처리된다.
             LOG.Warning(ELogCategory::Db, "알 수 없는 UnitOfWork 태스크 카테고리")
-                .KV("ClientSessionId", clientSessionId).KV("RequestId", requestId).KV("TaskKind", kind);
+                .KV("ClientSessionId", clientSessionId).KV("RequestId", packet.requestId)
+                .KV("TaskKind", task.kind);
             break;
         }
     }
@@ -507,10 +459,8 @@ void MainProcessor::BroadcastToAll(const PacketId clientPacketId, const std::spa
                         return;
                     }
 
-                    info.gatewaySession->SendPacket(
-                        PacketId::W2GRelay,
-                        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(clientPacketId),
-                                          payloadCopy));
+                    Common::SendRelay(info.gatewaySession, PacketId::W2GRelay, clientSessionId,
+                                      clientPacketId, payloadCopy);
                     ++sentCount;
                 });
 

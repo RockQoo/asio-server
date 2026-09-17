@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Log">
-      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000001}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Packet">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000002}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Processor">
+      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000008}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test">
+      <UniqueIdentifier>{a1a1a1a1-0004-4000-8000-000000000001}</UniqueIdentifier>
+    </Filter>
     <Filter Include="World">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Db">
+      <UniqueIdentifier>{a1a1a1a1-0004-4000-8000-000000000002}</UniqueIdentifier>
     </Filter>
     <Filter Include="Handler">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000005}</UniqueIdentifier>
@@ -16,34 +22,13 @@
     <Filter Include="App">
       <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000006}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Worker">
-      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000007}</UniqueIdentifier>
+    <Filter Include="Cli">
+      <UniqueIdentifier>{a1a1a1a1-0004-4000-8000-000000000003}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Processor">
-      <UniqueIdentifier>{c3c3c3c3-0003-4000-8000-000000000008}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Db" />
-    <Filter Include="Cli" />
-    <Filter Include="Test" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h">
-      <Filter>Log</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Packet\EnterZoneBody.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Packet\RelayEnvelope.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Packet\ZoneLinkPackets.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Packet\ToolResultCode.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Packet\ToolLinkPackets.h">
       <Filter>Packet</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\DbProcessor.h">
@@ -58,26 +43,26 @@
     <ClInclude Include="Src\Processor\ToolProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Test\MsgId.h">
+      <Filter>Test</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Test\TestValue.h">
+      <Filter>Test</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\TestProcessor.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Test\TestKeys.h">
+      <Filter>Test</Filter>
+    </ClInclude>
     <ClInclude Include="Src\World\PlayerManager.h">
       <Filter>World</Filter>
     </ClInclude>
     <ClInclude Include="Src\World\ZoneLinkRegistry.h">
       <Filter>World</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\OwnerIdPeek.h">
-      <Filter>Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Worker\ProcessorId.h">
-      <Filter>Worker</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Handler\GatewayLinkHandler.h">
-      <Filter>Handler</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Handler\ZoneLinkHandler.h">
-      <Filter>Handler</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\App\App.h">
-      <Filter>App</Filter>
+    <ClInclude Include="Src\Processor\ProcessorId.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Db\DbCommand.h">
       <Filter>Db</Filter>
@@ -91,7 +76,16 @@
     <ClInclude Include="Src\Db\PasswordHash.h">
       <Filter>Db</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\Config.h">
+    <ClInclude Include="Src\Handler\G2WHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Handler\Z2WHandler.h">
+      <Filter>Handler</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\App\WorldApp.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\App\WorldConfig.h">
       <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="Src\Cli\DbCheck.h">
@@ -99,18 +93,6 @@
     </ClInclude>
     <ClInclude Include="Src\Cli\IdTest.h">
       <Filter>Cli</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Test\MsgId.h">
-      <Filter>Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Test\TestValue.h">
-      <Filter>Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Processor\TestProcessor.h">
-      <Filter>Processor</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Test\TestKeys.h">
-      <Filter>Test</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -121,11 +103,20 @@
     <ClCompile Include="Src\World\ZoneLinkRegistry.cpp">
       <Filter>World</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Handler\GatewayLinkHandler.cpp">
+    <ClCompile Include="Src\Handler\G2WHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Handler\ZoneLinkHandler.cpp">
+    <ClCompile Include="Src\Handler\Z2WHandler.cpp">
       <Filter>Handler</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\DbConnection.cpp">
+      <Filter>Db</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\AutoSpCommands.cpp">
+      <Filter>Db</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Db\PasswordHash.cpp">
+      <Filter>Db</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\DbProcessor.cpp">
       <Filter>Processor</Filter>
@@ -139,19 +130,17 @@
     <ClCompile Include="Src\Processor\ToolProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\App\App.cpp">
+    <ClCompile Include="Src\App\WorldApp.cpp">
       <Filter>App</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Db\DbConnection.cpp">
-      <Filter>Db</Filter>
+    <ClCompile Include="Src\Processor\TestProcessor.cpp">
+      <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Db\AutoSpCommands.cpp">
-      <Filter>Db</Filter>
+    <ClCompile Include="Src\Test\TestKeys.cpp">
+      <Filter>Test</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Db\PasswordHash.cpp">
-      <Filter>Db</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\App\Config.cpp">
+    <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\App\WorldConfig.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\Cli\DbCheck.cpp">
@@ -159,13 +148,6 @@
     </ClCompile>
     <ClCompile Include="Src\Cli\IdTest.cpp">
       <Filter>Cli</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\main.cpp" />
-    <ClCompile Include="Src\Processor\TestProcessor.cpp">
-      <Filter>Processor</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Test\TestKeys.cpp">
-      <Filter>Test</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

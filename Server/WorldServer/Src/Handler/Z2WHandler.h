@@ -2,6 +2,8 @@
 
 #include "Shared/Core/Src/Base/BasicTypes.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
+#include "Shared/Core/Src/Packet/OwnerIdTable.h"
+#include "Shared/Common/Src/Ids.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Common/Src/PacketId.h"
 #include "Processor/ProcessorId.h"
@@ -36,8 +38,11 @@ private:
     //   Relay               -> clientSessionId (그 클라이언트의 라우팅 항목을 읽는 일)
     //   ZoneTransferRequest -> clientSessionId (그 클라이언트의 존을 바꾸는 일)
     // 못 읽으면 nullopt -- 주인을 모르는 메시지는 어느 스레드로 보내도 틀리므로 버린다.
-    [[nodiscard]] static std::optional<uint64_t> OwnerIdOf(const PacketId packetId,
-                                                            const std::span<const byte> payload);
+    // 이 링크가 받는 패킷 목록. 생성자 다음에 둔다.
+    void Register();
+
+    // 패킷 id -> 주인 오프셋. I/O 스레드에서 읽기만 한다(등록은 생성자에서 끝난다).
+    Packet::OwnerIdTable<PacketId> ownerIds_;
 
     Processor::Group<EWorldProcessorId>& basicGroup_;
     MainProcessor& mainProcessor_;

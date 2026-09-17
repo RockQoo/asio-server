@@ -55,23 +55,22 @@ config.ioThreadCount = file.GetSize("io_threads", config.ioThreadCount);   // �
 기본값이 구조체와 읽는 쪽 두 군데에 적히면 한쪽만 고쳤을 때 갈린다. 그래서 **읽는 쪽이
 구조체의 현재 값을 그대로 fallback 으로 넘긴다.**
 
-## 어디에 있나 — `main.cpp`가 아니라 `App/Config.{h,cpp}`
+## 어디에 있나 — `main.cpp`가 아니라 `App/<서버>Config.{h,cpp}`
 
-서버마다 `Src/App/Config.h`가 `Config` 구조체와 `LoadConfig` 선언을 함께 갖는다.
+서버마다 `Src/App/<서버>Config.h`가 그 서버의 `Config` 구조체와 `LoadConfig` 선언을 함께
+갖는다 — `GatewayConfig` / `WorldConfig` / `ZoneConfig`. 실행 파일 프로젝트는 네임스페이스를
+두지 않으므로 서버 이름이 타입 이름에 들어간다.
 
 ```cpp
-namespace Zone
-{
-    struct Config { ... };
-    [[nodiscard]] Config LoadConfig(const std::string& path, std::vector<Def> zones);
-}
+struct ZoneConfig { ... };
+[[nodiscard]] ZoneConfig LoadConfig(const std::string& path, std::vector<ZoneDef> zones);
 ```
 
 `main`은 한 줄로 끝난다 — 값을 받아 그대로 `App`에 넘기고, 반환은 RVO로 복사가 없다.
 
 ```cpp
-auto config = Zone::LoadConfig(argc > 2 ? argv[2] : "config/zone.cfg", zones);
-Zone::App app(std::move(config));
+auto config = LoadConfig(argc > 2 ? argv[2] : "config/zone.cfg", zones);
+ZoneApp app(std::move(config));
 ```
 
 ### 왜 싱글턴이 아닌가

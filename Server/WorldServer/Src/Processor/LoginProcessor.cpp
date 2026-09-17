@@ -13,7 +13,7 @@
 #include "Shared/Core/Src/Packet/BinaryReader.h"
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Common/Src/Packet/LoginPackets.h"
-#include "Shared/Common/Src/Packet/Send.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 
 LoginProcessor::LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
                                Processor::Group<EWorldProcessorId>& basicGroup, DbProcessor& dbProcessor)
@@ -22,36 +22,36 @@ LoginProcessor::LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRe
     , basicGroup_(basicGroup)
     , dbProcessor_(dbProcessor)
 {
+    Register();
+}
+
+void LoginProcessor::Register()
+{
+    clientDispatcher_.Register(this, &LoginProcessor::HandleLogin);
 }
 
 void LoginProcessor::HandleClientPacket(const Network::Session::SPtr& gatewaySession,
                                         const Network::SessionId clientSessionId, const PacketId packetId,
                                         const std::span<const byte> payload)
 {
-    switch (packetId)
+    if (!clientDispatcher_.HasHandler(packetId))
     {
-    case PacketId::C2WLogin:
-        HandleLogin(gatewaySession, clientSessionId, payload);
-        break;
-
-    default:
         // 이 빌드가 모르는 C2W id. 조작이거나 클라이언트가 앞서 나간 것이라 버리기만 한다.
         LOG.Warning(ELogCategory::Gateway, "처리하지 않는 C2W 패킷")
             .KV("ClientSessionId", clientSessionId).KV("PacketId", static_cast<uint16_t>(packetId));
-        break;
-    }
-}
-
-void LoginProcessor::HandleLogin(const Network::Session::SPtr& gatewaySession,
-                                 const Network::SessionId clientSessionId, const std::span<const byte> payload)
-{
-    Common::C2WLogin packet;
-    if (!packet.Parse(payload))
-    {
-        SendResult(gatewaySession, clientSessionId, EErrorCode::InvalidPayload, 0, {});
         return;
     }
 
+    clientDispatcher_.Dispatch(packetId, LoginContext{gatewaySession, clientSessionId}, payload);
+}
+
+void LoginProcessor::HandleLogin(const LoginContext& context, const Common::C2WLogin& packet)
+{
+    // 아래는 이 둘을 그대로 DB 콜백까지 실어 나른다. 풀어 두면 캡처가 짧아진다.
+    const auto& gatewaySession = context.gatewaySession;
+    const auto clientSessionId = context.clientSessionId;
+
+    // 형식 검증은 디스패치 앞에서 끝났다 -- 여기 남는 판단은 **내용이 타당한가**뿐이다.
     const auto& playerName = packet.playerName;
     const auto& password = packet.password;
 
@@ -337,7 +337,7 @@ void LoginProcessor::CompleteLogin(const Network::Session::SPtr& gatewaySession,
         auto writeProxy = playerManager_.Write();
         writeProxy->SetAuthenticated(clientSessionId, Common::PlayerId{playerId}, playerName,
                                  std::move(mails), std::move(currencies));
-        writeProxy->SetZone(clientSessionId, entry->zoneId);
+        writeProxy->SetZoneId(clientSessionId, entry->zoneId);
     }
 
     // 결과를 먼저 보낸다 -- 클라이언트가 로딩 화면으로 넘어간 뒤에 존 입장 통지를 받는
@@ -359,8 +359,5 @@ void LoginProcessor::SendResult(const Network::Session::SPtr& gatewaySession,
     Common::W2CLogin packet;
     packet.Set(errorCode, playerId, std::string(playerName));
 
-    gatewaySession->SendPacket(
-        PacketId::W2GRelay,
-        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(packet.kPacketId),
-                          Common::ToBytes(packet)));
+    Common::SendRelay(gatewaySession, PacketId::W2GRelay, clientSessionId, packet);
 }

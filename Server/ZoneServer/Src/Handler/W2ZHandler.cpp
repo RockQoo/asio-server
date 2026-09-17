@@ -16,6 +16,15 @@ W2ZHandler::W2ZHandler(PlayerProcessor& playerProcessor,
     , worldLink_(worldLink)
     , zoneDefs_(std::move(zoneDefs))
 {
+    Register();
+}
+
+void W2ZHandler::Register()
+{
+    // 이 링크가 받는 패킷 목록 + 그 주인이 페이로드 어디에 있나.
+    ownerIds_.Register<Network::SessionId>(PacketId::W2ZEnterZone, sizeof(uint32_t));  // zoneId 뒤
+    ownerIds_.Register<Network::SessionId>(PacketId::W2ZLeaveZone);
+    ownerIds_.Register<Network::SessionId>(PacketId::W2ZRelay);                        // RelayEnvelope 맨 앞
 }
 
 void W2ZHandler::OnSessionOpened(const Network::Session::SPtr& session)
@@ -32,8 +41,7 @@ void W2ZHandler::OnSessionOpened(const Network::Session::SPtr& session)
         registerPacket.xMax = def.xMax;
         registerPacket.yMin = def.yMin;
         registerPacket.yMax = def.yMax;
-        session->SendPacket(PacketId::Z2WZoneRegister,
-                            std::as_bytes(std::span(&registerPacket, 1)));
+        Common::SendPacket(session, registerPacket);
 
         LOG.Info(ELogCategory::Zone, "World 연결 성공, 존 등록")
             .KV("ZoneId", def.zoneId)
@@ -42,26 +50,6 @@ void W2ZHandler::OnSessionOpened(const Network::Session::SPtr& session)
     }
 }
 
-std::optional<uint64_t> W2ZHandler::OwnerIdOf(const PacketId packetId, const std::span<const byte> payload)
-{
-    switch (packetId)
-    {
-    case PacketId::W2ZEnterZone:
-        // W2ZEnterZone.clientSessionId -- zoneId(uint32) 뒤라 offset 4.
-        return Packet::PeekOwnerId<Network::SessionId>(payload, sizeof(uint32_t));
-
-    case PacketId::W2ZLeaveZone:
-        // W2ZLeaveZone.clientSessionId (offset 0)
-        return Packet::PeekOwnerId<Network::SessionId>(payload);
-
-    case PacketId::W2ZRelay:
-        // RelayEnvelope.clientSessionId (offset 0)
-        return Packet::PeekOwnerId<Network::SessionId>(payload);
-
-    default:
-        return std::nullopt;
-    }
-}
 
 void W2ZHandler::OnPacket(const Network::Session::SPtr& /*session*/,
                                 const Packet::Header& header,
@@ -71,7 +59,7 @@ void W2ZHandler::OnPacket(const Network::Session::SPtr& /*session*/,
     // 레인에 넘긴다 -- payload는 이 함수가 끝나면 I/O 스레드가 재사용할 버퍼를 가리킨다.
     const auto packetId = static_cast<PacketId>(header.id);
 
-    const auto ownerId = OwnerIdOf(packetId, payload);
+    const auto ownerId = ownerIds_.Find(packetId, payload);
     if (!ownerId)
     {
         LOG.Warning(ELogCategory::Zone, "ownerId를 읽을 수 없는 패킷, 버림")

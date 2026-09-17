@@ -4,33 +4,43 @@
     <Filter Include="Base">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000001}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000006}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Packet">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000002}</UniqueIdentifier>
     </Filter>
     <Filter Include="Network">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000003}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Thread">
-      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000004}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Timer">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000005}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Log">
-      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000006}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Task">
-      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000008}</UniqueIdentifier>
+    <Filter Include="Thread">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
     <Filter Include="Processor">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000009}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Task">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000008}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Console">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Message">
+      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000010}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Src\pch.h">
+    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Base\BasicTypes.h">
       <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Base\BasicTypes.h">
+    <ClInclude Include="Src\Base\ConfigFile.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Base\RUID.h">
       <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="Src\Base\Types.h">
@@ -78,6 +88,15 @@
     <ClInclude Include="Src\Packet\Dispatcher.h">
       <Filter>Packet</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Packet\Args.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\OwnerIdPeek.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Packet\OwnerIdTable.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Network\IPacketHandler.h">
       <Filter>Network</Filter>
     </ClInclude>
@@ -93,11 +112,11 @@
     <ClInclude Include="Src\Network\SessionManager.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Network\IoContextPool.h">
+    <ClInclude Include="Src\Network\SessionHolder.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\Group.h">
-      <Filter>Processor</Filter>
+    <ClInclude Include="Src\Network\IoContextPool.h">
+      <Filter>Network</Filter>
     </ClInclude>
     <ClInclude Include="Src\Timer\RepeatingTimer.h">
       <Filter>Timer</Filter>
@@ -105,30 +124,40 @@
     <ClInclude Include="Src\Thread\Mutexed.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Processor\Stats.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\Group.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Task\ITask.h">
+      <Filter>Task</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Task\Paired.h">
       <Filter>Task</Filter>
     </ClInclude>
     <ClInclude Include="Src\Task\UnitOfWork.h">
       <Filter>Task</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Base\ConfigFile.h">
-      <Filter>Base</Filter>
+    <ClInclude Include="Src\Console\KeyBinder.h">
+      <Filter>Console</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Base\RUID.h">
-      <Filter>Base</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Processor\Stats.h">
-      <Filter>Processor</Filter>
+    <ClInclude Include="Src\Message\Router.h">
+      <Filter>Message</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Src\pch.cpp">
-      <Filter>Base</Filter>
-    </ClCompile>
+    <ClCompile Include="Src\pch.cpp" />
     <ClCompile Include="Src\Log\Logger.cpp">
       <Filter>Log</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Console\KeyBinder.cpp">
+      <Filter>Console</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Packet\Buffer.cpp">
+      <Filter>Packet</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Packet\Dispatcher.cpp">
       <Filter>Packet</Filter>
     </ClCompile>
     <ClCompile Include="Src\Network\Session.cpp">
@@ -149,14 +178,14 @@
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp">
       <Filter>Timer</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Task\UnitOfWork.cpp">
-      <Filter>Task</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Base\ConfigFile.cpp">
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Src\Base\RUID.cpp">
       <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Task\UnitOfWork.cpp">
+      <Filter>Task</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

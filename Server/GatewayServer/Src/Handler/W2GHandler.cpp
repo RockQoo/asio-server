@@ -15,7 +15,7 @@ W2GHandler::W2GHandler(Network::SessionManager& sessionManager, Network::Session
 
 void W2GHandler::Register()
 {
-    dispatcher_.Register(PacketId::W2GRelay, this, &W2GHandler::HandleToClient);
+    dispatcher_.Register(this, &W2GHandler::HandleToClient);
 }
 
 void W2GHandler::OnSessionOpened(const Network::Session::SPtr& session)
@@ -40,19 +40,14 @@ void W2GHandler::OnClosed(const Network::Session::SPtr& /*session*/, const std::
 }
 
 void W2GHandler::HandleToClient(const Network::Session::SPtr& /*worldSession*/,
-                                       const std::span<const byte> payload)
+                                const Common::W2GRelay& packet)
 {
-    const auto relay = Common::UnwrapRelay(payload);
-    if (!relay)
-    {
-        return;
-    }
-
-    const auto clientSession = sessionManager_.Find(relay->envelope.clientSessionId);
+    const auto clientSession = sessionManager_.Find(packet.envelope.clientSessionId);
     if (!clientSession)
     {
         return;
     }
 
-    clientSession->SendPacket(relay->envelope.innerPacketId, relay->innerPayload);
+    // 알맹이만 보낸다 -- 봉투는 서버 사이에서만 쓰는 것이라 클라이언트가 모른다.
+    clientSession->SendPacket(packet.envelope.innerPacketId, packet.innerPayload);
 }

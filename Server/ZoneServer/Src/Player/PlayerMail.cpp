@@ -35,9 +35,9 @@ namespace
 
 void PlayerMail::Register(PlayerPacketDispatcher& packetDispatcher)
 {
-    RegisterPacketHandler<Common::C2ZMailAdd>(packetDispatcher, PacketId::C2ZMailAdd, &PlayerMail::HandleMailAdd);
-    RegisterPacketHandler<Common::C2ZMailDel>(packetDispatcher, PacketId::C2ZMailDel, &PlayerMail::HandleMailDel);
-    RegisterPacketHandler<Common::C2ZMailBuy>(packetDispatcher, PacketId::C2ZMailBuy, &PlayerMail::HandleMailBuy);
+    packetDispatcher.Register(&PlayerMail::HandleMailAdd);
+    packetDispatcher.Register(&PlayerMail::HandleMailDel);
+    packetDispatcher.Register(&PlayerMail::HandleMailBuy);
 }
 
 void PlayerMail::HandleMailAdd(const PlayerContext& context, const Common::C2ZMailAdd& packet)
@@ -79,7 +79,7 @@ void PlayerMail::HandleMailDel(const PlayerContext& context, const Common::C2ZMa
         return;
     }
 
-    if (const auto errorCode = mailBox->Write()->DelMail(packet.mailId, unitOfWork, false);
+    if (const auto errorCode = mailBox->Write()->RemoveMail(packet.mailId, unitOfWork, false);
         errorCode != EErrorCode::Success)
     {
         unitOfWork.SetError(errorCode);

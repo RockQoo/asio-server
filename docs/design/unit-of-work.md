@@ -1,6 +1,6 @@
 # UnitOfWork — 커밋을 깜빡할 수 없는 구조
 
-대상 코드: `Shared/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/UnitOfWork.cpp`
+대상 코드: `Shared/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp`
 
 ## 무엇인가
 

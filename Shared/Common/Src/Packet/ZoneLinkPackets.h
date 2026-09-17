@@ -4,6 +4,8 @@
 
 #include "Shared/Common/Src/Ids.h"
 
+#include "Shared/Core/Src/Packet/BinaryReader.h"
+
 namespace Common
 {
 #pragma pack(push, 1)
@@ -95,9 +97,69 @@ namespace Common
     // 쓰는 쪽은 Packet/EnterZoneBody.h, 읽는 쪽은 ZoneServer 의 WorldLinkHandler 다.
     // 한쪽만 고치면 조용히 어긋나므로 이 표가 유일한 계약이다.
 
-    // UnitOfWorkStream(Z2W)의 바디도 가변 길이라 고정 구조체가 없다 -- BinaryWriter/Reader로
-    // 직접 쓰고 읽는다. 바이트 순서와 taskKind 해석은 docs/design/wire-format.md.
+    // UnitOfWork 스트림 안의 태스크 하나. `kind` 의 뜻은 Common::TaskKind.h 가 정하고,
+    // `payload` 의 내용은 그 kind 가 정한다 -- 여기서는 해석하지 않는다.
     //
-    // Core는 kind/payload의 의미를 모른다. 쓰는 쪽은 Model.cpp + UnitOfWork.cpp,
-    // 읽는 쪽은 ZoneLinkHandler.cpp 다.
+    // **수명 주의**: `payload` 는 수신 버퍼를 가리키는 subspan 이다(복사 아님).
+    struct TaskRecord
+    {
+        uint16_t kind{};
+        std::span<const byte> payload;
+    };
+
+    // 존이 적용한 변경 묶음. 바이트 포맷:
+    //
+    //   int64 playerId, int64 requestId, uint64 ownerId, uint16 taskCount
+    //     반복: uint16 kind, uint32 payloadLen, payloadLen 바이트
+    //
+    // **전부 읽히지 않으면 false 다(부분 성공이 없다).** 이게 이 구조체를 만든 이유다 --
+    // 예전에는 핸들러가 루프 안에서 읽다가 잘리면 `break` 했는데, 그 루프가 이미 열린
+    // 트랜잭션(AutoSpCommands) 안이라 **앞쪽 태스크만 커밋되고 뒤쪽은 조용히 사라졌다.**
+    // 우편 지급 + 골드 차감 중 차감만 남는 식이다. 파싱을 트랜잭션 **앞**으로 빼면
+    // 잘린 스트림은 아무것도 적용하지 않고 버려진다.
+    //
+    // **모르는 kind 는 여기서 막지 않는다.** 길이 프리픽스 덕에 건너뛸 수 있어서, 서버
+    // 버전이 섞여도 아는 태스크는 정상 처리된다. "아는 종류인가"는 핸들러가 판단한다.
+    struct Z2WUnitOfWorkStream
+    {
+        static constexpr PacketId kPacketId = PacketId::Z2WUnitOfWorkStream;
+
+        PlayerId playerId{};
+        int64_t requestId{};
+        uint64_t ownerId{};
+        std::vector<TaskRecord> tasks;
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            uint16_t taskCount{};
+            if (!binaryReader.Read(playerId) || !binaryReader.Read(requestId)
+                || !binaryReader.Read(ownerId) || !binaryReader.Read(taskCount))
+            {
+                return false;
+            }
+
+            tasks.reserve(taskCount);
+            for (uint16_t i = 0; i < taskCount; ++i)
+            {
+                TaskRecord taskRecord;
+                uint32_t payloadLen{};
+                if (!binaryReader.Read(taskRecord.kind) || !binaryReader.Read(payloadLen))
+                {
+                    return false;
+                }
+
+                const auto taskPayload = binaryReader.ReadBytes(payloadLen);
+                if (!taskPayload)
+                {
+                    return false;
+                }
+
+                taskRecord.payload = *taskPayload;
+                tasks.push_back(taskRecord);
+            }
+
+            return true;
+        }
+    };
 }

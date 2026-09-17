@@ -2,6 +2,8 @@
 
 #include "Shared/Core/Src/Base/Types.h"
 #include "Shared/Core/Src/Network/IPacketHandler.h"
+#include "Shared/Common/Src/Packet/ToolLinkPackets.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Core/Src/Processor/Group.h"
 #include "Shared/Core/Src/Thread/Mutexed.h"
@@ -39,14 +41,17 @@ public:
     void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
 
 private:
+    // 이 처리기가 받는 T2W 패킷 목록. 생성자 다음에 둔다.
     void Register();
 
-    void HandleHello(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
-    void HandleNotice(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
-    void HandleMailSend(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
-    void HandleMailDelete(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
-    void HandleCouponChunkPush(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
-    void HandleClientList(const Network::Session::SPtr& toolSession, const std::span<const byte> payload);
+    // 아래 여섯은 **해석이 끝난 패킷 구조체**를 받는다 -- 역직렬화와 형식 검증은
+    // 디스패치 앞(Packet::Dispatcher)에서 끝난다.
+    void HandleHello(const Network::Session::SPtr& toolSession, const Common::T2WHello& packet);
+    void HandleNotice(const Network::Session::SPtr& toolSession, const Common::T2WNotice& packet);
+    void HandleMailSend(const Network::Session::SPtr& toolSession, const Common::T2WMailSend& packet);
+    void HandleMailDelete(const Network::Session::SPtr& toolSession, const Common::T2WMailDelete& request);
+    void HandleCouponChunkPush(const Network::Session::SPtr& toolSession, const Common::T2WCouponChunkPush& packet);
+    void HandleClientList(const Network::Session::SPtr& toolSession, const Common::T2WClientList& request);
 
     // ToolHello를 통과하지 않은 세션의 요청은 전부 NotAuthenticated로 거절한다. 인증 자체는
     // 공유 시크릿 비교 한 번뿐이지만, 운영툴 링크는 "이 포트에 붙을 수 있는 프로세스"를

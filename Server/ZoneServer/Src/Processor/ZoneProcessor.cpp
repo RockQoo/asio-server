@@ -8,6 +8,7 @@
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
 #include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 
 ZoneProcessor::ZoneProcessor(const ZoneDef& def, Network::SessionHolder& worldLink)
     : def_(def)
@@ -114,10 +115,7 @@ void ZoneProcessor::SendEnterZoneNotify(const Network::SessionId clientSessionId
     notify.clientSessionId = clientSessionId;
     notify.zoneId = def_.zoneId;
 
-    worldSession->SendPacket(
-        PacketId::Z2WRelay,
-        Common::WrapRelay(clientSessionId, static_cast<uint16_t>(PacketId::Z2CEnterZoneNotify),
-                          std::as_bytes(std::span(&notify, 1))));
+    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId, notify);
 }
 
 void ZoneProcessor::RequestZoneTransfer(const Network::SessionId clientSessionId, const Common::PlayerId playerId,
@@ -135,8 +133,7 @@ void ZoneProcessor::RequestZoneTransfer(const Network::SessionId clientSessionId
     transfer.playerId = playerId;
     transfer.x = x;
     transfer.y = y;
-    worldSession->SendPacket(PacketId::Z2WZoneTransfer,
-                             std::as_bytes(std::span(&transfer, 1)));
+    Common::SendPacket(worldSession, transfer);
 
     LOG.Info(ELogCategory::Zone, "존 경계 넘음, World에 핸드오프 요청")
         .KV("Zone", def_.zoneId).KV("ClientSessionId", clientSessionId).KV("X", x).KV("Y", y);

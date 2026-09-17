@@ -6,8 +6,9 @@
 #include "Player/PlayerContext.h"
 #include "Shared/Common/Src/Packet/ClientPackets.h"
 #include "Shared/Common/Src/Packet/WorldPackets.h"
+#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/Packet/Send.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Common/Src/Packet/ZonePackets.h"
 #include "Shared/Common/Src/PacketId.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
@@ -46,11 +47,18 @@ public:
                            const std::span<const byte> payload);
 
 private:
+    // 자기 패킷은 여기서, 콘텐츠 패킷은 각 콘텐츠의 Register가 등록한다.
+    void Register();
+
+    // --- W2Z 핸들러. 페이로드를 해석해 아래 OnPlayerEnter/OnPlayerLeave로 넘긴다 ---
+    void HandleEnterZone(const Network::SessionId& clientSessionId, const Common::W2ZEnterZone& packet);
+    void HandleLeaveZone(const Network::SessionId& clientSessionId, const Common::W2ZLeaveZone& packet);
+
     // 아래 셋은 전부 그 clientSessionId를 담당하는 플레이어 레인 스레드에서 호출된다.
     //
     // 입장 패킷의 콘텐츠(mails/currencies)는 World가 DB에서 읽어 캐시해둔 시작 상태이고,
     // 존이 DB를 직접 읽지 않는 이유는 ZoneLinkPackets.h의 표 주석 참고.
-    void OnPlayerEnter(Common::W2ZEnterZone packet);
+    void OnPlayerEnter(const Common::W2ZEnterZone& packet);
     void OnPlayerLeave(const Network::SessionId clientSessionId);
 
     // 콘텐츠 패킷 진입점. 어느 존인지는 Player가 들고 있으므로 봉투가 알려줄 필요가 없다.
@@ -58,10 +66,8 @@ private:
                             const PacketId packetId, const std::span<const byte> payload);
 
     // 릴레이 봉투를 벗긴다. Echo는 공유 상태가 필요 없어 여기서 바로 돌려보낸다.
-    void HandleForwardToZone(const Network::SessionId clientSessionId, const std::span<const byte> payload);
+    void HandleForwardToZone(const Network::SessionId& clientSessionId, const Common::W2ZRelay& packet);
     void ReplyEcho(const Common::RelayEnvelope& header, const std::span<const byte> innerPayload) const;
-    // 자기 패킷은 여기서, 콘텐츠 패킷은 각 콘텐츠의 Register가 등록한다.
-    void Register();
 
     // HandleClientPacket이 이미 Player를 찾아 넘겨주므로 여기서 다시 "이 사람이 존재하는가"를
     // 확인할 필요가 없고, 페이로드도 이미 해석돼 들어온다(RegisterPacketHandler 주석 참고).
@@ -105,6 +111,10 @@ private:
     BroadcastProcessor& broadcastProcessor_;
     Network::SessionHolder& worldLink_;
     MailRegistry& mailRegistry_;
+
+    // World 링크에서 온 패킷(W2Z) -> 핸들러. 컨텍스트가 clientSessionId 하나인 이유는
+    // 이 단계에선 아직 Player를 찾기 전이기 때문이다(입장 패킷은 그 Player를 만드는 쪽이다).
+    Packet::Dispatcher<PacketId, Network::SessionId> worldDispatcher_;
 
     // 패킷 타입 -> 핸들러. **존마다도 플레이어마다도 아니고 이 처리기에 하나만** 둔다 --
     // 개체마다 테이블을 갖는 구조는 등록 내용이 개체별로 다를 때만 의미가 있고, 그렇지

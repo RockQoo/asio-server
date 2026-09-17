@@ -1,29 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Packet">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000001}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Game">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000002}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Worker">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000003}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Handler">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000004}</UniqueIdentifier>
+    <Filter Include="Player">
+      <UniqueIdentifier>{a1a1a1a1-0005-4000-8000-000000000001}</UniqueIdentifier>
     </Filter>
     <Filter Include="App">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000005}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Log">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000006}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="World">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000007}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Currency">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
+    <Filter Include="Processor">
+      <UniqueIdentifier>{a1a1a1a1-0005-4000-8000-000000000002}</UniqueIdentifier>
     </Filter>
     <Filter Include="Mail">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000008}</UniqueIdentifier>
@@ -31,76 +16,62 @@
     <Filter Include="Task">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Processor" />
-    <Filter Include="Test" />
+    <Filter Include="Worker">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Handler">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test">
+      <UniqueIdentifier>{a1a1a1a1-0005-4000-8000-000000000003}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\Log\LogCategory.h">
-      <Filter>Log</Filter>
+    <ClInclude Include="Src\Player\CurrencyModel.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\ZonePackets.h">
-      <Filter>Packet</Filter>
+    <ClInclude Include="Src\Player\MoveModel.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\ClientPackets.h">
-      <Filter>Packet</Filter>
+    <ClInclude Include="Src\Player\Player.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Packet\WorldPackets.h">
-      <Filter>Packet</Filter>
+    <ClInclude Include="Src\Player\PlayerRegistry.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Currency\Model.h">
-      <Filter>Currency</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Currency\CurrencyTask.h">
-      <Filter>Currency</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Game\Player.h">
-      <Filter>Game</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Game\Def.h">
-      <Filter>Game</Filter>
+    <ClInclude Include="Src\App\ZoneDef.h">
+      <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\ZoneProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\World\WorldLink.h">
-      <Filter>World</Filter>
+    <ClInclude Include="Src\Player\MailModel.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\MailTask.h">
+    <ClInclude Include="Src\Mail\MailRegistry.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\Model.h">
-      <Filter>Mail</Filter>
+    <ClInclude Include="Src\Player\PlayerTask.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\Registry.h">
-      <Filter>Mail</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Task\UnitOfWork.h">
+    <ClInclude Include="Src\Task\ZoneUnitOfWork.h">
       <Filter>Task</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\ExpiryService.h">
+    <ClInclude Include="Src\Mail\MailExpiryService.h">
       <Filter>Mail</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Worker\ProcessorId.h">
-      <Filter>Worker</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Game\MoveModel.h">
-      <Filter>Game</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Game\PlayerRegistry.h">
-      <Filter>Game</Filter>
+    <ClInclude Include="Src\Processor\ProcessorId.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\PlayerProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\PlayerContext.h">
-      <Filter>Processor</Filter>
+    <ClInclude Include="Src\Player\PlayerContext.h">
+      <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\PlayerMail.h">
-      <Filter>Processor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Server\WorldServer\Src\Packet\OwnerIdPeek.h">
-      <Filter>Packet</Filter>
+    <ClInclude Include="Src\Player\PlayerMail.h">
+      <Filter>Player</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\BroadcastProcessor.h">
       <Filter>Processor</Filter>
@@ -108,13 +79,13 @@
     <ClInclude Include="Src\Worker\WorkerManager.h">
       <Filter>Worker</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Handler\WorldLinkHandler.h">
+    <ClInclude Include="Src\Handler\W2ZHandler.h">
       <Filter>Handler</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\App.h">
+    <ClInclude Include="Src\App\ZoneApp.h">
       <Filter>App</Filter>
     </ClInclude>
-    <ClInclude Include="Src\App\Config.h">
+    <ClInclude Include="Src\App\ZoneConfig.h">
       <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="Src\Test\TestKeys.h">
@@ -123,32 +94,32 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
-    <ClCompile Include="Src\Currency\Model.cpp">
-      <Filter>Currency</Filter>
+    <ClCompile Include="Src\Player\CurrencyModel.cpp">
+      <Filter>Player</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\ZoneProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\Model.cpp">
+    <ClCompile Include="Src\Player\MailModel.cpp">
+      <Filter>Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Mail\MailRegistry.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\Registry.cpp">
-      <Filter>Mail</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Task\UnitOfWork.cpp">
+    <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp">
       <Filter>Task</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\ExpiryService.cpp">
+    <ClCompile Include="Src\Mail\MailExpiryService.cpp">
       <Filter>Mail</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Game\PlayerRegistry.cpp">
-      <Filter>Game</Filter>
+    <ClCompile Include="Src\Player\PlayerRegistry.cpp">
+      <Filter>Player</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\PlayerProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Processor\PlayerMail.cpp">
-      <Filter>Processor</Filter>
+    <ClCompile Include="Src\Player\PlayerMail.cpp">
+      <Filter>Player</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\BroadcastProcessor.cpp">
       <Filter>Processor</Filter>
@@ -156,16 +127,16 @@
     <ClCompile Include="Src\Worker\WorkerManager.cpp">
       <Filter>Worker</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Handler\WorldLinkHandler.cpp">
+    <ClCompile Include="Src\Handler\W2ZHandler.cpp">
       <Filter>Handler</Filter>
     </ClCompile>
-    <ClCompile Include="Src\App\App.cpp">
-      <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\App\Config.cpp">
+    <ClCompile Include="Src\App\ZoneApp.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="Src\main.cpp" />
+    <ClCompile Include="Src\App\ZoneConfig.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Test\TestKeys.cpp">
       <Filter>Test</Filter>
     </ClCompile>

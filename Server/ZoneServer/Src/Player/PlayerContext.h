@@ -3,6 +3,7 @@
 #include "Shared/Core/Src/Packet/Dispatcher.h"
 #include "Shared/Common/Src/Ids.h"
 #include "Shared/Common/Src/PacketId.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Core/Src/Network/SessionHolder.h"
 
 class Player;
@@ -22,28 +23,3 @@ struct PlayerContext
 };
 
 using PlayerPacketDispatcher = Packet::Dispatcher<PacketId, PlayerContext>;
-
-// **파싱을 디스패치 앞으로 당기는 등록 도우미.** 핸들러는 이미 해석된 TPacket을 받는다.
-//
-// 형식이 깨진 페이로드는 여기서 끝난다 -- 정상 클라이언트는 자기가 만든 구조체를 그대로
-// 보내므로 실패할 수 없고, 실패했다면 조작이거나 프로토콜 버전이 어긋난 것이다. 둘 다
-// 콘텐츠가 답할 내용이 아니라서 UnitOfWork를 열지 않고 로그만 남기고 버린다(예전에는
-// 핸들러마다 InvalidPayload를 UnitOfWork에 넣어 클라이언트에 돌려줬다).
-template <typename TPacket, typename THandler>
-void RegisterPacketHandler(PlayerPacketDispatcher& packetDispatcher, const PacketId packetId,
-                           THandler handler)
-{
-    packetDispatcher.Register(packetId,
-        [packetId, handler](const PlayerContext& context, const std::span<const byte> payload)
-        {
-            TPacket packet{};
-            if (!packet.Parse(payload))
-            {
-                LOG.Warning(ELogCategory::Zone, "페이로드 형식이 맞지 않아 버린다")
-                    .KV("PacketId", static_cast<uint16_t>(packetId))
-                    .KV("PayloadBytes", payload.size());
-                return;
-            }
-            handler(context, packet);
-        });
-}

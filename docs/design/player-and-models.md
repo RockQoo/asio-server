@@ -1,6 +1,6 @@
 # Player — 모델마다 다른 보호 방식
 
-대상 코드: `Server/ZoneServer/Src/Game/Player.h`
+대상 코드: `Server/ZoneServer/Src/Player/Player.h`
 
 ## 한 줄 요약
 

@@ -101,7 +101,7 @@
     <ClInclude Include="Src\StrongId.h" />
     <ClInclude Include="Src\TaskKind.h" />
     <ClInclude Include="Src\Packet\RelayEnvelope.h" />
-    <ClInclude Include="Src\Packet\Send.h" />
+    <ClInclude Include="Src\Packet\Wire.h" />
     <ClInclude Include="Src\Packet\LoginPackets.h" />
     <ClInclude Include="Src\Packet\ZoneLinkPackets.h" />
     <ClInclude Include="Src\Packet\ToolLinkPackets.h" />

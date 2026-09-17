@@ -41,11 +41,11 @@ public:
     [[nodiscard]] EErrorCode AddMail(Common::MailInfo info, Task::UnitOfWork& unitOfWork);
 
     // mailId를 서버가 배정하지 않고 **주어진 값 그대로** 되살린다. 삭제를 되돌릴 때
-    // (DelMailTask::Rollback) 쓰고, 나중에 DB에서 우편함을 불러올 때도 이 경로를 쓴다 --
+    // (RemoveMailTask::Rollback) 쓰고, 나중에 DB에서 우편함을 불러올 때도 이 경로를 쓴다 --
     // AddMail은 id를 새로 배정해버려서 원래 id를 복원할 수 없다.
     [[nodiscard]] EErrorCode InsertMail(Common::MailInfo info, Task::UnitOfWork& unitOfWork);
 
-    [[nodiscard]] EErrorCode DelMail(const Common::MailId mailId, Task::UnitOfWork& unitOfWork,
+    [[nodiscard]] EErrorCode RemoveMail(const Common::MailId mailId, Task::UnitOfWork& unitOfWork,
                                      const bool isTimeout);
 
     // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.

@@ -41,7 +41,7 @@ private:
 
 // 우편 삭제 기록. **삭제의 New 가 빈 MailInfo 이고 Prev 가 지워진 원본이다** -- 되돌리기는
 // Prev 를 그대로 다시 넣는 것이고, mailId 까지 같아야 하므로 원본 전체가 필요하다.
-class DelMailTask final : public Task::ITask
+class RemoveMailTask final : public Task::ITask
 {
 public:
     void Set(Common::MailInfo newInfo, Common::MailInfo prevInfo)
