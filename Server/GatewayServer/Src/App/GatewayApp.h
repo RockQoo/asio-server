@@ -1,9 +1,7 @@
 #pragma once
 
 #include "Server/Core/Src/Console/KeyBinder.h"
-#include "Server/Core/Src/Network/Connector.h"
-#include "Server/Core/Src/Network/IoContextPool.h"
-#include "Server/Core/Src/Network/Listener.h"
+#include "Server/Core/Src/Network/Service.h"
 #include "Server/Core/Src/Network/SessionManager.h"
 #include "Handler/C2GHandler.h"
 #include "Handler/W2GHandler.h"
@@ -27,13 +25,14 @@ private:
     void SetupSignalHandling();
 
     GatewayConfig config_;
-    Network::IoContextPool ioPool_;
+
+    // 클라이언트 accept 포트 하나 + World로 나가는 링크 하나를 같이 들고 있다.
+    Network::Service network_;
+
     Network::SessionManager sessionManager_;
     Network::SessionHolder worldLink_;
     C2GHandler clientHandler_;
     W2GHandler worldLinkHandler_;
-    std::shared_ptr<Network::Listener> clientListener_;
-    std::shared_ptr<Network::Connector> worldConnector_;
 
     // F키 테스트 하네스. 콜백은 전용 입력 스레드에서 돈다(서버 레인이 아니다).
     Console::KeyBinder keyBinder_;

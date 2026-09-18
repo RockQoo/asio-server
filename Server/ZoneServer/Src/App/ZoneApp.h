@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Server/Core/Src/Console/KeyBinder.h"
-#include "Server/Core/Src/Network/Connector.h"
-#include "Server/Core/Src/Network/IoContextPool.h"
+#include "Server/Core/Src/Network/Service.h"
 #include "Server/Core/Src/Processor/Group.h"
 #include "Player/PlayerRegistry.h"
 #include "App/ZoneDef.h"
@@ -44,7 +43,10 @@ private:
     void SetupSignalHandling();
 
     ZoneConfig config_;
-    Network::IoContextPool ioPool_;
+
+    // World로 나가는 링크 하나. 존 서버는 클라이언트를 직접 accept하지 않아서 Listener가 없다.
+    Network::Service network_;
+
     Network::SessionHolder worldLink_;
 
     // 선언 순서 = 생성 순서. 큐 그룹이 레지스트리보다 먼저 와야 한다 --
@@ -57,8 +59,6 @@ private:
     PlayerProcessor playerProcessor_;
     W2ZHandler worldLinkHandler_;
     MailExpiryService mailExpiryService_;
-
-    std::shared_ptr<Network::Connector> worldConnector_;
 
     // F키 테스트 하네스. 콜백은 전용 입력 스레드에서 돈다(레인이 아니다).
     Console::KeyBinder keyBinder_;

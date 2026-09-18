@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Worker/WorkerManager.h"
 
-#include "Server/Core/Src/Network/IoContextPool.h"
+#include "Server/Core/Src/Network/Service.h"
 #include "Server/Core/Src/Timer/RepeatingTimer.h"
 
 WorkerManager::WorkerManager(std::vector<ZoneDef> zoneDefs, const PoolSizes& poolSizes,
@@ -23,7 +23,7 @@ WorkerManager::~WorkerManager()
     Stop();
 }
 
-void WorkerManager::Start(Network::IoContextPool& ioPool, const std::chrono::milliseconds tickInterval)
+void WorkerManager::Start(Network::Service& network, const std::chrono::milliseconds tickInterval)
 {
     zoneGroup_.Start();
     broadcastGroup_.Start();
@@ -33,7 +33,7 @@ void WorkerManager::Start(Network::IoContextPool& ioPool, const std::chrono::mil
     tickTimers_.reserve(zoneDefs_.size());
     for (const auto& def : zoneDefs_)
     {
-        auto timer = std::make_unique<Timer::RepeatingTimer>(ioPool.Next());
+        auto timer = std::make_unique<Timer::RepeatingTimer>(network.Next());
 
         // 타이머는 I/O 스레드에서 만기되지만, tick 자체는 그 존의 레인으로 넘겨서 실행한다
         // -- 존 상태를 만지는 건 언제나 존 레인이어야 하기 때문이다.

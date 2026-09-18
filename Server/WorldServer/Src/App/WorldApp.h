@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Server/Core/Src/Console/KeyBinder.h"
-#include "Server/Core/Src/Network/IoContextPool.h"
-#include "Server/Core/Src/Network/Listener.h"
+#include "Server/Core/Src/Network/Service.h"
 #include "Server/Core/Src/Timer/RepeatingTimer.h"
 #include "Server/Core/Src/Pipeline/ProducerHolder.h"
 #include "Db/DbConnection.h"
@@ -38,10 +37,10 @@ private:
 
     WorldConfig config_;
 
-    // **소켓 단계.** IOCP 완료와 프레임 조립을 맡고, 파이프라인 레인(MessageProducer)과는
-    // 별개의 스레드 벌이다 -- 스레드 수를 셀 때 레인 스레드와 따로 세어야 한다.
-    // 이 단계를 레인으로 만들지 않은 근거: docs/design/network-lane.md
-    Network::IoContextPool ioPool_;
+    // **소켓 단계 전부** -- io 스레드와 accept 포트 셋을 여기가 들고 있다. IOCP 완료와 프레임
+    // 조립을 맡고, 파이프라인 레인(MessageProducer)과는 별개의 스레드 벌이다(스레드 수를 셀 때
+    // 따로 세어야 한다). 이 단계를 레인으로 만들지 않은 근거: docs/design/network-lane.md
+    Network::Service network_;
 
     // 둘 다 Mutexed다 -- 공지처럼 주인이 없는 경로가 있어 어피니티로는 지킬 수 없다.
     PlayerManager::Mutexed playerManager_;
@@ -63,9 +62,6 @@ private:
 
     // F키 입력 스레드. 콜백은 그 스레드에서 돌고, 서버 상태는 PushMsg로 레인에 넘긴다.
     Console::KeyBinder keyBinder_;
-    std::shared_ptr<Network::Listener> gatewayListener_;
-    std::shared_ptr<Network::Listener> zoneListener_;
-    std::shared_ptr<Network::Listener> toolListener_;
     std::unique_ptr<Timer::RepeatingTimer> statsTimer_;
     asio::signal_set signals_;
 };

@@ -6,7 +6,7 @@
 
 ZoneApp::ZoneApp(ZoneConfig config)
     : config_(std::move(config))
-    , ioPool_(config_.ioThreadCount)
+    , network_(config_.ioThreadCount)
     , playerGroup_("Player", config_.poolSizes.playerThreadCount, config_.slowTaskWarnThreshold)
     // 샤드 개수를 플레이어 레인 스레드 수와 맞춘다 -- 둘 다 `% N`으로 나누므로 같아야
     // "그 샤드를 만지는 스레드가 항상 하나"가 성립한다(PlayerRegistry.h 주석 참고).
@@ -15,7 +15,7 @@ ZoneApp::ZoneApp(ZoneConfig config)
     , playerProcessor_(playerRegistry_, zoneWorkers_, zoneWorkers_.Broadcaster(), worldLink_, mailRegistry_)
     , worldLinkHandler_(playerProcessor_, playerGroup_, worldLink_, config_.zones)
     , mailExpiryService_(mailRegistry_, worldLink_)
-    , signals_(ioPool_.At(0), SIGINT, SIGTERM)
+    , signals_(network_.At(0), SIGINT, SIGTERM)
 {
 }
 
@@ -24,16 +24,16 @@ ZoneApp::~ZoneApp() = default;
 void ZoneApp::Run()
 {
     playerGroup_.Start();
-    zoneWorkers_.Start(ioPool_, config_.tickInterval);
+    zoneWorkers_.Start(network_, config_.tickInterval);
 
-    worldConnector_ = std::make_shared<Network::Connector>(ioPool_.At(0), config_.worldHost,
-                                                            config_.worldPort, worldLinkHandler_);
-    worldConnector_->Start();
+    // 존은 accept하지 않는다 -- World로 나가는 링크 하나가 전부다.
+    network_.AddConnector(config_.worldHost, config_.worldPort, worldLinkHandler_);
+    network_.Start();
 
     // 어느 레인에도 속하지 않고 io_context 하나를 빌려서 도는 유지보수 타이머다 --
     // 존 레인/플레이어 레인과 겹치지 않아야 Mutexed가 방어하는 "진짜 교차 스레드"
     // 시나리오가 성립한다(Model 참고).
-    mailExpiryTimer_ = std::make_unique<Timer::RepeatingTimer>(ioPool_.Next());
+    mailExpiryTimer_ = std::make_unique<Timer::RepeatingTimer>(network_.Next());
     mailExpiryTimer_->Start(config_.mailSweepInterval, [this]
     {
         const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
@@ -43,7 +43,7 @@ void ZoneApp::Run()
 
     // 레인별 대기/처리 시간을 주기적으로 남긴다. **부하 테스트에서 "어디가 밀렸나"를
     // 판정할 유일한 수단**이라 켜 둔다 -- 처리량 수치만 보면 느리다는 것까지만 알 수 있다.
-    statsTimer_ = std::make_unique<Timer::RepeatingTimer>(ioPool_.Next());
+    statsTimer_ = std::make_unique<Timer::RepeatingTimer>(network_.Next());
     statsTimer_->Start(config_.statsDumpInterval, [this]
     {
         playerGroup_.LogStats();
@@ -73,8 +73,7 @@ void ZoneApp::Run()
         .KV("WorldHost", config_.worldHost).KV("WorldPort", config_.worldPort)
         .KV("TickMs", config_.tickInterval.count());
 
-    ioPool_.Run();
-    ioPool_.Join();
+    network_.Join();
 
     if (mailExpiryTimer_)
     {
@@ -96,11 +95,7 @@ void ZoneApp::Run()
 
 void ZoneApp::Stop()
 {
-    if (worldConnector_)
-    {
-        worldConnector_->Stop();
-    }
-    ioPool_.Stop();
+    network_.Stop();
 }
 
 void ZoneApp::SetupSignalHandling()

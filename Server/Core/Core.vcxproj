@@ -130,6 +130,7 @@
     <ClInclude Include="Src\Network\SessionManager.h" />
     <ClInclude Include="Src\Network\SessionHolder.h" />
     <ClInclude Include="Src\Network\IoContextPool.h" />
+    <ClInclude Include="Src\Network\Service.h" />
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
     <ClInclude Include="Src\Thread\Mutexed.h" />
     <ClInclude Include="Src\Processor\Stats.h" />
@@ -162,6 +163,7 @@
     <ClCompile Include="Src\Network\Connector.cpp" />
     <ClCompile Include="Src\Network\SessionManager.cpp" />
     <ClCompile Include="Src\Network\IoContextPool.cpp" />
+    <ClCompile Include="Src\Network\Service.cpp" />
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp" />
     <ClCompile Include="Src\Base\ConfigFile.cpp" />
     <ClCompile Include="Src\Base\RUID.cpp" />

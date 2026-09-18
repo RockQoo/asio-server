@@ -10,7 +10,7 @@
 
 namespace Network
 {
-    class IoContextPool;
+    class Service;
 }
 
 namespace Timer
@@ -49,7 +49,7 @@ public:
     WorkerManager(const WorkerManager&) = delete;
     WorkerManager& operator=(const WorkerManager&) = delete;
 
-    void Start(Network::IoContextPool& ioPool, const std::chrono::milliseconds tickInterval);
+    void Start(Network::Service& network, const std::chrono::milliseconds tickInterval);
     void Stop();
 
     // 존 레인으로 메시지를 보낸다. ownerId가 zoneId이므로 같은 존의 일은 항상 같은

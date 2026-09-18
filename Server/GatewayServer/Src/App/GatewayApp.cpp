@@ -4,20 +4,18 @@
 
 GatewayApp::GatewayApp(GatewayConfig config)
     : config_(std::move(config))
-    , ioPool_(config_.ioThreadCount)
+    , network_(config_.ioThreadCount)
     , clientHandler_(sessionManager_, worldLink_)
     , worldLinkHandler_(sessionManager_, worldLink_)
-    , signals_(ioPool_.At(0), SIGINT, SIGTERM)
+    , signals_(network_.At(0), SIGINT, SIGTERM)
 {
 }
 
 void GatewayApp::Run()
 {
-    worldConnector_ = std::make_shared<Network::Connector>(ioPool_.At(0), config_.worldHost, config_.worldPort, worldLinkHandler_);
-    worldConnector_->Start();
-
-    clientListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.clientPort, clientHandler_);
-    clientListener_->Start();
+    network_.AddConnector(config_.worldHost, config_.worldPort, worldLinkHandler_);
+    network_.AddListener(config_.clientPort, clientHandler_);
+    network_.Start();
 
     SetupSignalHandling();
 
@@ -27,8 +25,7 @@ void GatewayApp::Run()
         .KV("ClientPort", config_.clientPort)
         .KV("WorldHost", config_.worldHost).KV("WorldPort", config_.worldPort);
 
-    ioPool_.Run();
-    ioPool_.Join();
+    network_.Join();
 
     keyBinder_.Stop();
 
@@ -37,15 +34,7 @@ void GatewayApp::Run()
 
 void GatewayApp::Stop()
 {
-    if (clientListener_)
-    {
-        clientListener_->Stop();
-    }
-    if (worldConnector_)
-    {
-        worldConnector_->Stop();
-    }
-    ioPool_.Stop();
+    network_.Stop();
 }
 
 void GatewayApp::SetupSignalHandling()

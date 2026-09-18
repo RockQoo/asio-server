@@ -18,9 +18,9 @@ namespace
 
 WorldApp::WorldApp(WorldConfig config)
     : config_(std::move(config))
-    , ioPool_(config_.ioThreadCount)
+    , network_(config_.ioThreadCount)
     , dbPool_(config_.dbConnectionString)
-    , signals_(ioPool_.At(0), SIGINT, SIGTERM)
+    , signals_(network_.At(0), SIGINT, SIGTERM)
 {
 }
 
@@ -34,7 +34,7 @@ WorldApp::~WorldApp()
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 프로세스의 레인과 그 위에 얹히는 프로세서. **World의 레인 구성은 여기가 전부다.**
 //
-//   (소켓)   ioPool_ -- IOCP 완료 + 프레임 조립. 파이프라인 레인이 아니다
+//   (소켓)   network_ -- accept 포트 셋 + IOCP 완료 + 프레임 조립. 파이프라인 레인이 아니다
 //            (근거: docs/design/network-lane.md)
 //   BASIC    Basic / Login / Tool
 //   DB       Db
@@ -83,17 +83,14 @@ void WorldApp::Run()
     InitProducers();
     Pipeline::ProducerHolder::Instance().Start();
 
-    gatewayListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.gatewayPort, gatewayLinkHandler_);
-    gatewayListener_->Start();
-
-    zoneListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.zonePort, zoneLinkHandler_);
-    zoneListener_->Start();
-
-    toolListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.toolPort, toolLinkHandler_);
-    toolListener_->Start();
+    // 포트마다 상대가 다르다. 셋 다 같은 io 스레드 벌을 쓰고, 붙은 세션은 Service가 나눠 붙인다.
+    network_.AddListener(config_.gatewayPort, gatewayLinkHandler_);
+    network_.AddListener(config_.zonePort, zoneLinkHandler_);
+    network_.AddListener(config_.toolPort, toolLinkHandler_);
+    network_.Start();
 
     // **레인이 돌기 시작한 뒤에 건다** -- 타이머가 만기를 TIMER 레인에 넣기 때문이다.
-    timerProcessor_->Start(ioPool_.Next());
+    timerProcessor_->Start(network_.Next());
 
     SetupSignalHandling();
     keyBinder_.Start();
@@ -107,8 +104,7 @@ void WorldApp::Run()
         .KV("TimerLanes", kTimerLaneCount)
         .KV("LaneBackend", Pipeline::ToString(config_.laneBackend));
 
-    ioPool_.Run();
-    ioPool_.Join();
+    network_.Join();
 
     // **일을 주는 쪽부터 끊는다.** MessageProducer::Stop()은 남은 일을 소진한 뒤 스레드를
     // 끝내므로, 주는 쪽이 먼저 서야 받는 쪽이 살아 있는 동안 그 일을 마저 처리한다.
@@ -123,19 +119,8 @@ void WorldApp::Run()
 
 void WorldApp::Stop()
 {
-    if (gatewayListener_)
-    {
-        gatewayListener_->Stop();
-    }
-    if (zoneListener_)
-    {
-        zoneListener_->Stop();
-    }
-    if (toolListener_)
-    {
-        toolListener_->Stop();
-    }
-    ioPool_.Stop();
+    // 포트를 몇 개 열었든 여기는 한 줄이다 -- 포트가 늘어도 이 함수를 같이 고칠 일이 없다.
+    network_.Stop();
 }
 
 void WorldApp::SetupSignalHandling()

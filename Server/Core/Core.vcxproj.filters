@@ -115,6 +115,9 @@
     <ClInclude Include="Src\Network\IoContextPool.h">
       <Filter>Network</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Network\Service.h">
+      <Filter>Network</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Timer\RepeatingTimer.h">
       <Filter>Timer</Filter>
     </ClInclude>
@@ -191,6 +194,9 @@
       <Filter>Network</Filter>
     </ClCompile>
     <ClCompile Include="Src\Network\IoContextPool.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Network\Service.cpp">
       <Filter>Network</Filter>
     </ClCompile>
     <ClCompile Include="Src\Timer\RepeatingTimer.cpp">
