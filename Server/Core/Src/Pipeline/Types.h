@@ -28,6 +28,27 @@ namespace Pipeline
         int64_t value{};
     };
 
+    // 주인 하나가 어느 레인으로 가는지. **이 규칙의 정의는 여기 하나뿐이어야 한다.**
+    //
+    // 레인 밖에서 같은 규칙으로 샤딩하는 자료구조(존 서버의 플레이어 레지스트리처럼 락 없이
+    // 쓰려고 나눠 둔 것)가 반드시 이 함수를 불러야 한다. 두 군데서 따로 계산하면 "같은
+    // 샤드인데 다른 레인"이 생기고, 그러면 락 없는 맵에 두 스레드가 동시에 들어간다 --
+    // 크래시가 아니라 조용히 깨지는 쪽이다.
+    //
+    // **useHash 를 끄는 경우**: 주인 값이 0부터 촘촘한 서수일 때다. 그때는 나머지 연산이
+    // `ordinal % N == ordinal` 이라 **1:1이 보장된다**. 해시를 쓰면 오히려 흩뜨려서 서로 다른
+    // 서수가 같은 레인에 얹힐 수 있다.
+    //
+    // 반대로 주인이 드문드문한 값(세션 id, playerId)이면 켜 둔다 -- 나머지 연산만으로는
+    // 하위 비트가 편중될 수 있다.
+    [[nodiscard]] inline size_t LaneIndexOf(const OwnerId owner, const size_t laneCount,
+                                            const bool useHash) noexcept
+    {
+        const auto key = useHash ? std::hash<int64_t>()(owner.value)
+                                 : static_cast<size_t>(static_cast<uint64_t>(owner.value));
+        return key % laneCount;
+    }
+
     // 레인 하나 = **스레드 풀 하나 + 프로세서 목록 하나**.
     //
     // **왜 Core에 있고 불변 규칙 1을 깨지 않는가**: 값 전부가 "메시지가 거치는 단계"이지

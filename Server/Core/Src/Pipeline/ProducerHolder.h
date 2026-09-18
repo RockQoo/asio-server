@@ -25,11 +25,15 @@ namespace Pipeline
         ProducerHolder& operator=(const ProducerHolder&) = delete;
 
         // laneCount = strand 개수 = 그 레인이 띄우는 스레드 개수.
+        //
+        // **useHash 를 끄는 레인은 예외적이다.** 주인이 0부터 촘촘한 서수라서 나머지 연산이
+        // 1:1을 보장하는 경우에만 끈다(존 서버의 TICK 레인이 그렇다 -- "N번 존의 틱은 반드시
+        // N번 스레드"를 보장해야 박자가 흔들리지 않는다). 나머지는 전부 켠 채로 둔다.
         void InitProducer(const EProducerType producerType, const int32_t laneCount,
-                          const ELaneBackend backend)
+                          const ELaneBackend backend, const bool useHash = true)
         {
             producers_[static_cast<size_t>(producerType)] =
-                std::make_unique<MessageProducer>(producerType, laneCount, backend);
+                std::make_unique<MessageProducer>(producerType, laneCount, backend, useHash);
         }
 
         [[nodiscard]] MessageProducer* GetProducer(const EProducerType producerType) const noexcept

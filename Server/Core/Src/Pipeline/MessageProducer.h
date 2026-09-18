@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Server/Core/Src/Base/CoreException.h"
 #include "Server/Core/Src/Pipeline/MessageProcessor.h"
 #include "Server/Core/Src/Pipeline/QueueLaneSet.h"
 #include "Server/Core/Src/Pipeline/StrandLaneSet.h"
@@ -15,12 +16,21 @@ namespace Pipeline
     class MessageProducer final
     {
     public:
+        // useHash -- 주인을 레인에 배정하는 방식. 기본은 해시이고, **주인이 0부터 촘촘한
+        // 서수인 레인만 끈다**(그래야 "N번 주인은 반드시 N번 레인"이 보장된다).
+        // 자세한 건 LaneIndexOf 주석.
         MessageProducer(const EProducerType producerType, const int32_t laneCount,
-                        const ELaneBackend backend)
+                        const ELaneBackend backend, const bool useHash)
             : producerType_(producerType)
             , laneCount_(laneCount)
+            , useHash_(useHash)
             , lanes_(MakeLaneSet(backend, static_cast<size_t>(laneCount)))
         {
+            if (laneCount <= 0)
+            {
+                throw Base::CoreException(Base::ECoreErrorCode::InvalidArgument,
+                                          "MessageProducer: laneCount는 0보다 커야 한다");
+            }
         }
 
         ~MessageProducer() { Stop(); }
@@ -45,10 +55,10 @@ namespace Pipeline
         // ── 라우팅 ────────────────────────────────────────────────────────────
         void PushMsg(MessagePtr message) const
         {
-            // ① ownerId 해시 -> 어느 레인으로 갈지. 같은 ownerId는 항상 같은 레인이라
-            //    순서가 보장되고 그 주인의 상태에 락이 필요 없다.
-            const auto laneIndex =
-                std::hash<int64_t>()(message->msgOwnerId.value) % lanes_->LaneCount();
+            // ① ownerId -> 어느 레인으로 갈지. 같은 ownerId는 항상 같은 레인이라 순서가
+            //    보장되고 그 주인의 상태에 락이 필요 없다.
+            //    **레인 밖에서 같은 규칙으로 샤딩하는 쪽도 LaneIndexOf를 불러야 한다.**
+            const auto laneIndex = LaneIndexOf(message->msgOwnerId, lanes_->LaneCount(), useHash_);
 
             // ② ProcessorId -> 프로세서를 찾아 메시지에 박아둔다(아직 호출하지 않는다).
             //    **여기서 실패해야 호출자에게 즉시 알릴 수 있다.** 큐에 넣은 뒤엔 못 알린다.
@@ -89,6 +99,7 @@ namespace Pipeline
 
         const EProducerType producerType_{};
         const int32_t laneCount_{};
+        const bool useHash_{true};
 
         std::vector<std::unique_ptr<MessageProcessor>> processors_;
 
