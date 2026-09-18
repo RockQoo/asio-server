@@ -128,16 +128,35 @@ void BasicProcessor::RegistHandler()
 }
 
 // 존 링크가 받는 패킷 목록 + 그 주인이 페이로드 어디에 있나.
+// 이 세션의 주인을 정한다. **로그인을 통과했으면 playerId, 아니면 세션 id**(불변 규칙 3).
+//
+// 로그인 전에는 playerId 가 없으므로 세션 id 말고는 쓸 것이 없고, 통과한 뒤에는 그 사람의
+// 일이 -- 존에서 올라온 것이든 게이트웨이에서 온 것이든 -- 같은 레인에 모여야 한다.
+Pipeline::OwnerId BasicProcessor::OwnerOf(const Network::SessionId clientSessionId) const
+{
+    const auto playerId = playerManager_->FindPlayerId(clientSessionId);
+    if (playerId && playerId->IsValid())
+    {
+        return Pipeline::OwnerId{playerId->Value()};
+    }
+
+    return Pipeline::OwnerId{static_cast<int64_t>(clientSessionId)};
+}
+
 void BasicProcessor::RegisterZoneOwnerIds()
 {
-    zoneOwnerIds_.Register<uint32_t>(PacketId::Z2WZoneRegister);                              // zoneId (offset 0)
-    zoneOwnerIds_.Register<Network::SessionId>(PacketId::Z2WRelay);                           // RelayEnvelope 맨 앞
-    zoneOwnerIds_.Register<Network::SessionId>(PacketId::Z2WZoneTransfer, sizeof(uint32_t));  // zoneId 뒤
+    // **존에서 오는 것은 전부 로그인 뒤라 주인이 playerId 다**(불변 규칙 3). 다만 값이
+    // 페이로드 어디에 있는지가 패킷마다 달라서 오프셋이 제각각이고, 봉투로 오는 것만
+    // 세션 id 라 뒤에서 캐시로 바꿔 준다.
+    zoneOwnerIds_.Register<uint32_t>(PacketId::Z2WZoneRegister);   // zoneId -- 사람이 주인이 아니다
+    zoneOwnerIds_.Register<Network::SessionId>(PacketId::Z2WRelay);  // RelayEnvelope 맨 앞 = 세션 id
 
-    // Task::UnitOfWork::Serialize 가 스트림 맨 앞에 넣어둔 ownerId(= clientSessionId).
-    // 그 앞에 Zone 이 붙인 playerId(int64) + requestId(int64) 가 있다.
-    zoneOwnerIds_.Register<uint64_t>(PacketId::Z2WUnitOfWorkStream,
-                                     sizeof(Common::PlayerId) + sizeof(Base::RUID));
+    // zoneId(4) + clientSessionId(8) 뒤가 playerId 다.
+    zoneOwnerIds_.Register<int64_t>(PacketId::Z2WZoneTransfer,
+                                    sizeof(uint32_t) + sizeof(uint64_t));
+
+    // 이 패킷은 맨 앞이 playerId 다(그 뒤가 requestId + 태스크 스트림).
+    zoneOwnerIds_.Register<int64_t>(PacketId::Z2WUnitOfWorkStream);
 }
 
 // ── ② 껍질 까기 ─────────────────────────────────────────────────────────────
@@ -157,9 +176,11 @@ void BasicProcessor::OnRecvStream(const Pipeline::OwnerId& /*owner*/, const Recv
 
     // **자기 자신에게 다시 넣는다.** 프로세서를 바꾸는 게 아니라 주인을 바꿔 스레드를 옮기는
     // 것이 목적이다 -- 여기서 비로소 접속자 수만큼 갈라진다.
+    //
+    // **로그인을 통과했으면 주인은 playerId 다**(불변 규칙 3). 접속 종료도 이 경로로 들어와
+    // 같이 바뀌므로, "캐시를 지운 뒤에 도착한 변경이 되살리는" 순서 역전이 생기지 않는다.
     Pipeline::PushMsg<Pipeline::EProducerType::Basic>(
-        EWorldMsg::FromClientStream, GetProcessorId(), Pipeline::OwnerId{static_cast<int64_t>(*clientSessionId)},
-        body);
+        EWorldMsg::FromClientStream, GetProcessorId(), OwnerOf(*clientSessionId), body);
 }
 
 // ── ③ 콘텐츠 ────────────────────────────────────────────────────────────────
@@ -181,8 +202,14 @@ void BasicProcessor::OnRecvZoneStream(const Pipeline::OwnerId& /*owner*/, const 
         return;
     }
 
+    // Z2WRelay 만 봉투에 세션 id 가 실려 온다 -- 나머지는 이미 playerId 이거나 사람이
+    // 주인이 아니다.
+    const auto owner = body.packetId == PacketId::Z2WRelay
+                           ? OwnerOf(static_cast<Network::SessionId>(*ownerId))
+                           : Pipeline::OwnerId{static_cast<int64_t>(*ownerId)};
+
     Pipeline::PushMsg<Pipeline::EProducerType::Basic>(
-        EWorldMsg::FromZoneStream, GetProcessorId(), Pipeline::OwnerId{static_cast<int64_t>(*ownerId)}, body);
+        EWorldMsg::FromZoneStream, GetProcessorId(), owner, body);
 }
 
 // **owner = 패킷마다 다르다**(clientSessionId 또는 zoneId).
@@ -463,27 +490,31 @@ void BasicProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zone
     //
     // **스트림 해석은 이미 끝났다**(디스패치 앞에서). 잘린 스트림은 여기까지 오지 않으므로
     // 아래 트랜잭션 안에서 중간에 빠져나갈 길이 없다 -- 그게 이 패킷에 구조체를 둔 이유다.
-    const auto clientSessionId = static_cast<Network::SessionId>(packet.ownerId);
+    // **스트림의 주인은 playerId 다**(불변 규칙 3) -- 존과 World 가 같은 값을 쓴다.
+    const Common::PlayerId playerId{static_cast<int64_t>(packet.ownerId)};
 
-    // **DB에 쓸 player_id는 캐시에서 꺼낸다.** 존이 실어 보낸 값을 그대로 쓰지 않는 이유는
-    // 신뢰 경계다 -- DB 키는 로그인이 확정한 값만 쓴다.
-    const auto playerId = playerManager_->FindPlayerId(clientSessionId);
-    if (!playerId || !playerId->IsValid())
+    // **캐시에 없는 playerId 는 버린다.** 캐시에는 로그인이 확정한 사람만 있으므로, 이
+    // 조회가 곧 "존이 실어 보낸 주인이 진짜인가"의 검증이다 -- DB 키를 존이 부르는 대로
+    // 쓰지 않는 신뢰 경계가 여기다.
+    const auto clientSessionIdFound = playerManager_->FindSessionByPlayerId(playerId);
+    if (!clientSessionIdFound)
     {
         // 접속이 이미 끊겨 캐시가 사라진 뒤다. 되돌릴 방법이 없으므로 사실만 남긴다.
         LOG.Error(ELogCategory::Db, "UnitOfWork 스트림의 플레이어를 찾을 수 없어 버린다")
-            .KV("ClientSessionId", clientSessionId).KV("RequestId", packet.requestId)
+            .KV("PlayerId", playerId).KV("RequestId", packet.requestId)
             .KV("TaskCount", packet.tasks.size());
         return;
     }
 
+    const auto clientSessionId = *clientSessionIdFound;
+
     // 존이 실은 값과 캐시가 다르면 둘 중 하나가 어긋난 것이다. 지금은 캐시를 믿고 진행하되
     // 사실을 남긴다 -- **여기가 위조 검증이 들어갈 자리**다(태스크 내용을 캐시와 대조).
-    if (packet.playerId != *playerId)
+    if (packet.playerId != playerId)
     {
         LOG.Error(ELogCategory::Db, "존이 실은 playerId가 캐시와 다르다")
             .KV("ClientSessionId", clientSessionId)
-            .KV("FromZone", packet.playerId).KV("FromCache", *playerId);
+            .KV("FromZone", packet.playerId).KV("FromOwner", playerId);
     }
 
     // **UnitOfWork 하나 = AutoSpCommands 하나 = 트랜잭션 하나.** 우편 지급과 골드 차감처럼
@@ -492,7 +523,7 @@ void BasicProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zone
     // 주인이 clientSessionId가 아니라 playerId인 이유: DB 작업은 세션이 아니라 계정에
     // 묶이는 일이라, 재접속해서 세션이 바뀌어도 같은 DB 레인을 유지해야 한 계정의 쓰기가
     // 도착 순서대로 직렬화된다(LoginProcessor::LoadPlayerContent 주석과 짝).
-    AutoSpCommands autoSpCommands(static_cast<uint64_t>(playerId->Value()), true);
+    AutoSpCommands autoSpCommands(static_cast<uint64_t>(playerId.Value()), true);
 
     for (const auto& task : packet.tasks)
     {
@@ -505,10 +536,10 @@ void BasicProcessor::HandleUnitOfWorkStream(const Network::Session::SPtr& /*zone
         case Common::ETaskCategory::Mail:
             ApplyMailTask(playerManager_, autoSpCommands,
                           static_cast<Common::EMailTask>(Common::SubTaskOf(task.kind)),
-                          clientSessionId, *playerId, task.payload);
+                          clientSessionId, playerId, task.payload);
             break;
         case Common::ETaskCategory::Currency:
-            ApplyCurrencyTask(playerManager_, autoSpCommands, clientSessionId, *playerId, task.payload);
+            ApplyCurrencyTask(playerManager_, autoSpCommands, clientSessionId, playerId, task.payload);
             break;
         default:
             // 이 빌드가 모르는 카테고리 -- 길이 프리픽스 덕분에 건너뛰기만 하면

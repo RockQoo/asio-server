@@ -11,7 +11,20 @@ void PlayerManager::Add(const Network::SessionId clientSessionId,
 
 void PlayerManager::Remove(const Network::SessionId clientSessionId)
 {
-    players_.erase(clientSessionId);
+    const auto it = players_.find(clientSessionId);
+    if (it == players_.end())
+    {
+        return;
+    }
+
+    // 두 색인을 같이 지운다. 한쪽만 지우면 그 playerId 로 들어온 변경이 이미 사라진
+    // 세션을 가리키게 된다.
+    if (it->second.playerId.IsValid())
+    {
+        sessionByPlayerId_.erase(it->second.playerId);
+    }
+
+    players_.erase(it);
 }
 
 void PlayerManager::SetZoneId(const Network::SessionId clientSessionId, const Common::ZoneId zoneId)
@@ -37,6 +50,8 @@ void PlayerManager::SetAuthenticated(const Network::SessionId clientSessionId, c
     it->second.playerName = std::move(playerName);
     it->second.mails = std::move(mails);
     it->second.currencies = std::move(currencies);
+
+    sessionByPlayerId_[playerId] = clientSessionId;
 
     // **마지막에 세운다.** 이 플래그가 곧 "게임 패킷을 존으로 흘려도 된다"는 신호라,
     // 캐시가 다 채워지기 전에 켜지면 안 된다.
@@ -80,6 +95,16 @@ std::optional<Common::PlayerId> PlayerManager::FindPlayerId(const Network::Sessi
         return std::nullopt;
     }
     return it->second.playerId;
+}
+
+std::optional<Network::SessionId> PlayerManager::FindSessionByPlayerId(const Common::PlayerId playerId) const
+{
+    const auto it = sessionByPlayerId_.find(playerId);
+    if (it == sessionByPlayerId_.end())
+    {
+        return std::nullopt;
+    }
+    return it->second;
 }
 
 std::optional<PlayerInfo> PlayerManager::Find(const Network::SessionId clientSessionId) const

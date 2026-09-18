@@ -75,6 +75,9 @@ private:
 
     // 존 링크는 패킷마다 주인도 위치도 다르다. 기동 때 한 번 채우고 이후 읽기만 한다.
     void RegisterZoneOwnerIds();
+
+    // 로그인 전이면 세션 id, 뒤면 playerId (불변 규칙 3).
+    [[nodiscard]] Pipeline::OwnerId OwnerOf(const Network::SessionId clientSessionId) const;
     Packet::OwnerIdTable<PacketId> zoneOwnerIds_;
 
     // Gateway 링크에서 온 패킷 / Zone 링크에서 온 패킷. 표를 둘로 나눠 둔 이유는 **어느

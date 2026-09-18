@@ -82,6 +82,10 @@ public:
     // 않는다 -- 태스크 하나마다 불리는 자리다.
     [[nodiscard]] std::optional<Common::PlayerId> FindPlayerId(const Network::SessionId clientSessionId) const;
 
+    // 반대 방향. **로그인을 통과한 사람만 찾힌다** -- 그래서 이 조회가 곧 "존이 실어 보낸
+    // 주인이 진짜인가"의 검증을 겸한다.
+    [[nodiscard]] std::optional<Network::SessionId> FindSessionByPlayerId(const Common::PlayerId playerId) const;
+
     // **값으로 복사해서 돌려준다.** 참조를 주면 호출부가 락을 벗어난 뒤에도 그걸 들고 있을
     // 수 있고, 그때 다른 스레드가 Remove하면 댕글링이다. 콘텐츠 캐시가 커지면 이 복사가
     // 비싸지므로, 라우팅만 필요한 자리는 아래 FindRoute를 쓴다.
@@ -105,4 +109,9 @@ public:
 
 private:
     std::unordered_map<Network::SessionId, PlayerInfo> players_;
+
+    // playerId -> clientSessionId. **로그인 뒤에만 채워진다** -- 그 전에는 playerId 가 없다.
+    // 게이트웨이 쪽 입구는 세션 id 로 들어오고 존 쪽 입구는 playerId 로 들어와서, 두 입구를
+    // 잇는 데 이 색인이 필요하다.
+    std::unordered_map<Common::PlayerId, Network::SessionId> sessionByPlayerId_;
 };
