@@ -5,12 +5,13 @@
 #include "Server/Common/Src/Ids.h"
 #include "Server/Core/Src/Base/RUID.h"
 #include "Server/Core/Src/Packet/BinaryReader.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
 
 namespace Common
 {
-    // 운영툴 링크의 고정 레이아웃 페이로드들. 가변 길이(문자열이 섞인) 패킷은 구조체를 두지
-    // 않고 BinaryWriter/BinaryReader로 직접 쓰고 읽으며, 그 와이어 포맷은 이 파일 아래쪽
-    // 주석에 모아 적어둔다(ZoneLinkPackets.h의 UnitOfWorkStream과 같은 방식).
+    // 운영툴 링크의 고정 레이아웃 페이로드들. 가변 길이(문자열이나 목록이 섞인) 패킷도
+    // 자기 구조체를 갖고, 고정 레이아웃이 아니라 Serialize()/Parse() 로 직접 쓰고 읽는다
+    // (.claude/rules/packet-naming.md -- 예외 없이 패킷 하나에 구조체 하나).
 #pragma pack(push, 1)
     struct W2THelloResult
     {
@@ -143,8 +144,59 @@ namespace Common
     // 툴을 안 고쳤을 때 "패킷이 이상하게 파싱되는" 대신 접속 단계에서 바로 걸러내기 위함이다.
     inline constexpr uint32_t kToolLinkProtocolVersion = 1;
 
-    // 가변 길이 패킷(ToolHello / NoticeRequest / MailSendRequest / CouponChunkPush /
-    // ClientListReply)의 바디 구조는 docs/design/wire-format.md 에 있다.
+    // 접속 중인 클라이언트 목록 응답.
+    //
+    //   uint32 requestId, uint32 count, count 개의 W2TClientListEntry
+    //
+    // **개수를 보내는 쪽이 자른다.** 항목이 12바이트라 MaxBodySize(8192)를 넘기면 받는 쪽
+    // Buffer 가 예외를 던지고 연결이 끊긴다 -- 이 링크는 재연결이 없어서 그러면 운영툴이
+    // 통째로 떨어진다. 우편 대상을 고르기 위한 목록이라 전수 조회가 필수는 아니다.
+    struct W2TClientList
+    {
+        static constexpr PacketId kPacketId = PacketId::W2TClientList;
+
+        // 한 패킷에 실을 수 있는 최대 항목 수. Header::MaxBodySize() 가 8192 이고 항목
+        // 하나가 12바이트라 여유를 둬서 500개로 잡았다(8 + 500*12 = 6,008바이트).
+        static constexpr size_t kMaxEntries = 500;
+
+        uint32_t requestId{};
+        std::vector<W2TClientListEntry> entries;
+
+        [[nodiscard]] std::vector<byte> Serialize() const
+        {
+            Packet::BinaryWriter binaryWriter;
+            binaryWriter.Write(requestId);
+            binaryWriter.Write(static_cast<uint32_t>(entries.size()));
+            for (const auto& entry : entries)
+            {
+                binaryWriter.Write(entry);
+            }
+            return binaryWriter.MoveBuffer();
+        }
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            uint32_t count{};
+            if (!binaryReader.Read(requestId) || !binaryReader.Read(count))
+            {
+                return false;
+            }
+
+            entries.resize(count);
+            for (auto& entry : entries)
+            {
+                if (!binaryReader.Read(entry))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    };
+
+    // 가변 길이 패킷의 바디 구조는 docs/design/wire-format.md 에 있다.
     //
     // 주의: CouponChunkPush는 MaxBodySize(8192) 때문에 한 패킷에 250개 정도가 상한이라,
     // 운영툴이 "DB 벌크 청크"와 "World 전송 청크"를 다른 크기로 나눠 쓴다.

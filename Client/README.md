@@ -35,7 +35,7 @@ bat\start_client.bat 2 Debug auto   :: 창 2개, 자동 순회 (방향을 서로
 **`ZoneLayout.cs`는 서버 `ParseZoneList`의 `kZoneSize`/`kZonesPerRow`/`kZoneRows`를 복제한
 것이다.** 한쪽만 고치면 화면 경계와 실제 핸드오프 지점이 어긋난다 — 반드시 짝을 맞출 것.
 
-**와이어 프로토콜 정의가 아직 서버 C++ 헤더에만 있다**(`Server/ZoneServer/Src/Packet/ZonePackets.h`,
-`Server/WorldServer/Src/Packet/ZoneLinkPackets.h`). 이 클라이언트가 같은 포맷을 C#으로 다시
+**와이어 프로토콜 정의가 아직 서버 C++ 헤더에만 있다**(`Server/Common/Src/Packet/ZonePackets.h`,
+`Server/Common/Src/Packet/ZoneLinkPackets.h`). 이 클라이언트가 같은 포맷을 C#으로 다시
 정의하고 있어서, 필드가 바뀌면 조용히 어긋난다. `Shared/Protocol/`에 단일 스키마를 두고 각
 언어를 생성하는 방식으로 옮기는 것이 남은 숙제다.

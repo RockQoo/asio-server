@@ -75,10 +75,6 @@ private:
     [[nodiscard]] bool InjectClientPacket(const Network::SessionId clientSessionId, const PacketId innerPacketId,
                                           const std::span<const byte> innerPayload) const;
 
-    // ClientListReply 한 패킷에 담을 항목 수 상한. Header::MaxBodySize()가 8192이고
-    // 항목 하나가 12바이트라 여유를 둬서 500개로 잡았다(8 + 500*12 = 6008바이트).
-    static constexpr size_t kMaxClientListEntries = 500;
-
     PlayerManager::Mutexed& playerManager_;
     ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
 

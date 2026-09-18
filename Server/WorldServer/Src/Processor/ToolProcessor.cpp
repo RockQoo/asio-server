@@ -363,7 +363,8 @@ void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
     // 읽기 락 한 번으로 모은다. 샤딩이던 시절에는 샤드 스레드들이 공유 버퍼에 밀어 넣고
     // 마지막 스레드가 취합했는데, 그 취합 버퍼를 지키려고 여기에만 Mutexed가 하나 더
     // 있었다 -- 매니저 자체가 Mutexed가 되면서 둘 다 없어졌다.
-    std::vector<Common::W2TClientListEntry> collected;
+    Common::W2TClientList packet;
+    packet.requestId = request.requestId;
     uint32_t totalCount = 0;
 
     playerManager_->ForEach(
@@ -373,7 +374,7 @@ void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
 
             // MaxBodySize를 넘기면 받는 쪽 Buffer가 예외를 던지므로 상한에서 자른다.
             // 이 목록은 우편 대상을 고르기 위한 것이라 전수 조회가 필수는 아니다.
-            if (collected.size() >= kMaxClientListEntries)
+            if (packet.entries.size() >= Common::W2TClientList::kMaxEntries)
             {
                 return;
             }
@@ -382,20 +383,12 @@ void ToolProcessor::HandleClientList(const Network::Session::SPtr& toolSession,
             entry.clientSessionId = clientSessionId;
             // 운영툴은 C# 라 StrongId 를 모른다 -- 이 링크가 Value() 를 쓰는 경계다.
             entry.zoneId = info.zoneId.Value();
-            collected.push_back(entry);
+            packet.entries.push_back(entry);
         });
 
-    Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(request.requestId);
-    binaryWriter.Write(static_cast<uint32_t>(collected.size()));
-    for (const auto& entry : collected)
-    {
-        binaryWriter.Write(entry);
-    }
-
-    toolSession->SendPacket(PacketId::W2TClientList, binaryWriter.GetBuffer());
+    Common::SendPacket(toolSession, packet);
 
     LOG.Debug(ELogCategory::Tool, "운영툴 클라이언트 목록 응답")
         .KV("RequestId", request.requestId).KV("Total", totalCount)
-        .KV("Returned", collected.size());
+        .KV("Returned", packet.entries.size());
 }

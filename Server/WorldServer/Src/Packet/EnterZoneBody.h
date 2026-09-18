@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Server/Common/Src/Packet/ZoneLinkPackets.h"
-#include "Server/WorldServer/Src/World/PlayerManager.h"
+#include "World/PlayerManager.h"
 
 #include "Server/Core/Src/Packet/BinaryWriter.h"
 #include "Server/Core/Src/Packet/Header.h"

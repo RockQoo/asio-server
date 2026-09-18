@@ -177,12 +177,12 @@
 <h2>관련 코드</h2>
 <table>
     <tr><th>단계</th><th>파일</th></tr>
-    <tr><td>①~②</td><td><code>Server/GatewayServer/Src/Handler/ClientLinkHandler.cpp</code></td></tr>
-    <tr><td>③</td><td><code>Server/WorldServer/Src/Handler/GatewayLinkHandler.cpp</code></td></tr>
-    <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/WorldLinkHandler.cpp</code></td></tr>
-    <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Processor/PlayerMail.cpp</code> — <code>HandleMailAdd</code></td></tr>
-    <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/UnitOfWork.cpp</code> — 소멸자</td></tr>
-    <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/ZoneLinkHandler.cpp</code> — <code>HandleUnitOfWorkStream</code></td></tr>
+    <tr><td>①~②</td><td><code>Server/GatewayServer/Src/Handler/C2GHandler.cpp</code></td></tr>
+    <tr><td>③</td><td><code>Server/WorldServer/Src/Handler/G2WHandler.cpp</code></td></tr>
+    <tr><td>④</td><td><code>Server/ZoneServer/Src/Handler/W2ZHandler.cpp</code></td></tr>
+    <tr><td>⑤</td><td><code>Server/ZoneServer/Src/Player/PlayerMail.cpp</code> — <code>HandleMailAdd</code></td></tr>
+    <tr><td>⑥~⑧</td><td><code>Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp</code> — 소멸자</td></tr>
+    <tr><td>⑪~⑫</td><td><code>Server/WorldServer/Src/Handler/Z2WHandler.cpp</code> — <code>HandleUnitOfWorkStream</code></td></tr>
     <tr><td>⑬</td><td><code>Sql/mails.sql</code>(<code>usp_mails_upsert</code>), <code>Server/WorldServer/Src/Db/AutoSpCommands.h</code></td></tr>
 </table>
 

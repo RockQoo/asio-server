@@ -97,8 +97,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`Server/Core`·`Server/Common` 안의 네임스페이스**: PascalCase, 폴더 구조와 대응하되 **`Core::` 접두사는 붙이지 않는다**
   (`Server/Core/Src/Network/` → `namespace Network`, 이하 `Packet`/`Thread`/`Timer`/`Base`/`Log`
   동일 — 계속 감싸면 시그니처 전체가 `Core::`로 시작해 잡음이 컸다. 근거:
-  `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). `ZoneServer`는 `Zone`/`Mail`/`Log` 세 개뿐이라
-  변화 없음. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 **서버·도구가
+  `cpp-patterns.md`의 "왜 `Core::` 접두사가 없는가"). 실행 파일 프로젝트는 자기 네임스페이스를
+  하나도 두지 않는다 -- `ZoneServer` 안의 `namespace Network`/`Task`/`Timer` 는 전부 Core 타입의
+  전방 선언이다. 소문자(`core::net`)로 되돌리지 말 것. 카테고리 enum(`ELogCategory`)은 **서버·도구가
   `Common::ELogCategory` 하나를 공유**한다 -- 같은 태그가 파일마다 다른 뜻이면 요청 하나를
   RUID로 쫓을 때 로그를 나란히 못 읽는다(예전에는 World의 `[Zone]`이 존 링크, Zone의
   `[Zone]`이 존 로직이었다). Core만 자기 것(`Log::ELogCategory` -- General/Network/Packet/
@@ -163,16 +164,18 @@ C:\Work\asio-server\
 │   │       │                         connect, Listener와 대칭), Session, SessionManager,
 │   │       │                         SessionHolder(링크 하나를 붙들어 두는 자리 -- Gateway와
 │   │       │                         Zone의 World 링크가 본문이 같아 여기로 합쳤다)
-│   │       ├── Processor/            Group(큐 그룹 = asio io_context + strand N개), Stats
+│   │       ├── Pipeline/             레인 한 벌. MessageProducer(PushMsg -- 세 좌표를 받아
+│   │       │                         LaneIndexOf 로 레인을 고른다 + 레인별 배정 누적),
+│   │       │                         MessageProcessor(레인 위에서 도는 객체), Message,
+│   │       │                         Types.h(EProducerType/ELaneBackend/LaneIndexOf),
+│   │       │                         ILaneSet + QueueLaneSet/StrandLaneSet(백엔드 두 벌),
+│   │       │                         ProducerHolder(레인 묶음 소유 + 통계 출력)
 │   │       ├── Log/                  Logger/Proxy/Entry/LogLevel + **Core 전용** LogCategory
 │   │       │                         (General/Network/Packet/Thread -- 서버는 Common 것을 쓴다)
 │   │       ├── Timer/                RepeatingTimer
 │   │       ├── Thread/Mutexed.h      shared_mutex 기반 `.Write()->`(쓰기)/`->`(읽기) 래퍼
 │   │       ├── Console/KeyBinder.h   콘솔 F키 → 콜백(토글). **전용 입력 스레드 하나**가 읽고,
 │   │       │                         콜백은 서버 레인이 아니라 그 스레드에서 돈다
-│   │       ├── Message/Router.h      프로세서 id로 메시지를 보낸다(PushMsg). 키가 (프로세서,
-│   │       │                         msgId) 쌍이라 같은 msgId를 프로세서마다 다르게 처리한다.
-│   │       │                         **싱글턴이 아니라 App이 소유**하고 전역엔 포인터만 둔다
 │   │       └── Task/                 ITask(변경 기록 하나 -- **데이터만** 갖는다: Kind + New/Prev),
 │   │                                 Paired<T>(New/Prev 짝), UnitOfWork(범용 기반 클래스 -- 목록과
 │   │                                 순서만 안다). 커밋은 **파생 클래스 소멸자**에서, 직렬화와
@@ -212,11 +215,10 @@ C:\Work\asio-server\
 │   │   ├── Src/Packet/               EnterZoneBody.h -- W2ZEnterZone **본문 조립**(우편·재화를
 │   │   │                             바이트 예산만큼 실어 보낸다). 와이어 계약 자체는
 │   │   │                             Server/Common 이고 여기 있는 건 World 전용 조립 코드다
-│   │   ├── Src/Processor/            레인에서 도는 프로세서 클래스를 한곳에 모은다 -- MainProcessor
-│   │   │                             (라우팅), LoginProcessor, DbProcessor, ToolProcessor,
-│   │   │                             TestProcessor + ProcessorId.h. EProcessorId 의 태그와 1:1이다
-│   │   ├── Src/Test/                 F키 하네스의 보내는 쪽: TestKeys(F1→TestFunc1) + MsgId
-│   │   │                             (PushMsg(msgId, 프로세서id, ownerId, 인자...)로 보낸다)
+│   │   ├── Src/Processor/            레인에서 도는 프로세서 클래스를 한곳에 모은다 --
+│   │   │                             BasicProcessor(라우팅), LoginProcessor, DbProcessor,
+│   │   │                             ToolProcessor, TimerProcessor + ProcessorIds.h(레인 좌표)
+│   │   │                             + WorldMsg.h(레인 사이를 오가는 내부 메시지 id)
 │   │   └── Src/World/                PlayerManager(로그인 캐시 + 라우팅), ZoneLinkRegistry
 │   │                                 — 공지처럼 주인이 없는 경로가 있어 둘 다 Mutexed
 │   └── ZoneServer/                   존 상태 + Mail 시스템 (실행 파일)
@@ -244,7 +246,6 @@ C:\Work\asio-server\
 │           ├── App/                 ZoneApp, ZoneConfig, ZoneDef(담당 존 하나의 정의)
 │           ├── Handler/             W2ZHandler -- **I/O 스레드 전용**. 바이트만 복사해
 │           │                        그 존의 LB 레인으로 넘긴다(**연결이 존마다 하나**)
-│           ├── Test/                F키 하네스(TestKeys) -- Gateway/World 와 같은 자리
 │           └── Task/ZoneUnitOfWork  Task::UnitOfWork 파생 -- World(DB)/클라이언트 전송 + 역연산 롤백
 ├── Client/                           게임 클라이언트 — C#/MonoGame, 별도 솔루션
 │   ├── Client.slnx                   (GmTool과 같은 이유로 C++ 솔루션에 넣지 않는다)
@@ -369,11 +370,11 @@ owner=`playerId`)과 "존 전체가 공유하는 것"(로스터·좌표·경계�
 | | `Task::ITask` / `Task::UnitOfWork` | 변경 기록 하나 / 그 목록을 들고 있는 기반 클래스. Core는 콘텐츠 의미를 모르고, 직렬화·역연산은 파생 태스크가 구현한다. **커밋은 파생 클래스 소멸자**(기반 소멸자에서는 가상 함수가 파생 구현으로 안 불린다 → 파생을 `final`로 닫아 그 상황 자체를 없앰) |
 | | `Base::Ruid` | 요청 하나를 전 서버에서 가리키는 `int64`(밀리초 41 + 노드 10 + 시퀀스 12비트). 기동 시 `Ruid::Init(nodeId)` 한 번, 이후 어디서든 `Ruid::Create()`. 랜덤 GUID를 안 쓴 이유는 클러스터드 인덱스 페이지 분할 |
 | `WorldServer` | `PlayerManager` / `ZoneLinkRegistry` | 여러 스레드가 같이 보는 전역 테이블이라 `Mutexed`. `PlayerManager`는 라우팅뿐 아니라 **살아 있는 우편·재화 캐시**다 — 로그인 때 DB에서 채우고, 존이 올린 UnitOfWork를 BASIC 레인에서 계속 반영한다. 프로세스를 넘는 핸드오프가 이 캐시를 그대로 실어 보낸다 |
-| | `World::LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **BASIC→DB→BASIC으로 레인을 갈아타지만 주인은 `clientSessionId` 하나로 고정**이다 — `playerId`를 알게 된 뒤에도 바꾸지 않는다(갈아타면 앞 구간과 직렬화가 끊긴다). 존 입장 뒤의 UnitOfWork만 `playerId`가 주인 |
-| | `World::MainProcessor` | BASIC 레인(`Main`)의 라우팅 처리기. Gateway/Zone 링크가 I/O 스레드에서 던진 일이 실제로 도는 곳 -- 링크 핸들러는 주인만 뽑아 넘기고 상태를 만지지 않는다 |
-| | `World::DbProcessor` | DB 레인(`Db`)의 처리기. 커넥션 획득 + 트랜잭션 + **실패 정책(Fire-and-Forget)** + 콜백이 여기 한곳에 있다 |
-| | `World::AutoSpCommands` | SP 커맨드를 모았다가 소멸 시 `DbProcessor`로 한 번에. **UoW 하나 = 트랜잭션 하나** |
-| | `Db::DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
+| | `LoginProcessor` | `C2WLogin` → 계정 조회 → (없으면) 자동 가입 → `usp_players_load` → 캐시 + 존 입장. **BASIC→DB→BASIC으로 레인을 갈아타지만 주인은 `clientSessionId` 하나로 고정**이다 — `playerId`를 알게 된 뒤에도 바꾸지 않는다(갈아타면 앞 구간과 직렬화가 끊긴다). 존 입장 뒤의 UnitOfWork만 `playerId`가 주인 |
+| | `BasicProcessor` | BASIC 레인의 라우팅 처리기. Gateway/Zone 링크가 I/O 스레드에서 던진 일이 실제로 도는 곳 -- 링크 핸들러는 주인만 뽑아 넘기고 상태를 만지지 않는다 |
+| | `DbProcessor` | DB 레인(`Db`)의 처리기. 커넥션 획득 + 트랜잭션 + **실패 정책(Fire-and-Forget)** + 콜백이 여기 한곳에 있다 |
+| | `AutoSpCommands` | SP 커맨드를 모았다가 소멸 시 `DbProcessor`로 한 번에. **UoW 하나 = 트랜잭션 하나** |
+| | `DbConnection` | ODBC 커넥션. **레인 스레드마다 `thread_local` 1개**라 이 계층에 락이 없다. 결과 집합이 여러 개인 SP는 `SQLMoreResults`로 다 읽는다. 로그인의 **읽기**와 UnitOfWork의 **쓰기** 경로가 둘 다 실제로 돈다 |
 | `ZoneServer` | `Zone` | 존 하나의 **게임 세계**. `UnitContainer` 와 World 링크(존마다 하나)를 소유한다. 네 처리기가 이걸 `shared_ptr` 로 같이 본다 |
 | | `UnitContainer` | 그 존의 유닛 전부. `units_`/`players_` 두 맵을 `shared_mutex` 로 BASIC·TICK 이 공유하고, **틱이 도는 목록은 락 없는 스냅샷**이다. 생명주기 변경은 BASIC 이 예약하고 TICK 이 확정한다(지연 파괴) |
 | | `ZoneNetworkProcessor` | **LB 레인.** 봉투를 까서 주인(playerId)을 붙여 BASIC 으로 넘기는 것이 전부다. 상태가 없다. owner 가 링크 세션 id 라 **그 존의 수신은 여기서 레인 하나로 직렬화된다** |
@@ -385,7 +386,7 @@ owner=`playerId`)과 "존 전체가 공유하는 것"(로스터·좌표·경계�
 | | `MailModel` / `CurrencyModel` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
 | | `W2ZHandler` | World 와의 연결의 `IPacketHandler`. **I/O 스레드 전용** — 바이트만 복사해 그 존의 LB 레인으로 넘긴다 |
 | `GatewayServer` | `ClientLinkHandler`/`WorldLinkHandler` | 클라이언트↔World 양방향 릴레이만, 게임 로직 없음 |
-| `WorldServer` | `World::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
+| `WorldServer` | `ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
 
 ---
 

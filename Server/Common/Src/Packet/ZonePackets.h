@@ -2,6 +2,7 @@
 
 #include "Server/Common/Src/PacketId.h"
 
+#include "Server/Core/Src/Packet/BinaryReader.h"
 #include "Server/Core/Src/Packet/BinaryWriter.h"
 
 #include "Server/Common/Src/Ids.h"
@@ -77,6 +78,52 @@ namespace Common
             binaryWriter.Write(senderSessionId);
             binaryWriter.WriteString(message);
             return binaryWriter.MoveBuffer();
+        }
+    };
+
+    // UnitOfWork 하나의 결말. 성공이면 적용된 태스크 목록이, 실패면 에러 코드만 실린다.
+    //
+    //   int32 errorCode, uint16 requestPacketId, int64 requestId, 태스크 스트림 바이트
+    //
+    // **requestId 가 태스크 스트림 "밖"에 있는 이유**: 실패하면 스트림이 비어서, 안에 넣으면
+    // 클라이언트가 실패한 요청을 짝지을 수 없다. 성공/실패 어느 쪽이든 헤더 자리에 실린다.
+    //
+    // 콘텐츠마다 Ack 패킷을 따로 만들지 않는 자리다 -- 받는 쪽은 같은 태스크 목록을 자기
+    // 메모리에 적용해서 서버와 동기화한다.
+    //
+    // **수명 주의**: `taskStream` 은 복사가 아니다. 보낼 때는 호출부의 버퍼를, 받을 때는
+    // 수신 버퍼를 가리킨다. 이 구조체보다 오래 살려야 하면 호출부가 복사한다.
+    struct Z2CTaskResult
+    {
+        static constexpr PacketId kPacketId = PacketId::Z2CTaskResult;
+
+        int32_t errorCode{};
+        uint16_t requestPacketId{};
+        int64_t requestId{};
+        std::span<const byte> taskStream;
+
+        [[nodiscard]] std::vector<byte> Serialize() const
+        {
+            Packet::BinaryWriter binaryWriter;
+            binaryWriter.Write(errorCode);
+            binaryWriter.Write(requestPacketId);
+            binaryWriter.Write(requestId);
+            binaryWriter.WriteBytes(taskStream);
+            return binaryWriter.MoveBuffer();
+        }
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            if (!binaryReader.Read(errorCode) || !binaryReader.Read(requestPacketId)
+                || !binaryReader.Read(requestId))
+            {
+                return false;
+            }
+
+            // 남은 전부가 태스크 스트림이다. 실패한 요청은 여기가 비어 있다.
+            taskStream = binaryReader.RemainingBytes();
+            return true;
         }
     };
 }

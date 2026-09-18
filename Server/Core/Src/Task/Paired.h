@@ -1,7 +1,5 @@
 #pragma once
 
-#include <utility>
-
 namespace Task
 {
     // 태스크가 들고 있는 값 하나. **New와 Prev를 항상 짝으로 갖는다.**

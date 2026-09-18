@@ -534,8 +534,12 @@ SP가 "String or binary data would be truncated"로 실패해서 **메모리에�
 임시객체를 반환하고 **문장이 끝나 소멸되는 시점에 한 줄을 커밋**하므로(`.KV`/`.V`는 `*this` 참조
 반환) 반환값을 discard해도 정상 동작 — 그래서 `Debug`/`Info`/`Warning`/`Error`엔 일부러
 `[[nodiscard]]`를 안 붙인다. 콘솔 색: Error=빨강, Warning=노랑(레거시 콘솔엔 주황이 없어 대체),
-Info=초록, Debug=기본색. **예외**: `ProtocolClient` REPL 안내문/수신 로그(`PrintHelp`, `[recv]`)는
-로그가 아니라 프로그램 UI라 `std::cout` 유지(단 인코딩 위해 `Logger::Initialize()`는 호출).
+Info=초록, Debug=기본색. **예외 -- 로그가 아니라 프로그램 UI인 출력**은 `std::cout` 을 유지한다(단 인코딩 위해
+`Logger::Initialize()` 는 호출). 판단 기준은 **"사람이 그 자리에서 읽는 출력인가"** 다 --
+파일에 남겨 나중에 추적하려는 것이 아니면 로그가 아니다. 지금 해당하는 자리:
+`ProtocolClient` REPL 안내문/수신 로그(`PrintHelp`, `[recv]`), `WorldServer` 의 CLI 모드
+(`Cli/DbCheck`, `Cli/IdTest`, `main` 의 사용법), `StressClient` 의 진행률/결과 표.
+`Log::Logger` 구현 자체가 콘솔에 쓰는 것은 당연히 대상이 아니다.
 
 ```cpp
 LOG.Info(ELogCategory::Zone, "플레이어 입장").KV("Zone", zoneId_).KV("SessionId", sessionId);

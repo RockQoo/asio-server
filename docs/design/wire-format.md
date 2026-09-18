@@ -45,6 +45,22 @@ type(uint8) + newAmount(int64) + prevAmount(int64)
 | 쓰기 | `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |
 | 읽기 | `Server/Common/Src/Packet/ZoneLinkPackets.h`(`Z2WUnitOfWorkStream::Parse`) |
 
+
+## Z2CTaskResult (Z2C)
+
+같은 태스크 스트림이 클라이언트로도 간다. 성공 경로에서 **직렬화는 한 번뿐**이고 그 바이트를
+World(DB)와 클라이언트가 나눠 쓴다 -- 두 벌로 만들면 "화면엔 있는데 DB엔 없는 우편"이 생긴다.
+
+```
+errorCode(int32) + requestPacketId(uint16) + requestId(int64) + 태스크 스트림
+```
+
+태스크 스트림의 내용은 위 `UnitOfWorkStream` 과 같다(`kind` + `payloadLen` + payload 반복).
+**실패하면 스트림이 비고 errorCode 만 실린다** -- `requestId` 를 스트림 밖에 둔 이유가 그것이다.
+안에 넣으면 실패한 요청을 짝지을 수 없다.
+
+Zone 은 클라이언트와 직접 연결되지 않으므로 이 패킷은 `Z2WRelay` 봉투에 담겨 World 를 거친다.
+
 ## 운영툴 링크 (T2W / W2T)
 
 `kToolLinkProtocolVersion`은 와이어 포맷을 바꿀 때마다 올린다. GmTool 쪽
@@ -86,11 +102,13 @@ requestId(uint32) + String(campaignCode) + chunkSeq(uint32) + couponCount(uint32
 것을 감안하면 한 패킷에 **250개 정도가 상한**이다. 그래서 운영툴은 "DB 벌크 인서트
 청크"(수천~수만 건)와 "World 전송 청크"(200건)를 서로 다른 크기로 나눠 쓴다.
 
-### ClientListReply (W2T)
+### W2TClientList (W2T)
 ```
 requestId(uint32) + count(uint32) + count개의 W2TClientListEntry
 ```
-`count`는 `MaxBodySize`에 맞춰 잘라서 보낸다(상한 `kMaxClientListEntries`).
+`count`는 `MaxBodySize`에 맞춰 **보내는 쪽이 잘라서** 보낸다(상한
+`W2TClientList::kMaxEntries` = 500). 이 링크는 재연결이 없어서, 넘기면 운영툴이 통째로
+떨어진다.
 
 ## 패킷 id 대역
 

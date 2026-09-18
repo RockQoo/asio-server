@@ -10,6 +10,7 @@
 #include "Server/Common/Src/ErrorCode.h"
 #include "Server/Common/Src/Packet/RelayEnvelope.h"
 #include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Common/Src/Packet/ZonePackets.h"
 #include "Server/Common/Src/TaskKind.h"
 
 namespace
@@ -165,16 +166,12 @@ void ZoneUnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<con
         return;
     }
 
-    Packet::BinaryWriter innerBinaryWriter;
-    innerBinaryWriter.Write(errorCode);
-    innerBinaryWriter.Write(requestPacketId_);
-
-    // requestId를 태스크 스트림 밖에 두는 이유: 실패하면 스트림이 비어서 안에 넣으면
-    // 클라이언트가 실패한 요청을 짝지을 수 없다. 성공/실패 어느 쪽이든 여기 실린다.
-    innerBinaryWriter.Write(GetRequestId());
-    innerBinaryWriter.WriteBytes(stream);
+    Common::Z2CTaskResult packet;
+    packet.errorCode = errorCode;
+    packet.requestPacketId = requestPacketId_;
+    packet.requestId = GetRequestId();
+    packet.taskStream = stream;
 
     // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다.
-    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId,
-                      PacketId::Z2CTaskResult, innerBinaryWriter.GetBuffer());
+    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId, packet);
 }

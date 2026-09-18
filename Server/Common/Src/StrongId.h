@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <functional>
@@ -57,7 +58,7 @@ namespace Common
 template <typename TTag, typename TValue, TValue kInvalidValue>
 struct std::hash<Common::StrongId<TTag, TValue, kInvalidValue>>
 {
-    [[nodiscard]] std::size_t operator()(
+    [[nodiscard]] size_t operator()(
         const Common::StrongId<TTag, TValue, kInvalidValue>& strongId) const noexcept
     {
         return std::hash<TValue>{}(strongId.Value());

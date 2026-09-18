@@ -53,7 +53,7 @@ move 15 5     -> [recv] Z2CEnterZoneNotify zoneId=1
 `Server/Core`의 `Packet::Buffer`/`BuildFrame`을 그대로 재사용해서, 서버와 클라이언트가
 같은 프레이밍 코드를 공유한다(여기서 어긋나면 프로토콜 검증 자체가 무의미해진다).
 
-패킷 정의는 `Server/ZoneServer/Src/Packet/ZonePackets.h`를 직접 include한다. 도구가 서버
+패킷 정의는 `Server/Common/Src/Packet/ZonePackets.h`를 직접 include한다. 도구가 서버
 헤더를 보는 방향이라 의존 방향은 문제없지만, 나중에 다른 언어 클라이언트가 생기면 스키마를
 `Shared/`로 올려야 한다(`Client/README.md` 참고).
 
