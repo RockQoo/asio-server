@@ -130,7 +130,7 @@ clientSessionId를 그대로 쓴다 — 중간에 갈아타면 그 지점부터 
 <h2>존 이동 = 라우팅 테이블 한 줄</h2>
 <div class="panel">
 존이 "이 사람이 내 사각형을 벗어났다"고 알려오면, World가 좌표로 대상 존을 찾아
-<code>playerManager_.Write()->SetZone(clientSessionId, 대상)</code> 한 줄을 실행한다.
+<code>playerManager_.Write()->SetZoneId(clientSessionId, 대상)</code> 한 줄을 실행한다.
 <b>그게 핸드오프의 전부다.</b> 클라이언트는 재접속도 재인증도 하지 않는다.
 <br><br>
 전입하는 존에는 <b>캐시의 우편·재화를 다시 실어 보낸다</b>(<code>W2ZEnterZone</code>) — 그래야 새 존이

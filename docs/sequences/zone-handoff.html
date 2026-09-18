@@ -67,13 +67,13 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
             <b>⑤ Tick — 경계 판정</b>
             <code>def_.Contains(x, y)</code>가 거짓 →
             <code>CancelRequest()</code>(위치는 아직 확정하지 않는다)하고
-            <code>members_</code>에서 뺀다.
+            <code>UnitContainer</code> 의 로스터에서 뺀다.
             <b style="margin-top:5px">순회가 끝난 뒤에 처리한다</b>
             반복자가 깨지고, 락을 쥔 채 소켓 전송을 하게 되기 때문이다.
         </div>
 
         <div class="msg m-zone rtl" style="grid-column: 6 / 10; grid-row: 6;">
-            <span class="lbl">⑥ Z2WZoneTransferRequest</span>
+            <span class="lbl">⑥ Z2WZoneTransfer</span>
             <span class="line"></span>
             <span class="desc">보낸 존 id + clientSessionId + playerId + 목표 좌표</span>
         </div>
@@ -87,7 +87,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
 
         <div class="act" style="grid-column: 5 / 7; grid-row: 8;">
             <b>⑧ 핸드오프의 전부</b>
-            <code>playerManager_.Write()->SetZone(clientSessionId, 3)</code>
+            <code>playerManager_.Write()->SetZoneId(clientSessionId, 3)</code>
             <b style="margin-top:5px">이 한 줄이 곧 존 이동이다</b>
             다음 패킷부터 World가 존 3으로 보낸다.
         </div>
@@ -100,7 +100,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
         </div>
 
         <div class="act" style="grid-column: 11 / 13; grid-row: 10;">
-            <b>⑩ OnPlayerEnter</b>
+            <b>⑩ HandleEnterZone</b>
             새 존에서 Player를 등록하고 좌표를 <b>여기서 확정</b>한다(Teleport).
             ⑤에서 확정하지 않은 이유가 이것이다 — World가 되돌려 보낼 수도 있었다.
         </div>
@@ -155,7 +155,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
     객체를 프로세스 사이로 옮길 수 없으니, 전입한 존은 <code>W2ZEnterZone</code>에 실려 온
     <b>World 캐시의 우편·재화</b>로 모델을 다시 만든다. 그 캐시는 로그인 때 DB에서 채우고,
     이후 존이 올린 <code>Z2WUnitOfWorkStream</code>을 <b>BASIC 레인에서 계속 반영</b>해 최신으로
-    유지한다 — 스트림과 핸드오프 요청이 같은 TCP 링크로 오고 같은 주인(<code>clientSessionId</code>)의
+    유지한다 — 스트림과 핸드오프 요청이 같은 TCP 링크로 오고 같은 주인(<code>playerId</code>)의
     같은 strand에서 처리되므로, 직전에 만든 우편도 이미 캐시에 들어 있다.
     <br><br>
     <b>그래서 원본 프로세스에 퇴장을 보내야 한다.</b> 안 보내면 그쪽에 <code>Player</code>와
@@ -175,9 +175,9 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
 <table>
     <tr><th>단계</th><th>파일</th></tr>
     <tr><td>④</td><td><code>Server/ZoneServer/Src/Player/PlayerStreamHandler.cpp</code> — <code>HandleMove</code></td></tr>
-    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Processor/ZoneProcessor.cpp</code> — <code>Tick</code> / <code>RequestZoneTransfer</code></td></tr>
-    <tr><td>⑦~⑨</td><td><code>Server/WorldServer/Src/Handler/Z2WHandler.cpp</code> — <code>HandleZoneTransferRequest</code></td></tr>
-    <tr><td>⑩~⑬</td><td><code>Server/ZoneServer/Src/Processor/ZoneProcessor.cpp</code> — <code>OnPlayerEnter</code> / <code>SendEnterZoneNotify</code></td></tr>
+    <tr><td>⑤~⑥</td><td><code>Server/ZoneServer/Src/Processor/TickProcessor.cpp</code> — <code>OnZoneTick</code> / <code>RequestZoneTransfer</code></td></tr>
+    <tr><td>⑦~⑨</td><td><code>Server/WorldServer/Src/Processor/BasicProcessor.cpp</code> — <code>HandleZoneTransfer</code></td></tr>
+    <tr><td>⑩~⑬</td><td><code>Server/ZoneServer/Src/Processor/ZoneProcessor.cpp</code> — <code>HandleEnterZone</code> / <code>SendEnterZoneNotify</code></td></tr>
     <tr><td>격자 규칙</td><td><code>Server/ZoneServer/Src/main.cpp</code> — <code>ParseZoneList</code></td></tr>
 </table>
 

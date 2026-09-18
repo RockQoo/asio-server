@@ -23,10 +23,10 @@
     <tr><th>프로세스</th><th>역할</th><th>스레드</th></tr>
     <tr><td><span class="badge b-gateway">Gateway</span></td><td>클라이언트 accept, 순수 릴레이</td><td>I/O 2</td></tr>
     <tr><td><span class="badge b-world">World</span></td><td>로그인, 라우팅, DB 관문, 공통 콘텐츠</td><td>I/O 2 · Basic 8 · Db 4</td></tr>
-    <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · LB 2 · BASIC 8 · TICK 2N+1 · BROADCAST 4 · TIMER 1</td></tr>
+    <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · LB 2 · BASIC 8 · TICK 2N+1 · BROADCAST 4 · TIMER 1<br><span style="font-size:11.5px;opacity:.8">+ 틱 병렬 (레인 밖 — <a href="design/parallel-tick.md">근거</a>)</span></td></tr>
 </table>
 
-<p style="margin:10px 0 0">스레드 수와 포트는 <code>config/*.cfg</code>에서 읽는다 — 위 값은 기본 설정이다
+<p style="margin:10px 0 0"><b>합계가 곧 스레드 수는 아니다</b> — 존의 유닛 틱은 <code>std::execution::par</code> 로 돌아서 <b>레인 밖 스레드</b>를 쓴다.<br>스레드 수와 포트는 <code>config/*.cfg</code>에서 읽는다 — 위 값은 기본 설정이다
 (<a href="design/config-file.md">형식과 정책</a>).</p>
 
 <p style="margin:10px 0 0"><b>큐 그룹에 일을 넣는 길이 두 가지다.</b> 주인(<code>ownerId</code>)을
@@ -77,6 +77,10 @@
         <b>C2ZMailBuy — 역순 롤백</b>
         <span>모델 두 개에 걸친 트랜잭션이 실패했을 때 되돌아가는 장면.</span>
     </a>
+    <a class="card" href="sequences/move-broadcast.html">
+        <b>이동과 통지</b>
+        <span>가장 자주 도는 경로. 요청·확정·발송이 다른 레인이고, 틱만 병렬로 돈다.</span>
+    </a>
     <a class="card" href="sequences/zone-handoff.html">
         <b>존 핸드오프</b>
         <span>재접속 없이 존을 넘는다. 스레드 간 이동과 프로세스 간 이동의 차이.</span>
@@ -93,6 +97,7 @@
     <li><a href="design/player-and-models.md">player-and-models.md</a> — 모델마다 보호 방식이 다른 기준</li>
     <li><a href="design/locking-strategy.md">locking-strategy.md</a> — 어피니티로 지키는 것과 락이 필요한 자리</li>
     <li><a href="design/unit-of-work.md">unit-of-work.md</a> — 커밋을 깜빡할 수 없는 구조</li>
+    <li><a href="design/parallel-tick.md">parallel-tick.md</a> — 틱만 병렬인 이유와 그 스레드가 레인 밖이라는 대가</li>
     <li><a href="design/wire-format.md">wire-format.md</a> — 가변 길이 패킷의 바디 구조</li>
     <li><a href="design/unique-id.md">unique-id.md</a> — <code>RUID</code>(시각+노드+시퀀스)와 실측</li>
     <li><a href="design/config-file.md">config-file.md</a> — 설정 파서를 직접 만든 이유</li>
