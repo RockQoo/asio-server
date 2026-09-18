@@ -28,10 +28,12 @@ public:
     [[nodiscard]] std::string_view Name() const override { return "Timer"; }
     void RegistHandler() override;
 
-    // TIMER 레인의 executor에 두 타이머를 건다. **레인이 Start된 뒤에 부른다.**
-    // **만기 감시는 아직 I/O 스레드에서 한다.** 노션은 TIMER 레인이 스스로 만기를 보지만,
-    // 레인 백엔드가 큐일 때는 그 자리에 타이머를 걸 곳이 없다(condvar 의 시한 대기로
-    // 옮기는 것이 다음 단계다). 만기 뒤의 일은 지금도 TIMER 레인에서 돈다.
+    // 두 타이머를 건다. **레인이 Start된 뒤에 부른다.**
+    //
+    // **만기 감시는 asio steady_timer 가 하고, 만기 뒤의 일만 TIMER 레인이 한다.** 시한
+    // 대기를 레인 안에 직접 구현하지 않는 것은 asio 가 이미 그 일을 하기 때문이다 --
+    // 우리가 더한 것은 asio 에 없는 정책(드리프트 보정 · 밀린 회차 버리기)뿐이다.
+    // 근거: docs/design/network-lane.md 의 같은 판단 기준
     void Start(asio::io_context& timerContext);
 
     // 타이머를 멈춘다. 여러 번 불려도 안전하다(소멸자도 부른다).

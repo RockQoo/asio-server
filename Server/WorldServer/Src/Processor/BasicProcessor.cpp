@@ -142,7 +142,7 @@ void BasicProcessor::RegisterZoneOwnerIds()
 
 // ── ② 껍질 까기 ─────────────────────────────────────────────────────────────
 // **owner = 게이트웨이 세션 id.** 게이트웨이가 1대면 이 단계는 BASIC 스레드 하나만 쓴다 --
-// 노션이 "구조적으로 World의 가장 좁은 목"이라고 적어둔 자리가 여기다.
+// **구조적으로 World에서 가장 좁은 목이다.** 여기를 재는 것이 이 구조의 첫 측정 대상이다.
 void BasicProcessor::OnRecvStream(const Pipeline::OwnerId& /*owner*/, const RecvStreamBody& body)
 {
     // 게이트웨이에서 오는 세 패킷은 모두 페이로드 맨 앞이 clientSessionId다.

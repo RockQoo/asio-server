@@ -4,7 +4,7 @@
 
 namespace Pipeline
 {
-    // 레인 하나 = **스레드 1개 + 큐 1개 + mutex + condvar**. 실무 원본의 MessageConsumer 다.
+    // 레인 하나 = **스레드 1개 + 큐 1개 + mutex + condvar**.
     //
     // **스레드와 레인이 1:1**이라 `Basic#3`이 곧 3번 레인의 주인이고, 그 레인에 배정된
     // ownerId 의 일은 언제나 그 스레드 하나에서만 돈다 -- 어피니티가 그대로 성립한다.

@@ -38,3 +38,4 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 | [config-file.md](config-file.md) | `Shared/Core/Src/Base/ConfigFile.h`, `config/*.cfg` |
 | [parameter-passing.md](parameter-passing.md) | `Shared/Common/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |
 | [strong-id.md](strong-id.md) | `Shared/Common/Src/StrongId.h`, `Ids.h` |
+| [network-lane.md](network-lane.md) | `Server/Core/Src/Pipeline/Types.h`, `Server/Core/Src/Network/Session.h` |

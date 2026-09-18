@@ -38,9 +38,9 @@ private:
 
     WorldConfig config_;
 
-    // **여기가 노션의 NETWORK 레인(프로액터)이다** -- IOCP 완료와 프레임 조립을 맡는다.
-    // 파이프라인 레인(MessageProducer)과는 별개의 스레드 벌이고, 실무도 그렇다
-    // (프로액터 스레드가 파이프라인 소비자 스레드와 따로 세어진다).
+    // **소켓 단계.** IOCP 완료와 프레임 조립을 맡고, 파이프라인 레인(MessageProducer)과는
+    // 별개의 스레드 벌이다 -- 스레드 수를 셀 때 레인 스레드와 따로 세어야 한다.
+    // 이 단계를 레인으로 만들지 않은 근거: docs/design/network-lane.md
     Network::IoContextPool ioPool_;
 
     // 둘 다 Mutexed다 -- 공지처럼 주인이 없는 경로가 있어 어피니티로는 지킬 수 없다.

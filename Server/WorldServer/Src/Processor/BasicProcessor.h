@@ -60,7 +60,7 @@ private:
     void OnRecvStream(const Pipeline::OwnerId& owner, const RecvStreamBody& body);
     void OnRecvFromClientStream(const Pipeline::OwnerId& owner, const RecvStreamBody& body);
 
-    // 존 링크: 같은 2단이다. **여기는 노션의 FZoneStreamProcessor 자리라 아직 어긋나 있다**
+    // 존 링크: 같은 2단이다. **원래 별도 프로세서로 갈라야 할 것이 여기 섞여 있다**
     // -- 다음 단계에서 ZoneStreamProcessor로 떼어낸다.
     void OnRecvZoneStream(const Pipeline::OwnerId& owner, const RecvStreamBody& body);
     void OnFromZoneStream(const Pipeline::OwnerId& owner, const RecvStreamBody& body);

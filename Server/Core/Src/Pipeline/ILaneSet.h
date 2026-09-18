@@ -7,7 +7,7 @@ namespace Pipeline
     // 레인 N개를 굴리는 방식. **구현이 둘이고 config로 고른다** -- 지우지 않고 둘 다 남긴다.
     //
     //   Queue   스레드 1개 + 큐 1개 + mutex/condvar. **스레드와 레인이 1:1**이라
-    //           `Basic#3`이 곧 3번 레인의 주인이다. 실무 원본(MessageConsumer)과 같다.
+    //           `Basic#3`이 곧 3번 레인의 주인이다.
     //   Strand  asio::strand. 레인에 넣은 일을 **한가한 스레드가 아무거나 집어간다**.
     //           같은 레인끼리 겹치지 않는 것은 그대로다.
     //

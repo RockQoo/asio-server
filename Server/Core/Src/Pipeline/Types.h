@@ -35,8 +35,17 @@ namespace Pipeline
     // 있는지 모르고, Tick은 "주기 실행"이지 존을 모른다.
     //
     // **서버마다 쓰는 값이 다르다.** 안 쓰는 값은 InitProducer를 부르지 않으면 그만이다.
-    //   World -- Network / Basic / Db / Timer
-    //   Zone  -- Network / Lb / Basic / Tick / Broadcast / Timer
+    //   World -- Basic / Db / Timer
+    //   Zone  -- Lb / Basic / Tick / Broadcast / Timer
+    //
+    // **NETWORK 레인이 없는 것은 빠뜨린 것이 아니다.** 레인 구성을 일관되게 하려면 소켓 단계도
+    // 레인 하나여야 하고, 그 레인이 할 일은 수신(완료를 받아 프레임 조립)과 송신(세션 단위
+    // 직렬화) 둘이다. **그런데 asio가 그 둘을 이미 갖고 있다**: 수신은 io_context, 송신
+    // 직렬화는 Session의 strand다. 레인을 또 얹으면 같은 일을 하는 장치가 두 겹이 되고,
+    // 겹치는 자리(전송 완료 콜백 · 연결 종료)마다 "누가 주인이냐"를 정해줘야 한다.
+    //
+    // 나머지 레인은 asio에 대응물이 없어서 그대로 두면 된다 -- 겹치는 층은 여기 하나뿐이다.
+    // 무엇을 잃는지와 되살릴 때의 조건: docs/design/network-lane.md
     //
     // **선언 순서 = 흐름 순서 = 종료 순서**다. 앞 단계를 먼저 끊어야 뒤 단계가 밀린 것을
     // 마저 받아 처리한다(Stop은 큐를 소진한 뒤 join한다).
@@ -46,7 +55,6 @@ namespace Pipeline
     // 주기 작업이 없어 증상이 없고, 실제 작업을 붙일 때 같이 정리한다.
     enum class EProducerType : uint8_t
     {
-        Network,    // 소켓. 바이트만 옮기고 게임 로직이 0인 단계
         Lb,         // 수신 1차 처리 -- 껍질을 까고 주인을 찾아 다음 레인으로 넘긴다
         Basic,      // 콘텐츠 본체. 판단하고 예약한다
         Tick,       // 박자. 예약된 것을 실행한다
@@ -60,7 +68,7 @@ namespace Pipeline
     // 차이는 하나, **어피니티 vs 워크 스틸링**이다(자세한 건 ILaneSet.h).
     enum class ELaneBackend : uint8_t
     {
-        Queue,   // 스레드 1개 + 큐 1개 + condvar. 스레드↔레인 1:1 (실무 원본과 같다)
+        Queue,   // 스레드 1개 + 큐 1개 + condvar. 스레드↔레인 1:1 (어피니티)
         Strand,  // asio::strand. 한가한 스레드가 아무 레인이나 집어간다
     };
 
@@ -94,7 +102,6 @@ namespace Pipeline
     {
         switch (producerType)
         {
-        case EProducerType::Network:   return "Network";
         case EProducerType::Lb:        return "Lb";
         case EProducerType::Basic:     return "Basic";
         case EProducerType::Tick:      return "Tick";
