@@ -7,9 +7,6 @@
     <Filter Include="App">
       <UniqueIdentifier>{d4d4d4d4-0004-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Test">
-      <UniqueIdentifier>{a1a1a1a1-0003-4000-8000-000000000001}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -24,9 +21,6 @@
     </ClInclude>
     <ClInclude Include="Src\App\GatewayConfig.h">
       <Filter>App</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Test\TestKeys.h">
-      <Filter>Test</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -43,9 +37,6 @@
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\GatewayConfig.cpp">
       <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Test\TestKeys.cpp">
-      <Filter>Test</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

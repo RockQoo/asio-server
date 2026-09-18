@@ -123,10 +123,6 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Processor\BasicProcessor.h" />
     <ClInclude Include="Src\Processor\TimerProcessor.h" />
     <ClInclude Include="Src\Processor\ToolProcessor.h" />
-    <ClInclude Include="Src\Test\MsgId.h" />
-    <ClInclude Include="Src\Test\TestValue.h" />
-    <ClInclude Include="Src\Processor\TestProcessor.h" />
-    <ClInclude Include="Src\Test\TestKeys.h" />
     <ClInclude Include="Src\World\PlayerManager.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
     <ClInclude Include="Src\Processor\ProcessorIds.h" />
@@ -163,8 +159,6 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClCompile Include="Src\Processor\TimerProcessor.cpp" />
     <ClCompile Include="Src\Processor\ToolProcessor.cpp" />
     <ClCompile Include="Src\App\WorldApp.cpp" />
-    <ClCompile Include="Src\Processor\TestProcessor.cpp" />
-    <ClCompile Include="Src\Test\TestKeys.cpp" />
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\WorldConfig.cpp" />
     <ClCompile Include="Src\Cli\DbCheck.cpp" />

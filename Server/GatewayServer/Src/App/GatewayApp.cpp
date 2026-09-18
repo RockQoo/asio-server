@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "App/GatewayApp.h"
 
-#include "Test/TestKeys.h"
 
 GatewayApp::GatewayApp(GatewayConfig config)
     : config_(std::move(config))
@@ -22,7 +21,6 @@ void GatewayApp::Run()
 
     SetupSignalHandling();
 
-    RegisterTestKeys(keyBinder_);
     keyBinder_.Start();
 
     LOG.Info(ELogCategory::General, "GatewayServer 대기 시작")

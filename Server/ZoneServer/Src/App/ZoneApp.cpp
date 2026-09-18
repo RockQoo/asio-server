@@ -3,7 +3,6 @@
 
 #include "Server/Core/Src/Timer/RepeatingTimer.h"
 
-#include "Test/TestKeys.h"
 
 ZoneApp::ZoneApp(ZoneConfig config)
     : config_(std::move(config))
@@ -53,7 +52,6 @@ void ZoneApp::Run()
 
     SetupSignalHandling();
 
-    RegisterTestKeys(keyBinder_);
     keyBinder_.Start();
 
     std::string zoneIdList;

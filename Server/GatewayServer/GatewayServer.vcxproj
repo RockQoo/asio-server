@@ -121,7 +121,6 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
     <ClInclude Include="Src\Handler\W2GHandler.h" />
     <ClInclude Include="Src\App\GatewayApp.h" />
     <ClInclude Include="Src\App\GatewayConfig.h" />
-    <ClInclude Include="Src\Test\TestKeys.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -133,7 +132,6 @@ copy /Y "$(RepoRoot)config\gateway.cfg" "$(OutDir)config\gateway.cfg"</Command>
     <ClCompile Include="Src\App\GatewayApp.cpp" />
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\GatewayConfig.cpp" />
-    <ClCompile Include="Src\Test\TestKeys.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

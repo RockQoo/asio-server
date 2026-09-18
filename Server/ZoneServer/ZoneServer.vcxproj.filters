@@ -22,9 +22,6 @@
     <Filter Include="Handler">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Test">
-      <UniqueIdentifier>{a1a1a1a1-0005-4000-8000-000000000003}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -88,9 +85,6 @@
     <ClInclude Include="Src\App\ZoneConfig.h">
       <Filter>App</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Test\TestKeys.h">
-      <Filter>Test</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp" />
@@ -136,9 +130,6 @@
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\ZoneConfig.cpp">
       <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Test\TestKeys.cpp">
-      <Filter>Test</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

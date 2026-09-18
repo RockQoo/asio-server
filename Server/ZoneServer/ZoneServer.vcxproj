@@ -137,7 +137,6 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClInclude Include="Src\Handler\W2ZHandler.h" />
     <ClInclude Include="Src\App\ZoneApp.h" />
     <ClInclude Include="Src\App\ZoneConfig.h" />
-    <ClInclude Include="Src\Test\TestKeys.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -159,7 +158,6 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
     <ClCompile Include="Src\App\ZoneApp.cpp" />
     <ClCompile Include="Src\main.cpp" />
     <ClCompile Include="Src\App\ZoneConfig.cpp" />
-    <ClCompile Include="Src\Test\TestKeys.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

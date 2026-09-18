@@ -146,7 +146,6 @@
     <ClInclude Include="Src\Task\Paired.h" />
     <ClInclude Include="Src\Task\UnitOfWork.h" />
     <ClInclude Include="Src\Console\KeyBinder.h" />
-    <ClInclude Include="Src\Message\Router.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">

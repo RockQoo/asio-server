@@ -31,9 +31,6 @@
     <Filter Include="Console">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000007}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Message">
-      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000010}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
@@ -165,9 +162,6 @@
     </ClInclude>
     <ClInclude Include="Src\Console\KeyBinder.h">
       <Filter>Console</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Message\Router.h">
-      <Filter>Message</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
