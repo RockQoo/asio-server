@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Server/Core/Src/Network/Service.h"
+#include "Server/Core/Src/Network/SendStats.h"
 
 namespace Network
 {
@@ -44,6 +45,23 @@ namespace Network
     void Service::Join()
     {
         ioPool_.Join();
+    }
+
+    void Service::LogStats() const
+    {
+        const auto snapshot = SendStats::Instance().Take();
+        if (snapshot.IsIdle())
+        {
+            return;
+        }
+
+        // **PeakDepth 가 이 줄의 핵심**이다. Pending 은 찍는 순간의 값이라 주기 사이에 튄
+        // 적체를 놓치지만, 최고치는 그 사이에 한 번이라도 밀렸으면 남는다.
+        LOG.Info(ELogCategory::Network, "송신 적체")
+            .KV("PendingFrames", snapshot.pendingFrames)
+            .KV("PendingBytes", snapshot.pendingBytes)
+            .KV("PeakDepth", snapshot.peakDepth)
+            .KV("PeakSessionId", snapshot.peakSessionId);
     }
 
     void Service::Stop()

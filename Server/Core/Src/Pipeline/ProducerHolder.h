@@ -61,6 +61,52 @@ namespace Pipeline
             }
         }
 
+        // 지금 각 레인에 밀려 있는 양을 로그로 남긴다. **부하에서 제일 먼저 볼 값이다** --
+        // 처리량 수치만 보면 "느리다"까지만 알 수 있고 어디가 목인지는 안 보인다.
+        //
+        // 비어 있는 레인은 건너뛴다. 레인이 수십 개라 0만 줄줄이 찍으면 정작 밀린 줄이 묻힌다.
+        void LogStats() const
+        {
+            for (const auto& producer : producers_)
+            {
+                if (!producer)
+                {
+                    continue;
+                }
+
+                const auto laneCount = static_cast<size_t>(producer->LaneCount());
+
+                size_t total = 0;
+                size_t peak = 0;
+                size_t peakLane = 0;
+                for (size_t laneIndex = 0; laneIndex < laneCount; ++laneIndex)
+                {
+                    const auto pending = producer->PendingCount(laneIndex);
+                    total += pending;
+                    if (pending > peak)
+                    {
+                        peak = pending;
+                        peakLane = laneIndex;
+                    }
+                }
+
+                if (total == 0)
+                {
+                    continue;
+                }
+
+                // **Peak 과 Total 을 같이 본다.** 둘이 비슷하면 한 레인만 뜨거운 것이고
+                // (주인 분포가 치우쳤다는 뜻), 고르게 퍼져 있으면 레인 수가 모자란 것이다.
+                LOG.Info(ELogCategory::General, "레인 적체")
+                    .KV("Producer", ToString(producer->GetProducerType()))
+                    .KV("Backend", producer->BackendName())
+                    .KV("Lanes", laneCount)
+                    .KV("Total", total)
+                    .KV("Peak", peak)
+                    .KV("PeakLane", peakLane);
+            }
+        }
+
         // 레인 객체 자체를 버린다. **Stop() 뒤에 App 종료 경로에서 부른다.**
         void Shutdown()
         {

@@ -118,6 +118,9 @@
     <ClInclude Include="Src\Network\Service.h">
       <Filter>Network</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Network\SendStats.h">
+      <Filter>Network</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Timer\RepeatingTimer.h">
       <Filter>Timer</Filter>
     </ClInclude>

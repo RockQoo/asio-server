@@ -48,6 +48,7 @@ void ZoneApp::Run()
     {
         playerGroup_.LogStats();
         zoneWorkers_.LogStats();
+        network_.LogStats();
     });
 
     SetupSignalHandling();

@@ -131,6 +131,7 @@
     <ClInclude Include="Src\Network\SessionHolder.h" />
     <ClInclude Include="Src\Network\IoContextPool.h" />
     <ClInclude Include="Src\Network\Service.h" />
+    <ClInclude Include="Src\Network\SendStats.h" />
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
     <ClInclude Include="Src\Thread\Mutexed.h" />
     <ClInclude Include="Src\Processor\Stats.h" />

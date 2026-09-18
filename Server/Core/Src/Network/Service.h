@@ -52,6 +52,11 @@ namespace Network
 
         [[nodiscard]] size_t ThreadCount() const noexcept { return ioPool_.Size(); }
 
+        // 송신 큐 적체를 로그로 남긴다. **레인 적체와 나란히 봐야 뜻이 선다** --
+        // 레인이 한가한데 여기가 밀려 있으면 목이 소켓이라는 뜻이다.
+        // 최고치는 읽으면서 리셋되므로 덤프 주기마다 한 번만 부른다.
+        void LogStats() const;
+
     private:
         IoContextPool ioPool_;
 

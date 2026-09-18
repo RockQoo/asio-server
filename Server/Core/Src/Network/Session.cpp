@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Server/Core/Src/Network/Session.h"
 #include "Server/Core/Src/Network/IPacketHandler.h"
+#include "Server/Core/Src/Network/SendStats.h"
 #include "Server/Core/Src/Packet/PacketFramer.h"
 #include "Server/Core/Src/Base/CoreException.h"
 
@@ -14,7 +15,17 @@ namespace Network
     {
     }
 
-    Session::~Session() = default;
+    Session::~Session()
+    {
+        // 연결이 죽어 못 보낸 채로 남은 몫을 계측에서 뺀다. **안 빼면 전체 적체 카운터가
+        // 영영 안 내려간다.** 여기 올 때는 비동기 작업이 전부 끝난 뒤라 큐가 더 안 바뀐다.
+        size_t droppedBytes = 0;
+        for (const auto& frame : sendQueue_)
+        {
+            droppedBytes += frame.size();
+        }
+        SendStats::Instance().OnDropped(sendQueue_.size(), droppedBytes);
+    }
 
     void Session::Start()
     {
@@ -66,7 +77,12 @@ namespace Network
         asio::post(strand_, [self = shared_from_this(), frame = std::move(frame)]() mutable
         {
             const auto alreadyWriting = self->writing_;
+            const auto frameBytes = frame.size();
             self->sendQueue_.push_back(std::move(frame));
+
+            // strand 안이라 이 세션의 큐 길이는 여기서 정확하다. 합산만 프로세스 전역이다.
+            SendStats::Instance().OnEnqueue(self->id_, self->sendQueue_.size(), frameBytes);
+
             if (!alreadyWriting)
             {
                 self->DoWrite();
@@ -134,7 +150,9 @@ namespace Network
                         return;
                     }
 
+                    SendStats::Instance().OnSent(self->sendQueue_.front().size());
                     self->sendQueue_.pop_front();
+
                     if (!self->sendQueue_.empty())
                     {
                         self->DoWrite();

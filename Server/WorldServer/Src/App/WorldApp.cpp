@@ -92,6 +92,15 @@ void WorldApp::Run()
     // **레인이 돌기 시작한 뒤에 건다** -- 타이머가 만기를 TIMER 레인에 넣기 때문이다.
     timerProcessor_->Start(network_.Next());
 
+    // 레인 적체와 송신 적체를 나란히 남긴다. **부하에서 "어디가 밀렸나"를 판정할 유일한
+    // 수단**이라 켜 둔다 -- 처리량 수치만 보면 느리다는 것까지만 알 수 있다.
+    statsTimer_ = std::make_unique<Timer::RepeatingTimer>(network_.Next());
+    statsTimer_->Start(config_.statsDumpInterval, [this]
+    {
+        Pipeline::ProducerHolder::Instance().LogStats();
+        network_.LogStats();
+    });
+
     SetupSignalHandling();
     keyBinder_.Start();
 
@@ -109,6 +118,10 @@ void WorldApp::Run()
     // **일을 주는 쪽부터 끊는다.** MessageProducer::Stop()은 남은 일을 소진한 뒤 스레드를
     // 끝내므로, 주는 쪽이 먼저 서야 받는 쪽이 살아 있는 동안 그 일을 마저 처리한다.
     keyBinder_.Stop();
+    if (statsTimer_)
+    {
+        statsTimer_->Stop();
+    }
     timerProcessor_->Stop();
 
     // 레인끼리의 순서는 EProducerType 선언 순서 하나로 정해진다(Basic -> Db -> Timer).
