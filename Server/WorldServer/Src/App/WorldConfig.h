@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Server/Core/Src/Pipeline/Types.h"
+
 struct WorldConfig
 {
     uint16_t gatewayPort{9100};
@@ -15,6 +17,10 @@ struct WorldConfig
     // 게이트웨이/존 프로세스 수까지다(NetworkProcessor.h의 "가장 좁은 목" 주석 참고).
     // 이 값은 그 한계를 실측으로 확인하기 위한 손잡이다.
     size_t networkThreadCount{2};
+
+    // 레인을 굴리는 방식. queue = 스레드↔레인 1:1(어피니티), strand = 워크 스틸링.
+    // **둘을 번갈아 재보려고 둔 손잡이다** -- 측정 기록에 어느 쪽인지 반드시 같이 남긴다.
+    Pipeline::ELaneBackend laneBackend{Pipeline::ELaneBackend::Queue};
 
     // BASIC 레인의 스레드 수. Main/Login/Tool/Test 프로세서가 이 스레드들을 **공유**하고,
     // 어느 스레드로 갈지는 메시지의 ownerId가 정한다(WorldApp::SetupProducers 참고).

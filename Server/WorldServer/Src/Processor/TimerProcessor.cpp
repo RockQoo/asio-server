@@ -15,10 +15,10 @@ void TimerProcessor::RegistHandler()
     Regist(EWorldMsg::TimerLongTick,  &TimerProcessor::OnLongTick);
 }
 
-void TimerProcessor::Start()
+void TimerProcessor::Start(asio::io_context& timerContext)
 {
     auto* const timerProducer = Pipeline::GetProducer<Pipeline::EProducerType::Timer>();
-    if (timerProducer == nullptr || !timerProducer->IsRunning())
+    if (timerProducer == nullptr)
     {
         LOG.Warning(ELogCategory::General, "TIMER 레인이 없어 주기 작업을 걸지 않는다");
         return;
@@ -27,7 +27,7 @@ void TimerProcessor::Start()
     // 두 타이머 모두 TIMER 레인의 executor에서 만기된다 -- 만기 감시가 이 레인의 일이다.
     // 만기 자체는 통계를 남기지 않으므로, 만기 핸들러는 다시 PushMsg로 이 레인에 넣는다
     // (그래야 다른 메시지와 같은 취급을 받는다).
-    shortTimer_ = std::make_unique<Timer::RepeatingTimer>(timerProducer->Context().get_executor());
+    shortTimer_ = std::make_unique<Timer::RepeatingTimer>(timerContext);
     shortTimer_->Start(std::chrono::duration_cast<std::chrono::milliseconds>(kShortInterval),
         []
         {
@@ -35,7 +35,7 @@ void TimerProcessor::Start()
                 EWorldMsg::TimerShortTick, Ids().timer, Pipeline::OwnerId{kGlobalQueryKey});
         });
 
-    longTimer_ = std::make_unique<Timer::RepeatingTimer>(timerProducer->Context().get_executor());
+    longTimer_ = std::make_unique<Timer::RepeatingTimer>(timerContext);
     longTimer_->Start(std::chrono::duration_cast<std::chrono::milliseconds>(kLongInterval),
         []
         {

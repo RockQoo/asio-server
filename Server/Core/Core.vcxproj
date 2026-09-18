@@ -137,7 +137,9 @@
     <ClInclude Include="Src\Pipeline\Types.h" />
     <ClInclude Include="Src\Pipeline\Message.h" />
     <ClInclude Include="Src\Pipeline\MessageProcessor.h" />
-    <ClInclude Include="Src\Pipeline\StrandLane.h" />
+    <ClInclude Include="Src\Pipeline\ILaneSet.h" />
+    <ClInclude Include="Src\Pipeline\QueueLaneSet.h" />
+    <ClInclude Include="Src\Pipeline\StrandLaneSet.h" />
     <ClInclude Include="Src\Pipeline\MessageProducer.h" />
     <ClInclude Include="Src\Pipeline\ProducerHolder.h" />
     <ClInclude Include="Src\Task\ITask.h" />

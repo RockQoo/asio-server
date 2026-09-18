@@ -139,7 +139,13 @@
     <ClInclude Include="Src\Pipeline\MessageProcessor.h">
       <Filter>Pipeline</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Pipeline\StrandLane.h">
+    <ClInclude Include="Src\Pipeline\ILaneSet.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pipeline\QueueLaneSet.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pipeline\StrandLaneSet.h">
       <Filter>Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="Src\Pipeline\MessageProducer.h">

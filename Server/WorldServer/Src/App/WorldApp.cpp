@@ -46,9 +46,9 @@ void WorldApp::InitProducers()
 {
     auto& producerHolder = Pipeline::ProducerHolder::Instance();
 
-    producerHolder.InitProducer(Pipeline::EProducerType::Basic, static_cast<int32_t>(config_.basicThreadCount));
-    producerHolder.InitProducer(Pipeline::EProducerType::Db,    static_cast<int32_t>(config_.dbThreadCount));
-    producerHolder.InitProducer(Pipeline::EProducerType::Timer, kTimerLaneCount);
+    producerHolder.InitProducer(Pipeline::EProducerType::Basic, static_cast<int32_t>(config_.basicThreadCount), config_.laneBackend);
+    producerHolder.InitProducer(Pipeline::EProducerType::Db,    static_cast<int32_t>(config_.dbThreadCount), config_.laneBackend);
+    producerHolder.InitProducer(Pipeline::EProducerType::Timer, kTimerLaneCount, config_.laneBackend);
 
     // **AddProcessor가 돌려준 id를 보관해야 다른 곳에서 여기로 메시지를 보낼 수 있다.**
     // 프로세서 객체의 소유권은 레인으로 넘어가고, 여기 남는 것은 id뿐이다.
@@ -92,7 +92,7 @@ void WorldApp::Run()
     toolListener_->Start();
 
     // **레인이 돌기 시작한 뒤에 건다** -- 타이머가 만기를 TIMER 레인에 넣기 때문이다.
-    timerProcessor_->Start();
+    timerProcessor_->Start(ioPool_.Next());
 
     SetupSignalHandling();
     keyBinder_.Start();
@@ -103,7 +103,8 @@ void WorldApp::Run()
         .KV("IoThreads", config_.ioThreadCount)
         .KV("BasicLanes", config_.basicThreadCount)
         .KV("DbLanes", config_.dbThreadCount)
-        .KV("TimerLanes", kTimerLaneCount);
+        .KV("TimerLanes", kTimerLaneCount)
+        .KV("LaneBackend", Pipeline::ToString(config_.laneBackend));
 
     ioPool_.Run();
     ioPool_.Join();

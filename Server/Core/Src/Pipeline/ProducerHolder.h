@@ -25,10 +25,11 @@ namespace Pipeline
         ProducerHolder& operator=(const ProducerHolder&) = delete;
 
         // laneCount = strand 개수 = 그 레인이 띄우는 스레드 개수.
-        void InitProducer(const EProducerType producerType, const int32_t laneCount)
+        void InitProducer(const EProducerType producerType, const int32_t laneCount,
+                          const ELaneBackend backend)
         {
             producers_[static_cast<size_t>(producerType)] =
-                std::make_unique<MessageProducer>(producerType, laneCount);
+                std::make_unique<MessageProducer>(producerType, laneCount, backend);
         }
 
         [[nodiscard]] MessageProducer* GetProducer(const EProducerType producerType) const noexcept

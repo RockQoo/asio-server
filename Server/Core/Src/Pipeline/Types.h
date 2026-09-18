@@ -56,6 +56,39 @@ namespace Pipeline
         Max,
     };
 
+    // 레인을 굴리는 방식. **둘 다 구현해 두고 config로 고른다** -- 지우지 않는다.
+    // 차이는 하나, **어피니티 vs 워크 스틸링**이다(자세한 건 ILaneSet.h).
+    enum class ELaneBackend : uint8_t
+    {
+        Queue,   // 스레드 1개 + 큐 1개 + condvar. 스레드↔레인 1:1 (실무 원본과 같다)
+        Strand,  // asio::strand. 한가한 스레드가 아무 레인이나 집어간다
+    };
+
+    [[nodiscard]] inline std::string_view ToString(const ELaneBackend backend)
+    {
+        switch (backend)
+        {
+        case ELaneBackend::Queue:  return "queue";
+        case ELaneBackend::Strand: return "strand";
+        }
+        return "Unknown";
+    }
+
+    // 설정 파일의 문자열을 레인 백엔드로. 모르는 값이면 nullopt -- 설정이 틀렸는데 조용히
+    // 기본값으로 돌면 "어느 쪽으로 잰 수치인가"를 믿을 수 없게 된다.
+    [[nodiscard]] inline std::optional<ELaneBackend> ParseLaneBackend(const std::string_view text)
+    {
+        if (text == "queue")
+        {
+            return ELaneBackend::Queue;
+        }
+        if (text == "strand")
+        {
+            return ELaneBackend::Strand;
+        }
+        return std::nullopt;
+    }
+
     // 레인 이름. 그대로 스레드 이름(`Basic#0`)과 로그에 쓰인다.
     [[nodiscard]] inline std::string_view ToString(const EProducerType producerType)
     {

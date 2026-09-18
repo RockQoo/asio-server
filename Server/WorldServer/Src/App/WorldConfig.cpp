@@ -37,6 +37,21 @@ WorldConfig LoadConfig(const std::string& path)
     // 게이트웨이/존 프로세스 수까지다 -- 스레드를 늘려도 그 이상 갈라지지 않는다.
     config.networkThreadCount = file.GetSize("network_threads", config.networkThreadCount);
 
+    // 레인 백엔드. 모르는 값이면 기본값으로 넘어가지 않고 경고를 남긴다 -- 어느 쪽으로 잰
+    // 수치인지 믿을 수 없게 되는 것이 조용한 오타보다 나쁘다.
+    {
+        const auto backendText = file.GetString("lane_backend", std::string(Pipeline::ToString(config.laneBackend)));
+        if (const auto parsed = Pipeline::ParseLaneBackend(backendText))
+        {
+            config.laneBackend = *parsed;
+        }
+        else
+        {
+            LOG.Warning(ELogCategory::General, "알 수 없는 lane_backend, 기본값을 쓴다")
+                .KV("Value", backendText).KV("Default", Pipeline::ToString(config.laneBackend));
+        }
+    }
+
     // BASIC은 Main/Login/Tool/Test 프로세서가 공유하는 레인이고, 실제 병렬도는 스레드 수가
     // 아니라 **서로 다른 ownerId의 개수**로 정해진다(대부분 clientSessionId라 충분히 많다).
     config.basicThreadCount = file.GetSize("basic_threads", config.basicThreadCount);

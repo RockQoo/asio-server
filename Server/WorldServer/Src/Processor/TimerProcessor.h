@@ -29,7 +29,10 @@ public:
     void RegistHandler() override;
 
     // TIMER 레인의 executor에 두 타이머를 건다. **레인이 Start된 뒤에 부른다.**
-    void Start();
+    // **만기 감시는 아직 I/O 스레드에서 한다.** 노션은 TIMER 레인이 스스로 만기를 보지만,
+    // 레인 백엔드가 큐일 때는 그 자리에 타이머를 걸 곳이 없다(condvar 의 시한 대기로
+    // 옮기는 것이 다음 단계다). 만기 뒤의 일은 지금도 TIMER 레인에서 돈다.
+    void Start(asio::io_context& timerContext);
 
     // 타이머를 멈춘다. 여러 번 불려도 안전하다(소멸자도 부른다).
     void Stop();
