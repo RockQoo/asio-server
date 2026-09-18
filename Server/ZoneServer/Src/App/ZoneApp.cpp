@@ -1,58 +1,135 @@
 #include "pch.h"
 #include "App/ZoneApp.h"
 
+#include "Player/PlayerStreamHandler.h"
+#include "Processor/BroadcastProcessor.h"
+#include "Processor/ProcessorIds.h"
+#include "Processor/TickProcessor.h"
+#include "Processor/TimerProcessor.h"
+#include "Processor/ZoneNetworkProcessor.h"
+#include "Processor/ZoneProcessor.h"
+
 #include "Server/Core/Src/Timer/RepeatingTimer.h"
 
+namespace
+{
+    // TIMER 레인의 레인 수. 만기 판정만 하는 레인이라 하나로 고정한다 -- 늘리면 같은 주기
+    // 작업의 두 만기가 서로 다른 스레드에서 겹쳐 돌 수 있다.
+    constexpr int32_t kTimerLaneCount = 1;
+}
 
 ZoneApp::ZoneApp(ZoneConfig config)
     : config_(std::move(config))
     , network_(config_.ioThreadCount)
-    , playerGroup_("Player", config_.poolSizes.playerThreadCount, config_.slowTaskWarnThreshold)
-    // 샤드 개수를 플레이어 레인 스레드 수와 맞춘다 -- 둘 다 `% N`으로 나누므로 같아야
-    // "그 샤드를 만지는 스레드가 항상 하나"가 성립한다(PlayerRegistry.h 주석 참고).
-    , playerRegistry_(playerGroup_.ThreadCount())
-    , zoneWorkers_(config_.zones, config_.poolSizes, config_.slowTaskWarnThreshold, worldLink_)
-    , playerProcessor_(playerRegistry_, zoneWorkers_, zoneWorkers_.Broadcaster(), worldLink_, mailRegistry_)
-    , worldLinkHandler_(playerProcessor_, playerGroup_, worldLink_, config_.zones)
-    , mailExpiryService_(mailRegistry_, worldLink_)
     , signals_(network_.At(0), SIGINT, SIGTERM)
 {
 }
 
-ZoneApp::~ZoneApp() = default;
+ZoneApp::~ZoneApp()
+{
+    // 레인이 소유한 프로세서들이 이 App 의 멤버(zones_ 의 링크와 세계)를 참조하므로, 레인을
+    // 먼저 버려야 한다. Run() 이 정상 종료했다면 이미 Stop() 까지 끝난 상태다.
+    Pipeline::ProducerHolder::Instance().Shutdown();
+}
+
+void ZoneApp::InitProducers()
+{
+    auto& producerHolder = Pipeline::ProducerHolder::Instance();
+
+    const auto zoneCount = config_.zones.size();
+
+    producerHolder.InitProducer(Pipeline::EProducerType::Lb,
+                                static_cast<int32_t>(config_.lbThreadCount), config_.laneBackend);
+    producerHolder.InitProducer(Pipeline::EProducerType::Basic,
+                                static_cast<int32_t>(config_.basicThreadCount), config_.laneBackend);
+
+    // **TICK 만 해시를 끈다.** 주인이 1..2N 로 촘촘하고 레인이 2N+1 개라 나머지 연산이
+    // 항등이 되어 충돌이 0이다. 해시를 켜면 그 1:1이 깨져 두 존의 틱이 한 스레드로 합쳐진다.
+    producerHolder.InitProducer(Pipeline::EProducerType::Tick,
+                                static_cast<int32_t>(TickLaneCount(zoneCount)),
+                                config_.laneBackend, false);
+
+    producerHolder.InitProducer(Pipeline::EProducerType::Broadcast,
+                                static_cast<int32_t>(config_.broadcastThreadCount), config_.laneBackend);
+    producerHolder.InitProducer(Pipeline::EProducerType::Timer, kTimerLaneCount, config_.laneBackend);
+
+    auto* const lbProducer = producerHolder.GetProducer(Pipeline::EProducerType::Lb);
+    auto* const basicProducer = producerHolder.GetProducer(Pipeline::EProducerType::Basic);
+    auto* const tickProducer = producerHolder.GetProducer(Pipeline::EProducerType::Tick);
+    auto* const broadcastProducer = producerHolder.GetProducer(Pipeline::EProducerType::Broadcast);
+    auto* const timerProducer = producerHolder.GetProducer(Pipeline::EProducerType::Timer);
+
+    auto& ids = Ids();
+
+    std::vector<Common::ZoneId> zoneIds;
+    zoneIds.reserve(zoneCount);
+
+    zones_.reserve(zoneCount);
+    for (size_t ordinal = 0; ordinal < zoneCount; ++ordinal)
+    {
+        const auto& def = config_.zones[ordinal];
+
+        ZoneRuntime runtime{};
+        runtime.worldLink = std::make_unique<Network::SessionHolder>();
+        runtime.zone = std::make_shared<Zone>(def, *runtime.worldLink);
+        runtime.handler = std::make_unique<W2ZHandler>(def, *runtime.worldLink);
+
+        // **담당 존마다 처리기가 네 벌이다.** 프로세서 객체의 소유권은 레인으로 넘어가고,
+        // 여기 남는 것은 id 뿐이다 -- 보내는 쪽은 그 id 만 보고 객체를 모른다.
+        ZoneLaneTarget target{};
+        target.lb = lbProducer->AddProcessor(
+            std::make_unique<ZoneNetworkProcessor>(def.zoneId, *runtime.worldLink));
+        target.basic = basicProducer->AddProcessor(std::make_unique<ZoneProcessor>(runtime.zone));
+        target.tick = tickProducer->AddProcessor(std::make_unique<TickProcessor>(runtime.zone));
+        target.broadcast = broadcastProducer->AddProcessor(
+            std::make_unique<BroadcastProcessor>(def.zoneId, *runtime.worldLink));
+
+        // 주인은 서수에서 파생시킨다 -- 어디에도 저장하지 않으므로 갈릴 자리가 없다.
+        target.tickOwner = ZoneTickOwner(ordinal);
+        target.otherOwner = ZoneOtherOwner(ordinal);
+        target.broadcastOwner = Pipeline::OwnerId{static_cast<int64_t>(def.zoneId.Value())};
+
+        ids.zones[def.zoneId] = target;
+        zoneIds.push_back(def.zoneId);
+
+        zones_.push_back(std::move(runtime));
+    }
+
+    auto timerOwned = std::make_unique<TimerProcessor>(std::move(zoneIds), config_.tickInterval,
+                                                      config_.fanoutFlushInterval);
+    timerProcessor_ = timerOwned.get();
+    ids.timer = timerProducer->AddProcessor(std::move(timerOwned));
+}
 
 void ZoneApp::Run()
 {
-    playerGroup_.Start();
-    zoneWorkers_.Start(network_, config_.tickInterval);
+    // 패킷 표를 먼저 채운다. 비어 있으면 모든 클라 패킷이 미등록으로 버려진다.
+    PlayerStreamHandler::Init();
 
-    // 존은 accept하지 않는다 -- World로 나가는 링크 하나가 전부다.
-    network_.AddConnector(config_.worldHost, config_.worldPort, worldLinkHandler_);
+    InitProducers();
+    Pipeline::ProducerHolder::Instance().Start();
+
+    // **담당 존마다 연결을 따로 연다.** 어느 소켓으로 들어왔느냐가 곧 어느 존의 것이냐라,
+    // 받는 쪽이 존을 찾는 표를 들 필요가 없다.
+    for (auto& runtime : zones_)
+    {
+        network_.AddConnector(config_.worldHost, config_.worldPort, *runtime.handler);
+    }
     network_.Start();
 
-    // 어느 레인에도 속하지 않고 io_context 하나를 빌려서 도는 유지보수 타이머다 --
-    // 존 레인/플레이어 레인과 겹치지 않아야 Mutexed가 방어하는 "진짜 교차 스레드"
-    // 시나리오가 성립한다(Model 참고).
-    mailExpiryTimer_ = std::make_unique<Timer::RepeatingTimer>(network_.Next());
-    mailExpiryTimer_->Start(config_.mailSweepInterval, [this]
-    {
-        const auto nowUt = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-        mailExpiryService_.SweepOnce(nowUt);
-    });
+    // **레인이 돌기 시작한 뒤에 건다** -- 타이머가 만기를 TIMER 레인에 넣기 때문이다.
+    timerProcessor_->Start(network_.Next());
 
-    // 레인별 대기/처리 시간을 주기적으로 남긴다. **부하 테스트에서 "어디가 밀렸나"를
-    // 판정할 유일한 수단**이라 켜 둔다 -- 처리량 수치만 보면 느리다는 것까지만 알 수 있다.
+    // 레인 적체와 송신 적체를 나란히 남긴다. **부하에서 "어디가 밀렸나"를 판정할 유일한
+    // 수단**이라 켜 둔다 -- 처리량 수치만 보면 느리다는 것까지만 알 수 있다.
     statsTimer_ = std::make_unique<Timer::RepeatingTimer>(network_.Next());
     statsTimer_->Start(config_.statsDumpInterval, [this]
     {
-        playerGroup_.LogStats();
-        zoneWorkers_.LogStats();
+        Pipeline::ProducerHolder::Instance().LogStats();
         network_.LogStats();
     });
 
     SetupSignalHandling();
-
     keyBinder_.Start();
 
     std::string zoneIdList;
@@ -68,28 +145,30 @@ void ZoneApp::Run()
     LOG.Info(ELogCategory::General, "ZoneServer 대기 시작")
         .KV("ZoneIds", zoneIdList)
         .KV("IoThreads", config_.ioThreadCount)
-        .KV("PlayerThreads", playerGroup_.ThreadCount())
-        .KV("ZoneThreads", config_.poolSizes.zoneThreadCount)
-        .KV("BroadcastThreads", config_.poolSizes.broadcastThreadCount)
+        .KV("LbLanes", config_.lbThreadCount)
+        .KV("BasicLanes", config_.basicThreadCount)
+        .KV("TickLanes", TickLaneCount(config_.zones.size()))
+        .KV("BroadcastLanes", config_.broadcastThreadCount)
+        .KV("TimerLanes", kTimerLaneCount)
         .KV("WorldHost", config_.worldHost).KV("WorldPort", config_.worldPort)
-        .KV("TickMs", config_.tickInterval.count());
+        .KV("TickMs", config_.tickInterval.count())
+        .KV("LaneBackend", Pipeline::ToString(config_.laneBackend));
 
     network_.Join();
 
-    if (mailExpiryTimer_)
-    {
-        mailExpiryTimer_->Stop();
-    }
-
-    // **종속 관계의 역순으로 내린다.** 플레이어 레인이 존 레인과 브로드캐스트 레인에
-    // 일을 던지므로 그 순서로 세워야 이미 정지한 레인에 새 일이
-    // 들어가지 않는다(Group::Stop()은 큐에 남은 것을 소진한 뒤 join한다).
-    // **레인을 세우기 전에 입력 스레드를 멈춘다** -- 안 그러면 F키 한 번이 이미 닫히는
-    // 중인 레인으로 일을 밀어 넣는다.
+    // **일을 주는 쪽부터 끊는다.** 타이머가 살아 있으면 이미 닫히는 레인에 만기가 들어간다.
     keyBinder_.Stop();
 
-    playerGroup_.Stop();
-    zoneWorkers_.Stop();  // 내부에서 타이머 취소 -> 존 레인 -> 브로드캐스트 순
+    if (statsTimer_)
+    {
+        statsTimer_->Stop();
+    }
+    if (timerProcessor_ != nullptr)
+    {
+        timerProcessor_->Stop();
+    }
+
+    Pipeline::ProducerHolder::Instance().Stop();
 
     LOG.Info(ELogCategory::General, "ZoneServer 종료 완료");
 }

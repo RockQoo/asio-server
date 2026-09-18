@@ -6,7 +6,7 @@ namespace Client;
 ///
 /// <para>
 /// <b>단계를 나눈 이유</b>: 서버가 로그인을 통과하기 전에는 게임 패킷을 존으로 넘기지 않는다
-/// (<c>GatewayLinkHandler::HandleFromClient</c>). 그러니 이동/채팅/Echo를 쏘아봐야 조용히
+/// (<c>GatewayLinkHandler::HandleFromClient</c>). 그러니 이동/채팅/Ping을 쏘아봐야 조용히
 /// 버려질 뿐이라, 클라이언트도 같은 경계를 갖고 있어야 "보냈는데 아무 일도 안 일어난다"가
 /// 안 생긴다.
 /// </para>

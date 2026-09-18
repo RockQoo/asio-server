@@ -29,7 +29,7 @@ namespace Common
                          // 처리한다 -- 뒤(골드)에서 실패하면 앞(우편)이 역순으로 되돌아간다
 
         // ---- Z2C : Zone -> 클라이언트 (1000 ~ 1999) ----
-        Z2CEchoAck = 1001,          // C2ZEcho의 응답. 본문은 받은 것 그대로
+        Z2CEcho = 1001,          // C2ZEcho의 응답. 본문은 받은 것 그대로
         Z2CChatNotify = 1002,       // sessionId + 메시지. 존 내부 브로드캐스트
         Z2CMoveNotify = 1003,       // sessionId + Position. 존 내부 브로드캐스트
         Z2CEnterZoneNotify = 1004,  // 존 배정(신규 입장 또는 핸드오프 전입) 통지
@@ -62,6 +62,8 @@ namespace Common
         W2ZEnterZone = 6001,  // 플레이어를 이 존에 입장(신규 배정 또는 핸드오프 전입)시킴
         W2ZLeaveZone = 6002,   // 접속 종료로 이 존에서 플레이어를 제거하라는 지시
         W2ZRelay = 6003,             // RelayEnvelope + 클라이언트 원본 패킷 그대로
+        W2ZPlayerStream = 6004,      // PlayerStreamEnvelope + 클라이언트 원본 패킷 그대로.
+                                     // W2ZRelay 와 달리 playerId 가 봉투에 실린다
 
         // ---- Z2W : Zone -> World (7000 ~ 7999) ----
         Z2WZoneRegister = 7001,         // Zone 접속 직후, 이 Zone이 담당하는 x구간을 알림

@@ -14,31 +14,31 @@ ZoneConfig LoadConfig(const std::string& path, std::vector<ZoneDef> zones)
     ZoneConfig config{};
     config.zones = std::move(zones);
 
-    // 레인마다 크기를 정하는 기준이 다르다:
-    //   Player      -- owner가 clientSessionId라 실질 병렬도가 접속자 수만큼이다.
-    //                  스레드를 늘린 만큼 실제로 갈린다. 수신 파싱도 이 레인이 한다.
-    //   Zone        -- **담당 존 수만큼.** 존 하나는 스레드 하나가 상한이라, 더 줘도
-    //                  그 존이 빨라지지 않는다(버거우면 존을 쪼갠다). 그래서 설정에서
-    //                  0을 주면 존 개수로 맞춘다 -- 프로세스마다 담당 존 수가 다르다.
-    //   Broadcast   -- World 링크가 하나라 어차피 그 소켓에서 직렬화된다.
-    config.poolSizes.playerThreadCount =
-        file.GetSize("pools.player_threads", config.poolSizes.playerThreadCount);
-    config.poolSizes.broadcastThreadCount =
-        file.GetSize("pools.broadcast_threads", config.poolSizes.broadcastThreadCount);
-
-    const auto zoneThreads = file.GetSize("pools.zone_threads", 0);
-    config.poolSizes.zoneThreadCount = zoneThreads > 0 ? zoneThreads : config.zones.size();
-
     config.worldHost = file.GetString("world_host", config.worldHost);
     config.worldPort = file.GetPort("world_port", config.worldPort);
     config.ioThreadCount = file.GetSize("io_threads", config.ioThreadCount);
+
+    const auto backendText = file.GetString("lane_backend", std::string(Pipeline::ToString(config.laneBackend)));
+    if (const auto parsed = Pipeline::ParseLaneBackend(backendText))
+    {
+        config.laneBackend = *parsed;
+    }
+    else
+    {
+        LOG.Warning(ELogCategory::General, "알 수 없는 lane_backend, 기본값을 쓴다")
+            .KV("Value", backendText).KV("Default", Pipeline::ToString(config.laneBackend));
+    }
+
+    config.lbThreadCount = file.GetSize("pools.lb_threads", config.lbThreadCount);
+    config.basicThreadCount = file.GetSize("pools.basic_threads", config.basicThreadCount);
+    config.broadcastThreadCount =
+        file.GetSize("pools.broadcast_threads", config.broadcastThreadCount);
+
     config.tickInterval = file.GetMilliseconds("intervals.tick_ms", config.tickInterval);
-    config.mailSweepInterval =
-        file.GetMilliseconds("intervals.mail_sweep_ms", config.mailSweepInterval);
+    config.fanoutFlushInterval =
+        file.GetMilliseconds("intervals.fanout_flush_ms", config.fanoutFlushInterval);
     config.statsDumpInterval =
         file.GetMilliseconds("intervals.stats_dump_ms", config.statsDumpInterval);
-    config.slowTaskWarnThreshold =
-        file.GetMicroseconds("slow_task_warn_us", config.slowTaskWarnThreshold);
 
     file.WarnUnusedKeys();
 

@@ -133,9 +133,9 @@ namespace Common
     };
 
     // Echo 응답. **요청과 id 를 공유하지 않는다**(한 id 는 한 방향) -- 본문은 받은 것 그대로다.
-    struct Z2CEchoAck
+    struct Z2CEcho
     {
-        static constexpr PacketId kPacketId = PacketId::Z2CEchoAck;
+        static constexpr PacketId kPacketId = PacketId::Z2CEcho;
 
         std::vector<byte> data;
 

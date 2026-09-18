@@ -5,7 +5,9 @@
 #include "Unit/Unit.h"
 
 #include "Server/Core/Src/Network/SessionHolder.h"
+#include "Server/Common/Src/PacketId.h"
 
+class Zone;
 class ZoneUnitOfWork;
 
 // 권위 있는(authoritative) 플레이어 한 명. `Unit` 에 **주인이 있는 것**(클라이언트 연결,
@@ -59,6 +61,10 @@ public:
     // 가변 참조라 const 를 못 붙인다(cpp-patterns.md "Get 계열은 const 필수"의 예외 항목).
     [[nodiscard]] CurrencyModel& GetWallet() noexcept { return wallet_; }
     [[nodiscard]] const CurrencyModel& GetWallet() const noexcept { return wallet_; }
+
+    // **패킷은 존이 여기로 내려보낸다**(Zone::Handle). 자기 것을 처리하고, 세계를 만지는
+    // 일(브로드캐스트, 전송)은 zone 으로 되돌려 올린다 -- 그래서 zone 을 인자로 받는다.
+    void Handle(Zone& zone, const PacketId packetId, const std::span<const byte> payload);
 
     // **TICK 레인에서 다른 플레이어와 동시에 불린다.** 자기 것만 만진다.
     void Tick(const UnitTickContext& context) override;

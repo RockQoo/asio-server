@@ -19,9 +19,6 @@
     <Filter Include="Task">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Worker">
-      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000003}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Handler">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
@@ -67,10 +64,13 @@
     <ClInclude Include="Src\Processor\ZoneMsg.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\PlayerProcessor.h">
+    <ClInclude Include="Src\Processor\ZoneProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Player\PlayerContext.h">
+      <Filter>Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Player\PlayerStreamHandler.h">
       <Filter>Player</Filter>
     </ClInclude>
     <ClInclude Include="Src\Player\PlayerMail.h">
@@ -79,8 +79,11 @@
     <ClInclude Include="Src\Processor\BroadcastProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Worker\WorkerManager.h">
-      <Filter>Worker</Filter>
+    <ClInclude Include="Src\Processor\ZoneNetworkProcessor.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\TimerProcessor.h">
+      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Handler\W2ZHandler.h">
       <Filter>Handler</Filter>
@@ -121,17 +124,23 @@
     <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp">
       <Filter>Task</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Processor\PlayerProcessor.cpp">
+    <ClCompile Include="Src\Processor\ZoneProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
     <ClCompile Include="Src\Player\PlayerMail.cpp">
       <Filter>Player</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Player\PlayerStreamHandler.cpp">
+      <Filter>Player</Filter>
+    </ClCompile>
     <ClCompile Include="Src\Processor\BroadcastProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Worker\WorkerManager.cpp">
-      <Filter>Worker</Filter>
+    <ClCompile Include="Src\Processor\ZoneNetworkProcessor.cpp">
+      <Filter>Processor</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Processor\TimerProcessor.cpp">
+      <Filter>Processor</Filter>
     </ClCompile>
     <ClCompile Include="Src\Handler\W2ZHandler.cpp">
       <Filter>Handler</Filter>

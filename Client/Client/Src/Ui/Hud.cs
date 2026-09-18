@@ -63,7 +63,7 @@ public sealed class Hud
         }
 
         var rttText = world.RttMs is { } rtt ? $"{rtt:0.0} ms" : "측정 중";
-        x = DrawField(painter, "Echo RTT", rttText, new Color(180, 200, 235), x, y);
+        x = DrawField(painter, "Ping RTT", rttText, new Color(180, 200, 235), x, y);
 
         // 자동 순회는 켜져 있을 때만 자리를 쓴다 -- 평소엔 상태줄을 좁히지 않는다.
         if (autoTour is { } tour)
@@ -134,7 +134,7 @@ public sealed class Hud
         painter.FillRect(new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), new Color(50, 62, 84));
 
         const string Help =
-            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 Echo 핑  ·  F2 자동 순회  ·  Esc 입력/패널 닫기";
+            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 핑  ·  F2 자동 순회  ·  Esc 입력/패널 닫기";
         painter.SmallText(Help, new Vector2(bounds.X + 12, bounds.Y + 5), new Color(130, 144, 168));
 
         var fontText = $"글꼴: {fontName}";

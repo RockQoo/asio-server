@@ -5,6 +5,7 @@
 #include "Task/ZoneUnitOfWork.h"
 
 #include "Server/Common/Src/ContentLimit.h"
+#include "Server/Common/Src/Packet/Wire.h"
 
 namespace
 {

@@ -31,7 +31,7 @@ public enum PacketId : ushort
     C2ZMailDel = 5,
 
     /// <summary>Z2C: <see cref="C2ZEcho"/>의 응답. 본문은 보낸 바이트 그대로(길이 접두 없음).</summary>
-    Z2CEchoAck = 1001,
+    Z2CEcho = 1001,
 
     /// <summary>Z2C: senderId(uint32) + 메시지(길이 접두). 존 내부 브로드캐스트.</summary>
     Z2CChatNotify = 1002,

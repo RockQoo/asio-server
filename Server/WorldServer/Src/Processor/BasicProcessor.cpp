@@ -261,6 +261,7 @@ void BasicProcessor::HandleClientDisconnected(const Network::Session::SPtr& /*ga
     }
 
     Common::W2ZLeaveZone leave{};
+    leave.playerId = client->playerId;
     leave.clientSessionId = clientSessionId;
     Common::SendPacket(zoneLink->zoneSession, leave);
 
@@ -315,8 +316,12 @@ void BasicProcessor::HandleFromClient(const Network::Session::SPtr& gatewaySessi
         return;
     }
 
-    // **봉투째 그대로** 넘긴다 -- World 는 안쪽 내용을 해석할 필요가 없다.
-    zoneLink->zoneSession->SendPacket(PacketId::W2ZRelay, packet.raw);
+    // **봉투를 다시 씌운다** -- 안쪽 내용은 여전히 해석하지 않지만, 존의 BASIC 레인은
+    // 주인이 playerId 라 그 값이 봉투에 실려 있어야 한다. World 는 이미 알고 있다.
+    zoneLink->zoneSession->SendPacket(
+        PacketId::W2ZPlayerStream,
+        Common::WrapPlayerStream(client->playerId.Value(), packet.envelope.clientSessionId,
+                                 packet.envelope.innerPacketId, packet.innerPayload));
 }
 
 void BasicProcessor::HandleZoneRegister(const Network::Session::SPtr& zoneSession,
@@ -378,6 +383,7 @@ void BasicProcessor::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSess
     if (sourceZoneLink && sourceZoneLink->zoneSession != targetZoneLink->zoneSession)
     {
         Common::W2ZLeaveZone leaveZoneNotifyPacket{};
+        leaveZoneNotifyPacket.playerId = transfer.playerId;
         leaveZoneNotifyPacket.clientSessionId = transfer.clientSessionId;
         Common::SendPacket(sourceZoneLink->zoneSession, leaveZoneNotifyPacket);
     }

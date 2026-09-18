@@ -10,6 +10,8 @@ namespace Network
     class SessionHolder;
 }
 
+class Zone;
+
 class ZoneUnitOfWork;
 
 // 한 틱 동안 모든 유닛에게 같이 넘어가는 값. 유닛마다 다른 것은 여기 넣지 않는다.
@@ -17,6 +19,9 @@ struct UnitTickContext final
 {
     int64_t nowUt{};
     float deltaSeconds{};
+
+    // 경계 판정에 쓴다. 넘어간 유닛은 여기에 스스로를 신고한다.
+    Zone* zone{};
 };
 
 // 존 안에서 자리를 갖고 틱을 받는 것 하나. 플레이어와 (앞으로) 몬스터의 공통 부분이다.
@@ -73,10 +78,30 @@ public:
     // 올릴 곳이 없는 유닛은 nullptr 다.
     [[nodiscard]] virtual Network::SessionHolder* GetWorldLink() const noexcept;
 
+    // 존 이동을 요청해두고 아직 응답을 못 받은 상태. **중복 요청을 막는 자물쇠다** --
+    // 존 이동은 존A -> World -> 존B 로 돌아오는 여러 홉이라, 그 사이에도 틱은 계속 돌고
+    // 경계 밖 좌표도 그대로 남아 있어서 매 틱 다시 요청하게 된다.
+    //
+    // TICK 이 세우고(CAS), 퇴장 처리(BASIC)가 내린다 -- 레인이 둘이라 원자적이어야 한다.
+    [[nodiscard]] bool TryBeginZoneCrossing() noexcept
+    {
+        bool expected = false;
+        return crossingZone_.compare_exchange_strong(expected, true, std::memory_order_acq_rel);
+    }
+
+    void EndZoneCrossing() noexcept { crossingZone_.store(false, std::memory_order_release); }
+
+    [[nodiscard]] bool IsCrossingZone() const noexcept
+    {
+        return crossingZone_.load(std::memory_order_acquire);
+    }
+
 private:
     const Common::UnitId unitId_;
     const EType type_;
     Common::ZoneId zoneId_;
 
     MoveModel::Mutexed move_;
+
+    std::atomic<bool> crossingZone_{false};
 };

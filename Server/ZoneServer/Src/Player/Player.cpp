@@ -2,6 +2,7 @@
 #include "Player/Player.h"
 
 #include "Player/PlayerTask.h"
+#include "Player/PlayerStreamHandler.h"
 #include "Task/ZoneUnitOfWork.h"
 
 #include "Server/Common/Src/ErrorCode.h"
@@ -18,6 +19,11 @@ Player::Player(Network::SessionHolder& worldLink, const Network::SessionId clien
     , mailBox_(std::move(mailBox))
     , wallet_(currencies)
 {
+}
+
+void Player::Handle(Zone& zone, const PacketId packetId, const std::span<const byte> payload)
+{
+    PlayerStreamHandler::Dispatch(PlayerContext{*this, zone}, packetId, payload);
 }
 
 void Player::Tick(const UnitTickContext& context)

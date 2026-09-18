@@ -223,7 +223,7 @@ struct Z2WUnitOfWorkStream
 | 4 | `C2ZMailAdd` | `Zone::PacketId::MailAdd` |
 | 5 | `C2ZMailDel` | `Zone::PacketId::MailDel` |
 | 6 | `C2ZMailBuy` | 신규 — 우편 지급 + 골드 차감(모델 두 개에 걸친 트랜잭션) |
-| 1001 | `Z2CEchoAck` | `Echo` 재사용이었음 |
+| 1001 | `Z2CEcho` | `Echo` 재사용이었음(요청과 id 를 공유했다) |
 | 1002 | `Z2CChatNotify` | `Chat` 재사용이었음 |
 | 1003 | `Z2CMoveNotify` | `Move` 재사용이었음, **본문에 sessionId 추가** |
 | 1004 | `Z2CEnterZoneNotify` | `Zone::PacketId::EnterZoneNotify`. **본문에 clientSessionId 추가** — playerId가 int64 계정 키가 되면서, 브로드캐스트 발신자 키(세션 id)와 갈라졌다 |
@@ -336,11 +336,11 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 같이 처리한 것:
 
 - `Echo`/`Move`/`Chat`은 요청과 응답이 같은 id를 쓰고 있었다 -> 방향별로 갈라졌다
-  (`C2ZEcho`/`Z2CEchoAck`, `C2ZMove`/`Z2CMoveNotify`, `C2ZChat`/`Z2CChatNotify`).
+  (`C2ZEcho`/`Z2CEcho`, `C2ZMove`/`Z2CMoveNotify`, `C2ZChat`/`Z2CChatNotify`).
 - `Z2CMoveNotify` 본문 앞에 `sessionId(uint32)`를 추가했다 -- 그전에는 브로드캐스트에 누가
   움직였는지가 없어서 `Z2CChatNotify`와 형태가 어긋나 있었다. **와이어 포맷 변경이다.**
 - `WorldLinkHandler`의 Echo 즉시 응답은 받은 envelope을 그대로 되돌려 보내던 것을,
-  `innerPacketId`만 `Z2CEchoAck`로 바꿔 쓰도록 고쳤다.
+  `innerPacketId`만 `Z2CEcho`로 바꿔 쓰도록 고쳤다.
 - `Tool/GmTool`의 `ZoneClientPacketId.cs`와 그 값을 고정하던 테스트 3건은 위 가시성 규칙에
   따라 삭제했다(xUnit 80 -> 77개). `ToolLinkPacketId.cs`는 `PacketId.cs`로 바뀌었다.
 - 새 `Shared/Common/` 프로젝트(또는 헤더 전용 폴더)를 6개 vcxproj가 참조하도록 추가한다.

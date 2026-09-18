@@ -53,6 +53,10 @@ namespace Common
     struct W2ZLeaveZone
     {
         static constexpr PacketId kPacketId = PacketId::W2ZLeaveZone;
+
+        // **존의 색인 키라 반드시 있어야 한다.** 존은 유닛을 playerId 로 들고 있어서
+        // clientSessionId 만으로는 누구를 뺄지 찾을 수 없다.
+        PlayerId playerId;
         uint64_t clientSessionId;
     };
 #pragma pack(pop)

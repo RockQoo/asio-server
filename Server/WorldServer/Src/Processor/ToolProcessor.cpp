@@ -148,8 +148,10 @@ bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId,
     // BasicProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
     // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
     // 왔는지 구분할 수 없고, 구분할 필요도 없다.
-    Common::SendRelay(zoneLink->zoneSession, PacketId::W2ZRelay, clientSessionId,
-                      innerPacketId, innerPayload);
+    zoneLink->zoneSession->SendPacket(
+        PacketId::W2ZPlayerStream,
+        Common::WrapPlayerStream(client->playerId.Value(), clientSessionId,
+                                 static_cast<uint16_t>(innerPacketId), innerPayload));
     return true;
 }
 

@@ -32,6 +32,15 @@ namespace Network
         // [헤더 + 페이로드] 프레임을 만들어 비동기 전송 큐에 넣는다. 스레드 세이프하다.
         void SendPacket(const uint16_t packetId, const std::span<const byte> payload);
 
+        // **이미 프레임으로 만들어진 바이트를 그대로 큐에 넣는다.** 프레임 여러 개를 이어
+        // 붙인 덩어리여도 된다 -- 받는 쪽은 스트림에서 헤더를 읽어 자르므로 한 번에 왔든
+        // 나눠 왔든 같다.
+        //
+        // 같은 소켓으로 수백 통을 보내야 할 때(존의 팬아웃) SendPacket 을 그만큼 부르면
+        // 큐 항목과 쓰기 호출이 그 수만큼 생긴다. 미리 이어 붙여 한 번에 넣으면 둘 다
+        // 하나로 줄어든다.
+        void SendFrames(std::span<const byte> frames);
+
         // 패킷 id enum을 그대로 받는 오버로드. 호출부마다 static_cast<uint16_t>를 쓰던 것을
         // 없애려고 둔다 -- Core는 어떤 enum인지 알 필요가 없으므로(콘텐츠를 모르는 라이브러리)
         // 구체 타입 대신 "scoped enum이면 무엇이든"으로 제약만 건다.

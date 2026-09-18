@@ -90,6 +90,60 @@ namespace Common
         }
     };
 
+    // ── World -> Zone 전용 봉투 ───────────────────────────────────────────────
+    //
+    // 공용 RelayEnvelope 와 달리 **playerId 가 앞에 하나 더 붙는다.**
+    //
+    // 존의 BASIC 레인은 주인이 playerId 라, 봉투를 까는 단계가 그 값을 알아야 어느 레인으로
+    // 넘길지 정할 수 있다. clientSessionId -> playerId 표를 그 단계에 두는 방법도 되지만,
+    // 그러면 표가 그 레인의 공유 상태가 되고 입·퇴장마다 갱신해야 한다 -- 보내는 쪽이 이미
+    // 아는 값을 8바이트 더 실어 보내는 편이 싸고, 갱신 순서가 어긋날 여지도 없다.
+    //
+    // 다른 세 홉(G2W/W2G/Z2W)은 playerId 를 몰라도 되므로 그대로 RelayEnvelope 을 쓴다.
+#pragma pack(push, 1)
+    struct PlayerStreamEnvelope
+    {
+        int64_t playerId;
+        uint64_t clientSessionId;
+        uint16_t innerPacketId;
+    };
+#pragma pack(pop)
+
+    [[nodiscard]] inline std::vector<byte> WrapPlayerStream(const int64_t playerId,
+                                                            const uint64_t clientSessionId,
+                                                            const uint16_t innerPacketId,
+                                                            const std::span<const byte> innerPayload)
+    {
+        Packet::BinaryWriter binaryWriter;
+        binaryWriter.Write(PlayerStreamEnvelope{playerId, clientSessionId, innerPacketId});
+        binaryWriter.WriteBytes(innerPayload);
+        return binaryWriter.MoveBuffer();
+    }
+
+    // W2ZPlayerStream 의 받는 쪽. 봉투를 까고 안쪽을 그대로 가리킨다.
+    struct W2ZPlayerStream
+    {
+        static constexpr PacketId kPacketId = PacketId::W2ZPlayerStream;
+
+        PlayerStreamEnvelope envelope{};
+
+        // **복사가 아니라 수신 버퍼를 가리키는 subspan 이다.** 핸들러 스코프를 넘겨
+        // 들고 있으면 안 된다.
+        std::span<const byte> innerPayload;
+
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            if (payload.size() < sizeof(PlayerStreamEnvelope))
+            {
+                return false;
+            }
+
+            std::memcpy(&envelope, payload.data(), sizeof(PlayerStreamEnvelope));
+            innerPayload = payload.subspan(sizeof(PlayerStreamEnvelope));
+            return true;
+        }
+    };
+
     using G2WRelay = RelayPacket<PacketId::G2WRelay>;
     using W2GRelay = RelayPacket<PacketId::W2GRelay>;
     using W2ZRelay = RelayPacket<PacketId::W2ZRelay>;

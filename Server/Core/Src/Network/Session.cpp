@@ -90,6 +90,31 @@ namespace Network
         });
     }
 
+    void Session::SendFrames(const std::span<const byte> frames)
+    {
+        if (closed_.load(std::memory_order_acquire) || frames.empty())
+        {
+            return;
+        }
+
+        // 이미 프레임이라 BuildFrame 을 거치지 않는다 -- 상한 검사도 만든 쪽이 이미 했다.
+        std::vector<byte> buffer(frames.begin(), frames.end());
+
+        asio::post(strand_, [self = shared_from_this(), buffer = std::move(buffer)]() mutable
+        {
+            const auto alreadyWriting = self->writing_;
+            const auto frameBytes = buffer.size();
+            self->sendQueue_.push_back(std::move(buffer));
+
+            SendStats::Instance().OnEnqueue(self->id_, self->sendQueue_.size(), frameBytes);
+
+            if (!alreadyWriting)
+            {
+                self->DoWrite();
+            }
+        });
+    }
+
     void Session::DoRead()
     {
         socket_.async_read_some(

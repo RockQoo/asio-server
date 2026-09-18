@@ -191,10 +191,10 @@ namespace
                     }
                     break;
 
-                case PacketId::Z2CEchoAck:
+                case PacketId::Z2CEcho:
                     {
                         const std::string text(reinterpret_cast<const char*>(payload.data()), payload.size());
-                        std::cout << "[recv] EchoAck: " << text << '\n';
+                        std::cout << "[recv] Echo: " << text << '\n';
                     }
                     break;
 

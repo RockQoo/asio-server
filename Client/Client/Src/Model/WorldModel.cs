@@ -116,7 +116,7 @@ public sealed class WorldModel
 
     public float RequestedY { get; private set; }
 
-    /// <summary>마지막 Echo 왕복 시간(ms). 아직 못 받았으면 null.</summary>
+    /// <summary>마지막 Ping 왕복 시간(ms). 아직 못 받았으면 null.</summary>
     public double? RttMs { get; private set; }
 
     /// <summary>존 이동으로 우편함이 초기화됐다는 사실을 화면에 띄우기 위한 플래그.</summary>
@@ -205,8 +205,8 @@ public sealed class WorldModel
                 ApplyChatNotify(packet.Payload);
                 break;
 
-            case PacketId.Z2CEchoAck:
-                ApplyEchoAck(packet.Payload, nowSeconds);
+            case PacketId.Z2CEcho:
+                ApplyEcho(packet.Payload, nowSeconds);
                 break;
 
             case PacketId.Z2CTaskResult:
@@ -339,9 +339,9 @@ public sealed class WorldModel
             isMine ? ChatLineKind.Mine : ChatLineKind.Other));
     }
 
-    private void ApplyEchoAck(byte[] payload, double nowSeconds)
+    private void ApplyEcho(byte[] payload, double nowSeconds)
     {
-        // Z2CEchoAck의 본문은 보낸 바이트 그대로다(길이 접두가 없다) — 보낼 때 심어둔
+        // Z2CEcho의 본문은 보낸 바이트 그대로다(길이 접두가 없다) — 보낼 때 심어둔
         // 전송 시각(double 8바이트)을 그대로 되읽어 왕복 시간을 구한다.
         var reader = new BinaryPacketReader(payload);
         if (!reader.TryReadInt64(out var sentAtTicks))

@@ -55,8 +55,8 @@ public sealed class ClientGame : Game
     /// <summary>이동 패킷 전송 주기(초). 프레임마다 보내면 서버 쪽 브로드캐스트가 과해진다.</summary>
     private const double MoveSendInterval = 0.05;
 
-    /// <summary>Echo 자동 전송 주기(초).</summary>
-    private const double EchoInterval = 1.0;
+    /// <summary>Ping 자동 전송 주기(초).</summary>
+    private const double PingInterval = 1.0;
 
     /// <summary>
     /// 가만히 있어도 좌표를 다시 알리는 주기(초).
@@ -149,7 +149,7 @@ public sealed class ClientGame : Game
     private GamePhase phase_ = GamePhase.Login;
 
     private double moveSentAtSeconds_ = double.NegativeInfinity;
-    private double echoSentAtSeconds_ = double.NegativeInfinity;
+    private double pingSentAtSeconds_ = double.NegativeInfinity;
     private bool moveDirty_;
 
     /// <summary>입장/핸드오프 직후 좌표를 알렸는지. <see cref="AnnouncePositionOnZoneChange"/> 참고.</summary>
@@ -249,7 +249,7 @@ public sealed class ClientGame : Game
     {
         input_.BeginFrame();
 
-        // 이번 프레임의 시각. 이동 전송 주기/Echo 주기/플레이어 노후 판정이 모두 같은 기준을
+        // 이번 프레임의 시각. 이동 전송 주기/Ping 주기/플레이어 노후 판정이 모두 같은 기준을
         // 써야 하므로 프레임 시작에 한 번만 읽어 필드에 담는다.
         nowSeconds_ = gameTime.TotalGameTime.TotalSeconds;
 
@@ -260,7 +260,7 @@ public sealed class ClientGame : Game
             world_.Apply(packet, nowSeconds_);
         }
 
-        // **단계별로 아예 다른 일을 한다.** 로그인 전에 이동/Echo를 보내봐야 서버가 존으로
+        // **단계별로 아예 다른 일을 한다.** 로그인 전에 이동/Ping을 보내봐야 서버가 존으로
         // 넘기지 않고 버리므로(GatewayLinkHandler::HandleFromClient), 클라이언트도 같은
         // 경계를 지킨다.
         switch (phase_)
@@ -277,7 +277,7 @@ public sealed class ClientGame : Game
                 AnnouncePositionOnZoneChange();
                 HandleGlobalKeys();
                 HandleMovement(gameTime);
-                HandleEcho();
+                HandlePing();
                 world_.ForgetStalePlayers(nowSeconds_ - PlayerForgetAfterSeconds);
                 break;
         }
@@ -371,7 +371,7 @@ public sealed class ClientGame : Game
 
         if (input_.IsKeyPressed(Keys.F1))
         {
-            SendEcho();
+            SendPing();
         }
 
         // F2로 자동 순회를 켜고 끈다. 자동으로 도는 동안 직접 몰아보고 싶은 순간이 있어서
@@ -489,11 +489,11 @@ public sealed class ClientGame : Game
         moveDirty_ = true;
     }
 
-    private void HandleEcho()
+    private void HandlePing()
     {
-        if (nowSeconds_ - echoSentAtSeconds_ >= EchoInterval)
+        if (nowSeconds_ - pingSentAtSeconds_ >= PingInterval)
         {
-            SendEcho();
+            SendPing();
         }
     }
 
@@ -707,7 +707,7 @@ public sealed class ClientGame : Game
         link_.Send(PacketId.C2ZChat, writer);
     }
 
-    private void SendEcho()
+    private void SendPing()
     {
         // Z2CEchoAck는 본문을 그대로 되돌려주므로, 보낼 때 전송 시각을 심어두면 서버가 왕복
         // 시간을 알려주는 셈이 된다 — 클라이언트가 "몇 번째 핑을 언제 보냈는지"를 따로
@@ -715,7 +715,7 @@ public sealed class ClientGame : Game
         var writer = new BinaryPacketWriter(sizeof(long));
         writer.WriteInt64(BitConverter.DoubleToInt64Bits(nowSeconds_));
         link_.Send(PacketId.C2ZEcho, writer);
-        echoSentAtSeconds_ = nowSeconds_;
+        pingSentAtSeconds_ = nowSeconds_;
     }
 
     protected override void UnloadContent()
