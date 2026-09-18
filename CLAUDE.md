@@ -359,7 +359,7 @@ ProtocolClient/StressClient도 이걸 참조하기 때문이다 — `Server/` �
 | | `WorldLinkHandler` | World와의 연결의 `IPacketHandler`. **I/O 스레드 전용** — 주인만 뽑아 플레이어 레인으로 넘기고 상태를 만지지 않는다 |
 | | `Zone::Player` | 플레이어 한 명 + 그 사람의 모델들. 우편함만 `Mutexed` 핸들이고(만료 스윕이 다른 스레드) 재화는 값 — 모델마다 실제 접근 스레드 수에 맞춘다 |
 | | `Mail::Model` / `Currency::Model` | 변경분을 `Task::UnitOfWork`에 태스크로 모았다가 **스코프를 벗어날 때** World(DB)와 클라이언트로 한 번에 전송. 실패는 `[[nodiscard]] EErrorCode`로 반환하고 호출부가 `SetError`로 옮긴다 |
-| | `Zone::UnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 각 태스크가 자기 역연산으로 되돌리고(분기 switch 없음), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
+| | `Zone::UnitOfWork` | `Task::UnitOfWork` 파생(`final`). 소멸자에서 결말을 낸다 — 실패면 기록을 역순으로 훑어 `taskKind` 로 분기해 되돌리고(직렬화도 같은 자리에서 분기한다 — Core 는 뜻을 모른다), 결과를 `Z2CTaskResult`로 클라이언트에 통지 |
 | `GatewayServer` | `ClientLinkHandler`/`WorldLinkHandler` | 클라이언트↔World 양방향 릴레이만, 게임 로직 없음 |
 | `WorldServer` | `World::ToolProcessor` | 운영툴 전용 포트(9300)의 `IPacketHandler`. 다른 두 링크 핸들러와 **같은 스레드 규약**이라 락 없음 |
 
