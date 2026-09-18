@@ -82,5 +82,5 @@ strand 안이라 밖에서 안 보인다. 부하 시험에서 "수신이 밀렸�
 
 ## 함께 보기
 
-- [processor-group.md](processor-group.md) — 레인과 `ownerId`의 관계
+- [message-pipeline.md](message-pipeline.md) — 레인과 `ownerId`의 관계
 - [locking-strategy.md](locking-strategy.md) — 어피니티로 지키는 것과 락이 필요한 것

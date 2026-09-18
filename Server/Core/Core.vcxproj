@@ -134,8 +134,6 @@
     <ClInclude Include="Src\Network\SendStats.h" />
     <ClInclude Include="Src\Timer\RepeatingTimer.h" />
     <ClInclude Include="Src\Thread\Mutexed.h" />
-    <ClInclude Include="Src\Processor\Stats.h" />
-    <ClInclude Include="Src\Processor\Group.h" />
     <ClInclude Include="Src\Pipeline\Types.h" />
     <ClInclude Include="Src\Pipeline\Message.h" />
     <ClInclude Include="Src\Pipeline\MessageProcessor.h" />

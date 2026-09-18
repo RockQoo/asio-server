@@ -17,19 +17,19 @@
 
 ```cpp
 // 큐 그룹 하나 = 소비자 스레드 N개. ownerId % N 으로 스레드가 정해진다.
-// 설계 근거: docs/design/processor-group.md
+// 설계 근거: docs/design/message-pipeline.md
 ```
 
 ## 파일명
 
 kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 쓰되 소문자로 푼다
-(`Group` → `processor-group.md`).
+(`MessageProducer` → `message-pipeline.md`).
 
 ## 목록
 
 | 문서 | 대상 |
 |------|------|
-| [processor-group.md](processor-group.md) | `Server/Core/Src/Processor/Group.h` |
+| [message-pipeline.md](message-pipeline.md) | `Server/Core/Src/Pipeline/` |
 | [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Player/Player.h` |
 | [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `PlayerManager`, `ZoneLinkRegistry` |
 | [unit-of-work.md](unit-of-work.md) | `Server/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |

@@ -17,8 +17,8 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
     <span class="badge b-client">Client</span>
     <span class="badge b-gateway">Gateway I/O</span>
     <span class="badge b-world">World Main 레인</span>
-    <span class="badge b-player">Zone 1 · Player 레인</span>
-    <span class="badge b-zone">Zone 1 · Zone 레인(틱)</span>
+    <span class="badge b-player">Zone 1 · BASIC 레인</span>
+    <span class="badge b-zone">Zone 1 · TICK 레인</span>
     <span class="badge b-player">Zone 3 · 다른 프로세스</span>
 </div>
 
@@ -29,8 +29,8 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
         <div class="actor a-client">Client<small>게임 스레드</small></div>
         <div class="actor a-gateway">GatewayServer<small>I/O 스레드</small></div>
         <div class="actor a-world">WorldServer<small>Main 레인</small></div>
-        <div class="actor a-player">Zone 1<small>Player 레인</small></div>
-        <div class="actor a-zone">Zone 1<small>Zone 레인(틱)</small></div>
+        <div class="actor a-player">Zone 1<small>BASIC 레인</small></div>
+        <div class="actor a-zone">Zone 1<small>TICK 레인</small></div>
         <div class="actor a-player">Zone 3<small>다른 프로세스</small></div>
     </div>
 
@@ -51,7 +51,7 @@ Gateway는 이동이 일어난 줄도 모르고, 클라이언트는 같은 TCP �
         </div>
 
         <div class="msg m-world" style="grid-column: 6 / 8; grid-row: 3;">
-            <span class="lbl">③ Player 레인으로</span>
+            <span class="lbl">③ BASIC 레인으로</span>
             <span class="line"></span>
             <span class="desc">owner = clientSessionId</span>
         </div>

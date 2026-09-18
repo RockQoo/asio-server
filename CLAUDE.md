@@ -253,7 +253,7 @@ C:\Work\asio-server\
 │       │                             + ZoneLayout(서버 ParseZoneList 규칙의 복제 — 짝을 맞춰야 함)
 │       ├── Net/                      GameLink(TCP+프레이밍, 수신은 큐에만 넣는다),
 │       │                             CouponClient(GmTool.Web HTTP)
-│       ├── Model/WorldModel          게임 스레드 전용 상태라 락이 없다(존 레인과 같은 이유)
+│       ├── Model/WorldModel          게임 스레드 전용 상태라 락이 없다(TICK 레인과 같은 이유)
 │       ├── Text/GlyphAtlas           한글 글리프를 런타임에 GDI+로 굽는다(.mgcb 미사용)
 │       └── Ui/                       Painter/Widgets/ZoneView/ChatPanel/MailPanel/CouponPanel/Hud
 ├── Tool/                             서버를 두드리는 도구들 (게임 클라이언트가 아니다)
@@ -338,7 +338,7 @@ owner=`playerId`)과 "존 전체가 공유하는 것"(로스터·좌표·경계�
 
 주의: **한 메시지가 주인이 다른 데이터를 함께 만지면 이 보호가 깨진다.** 그때는 어피니티
 대신 모델 단위 락(`Thread::Mutexed`)이 필요하다 -- 근거와 함정은
-`docs/design/processor-group.md`.
+`docs/design/message-pipeline.md`.
 
 **World 는 전역 테이블을 여럿이 본다.** `PlayerManager`/`ZoneLinkRegistry` 는 어느 레인에서든
 읽히므로 **반드시 `Thread::Mutexed`** 다. 어피니티로는 못 막는다.

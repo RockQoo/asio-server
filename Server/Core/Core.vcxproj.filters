@@ -19,9 +19,6 @@
     <Filter Include="Thread">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000004}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Processor">
-      <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-000000000009}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Pipeline">
       <UniqueIdentifier>{a1a1a1a1-0001-4000-8000-00000000000a}</UniqueIdentifier>
     </Filter>
@@ -126,12 +123,6 @@
     </ClInclude>
     <ClInclude Include="Src\Thread\Mutexed.h">
       <Filter>Thread</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Processor\Stats.h">
-      <Filter>Processor</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Processor\Group.h">
-      <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Pipeline\Types.h">
       <Filter>Pipeline</Filter>

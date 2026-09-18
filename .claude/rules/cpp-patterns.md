@@ -456,7 +456,7 @@ private:
 - **등록은 콘텐츠가 스스로 한다**(`PlayerMail::Register`). 우편 패킷을 하나 늘릴 때
   `PlayerStreamHandler`를 고쳐야 한다면 파일을 나눈 의미가 없다.
 - **핸들러는 전부 `static`**이다. 필요한 것은 전부 `PlayerContext`(플레이어, zoneId,
-  WorldLink)로 들어온다. 멤버를 두면 플레이어 레인의 여러 스레드가 공유하는 변수가 된다.
+  Zone)로 들어온다. 멤버를 두면 BASIC 레인의 여러 스레드가 공유하는 변수가 된다.
 - **모델은 나누지 않는다.** `Mail::Model`/`Currency::Model`은 그대로고, 나뉘는 것은 요청
   처리 쪽이다. 재화처럼 요청이 몇 개 없는 것은 자기 파일을 만들지 않고, 그 재화를 쓰는
   콘텐츠(`C2ZMailBuy`의 골드 차감)에 붙는다.
