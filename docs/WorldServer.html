@@ -37,15 +37,18 @@ Db 그룹 (스레드 4 + strand 4)     블로킹을 허용하는 별도 그룹. 
 
 <div class="callout">
     <h4>Zone과 여기가 다르다</h4>
-    Zone은 <b>모든 메시지가 주인을 갖는다</b>(<code>clientSessionId</code> / <code>zoneId</code>).
+    Zone은 <b>모든 메시지가 주인을 갖는다</b>(<code>playerId</code> / 존 서수 / <code>zoneId</code>).
     그래서 어느 데이터든 한 번에 한 스레드만 만지고, 모델에 락이 거의 없다.
-    <p style="margin:8px 0 0">World는 하는 일이 대부분 <b>릴레이</b>라 짧고 순서가 중요한 것과,
-    전체 대상이라 주인이 없는 것이 섞여 있다. 그래서 주인을 줄지 말지 <b>메시지마다 고른다</b>:</p>
-<pre style="margin:10px 0 0"><code>Post(프로세서, ownerId, work)   주인 있음 → strand[ownerId % N]
-                                겹치지 않고 보낸 순서대로. 그 데이터엔 락이 없다
+    <p style="margin:8px 0 0">World도 같다. 다만 하는 일이 대부분 <b>릴레이</b>라 주인이
+    그 사람(로그인 전 세션 id, 이후 playerId)인 경우가 대부분이고, 전체 대상이라 사람이
+    주인이 아닌 것만 고정 상수를 쓴다:</p>
+<pre style="margin:10px 0 0"><code>PushMsg&lt;Basic&gt;(msgType, 프로세서id, ownerId, body)
 
-Post(프로세서, work)            주인 없음 → 남는 스레드가 집어간다
-                                순서 보장 없음. 만지는 데이터가 스스로 지켜야 한다</code></pre>
+  ownerId 가 레인을 정한다. 같은 주인끼리는 겹치지 않고 보낸 순서대로.
+  그래서 그 주인으로 갈리는 상태에는 락이 없다.
+
+  주인이 없는 일(전체 공지)도 고정 상수 하나를 줘서 한 레인에 직렬화한다 --
+  주인을 안 주는 경로는 만들지 않는다.</code></pre>
     <p style="margin:8px 0 0">그래서 World의 전역 테이블(<code>PlayerManager</code> /
     <code>ZoneLinkRegistry</code>)은 <b><code>Thread::Mutexed</code></b>다. 지금 주인 없이 도는 것은
     전체 공지 하나뿐이고, 나머지는 전부 순서가 필요하다.</p>
@@ -53,8 +56,8 @@ Post(프로세서, work)            주인 없음 → 남는 스레드가 집어
 
 <div class="callout">
     <h4>"같은 스레드"가 아니라 "직렬화"다</h4>
-    <code>Processor::Group</code>은 <code>asio::io_context</code> + <code>strand</code>로 되어 있다.
-    strand는 <b>겹치지 않음 · 보낸 순서 · 앞 작업의 쓰기가 뒤에 보임</b>을 보장하지만 매번 같은
+    레인을 굴리는 방식이 둘인데(<code>config</code> 로 고른다), <code>strand</code> 쪽은
+    <b>겹치지 않음 · 보낸 순서 · 앞 작업의 쓰기가 뒤에 보임</b>을 보장하지만 매번 같은
     스레드를 쓰지는 않는다. 락 없는 접근에 필요한 조건은 그 셋이고 스레드 정체성은 아니다.
     <p style="margin:8px 0 0">대가는 하나 — <b><code>thread_local</code>에 기대면 안 된다.</b>
     DB 커넥션이 스레드당 하나인 것은 그대로 유효하지만(커넥션 수 = 스레드 수), 커넥션에 세션

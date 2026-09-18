@@ -651,8 +651,8 @@ Network::Session::SPtr            b;        // C2027
 
 ```cpp
 Packet::PacketHeader      ->  Packet::Header
-Processor::ProcessorGroup ->  Processor::Group
 Network::NetworkSession   ->  Network::Session
+Timer::RepeatingTimer     ->  그대로 둔다(아래 예외 -- Timer + ing 이라 접두사가 아니다)
 ```
 
 **파일 이름도 같이 바꾼다**(`Packet/PacketHeader.h` → `Packet/Header.h`) — 한 파일에 타입
