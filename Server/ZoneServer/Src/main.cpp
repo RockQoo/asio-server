@@ -3,7 +3,7 @@
 
 #include "App/ZoneConfig.h"
 
-#include "Shared/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Base/RUID.h"
 
 namespace
 {

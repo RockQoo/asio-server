@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "App/GatewayConfig.h"
 
-#include "Shared/Core/Src/Base/ConfigFile.h"
+#include "Server/Core/Src/Base/ConfigFile.h"
 
 GatewayConfig LoadConfig(const std::string& path)
 {

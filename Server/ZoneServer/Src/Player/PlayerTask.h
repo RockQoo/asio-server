@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Shared/Common/Src/Enum.h"
-#include "Shared/Common/Src/MailInfo.h"
-#include "Shared/Common/Src/TaskKind.h"
+#include "Server/Common/Src/Enum.h"
+#include "Server/Common/Src/MailInfo.h"
+#include "Server/Common/Src/TaskKind.h"
 
-#include "Shared/Core/Src/Task/ITask.h"
-#include "Shared/Core/Src/Task/Paired.h"
+#include "Server/Core/Src/Task/ITask.h"
+#include "Server/Core/Src/Task/Paired.h"
 
 // 플레이어의 모델들이 남기는 변경 기록. **콘텐츠마다 파일을 나누지 않고 여기 모은다** --
 // 전부 데이터뿐이라 .cpp 가 없고, ZoneUnitOfWork 가 이 목록 전체를 한 switch 로 읽는다.

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Thread/Mutexed.h"
+#include "Server/Core/Src/Thread/Mutexed.h"
 
 // 플레이어 한 명의 위치 + 아직 반영되지 않은 이동 요청.
 //

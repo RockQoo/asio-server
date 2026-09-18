@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Core/Src/Base/RUID.h"
-#include "Shared/Core/Src/Network/Connector.h"
-#include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Timer/RepeatingTimer.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Network/Connector.h"
+#include "Server/Core/Src/Network/IPacketHandler.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Timer/RepeatingTimer.h"
 #include "Stats/Stats.h"
 
 #include <asio.hpp>
@@ -18,7 +18,7 @@ namespace Stress
     // **로그인은 생략할 수 없다** -- World가 인증 전 세션의 게임 패킷을 존으로 넘기지 않아
     // (PlayerManager) MailAdd가 통째로 버려지고, 그러면 이 도구가 영영 멈춘다.
     // 상태 전이는 전부 OnPacket 콜백에서 논블로킹으로 일어난다 -- 이 세션이 물린 io_context
-    // 스레드 위에서는 자기 콜백들이 항상 순서대로만 호출되므로(Shared/Core/Src/Network/
+    // 스레드 위에서는 자기 콜백들이 항상 순서대로만 호출되므로(Server/Core/Src/Network/
     // IoContextPool: io_context 1개당 전용 스레드 1개) 사이클 진행 관련 멤버
     // (cycleIndex_/lastAddedMailId_ 등)는 원자적일 필요가 없다. 워치독이 "다른" 스레드에서
     // 읽는 진행 시각/완료 플래그만 atomic으로 둔다.

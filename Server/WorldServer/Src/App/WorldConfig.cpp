@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "App/WorldConfig.h"
 
-#include "Shared/Core/Src/Base/ConfigFile.h"
+#include "Server/Core/Src/Base/ConfigFile.h"
 
 namespace
 {
@@ -33,8 +33,12 @@ WorldConfig LoadConfig(const std::string& path)
     config.toolPort = file.GetPort("ports.tool", config.toolPort);
     config.ioThreadCount = file.GetSize("io_threads", config.ioThreadCount);
 
-    // BASIC은 Main/Tool 프로세서가 공유하는 큐 그룹이고, 실제 병렬도는 스레드 수가 아니라
-    // **서로 다른 ownerId의 개수**로 정해진다(대부분 clientSessionId라 충분히 많다).
+    // NETWORK는 수신 1차 처리 레인이고 주인이 **링크 세션**이라, 실질 병렬도가 붙어 있는
+    // 게이트웨이/존 프로세스 수까지다 -- 스레드를 늘려도 그 이상 갈라지지 않는다.
+    config.networkThreadCount = file.GetSize("network_threads", config.networkThreadCount);
+
+    // BASIC은 Main/Login/Tool/Test 프로세서가 공유하는 레인이고, 실제 병렬도는 스레드 수가
+    // 아니라 **서로 다른 ownerId의 개수**로 정해진다(대부분 clientSessionId라 충분히 많다).
     config.basicThreadCount = file.GetSize("basic_threads", config.basicThreadCount);
 
     // DB는 커넥션 풀 크기와 1:1이 원칙이다. 실제 DB 연동 전이라 개발 머신 기준 임시값.

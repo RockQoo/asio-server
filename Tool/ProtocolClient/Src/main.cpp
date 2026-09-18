@@ -1,20 +1,20 @@
 #include "pch.h"
 
-#include "Shared/Core/Src/Base/RUID.h"
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Core/Src/Packet/Buffer.h"
-#include "Shared/Core/Src/Packet/PacketFramer.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/TaskKind.h"
-#include "Shared/Common/Src/Packet/LoginPackets.h"
-#include "Shared/Common/Src/Packet/Wire.h"
-#include "Shared/Common/Src/Packet/ZonePackets.h"
+#include "Server/Core/Src/Base/RUID.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Core/Src/Packet/BinaryReader.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Core/Src/Packet/Buffer.h"
+#include "Server/Core/Src/Packet/PacketFramer.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/TaskKind.h"
+#include "Server/Common/Src/Packet/LoginPackets.h"
+#include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Common/Src/Packet/ZonePackets.h"
 
 namespace
 {
-    // ZoneServer가 실제로 정의하는 프로토콜(Shared/Core/Src/Packet, Server/ZoneServer/Src/Packet의 헤더만
+    // ZoneServer가 실제로 정의하는 프로토콜(Server/Core/Src/Packet, Server/ZoneServer/Src/Packet의 헤더만
     // include)을 그대로 재사용한다. ZoneServer.exe를 링크하지 않아도 되는 이유는 이 헤더들이
     // 전부 POD 구조체/enum이라 별도 구현체가 필요 없기 때문이다.
 

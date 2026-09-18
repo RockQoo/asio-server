@@ -61,11 +61,11 @@
 #include <windows.h>
 
 // byte/size_t/고정폭 정수를 std:: 없이 쓰기 위한 전역 using 선언 모음.
-#include "Shared/Core/Src/Base/BasicTypes.h"
+#include "Server/Core/Src/Base/BasicTypes.h"
 
 // LOG.<Level>(category, "메시지").KV(...) 형태의 전역 로그 진입점.
-#include "Shared/Core/Src/Log/Proxy.h"
+#include "Server/Core/Src/Log/Proxy.h"
 
 // ProtocolClient 는 자기 카테고리를 따로 두지 않고 ZoneServer 것을 그대로 쓴다
 // -- 존 프로토콜을 두드리는 도구라 로그 카테고리도 같은 것이 읽기 편하다.
-#include "Shared/Common/Src/LogCategory.h"
+#include "Server/Common/Src/LogCategory.h"

@@ -5,7 +5,7 @@
 #include "Cli/DbCheck.h"
 #include "Cli/IdTest.h"
 
-#include "Shared/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Base/RUID.h"
 
 int main(const int argc, char* argv[])
 {

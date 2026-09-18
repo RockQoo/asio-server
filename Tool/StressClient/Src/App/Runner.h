@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Shared/Core/Src/Network/IoContextPool.h"
-#include "Shared/Core/Src/Timer/RepeatingTimer.h"
+#include "Server/Core/Src/Network/IoContextPool.h"
+#include "Server/Core/Src/Timer/RepeatingTimer.h"
 #include "Session/Session.h"
 #include "Stats/Stats.h"
 

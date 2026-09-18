@@ -120,7 +120,8 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Packet\EnterZoneBody.h" />
     <ClInclude Include="Src\Processor\DbProcessor.h" />
     <ClInclude Include="Src\Processor\LoginProcessor.h" />
-    <ClInclude Include="Src\Processor\MainProcessor.h" />
+    <ClInclude Include="Src\Processor\BasicProcessor.h" />
+    <ClInclude Include="Src\Processor\TimerProcessor.h" />
     <ClInclude Include="Src\Processor\ToolProcessor.h" />
     <ClInclude Include="Src\Test\MsgId.h" />
     <ClInclude Include="Src\Test\TestValue.h" />
@@ -128,13 +129,15 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClInclude Include="Src\Test\TestKeys.h" />
     <ClInclude Include="Src\World\PlayerManager.h" />
     <ClInclude Include="Src\World\ZoneLinkRegistry.h" />
-    <ClInclude Include="Src\Processor\ProcessorId.h" />
+    <ClInclude Include="Src\Processor\ProcessorIds.h" />
+    <ClInclude Include="Src\Processor\WorldMsg.h" />
     <ClInclude Include="Src\Db\DbCommand.h" />
     <ClInclude Include="Src\Db\DbConnection.h" />
     <ClInclude Include="Src\Db\AutoSpCommands.h" />
     <ClInclude Include="Src\Db\PasswordHash.h" />
     <ClInclude Include="Src\Handler\G2WHandler.h" />
     <ClInclude Include="Src\Handler\Z2WHandler.h" />
+    <ClInclude Include="Src\Handler\T2WHandler.h" />
     <ClInclude Include="Src\App\WorldApp.h" />
     <ClInclude Include="Src\App\WorldConfig.h" />
     <ClInclude Include="Src\Cli\DbCheck.h" />
@@ -149,12 +152,15 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClCompile Include="Src\World\ZoneLinkRegistry.cpp" />
     <ClCompile Include="Src\Handler\G2WHandler.cpp" />
     <ClCompile Include="Src\Handler\Z2WHandler.cpp" />
+    <ClCompile Include="Src\Handler\T2WHandler.cpp" />
+    <ClCompile Include="Src\Processor\ProcessorIds.cpp" />
     <ClCompile Include="Src\Db\DbConnection.cpp" />
     <ClCompile Include="Src\Db\AutoSpCommands.cpp" />
     <ClCompile Include="Src\Db\PasswordHash.cpp" />
     <ClCompile Include="Src\Processor\DbProcessor.cpp" />
     <ClCompile Include="Src\Processor\LoginProcessor.cpp" />
-    <ClCompile Include="Src\Processor\MainProcessor.cpp" />
+    <ClCompile Include="Src\Processor\BasicProcessor.cpp" />
+    <ClCompile Include="Src\Processor\TimerProcessor.cpp" />
     <ClCompile Include="Src\Processor\ToolProcessor.cpp" />
     <ClCompile Include="Src\App\WorldApp.cpp" />
     <ClCompile Include="Src\Processor\TestProcessor.cpp" />
@@ -165,10 +171,10 @@ copy /Y "$(RepoRoot)config\world.cfg" "$(OutDir)config\world.cfg"</Command>
     <ClCompile Include="Src\Cli\IdTest.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Shared\Common\Common.vcxproj">
+    <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{2c9d5a41-7b3e-4f18-9a6c-0d5e8b41c7f2}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\Shared\Core\Core.vcxproj">
+    <ProjectReference Include="..\Core\Core.vcxproj">
       <Project>{7f5eacff-89b1-4967-8e20-b0a2de4a0ff5}</Project>
     </ProjectReference>
   </ItemGroup>

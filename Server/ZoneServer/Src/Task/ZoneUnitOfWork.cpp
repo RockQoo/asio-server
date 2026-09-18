@@ -3,15 +3,15 @@
 #include "Player/PlayerTask.h"
 #include "Player/Player.h"
 #include "Player/PlayerTask.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
 
-#include "Shared/Core/Src/Base/RUID.h"
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/ErrorCode.h"
-#include "Shared/Common/Src/TaskKind.h"
-#include "Shared/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/ErrorCode.h"
+#include "Server/Common/Src/TaskKind.h"
+#include "Server/Common/Src/Packet/Wire.h"
 
 namespace
 {

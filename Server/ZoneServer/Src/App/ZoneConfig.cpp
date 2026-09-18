@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "App/ZoneConfig.h"
 
-#include "Shared/Core/Src/Base/ConfigFile.h"
+#include "Server/Core/Src/Base/ConfigFile.h"
 
 ZoneConfig LoadConfig(const std::string& path, std::vector<ZoneDef> zones)
 {

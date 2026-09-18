@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Base/Types.h"
 #include "Player/Player.h"
 #include "App/ZoneDef.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 
 // 존 하나의 **공간** 상태. 여기 있는 메서드는 그 존을 담당하는 존 레인 스레드

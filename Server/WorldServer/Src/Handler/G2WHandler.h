@@ -1,36 +1,22 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Processor/ProcessorId.h"
-
-class MainProcessor;
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Network/IPacketHandler.h"
 
 // Gateway <-> World 연결의 IPacketHandler.
 //
-// **여기 있는 것은 전부 I/O 스레드(Session의 strand)에서 돈다.** 하는 일은 딱 둘이다 --
-// 페이로드 앞에서 ownerId(=clientSessionId)를 훔쳐보고, 바이트를 복사해 BASIC 그룹에
-// 넣는다. 실제 처리는 MainProcessor가 그 ownerId가 배정한 레인에서 한다.
+// **여기가 노션의 NETWORK 레인(프로액터) 자리다.** IOCP 완료와 프레임 조립은 Session이
+// 끝냈고, 이 콜백은 그 결과를 **BASIC 레인으로 넘기기만** 한다 -- 껍질은 까지 않는다.
+// 껍질 까기는 BasicProcessor::OnRecvStream(owner = 게이트웨이 세션 id)의 일이다.
 //
-// **이 분리가 규약 자체다.** 여기서 레지스트리를 직접 만지면 어느 스레드에서 만지는지
-// 보장이 사라진다 -- 그래서 이 클래스는 PlayerManager도 ZoneLinkRegistry도 들고 있지 않다.
-//
-// 세 패킷 모두 페이로드 맨 앞이 clientSessionId라 훔쳐보기가 오프셋 0 하나로 끝난다.
-// 우연이 아니라 릴레이 봉투를 그렇게 설계했기 때문이다.
+// **owner를 게이트웨이 세션 id로 주는 이유**: 이 단계의 주인은 아직 클라이언트가 아니라
+// 소켓이다. 안에 든 clientSessionId는 껍질을 까야 나온다.
 class G2WHandler final : public Network::IPacketHandler
 {
 public:
-    G2WHandler(Processor::Group<EWorldProcessorId>& basicGroup, MainProcessor& mainProcessor);
-
     void OnSessionOpened(const Network::Session::SPtr& session) override;
     void OnPacket(const Network::Session::SPtr& session,
                   const Packet::Header& header,
                   const std::span<const byte> payload) override;
     void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
-
-private:
-    Processor::Group<EWorldProcessorId>& basicGroup_;
-    MainProcessor& mainProcessor_;
 };

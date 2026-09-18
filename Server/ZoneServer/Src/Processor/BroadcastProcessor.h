@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Common/Src/PacketId.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Processor/Group.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Common/Src/PacketId.h"
 #include "Processor/ProcessorId.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 
 // 팬아웃 전송 전용 레인. 호출부(플레이어 레인)가 이미 만들어둔 **대상 목록 스냅샷만**

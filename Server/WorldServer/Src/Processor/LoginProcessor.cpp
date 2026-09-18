@@ -1,27 +1,38 @@
 #include "pch.h"
 #include "Processor/LoginProcessor.h"
 
+#include "Processor/ProcessorIds.h"
+#include "Server/Core/Src/Pipeline/ProducerHolder.h"
+
 #include "Db/AutoSpCommands.h"
 #include "Db/DbConnection.h"
 #include "Db/PasswordHash.h"
 #include "Packet/EnterZoneBody.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/Packet/ZoneLinkPackets.h"
 #include "World/PlayerManager.h"
 
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/Packet/LoginPackets.h"
-#include "Shared/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Packet/BinaryReader.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/Packet/LoginPackets.h"
+#include "Server/Common/Src/Packet/Wire.h"
 
-LoginProcessor::LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                               Processor::Group<EWorldProcessorId>& basicGroup, DbProcessor& dbProcessor)
+LoginProcessor::LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry)
     : playerManager_(playerManager)
     , zoneLinkRegistry_(zoneLinkRegistry)
-    , basicGroup_(basicGroup)
-    , dbProcessor_(dbProcessor)
+
+
 {
+}
+
+// AddProcessor가 기동 때 한 번 부른다. **DB 레인에서 되돌아오는 결말 둘**이 레인 사이
+// 메시지이고, C2W 패킷 표는 그 아래 Register()가 채운다.
+void LoginProcessor::RegistHandler()
+{
+    Regist(EWorldMsg::LoginFailure, &LoginProcessor::OnLoginFailure);
+    Regist(EWorldMsg::LoginSuccess, &LoginProcessor::OnLoginSuccess);
+
     Register();
 }
 
@@ -83,7 +94,7 @@ void LoginProcessor::HandleLogin(const LoginContext& context, const Common::C2WL
     // **로그인 경로의 주인은 처음부터 끝까지 clientSessionId다.** 계정을 조회하는 지금은
     // 아직 playerId를 모르고, 알게 된 뒤에도 바꾸지 않는다 -- 중간에 갈아타면 그 지점부터
     // 앞 구간과 직렬화가 끊겨서, 같은 세션의 로그인 단계들이 서로 다른 strand에서 겹친다.
-    AutoSpCommands autoSpCommands(dbProcessor_, clientSessionId, false,
+    AutoSpCommands autoSpCommands(clientSessionId, false,
         [this, gatewaySession, clientSessionId, playerName, password]
         (const bool succeeded, const DbResult& dbResult)
         {
@@ -142,7 +153,7 @@ void LoginProcessor::OnAccountSelected(const Network::Session::SPtr& gatewaySess
     // SP가 돌려주므로 이 값은 "제안"일 뿐이다.
     const auto requestedPlayerId = Base::Ruid::Create();
 
-    AutoSpCommands autoSpCommands(dbProcessor_, clientSessionId, true,
+    AutoSpCommands autoSpCommands(clientSessionId, true,
         [this, gatewaySession, clientSessionId, playerName, requestedPlayerId]
         (const bool upsertSucceeded, const DbResult& upsertResult)
         {
@@ -193,10 +204,10 @@ void LoginProcessor::LoadPlayerContent(const Network::Session::SPtr& gatewaySess
     // **여기서도 주인은 clientSessionId다.** playerId를 알게 됐다고 갈아타지 않는다 --
     // 앞의 조회/가입과 같은 strand에 남아야 로그인 한 건이 한 줄로 처리된다.
     //
-    // 존 입장 뒤의 DB 작업(UnitOfWork)은 반대로 playerId가 주인이다(MainProcessor).
+    // 존 입장 뒤의 DB 작업(UnitOfWork)은 반대로 playerId가 주인이다(BasicProcessor).
     // 세션이 아니라 계정에 묶이는 일이라 재접속해도 같은 레인을 유지해야 하기 때문이고,
     // 로그인은 그 세션 안에서만 의미가 있어 기준이 다르다.
-    AutoSpCommands autoSpCommands(dbProcessor_, clientSessionId, false,
+    AutoSpCommands autoSpCommands(clientSessionId, false,
         [this, gatewaySession, clientSessionId, playerName, playerId]
         (const bool succeeded, const DbResult& dbResult)
         {
@@ -272,11 +283,14 @@ void LoginProcessor::PostFailure(const Network::Session::SPtr& gatewaySession,
 {
     // 전송뿐이라 BASIC을 거치지 않아도 되지만, 로그인의 모든 결말이 같은 레인에서 나가야
     // 클라이언트가 받는 순서가 흔들리지 않는다(성공 경로는 존 입장 때문에 반드시 BASIC이다).
-    basicGroup_.Post(EWorldProcessorId::Login, clientSessionId,
-        [this, gatewaySession, clientSessionId, errorCode]
-        {
-            SendResult(gatewaySession, clientSessionId, errorCode, 0, {});
-        });
+    Pipeline::PushMsg<Pipeline::EProducerType::Basic>(
+        EWorldMsg::LoginFailure, GetProcessorId(), Pipeline::OwnerId{static_cast<int64_t>(clientSessionId)},
+        LoginFailureBody{gatewaySession, clientSessionId, errorCode});
+}
+
+void LoginProcessor::OnLoginFailure(const Pipeline::OwnerId& /*owner*/, const LoginFailureBody& body)
+{
+    SendResult(body.gatewaySession, body.clientSessionId, body.errorCode, 0, {});
 }
 
 void LoginProcessor::PostSuccess(const Network::Session::SPtr& gatewaySession,
@@ -285,13 +299,17 @@ void LoginProcessor::PostSuccess(const Network::Session::SPtr& gatewaySession,
                                   std::unordered_map<Common::MailId, Common::MailInfo> mails,
                                   std::unordered_map<Common::ECurrencyType, int64_t> currencies)
 {
-    basicGroup_.Post(EWorldProcessorId::Login, clientSessionId,
-        [this, gatewaySession, clientSessionId, playerName, playerId,
-         mails = std::move(mails), currencies = std::move(currencies)]() mutable
-        {
-            CompleteLogin(gatewaySession, clientSessionId, playerName, playerId,
-                          std::move(mails), std::move(currencies));
-        });
+    Pipeline::PushMsg<Pipeline::EProducerType::Basic>(
+        EWorldMsg::LoginSuccess, GetProcessorId(), Pipeline::OwnerId{static_cast<int64_t>(clientSessionId)},
+        LoginSuccessBody{gatewaySession, clientSessionId, playerName, playerId,
+                         std::move(mails), std::move(currencies)});
+}
+
+void LoginProcessor::OnLoginSuccess(const Pipeline::OwnerId& /*owner*/, const LoginSuccessBody& body)
+{
+    // CompleteLogin이 목록을 소비(move)하므로 사본을 만든다 -- 메시지 본문은 const다.
+    CompleteLogin(body.gatewaySession, body.clientSessionId, body.playerName, body.playerId,
+                  body.mails, body.currencies);
 }
 
 void LoginProcessor::CompleteLogin(const Network::Session::SPtr& gatewaySession,

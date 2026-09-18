@@ -1,14 +1,14 @@
 #include "pch.h"
 #include "Processor/ZoneProcessor.h"
-#include "Shared/Common/Src/Packet/ZonePackets.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Common/Src/Packet/ZonePackets.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/Packet/ZoneLinkPackets.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/Packet/Wire.h"
 
 ZoneProcessor::ZoneProcessor(const ZoneDef& def, Network::SessionHolder& worldLink)
     : def_(def)

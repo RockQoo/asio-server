@@ -1,17 +1,17 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Base/Types.h"
 #include "Player/Player.h"
 #include "Player/PlayerRegistry.h"
 #include "Player/PlayerContext.h"
-#include "Shared/Common/Src/Packet/ClientPackets.h"
-#include "Shared/Common/Src/Packet/WorldPackets.h"
-#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/Packet/Wire.h"
-#include "Shared/Common/Src/Packet/ZonePackets.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Common/Src/Packet/ClientPackets.h"
+#include "Server/Common/Src/Packet/WorldPackets.h"
+#include "Server/Common/Src/Packet/ZoneLinkPackets.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Common/Src/Packet/ZonePackets.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 class WorkerManager;
 class BroadcastProcessor;

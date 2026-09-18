@@ -1,16 +1,16 @@
 #pragma once
 
-#include "Shared/Core/Src/Console/KeyBinder.h"
-#include "Shared/Core/Src/Network/Connector.h"
-#include "Shared/Core/Src/Network/IoContextPool.h"
-#include "Shared/Core/Src/Processor/Group.h"
+#include "Server/Core/Src/Console/KeyBinder.h"
+#include "Server/Core/Src/Network/Connector.h"
+#include "Server/Core/Src/Network/IoContextPool.h"
+#include "Server/Core/Src/Processor/Group.h"
 #include "Player/PlayerRegistry.h"
 #include "App/ZoneDef.h"
 #include "Processor/PlayerProcessor.h"
 #include "Handler/W2ZHandler.h"
 #include "Mail/MailExpiryService.h"
 #include "Mail/MailRegistry.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 #include "Processor/ProcessorId.h"
 #include "Worker/WorkerManager.h"
 

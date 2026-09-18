@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Player/PlayerContext.h"
-#include "Shared/Common/Src/Packet/ClientPackets.h"
+#include "Server/Common/Src/Packet/ClientPackets.h"
 
 // **우편 콘텐츠의 요청 처리기.** 콘텐츠 하나 = 파일 하나이고, 여기에 그 콘텐츠의 패킷
 // 등록과 핸들러가 전부 모인다(인벤토리가 붙으면 PlayerInventory가 같은 모양으로 생긴다).

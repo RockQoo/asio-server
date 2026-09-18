@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Core/Src/Processor/Group.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Core/Src/Processor/Group.h"
 #include "App/ZoneDef.h"
 #include "Processor/ZoneProcessor.h"
 #include "Processor/BroadcastProcessor.h"
 #include "Processor/ProcessorId.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 namespace Network
 {

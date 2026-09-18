@@ -4,17 +4,17 @@
 #include "Player/PlayerMail.h"
 #include "Player/MailModel.h"
 #include "Mail/MailRegistry.h"
-#include "Shared/Common/Src/Packet/ZonePackets.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Common/Src/Packet/ZonePackets.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 #include "Processor/BroadcastProcessor.h"
 #include "Worker/WorkerManager.h"
 
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Common/Src/Enum.h"
-#include "Shared/Common/Src/PacketId.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/Packet/ZoneLinkPackets.h"
+#include "Server/Common/Src/Enum.h"
+#include "Server/Common/Src/PacketId.h"
 
 PlayerProcessor::PlayerProcessor(PlayerRegistry& playerRegistry, WorkerManager& zoneWorkers,
                                  BroadcastProcessor& broadcastProcessor, Network::SessionHolder& worldLink,

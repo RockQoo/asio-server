@@ -4,7 +4,7 @@
 #include "Test/MsgId.h"
 #include "Test/TestValue.h"
 
-#include "Shared/Core/Src/Console/KeyBinder.h"
+#include "Server/Core/Src/Console/KeyBinder.h"
 
 namespace
 {

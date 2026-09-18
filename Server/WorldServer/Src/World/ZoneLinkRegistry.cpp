@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "World/ZoneLinkRegistry.h"
 
-#include "Shared/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Network/Session.h"
 
 void ZoneLinkRegistry::Add(const Common::ZoneId zoneId, const Network::Session::SPtr& zoneSession,
                             const float xMin, const float xMax, const float yMin, const float yMax)

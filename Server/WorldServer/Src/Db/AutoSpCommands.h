@@ -24,7 +24,7 @@ class AutoSpCommands final
 public:
     // useTransaction: 쌓인 SP가 여러 개일 때 하나의 트랜잭션으로 묶을지. 읽기/쓰기와는
     //                 무관하다 -- 조회 하나만 보내면서 콜백을 받는 조합도 정상이다.
-    AutoSpCommands(DbProcessor& dbProcessor, const uint64_t ownerId, const bool useTransaction,
+    AutoSpCommands(const uint64_t ownerId, const bool useTransaction,
                    DbCallback callback = {});
     ~AutoSpCommands();
 
@@ -36,7 +36,6 @@ public:
     [[nodiscard]] bool Empty() const noexcept { return commands_.empty(); }
 
 private:
-    DbProcessor& dbProcessor_;
     const uint64_t ownerId_;
     const bool useTransaction_;
     DbCallback callback_;

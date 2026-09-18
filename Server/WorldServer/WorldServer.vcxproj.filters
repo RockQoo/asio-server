@@ -37,7 +37,13 @@
     <ClInclude Include="Src\Processor\LoginProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\MainProcessor.h">
+    <ClInclude Include="Src\Processor\BasicProcessor.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\NetworkProcessor.h">
+      <Filter>Processor</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Processor\TimerProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\ToolProcessor.h">
@@ -124,7 +130,13 @@
     <ClCompile Include="Src\Processor\LoginProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Processor\MainProcessor.cpp">
+    <ClCompile Include="Src\Processor\BasicProcessor.cpp">
+      <Filter>Processor</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Processor\NetworkProcessor.cpp">
+      <Filter>Processor</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Processor\TimerProcessor.cpp">
       <Filter>Processor</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\ToolProcessor.cpp">

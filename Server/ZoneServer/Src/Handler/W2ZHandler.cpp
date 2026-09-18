@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "Handler/W2ZHandler.h"
 #include "Processor/PlayerProcessor.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
-#include "Shared/Core/Src/Packet/OwnerIdPeek.h"
-#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
-#include "Shared/Common/Src/PacketId.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Packet/OwnerIdPeek.h"
+#include "Server/Common/Src/Packet/ZoneLinkPackets.h"
+#include "Server/Common/Src/PacketId.h"
 
-#include "Shared/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Network/Session.h"
 
 W2ZHandler::W2ZHandler(PlayerProcessor& playerProcessor,
                                    Processor::Group<EZoneProcessorId>& playerGroup,

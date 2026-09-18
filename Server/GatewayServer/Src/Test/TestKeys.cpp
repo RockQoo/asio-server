@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Test/TestKeys.h"
 
-#include "Shared/Core/Src/Console/KeyBinder.h"
+#include "Server/Core/Src/Console/KeyBinder.h"
 
 namespace
 {

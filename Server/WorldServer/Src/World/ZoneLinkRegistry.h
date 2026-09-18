@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Core/Src/Thread/Mutexed.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Core/Src/Thread/Mutexed.h"
 
 struct ZoneLinkInfo
 {

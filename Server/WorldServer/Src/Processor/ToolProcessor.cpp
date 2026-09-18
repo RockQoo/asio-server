@@ -2,14 +2,14 @@
 #include "Processor/ToolProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/Packet/ToolLinkPackets.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/Packet/ToolLinkPackets.h"
 
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Packet/BinaryReader.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/Packet/Wire.h"
 
 // 운영툴이 주입하는 우편/공지는 "새로운 운영 전용 패킷"이 아니라 기존 클라이언트 패킷을
 // 그대로 재사용한다(ToolProcessor.h 클래스 주석 참고). main.cpp도 notice REPL 때문에 같은
@@ -41,14 +41,20 @@ namespace
 }
 
 ToolProcessor::ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                             Processor::Group<EWorldProcessorId>& basicGroup, DbProcessor& dbProcessor,
+
                              std::string sharedSecret)
     : playerManager_(playerManager)
     , zoneLinkRegistry_(zoneLinkRegistry)
-    , basicGroup_(basicGroup)
-    , dbProcessor_(dbProcessor)
+
     , sharedSecret_(std::move(sharedSecret))
 {
+}
+
+void ToolProcessor::RegistHandler()
+{
+    Regist(EWorldMsg::OnRecvToolStream, &ToolProcessor::OnRecvToolStream);
+    Regist(EWorldMsg::OnToolLinkClosed, &ToolProcessor::OnToolLinkClosed);
+
     Register();
 }
 
@@ -76,58 +82,37 @@ std::vector<Network::SessionId> ToolProcessor::SnapshotOnlineClients() const
     return targets;
 }
 
-void ToolProcessor::OnSessionOpened(const Network::Session::SPtr& session)
+// **BASIC 레인에서 돈다**(owner = 운영툴 세션 id). 소켓 스레드는 바이트만 넘겼다.
+//
+// **대상의 상태는 PlayerManager가 Mutexed라 어느 레인에서 읽어도 안전하다.** 예전에는
+// 그 매니저가 어피니티 전제로 샤딩돼 있어서, 단일 대상 명령(우편 발송/삭제)이 운영툴
+// 레인에서 남의 샤드를 읽는 레이스가 있었다.
+void ToolProcessor::OnRecvToolStream(const Pipeline::OwnerId& /*owner*/, const RecvStreamBody& body)
 {
-    LOG.Info(ELogCategory::Tool, "운영툴 연결 수락(인증 대기)")
-        .KV("SessionId", session->Id()).KV("Remote", session->RemoteAddress());
+    const auto& session = body.session;
+
+    // ToolHello 이전에는 어떤 요청도 받지 않는다. requestId는 모든 요청 페이로드의 맨
+    // 앞 4바이트로 고정이라, 본문 파싱 없이도 여기서 꺼내 거절 응답에 실을 수 있다.
+    if (body.packetId != PacketId::T2WHello && !IsAuthenticated(session->Id()))
+    {
+        uint32_t requestId = 0;
+        Packet::BinaryReader binaryReader(body.payload);
+        (void)binaryReader.Read(requestId);
+
+        LOG.Warning(ELogCategory::Tool, "인증 전 운영툴 요청 거절")
+            .KV("SessionId", session->Id()).KV("PacketId", static_cast<uint16_t>(body.packetId));
+        SendCommandResult(session, requestId, Common::EToolResultCode::NotAuthenticated, 0);
+        return;
+    }
+
+    dispatcher_.Dispatch(body.packetId, session, body.payload);
 }
 
-void ToolProcessor::OnPacket(const Network::Session::SPtr& session,
-                             const Packet::Header& header,
-                             const std::span<const byte> payload)
+void ToolProcessor::OnToolLinkClosed(const Pipeline::OwnerId& owner)
 {
-    // 여기는 이 연결의 I/O 스레드다. 다른 두 링크 핸들러와 동일하게 바이트만 복사해서
-    // BASIC 그룹으로 넘긴다.
-    //
-    // **ownerId를 운영툴 세션 id로 잡는 이유**: 운영툴 명령의 "주인"은 대상이 아니라 명령을
-    // 보낸 그 연결이다 -- 대상이 전역(공지)이거나 캠페인 코드(쿠폰)라 하나로 못 정하기
-    // 때문이다. 이렇게 두면 한 운영툴 연결이 보낸 명령들끼리는 보낸 순서대로 처리된다.
-    //
-    // **대상의 상태는 PlayerManager가 Mutexed라 어느 레인에서 읽어도 안전하다.** 예전에는
-    // 그 매니저가 어피니티 전제로 샤딩돼 있어서, 단일 대상 명령(우편 발송/삭제)이 운영툴
-    // 레인에서 남의 샤드를 읽는 레이스가 있었다.
-    const auto packetId = static_cast<PacketId>(header.id);
-    std::vector<byte> payloadCopy(payload.begin(), payload.end());
-
-    basicGroup_.Post(EWorldProcessorId::Tool, session->Id(),
-        [this, session, packetId, payloadCopy = std::move(payloadCopy)]
-    {
-        // ToolHello 이전에는 어떤 요청도 받지 않는다. requestId는 모든 요청 페이로드의 맨
-        // 앞 4바이트로 고정이라, 본문 파싱 없이도 여기서 꺼내 거절 응답에 실을 수 있다.
-        if (packetId != PacketId::T2WHello && !IsAuthenticated(session->Id()))
-        {
-            uint32_t requestId = 0;
-            Packet::BinaryReader binaryReader(payloadCopy);
-            (void)binaryReader.Read(requestId);
-
-            LOG.Warning(ELogCategory::Tool, "인증 전 운영툴 요청 거절")
-                .KV("SessionId", session->Id()).KV("PacketId", static_cast<uint16_t>(packetId));
-            SendCommandResult(session, requestId, Common::EToolResultCode::NotAuthenticated, 0);
-            return;
-        }
-
-        dispatcher_.Dispatch(packetId, session, payloadCopy);
-    });
-}
-
-void ToolProcessor::OnClosed(const Network::Session::SPtr& session, const std::error_code& /*reason*/)
-{
-    const auto sessionId = session->Id();
-    basicGroup_.Post(EWorldProcessorId::Tool, sessionId, [this, sessionId]
-    {
-        authenticatedSessions_.Write()->erase(sessionId);
-        LOG.Info(ELogCategory::Tool, "운영툴 연결 종료").KV("SessionId", sessionId);
-    });
+    const auto sessionId = static_cast<Network::SessionId>(owner.value);
+    authenticatedSessions_.Write()->erase(sessionId);
+    LOG.Info(ELogCategory::Tool, "운영툴 연결 종료").KV("SessionId", sessionId);
 }
 
 bool ToolProcessor::IsAuthenticated(const Network::SessionId toolSessionId) const
@@ -160,7 +145,7 @@ bool ToolProcessor::InjectClientPacket(const Network::SessionId clientSessionId,
         return false;
     }
 
-    // MainProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
+    // BasicProcessor::HandleFromClient가 게이트웨이에서 받아 그대로 넘기는 것과 완전히
     // 같은 형태로 조립한다 -- 존 쪽에서는 이 우편이 운영툴에서 왔는지 클라이언트에서
     // 왔는지 구분할 수 없고, 구분할 필요도 없다.
     Common::SendRelay(zoneLink->zoneSession, PacketId::W2ZRelay, clientSessionId,
@@ -351,10 +336,10 @@ void ToolProcessor::HandleCouponChunkPush(const Network::Session::SPtr& toolSess
     const auto& couponCodes = packet.couponCodes;
 
     // 캠페인 코드로 해시해 고정된 DB 레인에 위임한다 -- 같은 캠페인의 청크는 항상 같은
-    // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(MainProcessor의
+    // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(BasicProcessor의
     // UnitOfWork 태스크가 clientSessionId로 해시하는 것과 같은 owner-hash 원리).
     const auto ownerHash = std::hash<std::string>{}(campaignCode);
-    dbProcessor_.Post(ownerHash,
+    DbProcessor::Post(ownerHash,
         [campaignCode, chunkSeq, couponCodes = std::move(couponCodes)]
         {
             // TODO: 실제로는 여기서 쿠폰 테이블에 벌크 INSERT를 실행한다(WorldServer의 DB

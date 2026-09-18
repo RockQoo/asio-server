@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Shared/Core/Src/Thread/Mutexed.h"
-#include "Shared/Common/Src/ErrorCode.h"
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Common/Src/MailInfo.h"
+#include "Server/Core/Src/Thread/Mutexed.h"
+#include "Server/Common/Src/ErrorCode.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Common/Src/MailInfo.h"
 
 namespace Task
 {
@@ -11,7 +11,7 @@ namespace Task
 }
 
 // taskKind 값은 Common::MakeTaskKind(ETaskCategory::Mail, EMailTask::Xxx)로 만든다
-// (Shared/Common/Src/TaskKind.h). Zone에서 기록하고 World가 DB에 반영하고 클라이언트가
+// (Server/Common/Src/TaskKind.h). Zone에서 기록하고 World가 DB에 반영하고 클라이언트가
 // 자기 메모리에 적용하는, 세 프로세스가 공유하는 값이라 ZoneServer 안에 둘 수 없다.
 
 // 플레이어 한 명의 우편함. 상태를 직접 바꾸고 끝내지 않고, 바뀐 내용을 Task::UnitOfWork에

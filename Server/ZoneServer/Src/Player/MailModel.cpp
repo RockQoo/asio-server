@@ -3,8 +3,8 @@
 
 #include "Player/PlayerTask.h"
 
-#include "Shared/Core/Src/Task/UnitOfWork.h"
-#include "Shared/Common/Src/ContentLimit.h"
+#include "Server/Core/Src/Task/UnitOfWork.h"
+#include "Server/Common/Src/ContentLimit.h"
 
 MailModel::MailModel(std::vector<Common::MailInfo> initial)
 {

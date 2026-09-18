@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Shared/Common/Src/Packet/ZoneLinkPackets.h"
+#include "Server/Common/Src/Packet/ZoneLinkPackets.h"
 #include "Server/WorldServer/Src/World/PlayerManager.h"
 
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Core/Src/Packet/Header.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Core/Src/Packet/Header.h"
 
 // W2ZEnterZone 본문을 만든다. 포맷은 ZoneLinkPackets.h 의 표가 유일한 계약이고,
 // 읽는 쪽은 ZoneServer 의 WorldLinkHandler 다.

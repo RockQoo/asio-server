@@ -1,0 +1,68 @@
+#pragma once
+
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Packet/Buffer.h"
+
+#include <asio.hpp>
+
+namespace Network
+{
+    class IPacketHandler;
+
+    // TCP 연결 하나. 소켓을 건드리는 모든 코드는 strand_를 거치므로, I/O 스레드가 동시에 읽고
+    // 있는 중에도 어느 스레드에서든(특히 TaskWorker 로직 스레드에서) Send()를 안전하게 호출할
+    // 수 있다. shared_ptr(enable_shared_from_this)로만 소유되어, 비동기 완료 핸들러가 진행되는
+    // 동안 자기 자신의 생존을 보장한다.
+    class Session final : public std::enable_shared_from_this<Session>
+    {
+    public:
+        // 이 타입은 shared_ptr로만 소유된다(위 주석). 그래서 별칭이 규약을 이름에 드러낸다.
+        // **전방 선언만으로는 쓸 수 없다** -- 멤버 별칭이라 이 헤더를 include해야 한다.
+        using SPtr = std::shared_ptr<Session>;
+
+        Session(asio::io_context& ioContext, const SessionId id, IPacketHandler& handler);
+        ~Session();
+
+        Session(const Session&) = delete;
+        Session& operator=(const Session&) = delete;
+
+        void Start();
+        void Close();
+
+        // [헤더 + 페이로드] 프레임을 만들어 비동기 전송 큐에 넣는다. 스레드 세이프하다.
+        void SendPacket(const uint16_t packetId, const std::span<const byte> payload);
+
+        // 패킷 id enum을 그대로 받는 오버로드. 호출부마다 static_cast<uint16_t>를 쓰던 것을
+        // 없애려고 둔다 -- Core는 어떤 enum인지 알 필요가 없으므로(콘텐츠를 모르는 라이브러리)
+        // 구체 타입 대신 "scoped enum이면 무엇이든"으로 제약만 건다.
+        template <typename TPacketId> requires std::is_enum_v<TPacketId>
+        void SendPacket(const TPacketId packetId, const std::span<const byte> payload)
+        {
+            SendPacket(static_cast<uint16_t>(packetId), payload);
+        }
+
+        [[nodiscard]] asio::ip::tcp::socket& Socket() noexcept { return socket_; }
+        [[nodiscard]] SessionId Id() const noexcept { return id_; }
+        [[nodiscard]] std::string RemoteAddress() const;
+
+    private:
+        void DoRead();
+        void DoWrite();
+        void HandleClose(const std::error_code& ec);
+
+        asio::ip::tcp::socket socket_;
+        asio::strand<asio::io_context::executor_type> strand_;
+
+        const SessionId id_;
+        IPacketHandler& handler_;
+
+        static constexpr size_t kReceiveBufferSize = 4096;
+        std::array<byte, kReceiveBufferSize> receiveBuffer_{};
+        Packet::Buffer packetBuffer_;
+
+        std::deque<std::vector<byte>> sendQueue_;
+        bool writing_{false};
+
+        std::atomic<bool> closed_{false};
+    };
+}

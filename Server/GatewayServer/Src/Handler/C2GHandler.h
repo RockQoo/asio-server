@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/IPacketHandler.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 namespace Network
 {

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/BasicTypes.h"
+#include "Server/Core/Src/Base/BasicTypes.h"
 
 // 이 프로세스의 프로세서 목록. **프로세서는 스레드가 아니다** -- 큐 그룹(스레드 N개) 위에
 // 얹히고, 어느 스레드에서 도는지는 메시지의 ownerId가 정한다
-// (Shared/Core/Src/Processor/Group.h 주석 참고).
+// (Server/Core/Src/Processor/Group.h 주석 참고).
 //
 // **태그 하나 = Src/Processor/ 의 클래스 하나**다:
 //

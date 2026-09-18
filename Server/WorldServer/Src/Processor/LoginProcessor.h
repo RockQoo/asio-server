@@ -1,14 +1,15 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/RUID.h"
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Packet/Dispatcher.h"
-#include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Common/Src/ErrorCode.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/Packet/LoginPackets.h"
-#include "Shared/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Packet/Dispatcher.h"
+#include "Server/Core/Src/Pipeline/MessageProcessor.h"
+#include "Processor/WorldMsg.h"
+#include "Server/Common/Src/ErrorCode.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/Packet/LoginPackets.h"
+#include "Server/Common/Src/Packet/Wire.h"
 #include "Db/DbCommand.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
@@ -17,7 +18,7 @@
 
 
 // C2W 대역(로그인)의 처리기. **IPacketHandler가 아니다** -- 운영툴처럼 자기 포트를 갖는 게
-// 아니라, 클라이언트 패킷이 Gateway 릴레이 봉투에 실려 들어오므로 MainProcessor가
+// 아니라, 클라이언트 패킷이 Gateway 릴레이 봉투에 실려 들어오므로 BasicProcessor가
 // 봉투를 열어 이쪽으로 넘긴다(그래서 등록도 Listener가 아니라 그 핸들러가 한다).
 //
 // **스레드 규약이 이 클래스의 전부다.** 한 번의 로그인이 레인을 세 번 갈아타지만,
@@ -31,13 +32,13 @@
 //
 // **playerId를 알게 된 뒤에도 주인을 바꾸지 않는 이유**: 중간에 갈아타면 그 지점부터 앞
 // 구간과 직렬화가 끊겨, 같은 세션의 로그인 단계들이 서로 다른 strand에서 겹친다. 존 입장
-// 뒤의 UnitOfWork만 playerId가 주인이다(MainProcessor) -- 그건 세션이 아니라 계정에 묶이는
+// 뒤의 UnitOfWork만 playerId가 주인이다(BasicProcessor) -- 그건 세션이 아니라 계정에 묶이는
 // 일이라 재접속해도 같은 레인을 유지해야 하고, 로그인은 그 세션 안에서만 의미가 있다.
 //
 // DB 왕복이 **반드시 DB 그룹**이어야 하는 이유: 쿼리 한 번이 BASIC 레인에 걸리면 그 레인에
 // 배정된 모든 플레이어의 패킷이 그동안 멈춘다(config/world.cfg의 db_threads 주석).
 
-// 디스패처가 핸들러에 넘기는 것. MainProcessor가 릴레이 봉투에서 꺼낸 둘이다 -- 다른
+// 디스패처가 핸들러에 넘기는 것. BasicProcessor가 릴레이 봉투에서 꺼낸 둘이다 -- 다른
 // 처리기들은 세션 하나로 충분해서 TContext가 Session::SPtr인데, 여기는 봉투 안의
 // clientSessionId가 따로 있어 묶어서 넘긴다.
 struct LoginContext
@@ -46,13 +47,34 @@ struct LoginContext
     Network::SessionId clientSessionId;
 };
 
-class LoginProcessor
+// DB 레인 -> BASIC 레인으로 결말을 되돌릴 때 싣는 본문. **owner = clientSessionId**라
+// 로그인의 모든 결말이 같은 레인에서 순서대로 나간다.
+struct LoginFailureBody final
+{
+    Network::Session::SPtr gatewaySession;
+    Network::SessionId clientSessionId{};
+    Common::EErrorCode errorCode{};
+};
+
+struct LoginSuccessBody final
+{
+    Network::Session::SPtr gatewaySession;
+    Network::SessionId clientSessionId{};
+    std::string playerName;
+    Base::RUID playerId{};
+    std::unordered_map<Common::MailId, Common::MailInfo> mails;
+    std::unordered_map<Common::ECurrencyType, int64_t> currencies;
+};
+
+class LoginProcessor final : public Pipeline::MessageProcessor
 {
 public:
-    LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                   Processor::Group<EWorldProcessorId>& basicGroup, DbProcessor& dbProcessor);
+    LoginProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry);
 
-    // MainProcessor가 봉투 안 id의 방향이 C2W일 때 부른다.
+    [[nodiscard]] std::string_view Name() const override { return "Login"; }
+    void RegistHandler() override;
+
+    // BasicProcessor가 봉투 안 id의 방향이 C2W일 때 부른다.
     // **BASIC 레인(owner=clientSessionId)에서 불린다** -- I/O 스레드가 아니다.
     void HandleClientPacket(const Network::Session::SPtr& gatewaySession,
                             const Network::SessionId clientSessionId, const PacketId packetId,
@@ -82,6 +104,10 @@ private:
                         const Base::RUID playerId, const bool succeeded, const DbResult& dbResult);
 
     // DB 레인 -> BASIC 레인으로 결말을 넘긴다.
+    // DB 레인에서 불려 BASIC 레인으로 결말을 되돌린다.
+    void OnLoginFailure(const Pipeline::OwnerId& owner, const LoginFailureBody& body);
+    void OnLoginSuccess(const Pipeline::OwnerId& owner, const LoginSuccessBody& body);
+
     void PostFailure(const Network::Session::SPtr& gatewaySession,
                      const Network::SessionId clientSessionId, const EErrorCode errorCode);
     void PostSuccess(const Network::Session::SPtr& gatewaySession,
@@ -108,8 +134,8 @@ private:
 
     PlayerManager::Mutexed& playerManager_;
     ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
-    Processor::Group<EWorldProcessorId>& basicGroup_;
-    DbProcessor& dbProcessor_;
+
+
 
     // 등록은 생성자에서 끝나고 이후로는 읽기 전용이라, 여러 BASIC 레인 스레드가 동시에
     // Dispatch해도 안전하다.

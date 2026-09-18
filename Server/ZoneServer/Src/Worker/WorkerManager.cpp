@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "Worker/WorkerManager.h"
 
-#include "Shared/Core/Src/Network/IoContextPool.h"
-#include "Shared/Core/Src/Timer/RepeatingTimer.h"
+#include "Server/Core/Src/Network/IoContextPool.h"
+#include "Server/Core/Src/Timer/RepeatingTimer.h"
 
 WorkerManager::WorkerManager(std::vector<ZoneDef> zoneDefs, const PoolSizes& poolSizes,
                                      const std::chrono::microseconds slowWarnThreshold,

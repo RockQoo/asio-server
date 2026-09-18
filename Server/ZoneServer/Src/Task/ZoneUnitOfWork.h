@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Task/UnitOfWork.h"
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Common/Src/PacketId.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Task/UnitOfWork.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Common/Src/PacketId.h"
 
 #include "Player/CurrencyModel.h"
 #include "Player/MailModel.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 class Player;
 

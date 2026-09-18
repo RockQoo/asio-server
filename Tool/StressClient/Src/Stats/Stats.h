@@ -1,8 +1,8 @@
 #pragma once
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Core/Src/Base/RUID.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Core/Src/Base/RUID.h"
 
-#include "Shared/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Base/Types.h"
 #include "Stats/LatencyHistogram.h"
 
 namespace Stress

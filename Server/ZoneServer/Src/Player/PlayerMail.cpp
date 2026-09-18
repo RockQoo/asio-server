@@ -4,7 +4,7 @@
 #include "Player/MailModel.h"
 #include "Task/ZoneUnitOfWork.h"
 
-#include "Shared/Common/Src/ContentLimit.h"
+#include "Server/Common/Src/ContentLimit.h"
 
 namespace
 {

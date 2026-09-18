@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Shared/Common/Src/CurrencyInfo.h"
-#include "Shared/Common/Src/Enum.h"
-#include "Shared/Common/Src/ErrorCode.h"
+#include "Server/Common/Src/CurrencyInfo.h"
+#include "Server/Common/Src/Enum.h"
+#include "Server/Common/Src/ErrorCode.h"
 
 namespace Task
 {

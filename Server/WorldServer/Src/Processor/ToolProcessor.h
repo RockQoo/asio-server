@@ -1,14 +1,15 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Common/Src/Packet/ToolLinkPackets.h"
-#include "Shared/Common/Src/Packet/Wire.h"
-#include "Shared/Core/Src/Packet/Dispatcher.h"
-#include "Shared/Core/Src/Processor/Group.h"
-#include "Shared/Core/Src/Thread/Mutexed.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/Packet/ToolResultCode.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Network/IPacketHandler.h"
+#include "Server/Common/Src/Packet/ToolLinkPackets.h"
+#include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Packet/Dispatcher.h"
+#include "Server/Core/Src/Pipeline/MessageProcessor.h"
+#include "Processor/WorldMsg.h"
+#include "Server/Core/Src/Thread/Mutexed.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/Packet/ToolResultCode.h"
 #include "Processor/DbProcessor.h"
 #include "World/PlayerManager.h"
 #include "World/ZoneLinkRegistry.h"
@@ -27,20 +28,22 @@ class WorldWorker;
 // 다르지 않게 흐른다. 우회로를 만들면 "운영툴로 넣은 우편만 만료가 안 된다"는 사고가 난다.
 //
 // 와이어 포맷: docs/design/wire-format.md
-class ToolProcessor final : public Network::IPacketHandler
+class ToolProcessor final : public Pipeline::MessageProcessor
 {
 public:
     ToolProcessor(PlayerManager::Mutexed& playerManager, ZoneLinkRegistry::Mutexed& zoneLinkRegistry,
-                  Processor::Group<EWorldProcessorId>& basicGroup, DbProcessor& dbProcessor,
                   std::string sharedSecret);
 
-    void OnSessionOpened(const Network::Session::SPtr& session) override;
-    void OnPacket(const Network::Session::SPtr& session,
-                  const Packet::Header& header,
-                  const std::span<const byte> payload) override;
-    void OnClosed(const Network::Session::SPtr& session, const std::error_code& reason) override;
+    [[nodiscard]] std::string_view Name() const override { return "Tool"; }
+    void RegistHandler() override;
 
 private:
+    // 레인 사이 메시지. **owner = 운영툴 세션 id** -- 명령의 주인은 대상이 아니라 명령을 보낸
+    // 그 연결이다(대상이 전역이거나 캠페인 코드라 하나로 못 정한다). 이렇게 두면 한 운영툴
+    // 연결이 보낸 명령들끼리는 보낸 순서대로 처리된다.
+    void OnRecvToolStream(const Pipeline::OwnerId& owner, const RecvStreamBody& body);
+    void OnToolLinkClosed(const Pipeline::OwnerId& owner);
+
     // 이 처리기가 받는 T2W 패킷 목록. 생성자 다음에 둔다.
     void Register();
 
@@ -79,8 +82,7 @@ private:
 
     PlayerManager::Mutexed& playerManager_;
     ZoneLinkRegistry::Mutexed& zoneLinkRegistry_;
-    Processor::Group<EWorldProcessorId>& basicGroup_;
-    DbProcessor& dbProcessor_;
+
     std::string sharedSecret_;
 
     // **왜 여기만 락인가**: 운영툴 명령은 대상이 전역이라 ownerId를 하나로 고정할 수 없고

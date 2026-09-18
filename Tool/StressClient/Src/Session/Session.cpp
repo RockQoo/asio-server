@@ -1,21 +1,21 @@
 #include "pch.h"
 #include "Session/Session.h"
 
-#include "Shared/Core/Src/Base/RUID.h"
-#include "Shared/Core/Src/Packet/BinaryReader.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/TaskKind.h"
-#include "Shared/Common/Src/Packet/LoginPackets.h"
-#include "Shared/Common/Src/Packet/Wire.h"
-#include "Shared/Common/Src/Packet/ZonePackets.h"
+#include "Server/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Packet/BinaryReader.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/TaskKind.h"
+#include "Server/Common/Src/Packet/LoginPackets.h"
+#include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Common/Src/Packet/ZonePackets.h"
 
 namespace Stress
 {
     namespace
     {
         // Z2CTaskResult에 실려 온 UnitOfWork 태스크 스트림에서 원하는 Mail 태스크의 mailId를
-        // 꺼낸다. 스트림 포맷은 Shared/Core/Src/Task/UnitOfWork.h 주석 참고 --
+        // 꺼낸다. 스트림 포맷은 Server/Core/Src/Task/UnitOfWork.h 주석 참고 --
         // 부하 도구라 첫 번째로 맞는 태스크 하나만 보면 충분하다.
         [[nodiscard]] std::optional<Common::MailId> FindMailTaskId(const std::span<const byte> stream,
                                                              const Common::EMailTask subTask)

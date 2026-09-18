@@ -4,7 +4,7 @@
 #include "Player/MoveModel.h"
 #include "Player/MailModel.h"
 
-#include "Shared/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Base/Types.h"
 
 // 권위 있는(authoritative) 플레이어 한 명 + 그 사람의 콘텐츠 모델들.
 //

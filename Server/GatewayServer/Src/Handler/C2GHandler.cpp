@@ -1,14 +1,14 @@
 #include "pch.h"
 #include "Handler/C2GHandler.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Network/SessionManager.h"
-#include "Shared/Core/Src/Packet/BinaryWriter.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/Packet/LoginPackets.h"
-#include "Shared/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Network/SessionManager.h"
+#include "Server/Core/Src/Packet/BinaryWriter.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/Packet/LoginPackets.h"
+#include "Server/Common/Src/Packet/Wire.h"
 
 C2GHandler::C2GHandler(Network::SessionManager& sessionManager, Network::SessionHolder& worldLink)
     : sessionManager_(sessionManager)

@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Player/PlayerRegistry.h"
 
-#include "Shared/Core/Src/Base/CoreException.h"
+#include "Server/Core/Src/Base/CoreException.h"
 
 PlayerRegistry::PlayerRegistry(const size_t shardCount)
 {

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Packet/Dispatcher.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Common/Src/Packet/RelayEnvelope.h"
-#include "Shared/Common/Src/Packet/Wire.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/IPacketHandler.h"
+#include "Server/Core/Src/Packet/Dispatcher.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
+#include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 namespace Network
 {

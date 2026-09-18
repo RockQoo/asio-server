@@ -2,7 +2,7 @@
 #include "Player/CurrencyModel.h"
 #include "Player/PlayerTask.h"
 
-#include "Shared/Core/Src/Task/UnitOfWork.h"
+#include "Server/Core/Src/Task/UnitOfWork.h"
 
 CurrencyModel::CurrencyModel(const std::vector<Common::CurrencyInfo>& initial) noexcept
 {

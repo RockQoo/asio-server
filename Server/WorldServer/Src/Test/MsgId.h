@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Message/Router.h"
+#include "Server/Core/Src/Message/Router.h"
 
 #include "Processor/ProcessorId.h"
 

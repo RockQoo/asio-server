@@ -9,8 +9,15 @@ struct WorldConfig
     uint16_t toolPort{9300};
     size_t ioThreadCount{2};
 
-    // BASIC 큐 그룹의 스레드 수. Main/Tool 프로세서가 이 스레드들을 **공유**하고, 어느
-    // 스레드로 갈지는 메시지의 ownerId가 정한다(ProcessorId.h 주석 참고).
+    // NETWORK 레인의 스레드 수. 수신 1차 처리(껍질 까고 주인 뽑기)가 여기서 돈다.
+    //
+    // **늘려도 잘 갈라지지 않는다** -- 주인이 링크 세션 id라 실질 병렬도가 붙어 있는
+    // 게이트웨이/존 프로세스 수까지다(NetworkProcessor.h의 "가장 좁은 목" 주석 참고).
+    // 이 값은 그 한계를 실측으로 확인하기 위한 손잡이다.
+    size_t networkThreadCount{2};
+
+    // BASIC 레인의 스레드 수. Main/Login/Tool/Test 프로세서가 이 스레드들을 **공유**하고,
+    // 어느 스레드로 갈지는 메시지의 ownerId가 정한다(WorldApp::SetupProducers 참고).
     size_t basicThreadCount{8};
 
     // DB 큐 그룹의 스레드 수. **커넥션 풀 크기와 1:1이 원칙이다** -- 스레드가 커넥션보다

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 
 class MailRegistry;

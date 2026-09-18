@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Shared/Common/Src/Enum.h"
-#include "Shared/Common/Src/Ids.h"
-#include "Shared/Core/Src/Base/RUID.h"
-#include "Shared/Common/Src/MailInfo.h"
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Network/Session.h"
-#include "Shared/Core/Src/Thread/Mutexed.h"
+#include "Server/Common/Src/Enum.h"
+#include "Server/Common/Src/Ids.h"
+#include "Server/Core/Src/Base/RUID.h"
+#include "Server/Common/Src/MailInfo.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Thread/Mutexed.h"
 
 // 접속 중인 플레이어 한 명에 대해 World가 아는 전부.
 struct PlayerInfo

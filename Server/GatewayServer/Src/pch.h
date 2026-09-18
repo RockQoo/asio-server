@@ -61,10 +61,10 @@
 #include <windows.h>
 
 // byte/size_t/고정폭 정수를 std:: 없이 쓰기 위한 전역 using 선언 모음.
-#include "Shared/Core/Src/Base/BasicTypes.h"
+#include "Server/Core/Src/Base/BasicTypes.h"
 
 // LOG.<Level>(category, "메시지").KV(...) 형태의 전역 로그 진입점.
-#include "Shared/Core/Src/Log/Proxy.h"
+#include "Server/Core/Src/Log/Proxy.h"
 
 // 카테고리는 Core 것이 아니라 서버·도구가 공유하는 Common::ELogCategory 를 쓴다.
-#include "Shared/Common/Src/LogCategory.h"
+#include "Server/Common/Src/LogCategory.h"

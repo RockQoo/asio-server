@@ -3,7 +3,7 @@
 
 #include "Db/DbConnection.h"
 
-#include "Shared/Core/Src/Base/RUID.h"
+#include "Server/Core/Src/Base/RUID.h"
 
 
 // `WorldServer.exe --idtest <노드번호> <스레드수> <스레드당개수> [random]`

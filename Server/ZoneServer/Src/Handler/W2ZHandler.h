@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
-#include "Shared/Core/Src/Network/IPacketHandler.h"
-#include "Shared/Core/Src/Packet/OwnerIdTable.h"
-#include "Shared/Core/Src/Processor/Group.h"
+#include "Server/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Network/IPacketHandler.h"
+#include "Server/Core/Src/Packet/OwnerIdTable.h"
+#include "Server/Core/Src/Processor/Group.h"
 #include "App/ZoneDef.h"
 #include "Processor/ProcessorId.h"
-#include "Shared/Common/Src/PacketId.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Common/Src/PacketId.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 class PlayerProcessor;
 

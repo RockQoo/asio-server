@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Shared/Core/Src/Console/KeyBinder.h"
-#include "Shared/Core/Src/Network/Connector.h"
-#include "Shared/Core/Src/Network/IoContextPool.h"
-#include "Shared/Core/Src/Network/Listener.h"
-#include "Shared/Core/Src/Network/SessionManager.h"
+#include "Server/Core/Src/Console/KeyBinder.h"
+#include "Server/Core/Src/Network/Connector.h"
+#include "Server/Core/Src/Network/IoContextPool.h"
+#include "Server/Core/Src/Network/Listener.h"
+#include "Server/Core/Src/Network/SessionManager.h"
 #include "Handler/C2GHandler.h"
 #include "Handler/W2GHandler.h"
-#include "Shared/Core/Src/Network/SessionHolder.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 
 #include "App/GatewayConfig.h"
 

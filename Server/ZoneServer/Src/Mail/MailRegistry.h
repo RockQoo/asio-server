@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shared/Core/Src/Base/Types.h"
+#include "Server/Core/Src/Base/Types.h"
 #include "Player/MailModel.h"
 
 // 이 존에 있는 모든 플레이어의 MailModel::Mutexed(=Thread::Mutexed<MailModel>)를 들고 있는

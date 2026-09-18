@@ -1,40 +1,86 @@
 #include "pch.h"
 #include "App/WorldApp.h"
-#include "Shared/Common/Src/PacketId.h"
 
-#include "Shared/Core/Src/Network/Session.h"
-#include "Test/TestKeys.h"
-#include "Processor/TestProcessor.h"
+#include "Processor/BasicProcessor.h"
+#include "Processor/DbProcessor.h"
+#include "Processor/LoginProcessor.h"
+#include "Processor/ProcessorIds.h"
+#include "Processor/TimerProcessor.h"
+#include "Processor/ToolProcessor.h"
+#include "Server/Core/Src/Network/Session.h"
+
+namespace
+{
+    // TIMER 레인의 레인 수. 만기 판정만 하는 레인이라 하나로 고정한다 -- 늘리면 같은 주기
+    // 작업의 두 만기가 서로 다른 스레드에서 겹쳐 돌 수 있다. 실무 원본도 1로 고정이다.
+    constexpr int32_t kTimerLaneCount = 1;
+}
 
 WorldApp::WorldApp(WorldConfig config)
     : config_(std::move(config))
     , ioPool_(config_.ioThreadCount)
-    , basicGroup_("Basic", config_.basicThreadCount, config_.slowTaskWarnThreshold)
-    , dbGroup_("Db", config_.dbThreadCount, config_.slowTaskWarnThreshold)
     , dbPool_(config_.dbConnectionString)
-    , dbProcessor_(dbPool_, dbGroup_)
-    , loginProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbProcessor_)
-    , mainProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbProcessor_, loginProcessor_)
-    , gatewayLinkHandler_(basicGroup_, mainProcessor_)
-    , zoneLinkHandler_(basicGroup_, mainProcessor_)
-    , toolProcessor_(playerManager_, zoneLinkRegistry_, basicGroup_, dbProcessor_, config_.toolSharedSecret)
     , signals_(ioPool_.At(0), SIGINT, SIGTERM)
 {
-    // **전역 핸들을 여기서 세운다.** 이 시점부터 PushMsg가 이 App의 라우터를 찾는다.
-    MsgRouter::SetCurrent(&msgRouter_);
 }
 
 WorldApp::~WorldApp()
 {
-    // **멤버(Group들)가 소멸되기 전에 지운다** -- 소멸자 본문이 멤버 소멸보다 먼저 도므로
-    // 순서가 항상 맞는다. 이걸 빠뜨리면 죽은 Group을 가리키는 포인터가 남는다.
-    MsgRouter::SetCurrent(nullptr);
-
+    // 레인이 소유한 프로세서들이 이 App의 멤버(playerManager_ 등)를 참조하므로, 레인을
+    // 먼저 버려야 한다. Run()이 정상 종료했다면 이미 Stop()까지 끝난 상태다.
+    Pipeline::ProducerHolder::Instance().Shutdown();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 이 프로세스의 레인과 그 위에 얹히는 프로세서. **World의 레인 구성은 여기가 전부다.**
+//
+//   NETWORK  ioPool_ (프로액터) -- IOCP 완료 + 프레임 조립. 파이프라인 레인이 아니다.
+//   BASIC    Basic / Login / Tool
+//   DB       Db
+//   TIMER    Timer
+//
+// 노션 World와 같은 구성이다(TICK·BROADCAST·LB가 없다 -- 흐르는 시간도, 좌표·시야도 없고,
+// 1차 파싱은 BASIC이 겸한다).
+// ─────────────────────────────────────────────────────────────────────────────
+void WorldApp::InitProducers()
+{
+    auto& producerHolder = Pipeline::ProducerHolder::Instance();
+
+    producerHolder.InitProducer(Pipeline::EProducerType::Basic, static_cast<int32_t>(config_.basicThreadCount));
+    producerHolder.InitProducer(Pipeline::EProducerType::Db,    static_cast<int32_t>(config_.dbThreadCount));
+    producerHolder.InitProducer(Pipeline::EProducerType::Timer, kTimerLaneCount);
+
+    // **AddProcessor가 돌려준 id를 보관해야 다른 곳에서 여기로 메시지를 보낼 수 있다.**
+    // 프로세서 객체의 소유권은 레인으로 넘어가고, 여기 남는 것은 id뿐이다.
+    auto& ids = Ids();
+
+    auto* const basicProducer = producerHolder.GetProducer(Pipeline::EProducerType::Basic);
+
+    // BasicProcessor가 LoginProcessor를 직접 참조하므로 먼저 만들어 참조를 잡아둔 뒤 등록한다.
+    // (DB는 참조가 필요 없다 -- DbProcessor::Execute가 PushMsg로 보내는 static 함수다.)
+    auto loginOwned = std::make_unique<LoginProcessor>(playerManager_, zoneLinkRegistry_);
+    LoginProcessor& login = *loginOwned;
+    ids.login = basicProducer->AddProcessor(std::move(loginOwned));
+
+    ids.main = basicProducer->AddProcessor(
+        std::make_unique<BasicProcessor>(playerManager_, zoneLinkRegistry_, login));
+
+    ids.tool = basicProducer->AddProcessor(
+        std::make_unique<ToolProcessor>(playerManager_, zoneLinkRegistry_, config_.toolSharedSecret));
+
+    auto* const dbProducer = producerHolder.GetProducer(Pipeline::EProducerType::Db);
+    ids.db = dbProducer->AddProcessor(std::make_unique<DbProcessor>(dbPool_));
+
+    auto* const timerProducer = producerHolder.GetProducer(Pipeline::EProducerType::Timer);
+    auto timerOwned = std::make_unique<TimerProcessor>();
+    timerProcessor_ = timerOwned.get();
+    ids.timer = timerProducer->AddProcessor(std::move(timerOwned));
+}
+
 void WorldApp::Run()
 {
-    basicGroup_.Start();
-    dbGroup_.Start();
+    InitProducers();
+    Pipeline::ProducerHolder::Instance().Start();
 
     gatewayListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.gatewayPort, gatewayLinkHandler_);
     gatewayListener_->Start();
@@ -42,49 +88,34 @@ void WorldApp::Run()
     zoneListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.zonePort, zoneLinkHandler_);
     zoneListener_->Start();
 
-    toolListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.toolPort, toolProcessor_);
+    toolListener_ = std::make_shared<Network::Listener>(ioPool_.At(0), ioPool_, config_.toolPort, toolLinkHandler_);
     toolListener_->Start();
 
-    // 레인별 대기/처리 시간을 주기적으로 남긴다 -- 부하 상황에서 "어느 레인이 밀렸나"를
-    // 판정할 유일한 수단이다(처리량 수치만으로는 느리다는 것까지만 알 수 있다).
-    statsTimer_ = std::make_unique<Timer::RepeatingTimer>(ioPool_.Next());
-    statsTimer_->Start(config_.statsDumpInterval, [this]
-    {
-        basicGroup_.LogStats();
-        dbGroup_.LogStats();
-    });
+    // **레인이 돌기 시작한 뒤에 건다** -- 타이머가 만기를 TIMER 레인에 넣기 때문이다.
+    timerProcessor_->Start();
 
     SetupSignalHandling();
-
-    // 테스트 하네스. 묶인 키가 없으면 Start()가 스레드를 만들지 않는다.
-    // 어느 프로세서 메시지를 어느 그룹에서 돌릴지 먼저 등록하고, 그다음 핸들러를 묶는다.
-    // **둘 다 KeyBinder::Start()보다 앞이다** -- 레인 스레드가 락 없이 읽는 표라 도는
-    // 중에 바꾸면 경합한다.
-    msgRouter_.Register(EWorldProcessorId::Test, basicGroup_);
-    TestProcessor::Register(msgRouter_);
-    RegisterTestKeys(keyBinder_);
     keyBinder_.Start();
 
     LOG.Info(ELogCategory::General, "WorldServer 대기 시작")
         .KV("GatewayPort", config_.gatewayPort).KV("ZonePort", config_.zonePort)
         .KV("ToolPort", config_.toolPort)
         .KV("IoThreads", config_.ioThreadCount)
-        .KV("BasicThreads", basicGroup_.ThreadCount())
-        .KV("DbThreads", dbGroup_.ThreadCount());
+        .KV("BasicLanes", config_.basicThreadCount)
+        .KV("DbLanes", config_.dbThreadCount)
+        .KV("TimerLanes", kTimerLaneCount);
 
     ioPool_.Run();
     ioPool_.Join();
 
-    // **종속 관계의 역순으로 내린다**: BASIC이 DB에 일을 던지므로 BASIC을 먼저 세워야
-    // DB로 새 일이 더 들어오지 않는다. 그리고 **DB 그룹이 마지막까지 남아 밀린 저장을
-    // 소진**해야 한다 -- 급하게 내리면 몇 초 분량의 플레이 결과가 사라진다.
-    // (Group::Stop()은 work_guard를 놓아 남은 작업을 소진시킨 뒤 스레드를 join한다.)
-    // **BASIC을 세우기 전에 입력 스레드를 멈춘다** -- 안 그러면 F키 한 번이 이미 닫히는
-    // 중인 레인으로 메시지를 밀어 넣는다.
+    // **일을 주는 쪽부터 끊는다.** MessageProducer::Stop()은 남은 일을 소진한 뒤 스레드를
+    // 끝내므로, 주는 쪽이 먼저 서야 받는 쪽이 살아 있는 동안 그 일을 마저 처리한다.
     keyBinder_.Stop();
+    timerProcessor_->Stop();
 
-    basicGroup_.Stop();
-    dbGroup_.Stop();
+    // 레인끼리의 순서는 EProducerType 선언 순서 하나로 정해진다(Basic -> Db -> Timer).
+    // Db가 뒤에 있어 밀린 저장을 마저 소진한다.
+    Pipeline::ProducerHolder::Instance().Stop();
     LOG.Info(ELogCategory::General, "WorldServer 종료 완료");
 }
 
