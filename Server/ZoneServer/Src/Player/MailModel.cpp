@@ -13,6 +13,8 @@ MailModel::MailModel(std::vector<Common::MailInfo> initial)
         const auto mailId = info.mailId;
         mails_.insert_or_assign(mailId, std::move(info));
     }
+
+    RecomputeNextExpireUt();
 }
 
 EErrorCode MailModel::AddMail(Common::MailInfo info, Task::UnitOfWork& unitOfWork)
@@ -37,6 +39,7 @@ EErrorCode MailModel::AddMail(Common::MailInfo info, Task::UnitOfWork& unitOfWor
     info.mailId = mailId;
 
     mails_[mailId] = info;
+    nextExpireUt_ = std::min(nextExpireUt_, info.endUt);
 
     // **상태를 바꾼 뒤에만 기록한다**(불변 규칙) -- 태스크 목록이 곧 "실제로 적용된 변경"이어야
     // 역순 롤백이 정확해진다. 추가의 Prev 는 "없었다"라서 빈 MailInfo 다.
@@ -54,6 +57,7 @@ EErrorCode MailModel::InsertMail(Common::MailInfo info, Task::UnitOfWork& unitOf
     }
 
     mails_[mailId] = info;
+    nextExpireUt_ = std::min(nextExpireUt_, info.endUt);
     unitOfWork.AddTask<AddMailTask>(std::move(info), Common::MailInfo{});
 
     return EErrorCode::Success;
@@ -72,6 +76,12 @@ EErrorCode MailModel::RemoveMail(const Common::MailId mailId, Task::UnitOfWork& 
     // 지워진 원본이 Prev 다 -- 이게 없으면 삭제를 되돌릴 수 없다.
     auto removed = it->second;
     mails_.erase(it);
+
+    // 지워진 것이 마침 가장 이른 만기였을 수 있다 -- 그러면 다음 만기를 다시 찾는다.
+    if (removed.endUt <= nextExpireUt_)
+    {
+        RecomputeNextExpireUt();
+    }
     unitOfWork.AddTask<RemoveMailTask>(Common::MailInfo{}, std::move(removed));
 
     return EErrorCode::Success;
@@ -90,3 +100,12 @@ std::vector<Common::MailId> MailModel::TakeExpiredMailIds(const int64_t nowUt) c
     return expired;
 }
 
+
+void MailModel::RecomputeNextExpireUt() noexcept
+{
+    nextExpireUt_ = kNoExpire;
+    for (const auto& [mailId, info] : mails_)
+    {
+        nextExpireUt_ = std::min(nextExpireUt_, info.endUt);
+    }
+}

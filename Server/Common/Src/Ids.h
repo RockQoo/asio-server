@@ -26,6 +26,11 @@ namespace Common
     // 우편 한 통. DB mails.mail_id (단독 PK)
     using MailId = StrongId<struct MailIdTag, int64_t>;
 
+    // 존 안에서 움직이고 틱을 받는 것 하나. 플레이어는 자기 PlayerId 와 **같은 값**을 쓰고,
+    // 나중에 몬스터가 붙으면 같은 공간에서 따로 발급한다 -- 한 컨테이너에 같이 들어가므로
+    // 값이 겹치면 안 된다.
+    using UnitId = StrongId<struct UnitIdTag, int64_t>;
+
     // 존 번호. 1부터 시작하고 0은 "존 없음/미배정" 예약값이다.
     // **RUID가 아니다** -- 2x2 격자의 고정 번호라 사람이 정한다(ParseZoneList).
     using ZoneId = StrongId<struct ZoneIdTag, uint32_t>;

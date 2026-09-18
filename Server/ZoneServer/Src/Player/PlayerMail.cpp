@@ -44,7 +44,7 @@ void PlayerMail::HandleMailAdd(const PlayerContext& context, const Common::C2ZMa
 {
     // 스코프를 벗어나는 순간 소멸자가 결말을 낸다 -- 성공이면 World와 클라이언트로 전송,
     // 실패면 역순 롤백. 별도의 커밋 호출이 없다.
-    ZoneUnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailAdd);
+    ZoneUnitOfWork unitOfWork(packet, &context.player);
 
     const auto& mailBox = context.player.GetMailBox();
     if (!mailBox)
@@ -70,7 +70,7 @@ void PlayerMail::HandleMailAdd(const PlayerContext& context, const Common::C2ZMa
 
 void PlayerMail::HandleMailDel(const PlayerContext& context, const Common::C2ZMailDel& packet)
 {
-    ZoneUnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailDel);
+    ZoneUnitOfWork unitOfWork(packet, &context.player);
 
     const auto& mailBox = context.player.GetMailBox();
     if (!mailBox)
@@ -89,7 +89,7 @@ void PlayerMail::HandleMailDel(const PlayerContext& context, const Common::C2ZMa
 
 void PlayerMail::HandleMailBuy(const PlayerContext& context, const Common::C2ZMailBuy& packet)
 {
-    ZoneUnitOfWork unitOfWork(context.worldLink, context.player, PacketId::C2ZMailBuy);
+    ZoneUnitOfWork unitOfWork(packet, &context.player);
 
     const auto& mailBox = context.player.GetMailBox();
     if (!mailBox)

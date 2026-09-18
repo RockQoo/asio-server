@@ -51,6 +51,21 @@ public:
     // 순수 조회 -- 실제 삭제는 호출자가 DelMail로 한다.
     [[nodiscard]] std::vector<Common::MailId> TakeExpiredMailIds(const int64_t nowUt) const;
 
+    // **틱이 매번 먼저 묻는 값이다.** 만기를 그때그때 훑으면 접속자 수 x 통 수 x 틱레이트
+    // 만큼 비교가 도는데, 가장 이른 만기 하나만 들고 있으면 대부분의 틱이 읽기 잠금 한 번과
+    // 비교 한 번으로 끝난다. 통이 늘거나 줄 때만 갱신한다.
+    [[nodiscard]] bool HasExpired(const int64_t nowUt) const noexcept
+    {
+        return nowUt >= nextExpireUt_;
+    }
+
 private:
+    // 통이 지워질 때만 전체를 다시 훑는다 -- 지워진 것이 마침 가장 이른 만기였을 수 있다.
+    void RecomputeNextExpireUt() noexcept;
+
     std::unordered_map<Common::MailId, Common::MailInfo> mails_;
+
+    // 우편함이 비면 "영원히 안 온다"로 둔다.
+    static constexpr int64_t kNoExpire = std::numeric_limits<int64_t>::max();
+    int64_t nextExpireUt_{kNoExpire};
 };

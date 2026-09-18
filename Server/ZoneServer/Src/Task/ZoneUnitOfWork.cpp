@@ -1,17 +1,16 @@
 #include "pch.h"
 #include "Task/ZoneUnitOfWork.h"
+
 #include "Player/PlayerTask.h"
-#include "Player/Player.h"
-#include "Player/PlayerTask.h"
-#include "Server/Core/Src/Network/SessionHolder.h"
-#include "Server/Common/Src/Packet/RelayEnvelope.h"
 
 #include "Server/Core/Src/Base/RUID.h"
 #include "Server/Core/Src/Network/Session.h"
+#include "Server/Core/Src/Network/SessionHolder.h"
 #include "Server/Core/Src/Packet/BinaryWriter.h"
 #include "Server/Common/Src/ErrorCode.h"
-#include "Server/Common/Src/TaskKind.h"
+#include "Server/Common/Src/Packet/RelayEnvelope.h"
 #include "Server/Common/Src/Packet/Wire.h"
+#include "Server/Common/Src/TaskKind.h"
 
 namespace
 {
@@ -27,24 +26,10 @@ namespace
     }
 }
 
-ZoneUnitOfWork::ZoneUnitOfWork(Network::SessionHolder& worldLink, Player& player, const PacketId requestPacketId)
-    : Task::UnitOfWork(player.GetSessionId(), Base::Ruid::Create())
-    , worldLink_(worldLink)
-    , clientSessionId_(player.GetSessionId())
-    , playerId_(player.GetPlayerId())
-    , requestPacketId_(static_cast<uint16_t>(requestPacketId))
-    , models_{player.GetMailBox(), &player.GetWallet()}
-{
-}
-
-ZoneUnitOfWork::ZoneUnitOfWork(Network::SessionHolder& worldLink, const Network::SessionId clientSessionId,
-                       const Common::PlayerId playerId, Models models)
-    : Task::UnitOfWork(clientSessionId, Base::Ruid::Create())
-    , worldLink_(worldLink)
-    , clientSessionId_(clientSessionId)
-    , playerId_(playerId)
+ZoneUnitOfWork::ZoneUnitOfWork(Unit* const ownerUnit)
+    : Task::UnitOfWork(static_cast<uint64_t>(ownerUnit->GetUnitId().Value()), Base::Ruid::Create())
     , requestPacketId_(0)
-    , models_(std::move(models))
+    , ownerUnit_(ownerUnit)
 {
 }
 
@@ -54,21 +39,23 @@ ZoneUnitOfWork::~ZoneUnitOfWork() noexcept
     {
         if (HasError())
         {
-            RollbackAll();
+            // **되돌리는 방법은 주인만 안다.** 이 클래스는 모델 목록을 들고 있지 않는다.
+            ownerUnit_->RollbackUoW(*this);
+            ClearTasks();
 
             // 되돌렸으므로 클라이언트가 적용할 태스크는 없다 -- 에러 코드만 알려준다.
             SendTaskResult(GetError(), {});
 
             LOG.Debug(ELogCategory::Zone, "ZoneUnitOfWork 실패로 롤백")
-                .KV("ClientSessionId", clientSessionId_).KV("RequestPacketId", requestPacketId_)
+                .KV("UnitId", ownerUnit_->GetUnitId()).KV("RequestPacketId", requestPacketId_)
                 .KV("ErrorCode", GetError());
             return;
         }
 
         if (IsEmpty())
         {
-            // 상태를 하나도 바꾸지 않은 요청(조회만, 또는 만료 대상이 없는 스윕) -- 보낼
-            // 것이 없다. 에러가 아니므로 클라이언트에도 알릴 것이 없다.
+            // 상태를 하나도 바꾸지 않은 요청(조회만, 또는 이번 틱에 만료된 우편이 없음) --
+            // 보낼 것이 없다. 에러가 아니므로 클라이언트에도 알릴 것이 없다.
             return;
         }
 
@@ -80,12 +67,12 @@ ZoneUnitOfWork::~ZoneUnitOfWork() noexcept
     catch (const std::exception& ex)
     {
         LOG.Error(ELogCategory::Zone, "ZoneUnitOfWork 커밋 중 예외")
-            .KV("ClientSessionId", clientSessionId_).KV("What", ex.what());
+            .KV("UnitId", ownerUnit_->GetUnitId()).KV("What", ex.what());
     }
     catch (...)
     {
         LOG.Error(ELogCategory::Zone, "ZoneUnitOfWork 커밋 중 알 수 없는 예외")
-            .KV("ClientSessionId", clientSessionId_);
+            .KV("UnitId", ownerUnit_->GetUnitId());
     }
 }
 
@@ -141,113 +128,22 @@ std::vector<byte> ZoneUnitOfWork::Serialize() const
     const auto& buffer = binaryWriter.GetBuffer();
     return std::vector<byte>(buffer.begin(), buffer.end());
 }
-
-void ZoneUnitOfWork::RollbackAll() noexcept
-{
-    try
-    {
-        // 되돌리는 과정에서 쌓이는 태스크를 받아 버리는 통. 이게 없으면 모델의 정상 함수를
-        // 재사용할 수 없다 -- 되돌리려고 부른 DelMail이 또 태스크를 남기기 때문이다.
-        Task::RollbackUnitOfWork sink;
-
-        for (auto it = Tasks().rbegin(); it != Tasks().rend(); ++it)
-        {
-            const auto& task = **it;
-
-            // **여기가 역연산을 아는 유일한 자리다.** 되돌리기는 "정상 함수를 반대로 한 번"
-            // 부르는 것이고, 무엇을 넣을지는 Paired의 New/Prev가 알려준다.
-            switch (static_cast<Common::ETaskType>(task.Kind()))
-            {
-            case Common::ETaskType::MailAdd:
-                {
-                    if (!models_.mailBox)
-                    {
-                        break;
-                    }
-                    // 추가를 되돌리는 건 삭제다. New의 mailId를 지운다.
-                    const auto& info = static_cast<const AddMailTask&>(task).Info().New();
-                    if (const auto errorCode = models_.mailBox->Write()->RemoveMail(info.mailId, sink, false);
-                        errorCode != EErrorCode::Success)
-                    {
-                        LOG.Error(ELogCategory::Zone, "우편 추가 롤백 실패 -- 메모리와 DB가 어긋난다")
-                            .KV("MailId", info.mailId).KV("ErrorCode", static_cast<int32_t>(errorCode));
-                    }
-                }
-                break;
-
-            case Common::ETaskType::MailDel:
-                {
-                    if (!models_.mailBox)
-                    {
-                        break;
-                    }
-                    // 삭제를 되돌리려면 mailId까지 그대로 복원해야 해서 AddMail(서버가 id를
-                    // 새로 배정)이 아니라 InsertMail(id 지정)을 쓴다. Prev가 지워진 원본이다.
-                    const auto& info = static_cast<const RemoveMailTask&>(task).Info().Prev();
-                    if (const auto errorCode = models_.mailBox->Write()->InsertMail(info, sink);
-                        errorCode != EErrorCode::Success)
-                    {
-                        LOG.Error(ELogCategory::Zone, "우편 삭제 롤백 실패 -- 지워진 우편이 되살아나지 못했다")
-                            .KV("MailId", info.mailId).KV("ErrorCode", static_cast<int32_t>(errorCode));
-                    }
-                }
-                break;
-
-            case Common::ETaskType::CurrencyUpdate:
-                {
-                    if (models_.wallet == nullptr)
-                    {
-                        break;
-                    }
-                    // Prev를 그대로 되돌린다. 검증할 게 없어서(이전 값은 방금까지 유효했던
-                    // 값이다) 실패할 수 없고, 그게 값 복원 방식을 고른 이유다.
-                    const auto& currencyTask = static_cast<const CurrencyTask&>(task);
-                    const auto prevValue = currencyTask.Value().Prev();
-                    if (const auto errorCode = models_.wallet->SetCurrency(currencyTask.Type(), prevValue, sink);
-                        errorCode != EErrorCode::Success)
-                    {
-                        LOG.Error(ELogCategory::Zone, "재화 롤백 실패 -- 메모리와 DB가 어긋난다")
-                            .KV("CurrencyType", static_cast<uint32_t>(currencyTask.Type()))
-                            .KV("PrevValue", prevValue).KV("ErrorCode", static_cast<int32_t>(errorCode));
-                    }
-                }
-                break;
-
-            case Common::ETaskType::None:
-            default:
-                LOG.Error(ELogCategory::Zone, "되돌릴 줄 모르는 태스크 -- 메모리와 DB가 어긋난다")
-                    .KV("TaskKind", task.Kind());
-                break;
-            }
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        // 롤백은 조금 전에 성공한 변경을 되돌리는 것뿐이라 실패할 수 없다는 전제다. 여기
-        // 걸렸다면 그 전제가 깨진 것이고(모델이 롤백 경로에 새 검증을 넣었다는 뜻),
-        // 복구를 시도해도 더 나빠지기만 하므로 드러내기만 한다.
-        LOG.Error(ELogCategory::Zone, "ZoneUnitOfWork 롤백 중 예외 -- 메모리와 DB가 어긋난다")
-            .KV("ClientSessionId", clientSessionId_).KV("What", ex.what());
-    }
-    catch (...)
-    {
-        LOG.Error(ELogCategory::Zone, "ZoneUnitOfWork 롤백 중 알 수 없는 예외")
-            .KV("ClientSessionId", clientSessionId_);
-    }
-
-    ClearTasks();
-}
-
 void ZoneUnitOfWork::SendToWorld(const std::span<const byte> stream) const
 {
-    const auto worldSession = worldLink_.Get();
+    auto* const worldLink = ownerUnit_->GetWorldLink();
+    if (worldLink == nullptr)
+    {
+        return;
+    }
+
+    const auto worldSession = worldLink->Get();
     if (!worldSession)
     {
         return;
     }
 
     Packet::BinaryWriter binaryWriter;
-    binaryWriter.Write(playerId_);
+    binaryWriter.Write(ownerUnit_->GetUnitId());
     binaryWriter.Write(GetRequestId());
     binaryWriter.WriteBytes(stream);
     worldSession->SendPacket(PacketId::Z2WUnitOfWorkStream, binaryWriter.GetBuffer());
@@ -255,7 +151,15 @@ void ZoneUnitOfWork::SendToWorld(const std::span<const byte> stream) const
 
 void ZoneUnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<const byte> stream) const
 {
-    const auto worldSession = worldLink_.Get();
+    const auto clientSessionId = ownerUnit_->GetClientSessionId();
+    auto* const worldLink = ownerUnit_->GetWorldLink();
+    if (worldLink == nullptr)
+    {
+        // 주인이 없는 유닛(몬스터)의 변경은 돌려줄 클라이언트가 없다.
+        return;
+    }
+
+    const auto worldSession = worldLink->Get();
     if (!worldSession)
     {
         return;
@@ -270,8 +174,7 @@ void ZoneUnitOfWork::SendTaskResult(const int32_t errorCode, const std::span<con
     innerBinaryWriter.Write(GetRequestId());
     innerBinaryWriter.WriteBytes(stream);
 
-    // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다
-    // (ZoneProcessor::SendToPlayer와 같은 경로).
-    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId_,
+    // Zone은 클라이언트와 직접 연결되지 않으므로 World를 거치는 봉투에 담아 보낸다.
+    Common::SendRelay(worldSession, PacketId::Z2WRelay, clientSessionId,
                       PacketId::Z2CTaskResult, innerBinaryWriter.GetBuffer());
 }

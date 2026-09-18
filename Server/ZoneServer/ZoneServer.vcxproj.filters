@@ -10,8 +10,11 @@
     <Filter Include="Processor">
       <UniqueIdentifier>{a1a1a1a1-0005-4000-8000-000000000002}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Mail">
+    <Filter Include="Unit">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000008}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Zone">
+      <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-00000000000a}</UniqueIdentifier>
     </Filter>
     <Filter Include="Task">
       <UniqueIdentifier>{b2b2b2b2-0002-4000-8000-000000000009}</UniqueIdentifier>
@@ -28,26 +31,29 @@
     <ClInclude Include="Src\Player\CurrencyModel.h">
       <Filter>Player</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Player\MoveModel.h">
-      <Filter>Player</Filter>
+    <ClInclude Include="Src\Unit\MoveModel.h">
+      <Filter>Unit</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Unit\Unit.h">
+      <Filter>Unit</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Unit\UnitContainer.h">
+      <Filter>Unit</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Zone\Zone.h">
+      <Filter>Zone</Filter>
     </ClInclude>
     <ClInclude Include="Src\Player\Player.h">
-      <Filter>Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Player\PlayerRegistry.h">
       <Filter>Player</Filter>
     </ClInclude>
     <ClInclude Include="Src\App\ZoneDef.h">
       <Filter>App</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\ZoneProcessor.h">
+    <ClInclude Include="Src\Processor\TickProcessor.h">
       <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Player\MailModel.h">
       <Filter>Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Mail\MailRegistry.h">
-      <Filter>Mail</Filter>
     </ClInclude>
     <ClInclude Include="Src\Player\PlayerTask.h">
       <Filter>Player</Filter>
@@ -55,10 +61,10 @@
     <ClInclude Include="Src\Task\ZoneUnitOfWork.h">
       <Filter>Task</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Mail\MailExpiryService.h">
-      <Filter>Mail</Filter>
+    <ClInclude Include="Src\Processor\ProcessorIds.h">
+      <Filter>Processor</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Processor\ProcessorId.h">
+    <ClInclude Include="Src\Processor\ZoneMsg.h">
       <Filter>Processor</Filter>
     </ClInclude>
     <ClInclude Include="Src\Processor\PlayerProcessor.h">
@@ -91,23 +97,29 @@
     <ClCompile Include="Src\Player\CurrencyModel.cpp">
       <Filter>Player</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Processor\ZoneProcessor.cpp">
+    <ClCompile Include="Src\Processor\TickProcessor.cpp">
       <Filter>Processor</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Processor\ProcessorIds.cpp">
+      <Filter>Processor</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Unit\Unit.cpp">
+      <Filter>Unit</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Unit\UnitContainer.cpp">
+      <Filter>Unit</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Zone\Zone.cpp">
+      <Filter>Zone</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Player\Player.cpp">
+      <Filter>Player</Filter>
     </ClCompile>
     <ClCompile Include="Src\Player\MailModel.cpp">
       <Filter>Player</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Mail\MailRegistry.cpp">
-      <Filter>Mail</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp">
       <Filter>Task</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Mail\MailExpiryService.cpp">
-      <Filter>Mail</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Player\PlayerRegistry.cpp">
-      <Filter>Player</Filter>
     </ClCompile>
     <ClCompile Include="Src\Processor\PlayerProcessor.cpp">
       <Filter>Processor</Filter>

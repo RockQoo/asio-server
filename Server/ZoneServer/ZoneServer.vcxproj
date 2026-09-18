@@ -118,17 +118,18 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
   <ItemGroup>
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\Player\CurrencyModel.h" />
-    <ClInclude Include="Src\Player\MoveModel.h" />
+    <ClInclude Include="Src\Unit\MoveModel.h" />
+    <ClInclude Include="Src\Unit\Unit.h" />
+    <ClInclude Include="Src\Unit\UnitContainer.h" />
+    <ClInclude Include="Src\Zone\Zone.h" />
     <ClInclude Include="Src\Player\Player.h" />
-    <ClInclude Include="Src\Player\PlayerRegistry.h" />
     <ClInclude Include="Src\App\ZoneDef.h" />
-    <ClInclude Include="Src\Processor\ZoneProcessor.h" />
+    <ClInclude Include="Src\Processor\TickProcessor.h" />
     <ClInclude Include="Src\Player\MailModel.h" />
-    <ClInclude Include="Src\Mail\MailRegistry.h" />
     <ClInclude Include="Src\Player\PlayerTask.h" />
     <ClInclude Include="Src\Task\ZoneUnitOfWork.h" />
-    <ClInclude Include="Src\Mail\MailExpiryService.h" />
-    <ClInclude Include="Src\Processor\ProcessorId.h" />
+    <ClInclude Include="Src\Processor\ProcessorIds.h" />
+    <ClInclude Include="Src\Processor\ZoneMsg.h" />
     <ClInclude Include="Src\Processor\PlayerProcessor.h" />
     <ClInclude Include="Src\Player\PlayerContext.h" />
     <ClInclude Include="Src\Player\PlayerMail.h" />
@@ -144,12 +145,14 @@ copy /Y "$(RepoRoot)config\zone.cfg" "$(OutDir)config\zone.cfg"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Src\Player\CurrencyModel.cpp" />
-    <ClCompile Include="Src\Processor\ZoneProcessor.cpp" />
+    <ClCompile Include="Src\Processor\TickProcessor.cpp" />
+    <ClCompile Include="Src\Processor\ProcessorIds.cpp" />
+    <ClCompile Include="Src\Unit\Unit.cpp" />
+    <ClCompile Include="Src\Unit\UnitContainer.cpp" />
+    <ClCompile Include="Src\Zone\Zone.cpp" />
+    <ClCompile Include="Src\Player\Player.cpp" />
     <ClCompile Include="Src\Player\MailModel.cpp" />
-    <ClCompile Include="Src\Mail\MailRegistry.cpp" />
     <ClCompile Include="Src\Task\ZoneUnitOfWork.cpp" />
-    <ClCompile Include="Src\Mail\MailExpiryService.cpp" />
-    <ClCompile Include="Src\Player\PlayerRegistry.cpp" />
     <ClCompile Include="Src\Processor\PlayerProcessor.cpp" />
     <ClCompile Include="Src\Player\PlayerMail.cpp" />
     <ClCompile Include="Src\Processor\BroadcastProcessor.cpp" />
