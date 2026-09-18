@@ -18,6 +18,12 @@ namespace Stress
         std::chrono::seconds stallThreshold{15};
         std::chrono::seconds maxDuration{300};
         size_t ioThreadCount{0};  // 0 -> std::thread::hardware_concurrency()
+
+        // 세션마다 다른 계정으로 로그인한다. 없는 계정은 서버가 로그인 때 만든다.
+        // **접두사를 고정하는 이유**는 테스트로 생긴 계정만 나중에 골라 지우기 위해서다.
+        // 1 회차 실행에는 자동 가입 쓰기가 섞이므로, 순수 로그인 수치는 2 회차부터다.
+        std::string accountPrefix{"stress_"};
+        std::string accountPassword{"0000"};
     };
 
     // 전체 부하 테스트를 조립하고 실행한다: 세션 N개를 ramp-up으로 접속시키고, 워치독으로

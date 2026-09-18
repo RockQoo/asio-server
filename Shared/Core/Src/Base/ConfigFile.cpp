@@ -50,6 +50,16 @@ namespace Base
         {
             ++lineNo;
 
+            // **첫 줄의 UTF-8 BOM 을 떼고 본다.** 이 저장소의 소스는 BOM 없이 저장하는 것이
+            // 규칙이지만 cfg 는 사람이 아무 편집기로나 여는 파일이라 BOM 이 붙어 온다
+            // (PowerShell 의 Set-Content -Encoding UTF8 이 대표적이다). 떼지 않으면 첫 줄이
+            // 주석으로 인식되지 않아 "1번 줄에 '=' 가 없다"로 서버가 기동을 포기하는데,
+            // 정작 그 줄은 눈으로 보면 멀쩡한 주석이라 원인을 찾기가 매우 어렵다.
+            if (lineNo == 1 && line.starts_with("\xEF\xBB\xBF"))
+            {
+                line.erase(0, 3);
+            }
+
             const auto trimmed = Trim(line);
             if (trimmed.empty() || trimmed.front() == '#')
             {

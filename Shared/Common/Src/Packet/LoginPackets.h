@@ -65,6 +65,22 @@ namespace Common
             binaryWriter.WriteString(playerName);
             return binaryWriter.MoveBuffer();
         }
+
+        // 받는 쪽은 서버가 아니라 **도구/클라이언트**다(StressClient, ProtocolClient).
+        // 실패면 playerId 는 0 이고 이름이 비어 온다 -- errorCode 로만 판정할 것.
+        [[nodiscard]] bool Parse(const std::span<const byte> payload)
+        {
+            Packet::BinaryReader binaryReader(payload);
+            int32_t rawError{};
+            if (!binaryReader.Read(rawError) || !binaryReader.Read(playerId)
+                || !binaryReader.ReadString(playerName))
+            {
+                return false;
+            }
+
+            errorCode = static_cast<EErrorCode>(rawError);
+            return true;
+        }
     };
 
     // 전체 공지. 운영툴이 보내면 World 가 접속자 전원에게 뿌린다.

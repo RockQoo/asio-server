@@ -25,8 +25,15 @@ namespace Stress
         for (size_t i = 0; i < config_.sessionCount; ++i)
         {
             const bool isBroadcaster = i < broadcasterCount;
+
+            // 계정 이름은 **접두사 + 0 채운 인덱스**다. 접두사를 고정해 두면 테스트로 생긴
+            // 계정만 나중에 한 번에 지울 수 있다(`WHERE player_name LIKE 'stress_%'`).
+            // 인덱스를 0 으로 채우는 건 정렬해서 볼 때를 위한 것뿐이다.
+            auto accountName = std::format("{}{:05}", config_.accountPrefix, i);
+
             sessions_.push_back(std::make_unique<Session>(
-                i, ioPool_.Next(), config_.host, config_.port, config_.cyclesPerSession, isBroadcaster, stats_));
+                i, ioPool_.Next(), config_.host, config_.port, config_.cyclesPerSession, isBroadcaster, stats_,
+                std::move(accountName), config_.accountPassword));
         }
     }
 
@@ -204,6 +211,9 @@ namespace Stress
         std::cout << "\n========== StressClient 결과 요약 ==========\n"
                   << "시도/접속/완료 세션: " << stats_.Attempted() << " / " << stats_.Connected()
                   << " / " << stats_.Done() << '\n'
+                  // 접속 수만 보면 "붙었으니 정상"으로 읽힌다 -- 인증이 막히면 그 상태로
+                  // 전 세션이 멈춘다. 로그인 성공 수가 접속 수와 같은지가 첫 확인 지점이다.
+                  << "로그인 성공/실패: " << stats_.LoginSucceeded() << " / " << stats_.LoginFailed() << '\n'
                   << "Mail Add 송신/Ack: " << stats_.MailAddSent() << " / " << stats_.MailAddAcked() << '\n'
                   << "Mail Del 송신/Ack: " << stats_.MailDelSent() << " / " << stats_.MailDelAcked() << '\n'
                   << "완료된 사이클 수: " << stats_.CyclesCompleted() << '\n'

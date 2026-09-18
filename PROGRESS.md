@@ -295,7 +295,7 @@
    6. [완료] 존이 올린 UnitOfWork 를 BASIC 레인에서 캐시에 반영 + playerId 를 주인으로 SP 호출
              [남음] 캐시와 대조해 위조를 걸러내는 단계
    7. [완료] player_id int64 확대 -- 와이어(W2ZEnterZone / Z2CEnterZoneNotify)까지
-             [남음] StressClient 로그인 대응
+             [완료] StressClient 로그인 대응 (세션마다 다른 계정으로 C2WLogin)
    ```
 
    **6번이 열리면서 두 가지가 같이 풀렸다.** `Z2WUnitOfWorkStream` 이 BASIC 을 건너뛰고 DB

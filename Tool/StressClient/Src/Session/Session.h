@@ -13,17 +13,21 @@
 namespace Stress
 {
     // 시뮬레이션 클라이언트 1개. Network::IPacketHandler를 구현해 자기 전용 Connector로
-    // Gateway에 접속하고, EnterZoneNotify를 받으면 MailAdd->MailAddAck->MailDel->MailDelAck
-    // 사이클을 목표 횟수만큼 반복한다. 상태 전이는 전부 OnPacket 콜백에서 논블로킹으로
-    // 일어난다 -- 이 세션이 물린 io_context 스레드 위에서는 자기 콜백들이 항상 순서대로만
-    // 호출되므로(Shared/Core/Src/Network/IoContextPool: io_context 1개당 전용 스레드 1개) 사이클 진행
-    // 관련 멤버(cycleIndex_/lastAddedMailId_ 등)는 원자적일 필요가 없다. 워치독이 "다른"
-    // 스레드에서 읽는 진행 시각/완료 플래그만 atomic으로 둔다.
+    // Gateway에 접속하고, **C2WLogin을 먼저 보낸 뒤** EnterZoneNotify를 받으면
+    // MailAdd->MailAddAck->MailDel->MailDelAck 사이클을 목표 횟수만큼 반복한다.
+    // **로그인은 생략할 수 없다** -- World가 인증 전 세션의 게임 패킷을 존으로 넘기지 않아
+    // (PlayerManager) MailAdd가 통째로 버려지고, 그러면 이 도구가 영영 멈춘다.
+    // 상태 전이는 전부 OnPacket 콜백에서 논블로킹으로 일어난다 -- 이 세션이 물린 io_context
+    // 스레드 위에서는 자기 콜백들이 항상 순서대로만 호출되므로(Shared/Core/Src/Network/
+    // IoContextPool: io_context 1개당 전용 스레드 1개) 사이클 진행 관련 멤버
+    // (cycleIndex_/lastAddedMailId_ 등)는 원자적일 필요가 없다. 워치독이 "다른" 스레드에서
+    // 읽는 진행 시각/완료 플래그만 atomic으로 둔다.
     class Session final : public Network::IPacketHandler
     {
     public:
         Session(const size_t index, asio::io_context& ioContext, std::string host, const uint16_t port,
-                      const uint32_t cyclesTarget, const bool isBroadcaster, Stats& stats);
+                      const uint32_t cyclesTarget, const bool isBroadcaster, Stats& stats,
+                      std::string accountName, std::string password);
 
         void Start();
         void Stop();
@@ -39,6 +43,8 @@ namespace Stress
         [[nodiscard]] size_t Index() const noexcept { return index_; }
 
     private:
+        void SendLogin();
+        void HandleLoginResult(const std::span<const byte> payload);
         void HandleEnterZoneNotify(const std::span<const byte> payload);
 
         // Mail 요청의 결과는 콘텐츠별 Ack가 아니라 Z2CTaskResult 하나로 온다 -- 어느 요청의
@@ -65,6 +71,12 @@ namespace Stress
         uint32_t cyclesTarget_;
         bool isBroadcaster_;
         Stats& stats_;
+
+        // 세션마다 **다른 계정**이다. 같은 계정을 N개로 쓰면 playerId 가 하나라 DB 레인이
+        // 주인 하나로 직렬화돼(Post(id, ownerId, work) 규약) 측정이 통째로 왜곡된다.
+        // 계정이 없으면 서버가 로그인 때 만든다(usp_players_upsert).
+        std::string accountName_;
+        std::string password_;
 
         std::shared_ptr<Network::Connector> connector_;
         Network::Session::SPtr session_;

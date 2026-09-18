@@ -6,6 +6,8 @@
 #include "Shared/Core/Src/Packet/BinaryWriter.h"
 #include "Shared/Common/Src/PacketId.h"
 #include "Shared/Common/Src/TaskKind.h"
+#include "Shared/Common/Src/Packet/LoginPackets.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Common/Src/Packet/ZonePackets.h"
 
 namespace Stress
@@ -61,7 +63,8 @@ namespace Stress
     }
 
     Session::Session(const size_t index, asio::io_context& ioContext, std::string host, const uint16_t port,
-                                  const uint32_t cyclesTarget, const bool isBroadcaster, Stats& stats)
+                                  const uint32_t cyclesTarget, const bool isBroadcaster, Stats& stats,
+                                  std::string accountName, std::string password)
         : index_(index)
         , ioContext_(ioContext)
         , host_(std::move(host))
@@ -69,6 +72,8 @@ namespace Stress
         , cyclesTarget_(cyclesTarget)
         , isBroadcaster_(isBroadcaster)
         , stats_(stats)
+        , accountName_(std::move(accountName))
+        , password_(std::move(password))
     {
         // 접속 전부터 "진행이 없었다"고 취급되지 않도록(워치독이 now()-lastProgressAt으로
         // 정체를 판단하므로) 생성 시점을 기준선으로 잡아둔다.
@@ -103,6 +108,43 @@ namespace Stress
         session_ = session;
         stats_.RecordConnected();
         MarkProgress();
+
+        // **접속 직후 가장 먼저 보낸다.** World 는 인증 전 세션의 게임 패킷을 존으로
+        // 넘기지 않으므로(PlayerManager), 이게 먼저 가지 않으면 이후가 전부 버려진다.
+        SendLogin();
+    }
+
+    void Session::SendLogin()
+    {
+        if (!session_)
+        {
+            return;
+        }
+
+        Common::C2WLogin login{};
+        login.Set(accountName_, password_);
+        Common::SendPacket(session_, login);
+    }
+
+    void Session::HandleLoginResult(const std::span<const byte> payload)
+    {
+        MarkProgress();
+
+        Common::W2CLogin result{};
+        if (!Common::FromBytes(result, payload) || result.errorCode != Common::EErrorCode::Success)
+        {
+            // **이 세션만 접는다.** 한 계정이 막혔다고 런 전체를 세우면 나머지 수치까지
+            // 잃는다 -- 실패 수는 요약의 로그인 성공/실패 줄에 그대로 나온다.
+            stats_.RecordLoginFailed();
+            done_.store(true, std::memory_order_release);
+            Stop();
+            return;
+        }
+
+        stats_.RecordLoginSucceeded();
+
+        // 성공하면 World 가 존 입장까지 이어서 진행한다 -- 사이클 시작은 그 통지를 받고서다
+        // (HandleEnterZoneNotify). 여기서 MailAdd 를 보내면 존 입장 전이라 버려진다.
     }
 
     void Session::OnPacket(const Network::Session::SPtr& /*session*/,
@@ -111,6 +153,9 @@ namespace Stress
     {
         switch (static_cast<PacketId>(header.id))
         {
+        case PacketId::W2CLogin:
+            HandleLoginResult(payload);
+            break;
         case PacketId::Z2CEnterZoneNotify:
             HandleEnterZoneNotify(payload);
             break;

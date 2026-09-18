@@ -34,6 +34,12 @@ namespace Stress
         void RecordSessionEnded() noexcept { activeSessionCount_.fetch_sub(1, std::memory_order_relaxed); }
         void RecordSessionDone() noexcept { done_.fetch_add(1, std::memory_order_relaxed); }
 
+        // 로그인은 **사이클과 따로 센다.** 접속은 됐는데 인증이 막히면 Connected 만 보고는
+        // "붙었으니 정상"으로 오해하게 된다 -- 실제로 이 도구가 로그인을 안 보내던 동안
+        // 전 세션이 접속 성공 상태로 멈춰 있었다.
+        void RecordLoginSucceeded() noexcept { loginSucceeded_.fetch_add(1, std::memory_order_relaxed); }
+        void RecordLoginFailed() noexcept { loginFailed_.fetch_add(1, std::memory_order_relaxed); }
+
         void RecordMailAddSent() noexcept { mailAddSent_.fetch_add(1, std::memory_order_relaxed); }
         void RecordMailAddAcked() noexcept { mailAddAcked_.fetch_add(1, std::memory_order_relaxed); }
         void RecordMailDelSent() noexcept { mailDelSent_.fetch_add(1, std::memory_order_relaxed); }
@@ -66,6 +72,8 @@ namespace Stress
 
         [[nodiscard]] uint64_t Attempted() const noexcept { return attempted_.load(std::memory_order_relaxed); }
         [[nodiscard]] uint64_t Connected() const noexcept { return connected_.load(std::memory_order_relaxed); }
+        [[nodiscard]] uint64_t LoginSucceeded() const noexcept { return loginSucceeded_.load(std::memory_order_relaxed); }
+        [[nodiscard]] uint64_t LoginFailed() const noexcept { return loginFailed_.load(std::memory_order_relaxed); }
         [[nodiscard]] uint64_t Done() const noexcept { return done_.load(std::memory_order_relaxed); }
         [[nodiscard]] uint64_t MailAddSent() const noexcept { return mailAddSent_.load(std::memory_order_relaxed); }
         [[nodiscard]] uint64_t MailAddAcked() const noexcept { return mailAddAcked_.load(std::memory_order_relaxed); }
@@ -92,6 +100,9 @@ namespace Stress
         std::atomic<uint64_t> connected_{0};
         std::atomic<uint64_t> done_{0};
         std::atomic<uint64_t> activeSessionCount_{0};
+
+        std::atomic<uint64_t> loginSucceeded_{0};
+        std::atomic<uint64_t> loginFailed_{0};
 
         std::atomic<uint64_t> mailAddSent_{0};
         std::atomic<uint64_t> mailAddAcked_{0};

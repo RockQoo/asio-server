@@ -8,6 +8,8 @@
 #include "Shared/Core/Src/Packet/PacketFramer.h"
 #include "Shared/Common/Src/PacketId.h"
 #include "Shared/Common/Src/TaskKind.h"
+#include "Shared/Common/Src/Packet/LoginPackets.h"
+#include "Shared/Common/Src/Packet/Wire.h"
 #include "Shared/Common/Src/Packet/ZonePackets.h"
 
 namespace
@@ -224,19 +226,16 @@ namespace
 
                 case PacketId::W2CLogin:
                     {
-                        Packet::BinaryReader binaryReader(payload);
-                        int32_t errorCode{};
-                        int64_t playerId{};
-                        std::string playerName;
-                        if (binaryReader.Read(errorCode) && binaryReader.Read(playerId)
-                            && binaryReader.ReadString(playerName))
+                        Common::W2CLogin result{};
+                        if (Common::FromBytes(result, payload))
                         {
                             // 실패면 playerId=0에 이름이 비어 온다. 성공이면 곧이어
                             // Z2CEnterZoneNotify가 따라온다(World가 존 입장까지 진행한다).
-                            std::cout << "[recv] Login " << (errorCode == 0 ? "성공" : "실패")
-                                      << " error=" << errorCode
-                                      << " playerId=" << playerId
-                                      << " name=" << playerName << '\n';
+                            const auto error = static_cast<int32_t>(result.errorCode);
+                            std::cout << "[recv] Login " << (error == 0 ? "성공" : "실패")
+                                      << " error=" << error
+                                      << " playerId=" << result.playerId
+                                      << " name=" << result.playerName << '\n';
                         }
                     }
                     break;
