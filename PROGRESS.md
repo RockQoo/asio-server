@@ -31,22 +31,34 @@
 
 ### 1. 성능 개선 — 지금 하는 일
 
-2026-09-18 측정으로 기준선과 우선순위가 정해졌다. 수치와 판단 근거는
-[`docs/performance.html`](docs/performance.html).
+**백로그·순서·상태·측정 이력은 [`docs/performance.html`](docs/performance.html) 5·6절 하나에만 둔다.**
+여기에 목록을 복제하지 않는다 — 세 문서에 따로 적혀 있다가 순서가 갈렸던 것을 고친 자리다.
 
-```
-P1  p50/p99 지연 측정        지금 평균만 본다. 나머지 개선의 효과를 보이려면 이게 먼저다
-P7  중계 1단의 주인 교체      "연결 하나 = 레인 하나"라 8레인 중 1개에 4.4억 건이 몰렸다.
-                            주인은 I/O 스레드가 이미 뽑아 두고 안 쓰고 있다. 코드 몇 줄
-P2  천장 찾기               "개선 전"이 있어야 "개선 후"를 말할 수 있다
-P3  시야(AOI)               1인당 비용이 인원에 비례해 느는 유일한 원인. 가장 큰 항목
-P4  중계 구간 묶음           존은 프레임을 묶는데 중계에서 한 통씩 다시 풀린다
-P5  큐 상한 / 백프레셔       메모리가 5GB 까지 부었고 부하를 빼도 안 줄었다
-```
+규칙 셋:
+- **한 번에 하나만** 넣고, 고정 시나리오 A·B·C 를 다시 돌려 6절에 한 행을 쌓은 뒤 다음으로
+- **측정 시나리오는 바꾸지 않는다** — 바꾸면 이전 회차와 비교가 깨진다
+- 항목의 근거 코드 위치와 "왜 이 순서인가"는 저장소 밖 검토 기록에 있다(로컬 전용)
 
-**측정 시나리오는 고정이다** — 바꾸면 이전 회차와 비교가 깨진다. 매번 같은 인자로 돌리고
-결과는 `docs/performance.html`의 이력 표에 한 행씩 쌓는다. **개선은 하나씩 하고 그때마다
-한 행을 남긴다**(여러 개를 같이 넣으면 어느 것이 효과였는지 말할 수 없다).
+> 성능 백로그와 아래 1-B 목록은 **2026-09-18 Claude Fable 5.1 이 소스 191개 파일을 읽고
+> 뽑은 후보**다. 코드만 보고 판단한 것이라 각 항목은 재서 확정한다.
+
+### 1-B. 코드 정리 — 두 번 이상 반복되는 것
+
+성능과 무관하게 따로 간다. 템플릿으로 뽑을 가치가 있는 것은 **R1 · R3 · R4 · R8** 넷이고
+나머지는 상수·함수를 한 곳으로 옮기는 일이다. 하나씩 하고 빌드 에러·경고 0을 확인한다.
+
+| # | 무엇 | 어디 | 어떻게 |
+|---|---|---|---|
+| R1 | 링크 핸들러 `OnPacket` 본문 — 수신 본문 조립 + `PushMsg` | `G2WHandler` `Z2WHandler` `T2WHandler` `W2ZHandler` 넷이 msgId·프로세서 id만 다르다 | 템플릿 헬퍼 하나 `PushRecvStream<EProducerType>(msgId, target, session, header, payload)` |
+| R2 | World/Zone 이 같은 것을 따로 정의 — `RecvStreamBody` · `kGlobalQueryKey` · `NowUt()` · `kTimerLaneCount` | `WorldMsg.h`/`ZoneMsg.h` 등 양쪽 | 서버가 공유하는 것은 `Server/Common`, `NowUt()` 는 Core `Base` |
+| R3 | `PushMsg` 오버로드 둘의 본문 중복 | `Server/Core/Src/Pipeline/ProducerHolder.h` | body 없는 쪽이 있는 쪽을 부르거나 내부 함수 하나로 |
+| R4 | 태스크 스트림 파서 3벌 | `ProtocolClient/main.cpp` · `StressClient/Session.cpp` · C# `WorldModel.cs` | C++ 둘은 `Common::Z2CTaskResult::Parse` + `TaskRecord` 순회로. 스트림 walker 를 `Common` 에 하나 두면 `Z2WUnitOfWorkStream::Parse` 와도 공유 |
+| R5 | `Z2WUnitOfWorkStream` 이 반쪽 — `Parse` 만 있고 보내는 쪽은 손으로 조립 | `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` `SendToWorld` | `Serialize()` 를 붙이고 `Common::SendPacket(session, packet)` 으로. `Z2CTaskResult` 와 같은 모양 |
+| R6 | `SetupSignalHandling()` 3벌 동일 | `GatewayApp` `WorldApp` `ZoneApp` | `Network::Service` 에 `OnSignal(callback)` 하나 |
+| R7 | `lane_backend` 파싱 블록 동일 | `WorldConfig.cpp` `ZoneConfig.cpp` | `ConfigFile::GetLaneBackend()` 또는 `Pipeline::LoadLaneBackend(file, fallback)` |
+| R8 | `ConfigFile` getter 5개가 같은 골격 — 키 찾고 없으면 fallback, 틀리면 경고 | `Server/Core/Src/Base/ConfigFile.h` | `template <typename T> T Get(key, fallback)` + 타입별 파서 |
+| R9 | `worldLink_.Get()` → 널체크 → return 8곳 | Zone/Gateway 전반 | 작다. `SessionHolder::IfConnected(func)` 정도. 안 해도 무방 |
+| R10 | `Ids().ZoneTarget(zoneId_)` 를 메시지마다 해시 조회 | `Zone::Fanout` · `ZoneNetworkProcessor::PushToBasic`/`ReplyEcho` | 생성 때 `ZoneLaneTarget` 을 한 번 받아 멤버로. **성능에도 걸리는 항목**이라 재면 6절에 행을 남긴다 |
 
 ### 2. 검증이 비어 있는 자리 두 개
 

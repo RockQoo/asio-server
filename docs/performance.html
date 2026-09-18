@@ -16,6 +16,12 @@
     .legend span { margin-right:14px; }
     .k { font-size:13px; opacity:.85; }
     .warn { border-left:4px solid #b8860b; padding-left:14px; }
+    /* 백로그 상태 -- 대기 / 진행 / 완료 / 판단 대기 */
+    .wait { background:#5a5a5a; color:#fff; }
+    .wip  { background:#b8860b; color:#fff; }
+    .done { background:#1f6f3f; color:#fff; }
+    .hold { background:#4a4a7a; color:#fff; }
+    .hist td { vertical-align:top; }
 </style>
 </head>
 <body>
@@ -23,12 +29,13 @@
 
 <h1>성능 점검표</h1>
 <p class="sub">2026-09-18 측정 · 존을 다섯 레인 구조로 바꾼 직후의 <b>기준선</b>이다.
-개선 전 수치이고, 개선 후 같은 표를 다시 채운다.</p>
+개선은 <a href="#backlog">5절</a>의 순서로 <b>하나씩</b> 하고, 할 때마다 <a href="#history">6절</a>에 한 행을 쌓는다.</p>
 
 <div class="panel warn">
 <p><b>이 숫자를 절대 성능으로 읽지 말 것 — Debug 빌드다.</b></p>
 <p>Release 로 재면 자릿수가 달라진다. 여기 있는 값은 <b>구간끼리 비교</b>하고
-<b>개선 전후를 비교</b>하기 위한 것이다. "초당 몇 건이 나오는 서버인가"에 대한 답이 아니다.</p>
+<b>개선 전후를 비교</b>하기 위한 것이다. "초당 몇 건이 나오는 서버인가"에 대한 답이 아니다.
+Release 기준선은 <a href="#history">6절</a>의 첫 회차로 들어간다 — 그때부터 절대값을 말한다.</p>
 </div>
 
 <h2>1. 무엇을 보고 판단했나</h2>
@@ -184,25 +191,138 @@
 </table>
 </div>
 
-<h2>5. 개선 항목</h2>
+<h2 id="backlog">5. 개선 백로그 — 이 순서로 하나씩</h2>
+<p>중요도 순이다. <b>한 번에 하나만 넣고 재고 6절에 적은 뒤</b> 다음으로 간다 — 둘을 같이 넣으면
+어느 것이 효과였는지 가를 수 없다. 병목이 존이 아니라 <b>중계(World)</b>로 지목됐으므로(3절)
+World 를 존보다 앞에 둔다. 각 항목의 근거 코드 위치는 저장소 밖 검토 기록에 있다.</p>
+<p class="k">이 백로그는 2026-09-18 <b>Claude Fable 5.1</b> 이 소스를 읽고 뽑은 후보다.
+코드만 보고 판단한 것이라 항목마다 재서 확정한다 — 그래서 6절이 있다.</p>
+
+<div class="panel legend">
+<span><span class="st wait">대기</span></span>
+<span><span class="st wip">진행</span></span>
+<span><span class="st done">완료</span></span>
+<span><span class="st hold">판단 대기</span> 설계 결정이 먼저</span>
+<br><span class="k">확신 —
+<span class="st done">확실</span> 코드에서 확인됨 ·
+<span class="st wip">높음</span> 구조상 거의 확실하나 미측정 ·
+<span class="st wait">중간</span> 효과 크기가 불확실 ·
+<span class="st fail">낮음</span> 추정 ·
+<span class="st none">—</span> 가설이 아닌 측정 작업</span>
+</div>
+
 <div class="panel">
+<h3>A. 측정 — 전제 (점검표 5 · 2)</h3>
 <table>
-<tr><th>#</th><th>할 일</th><th>점검표</th><th>노리는 것</th></tr>
-<tr><td>1</td><td><b>시야(AOI)</b> — 존을 칸으로 나눠 주변에게만 통지</td><td>1번</td>
-    <td>팬아웃 1,499 → 수십. <b>1인당 비용을 인원과 무관하게 만든다</b></td></tr>
-<tr><td>2</td><td><b>중계 구간 묶음</b> — 봉투를 건건이 다시 씌우지 않게</td><td>3번</td>
-    <td>중계 서버 CPU. 1번과 독립적으로 남는 문제</td></tr>
-<tr><td>3</td><td><b>큐 상한 / 백프레셔</b> — 못 보내면 쌓지 말고 버리거나 거절</td><td>7번</td>
-    <td>메모리 무한 증가를 막는다</td></tr>
-<tr><td>4</td><td><b>p50/p99 측정</b></td><td>5번</td>
-    <td>1~3 의 효과를 숫자로 보이게 하는 전제</td></tr>
-<tr><td>5</td><td><b>Release 기준선</b></td><td>전부</td>
-    <td>지금 값은 Debug 라 절대값으로 못 쓴다</td></tr>
-<tr><td>6</td><td><b>천장 찾기</b> — 인원을 올려 꺾이는 지점</td><td>2번</td>
-    <td>"개선 전"이 있어야 "개선 후"를 말할 수 있다</td></tr>
+<tr><th>#</th><th>할 일</th><th>상태</th><th>확신</th><th>노리는 것</th></tr>
+<tr><td>A1</td><td><b>이동 회차 p50/p99</b> — StressClient 가 Move 왕복을 안 잰다. 우편 회차만 히스토그램에 들어간다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>나머지 개선의 효과를 <b>꼬리 지연</b>으로 보이게 하는 전제</td></tr>
+<tr><td>A2</td><td><b>Release 기준선</b> — 고정 시나리오 A·B·C 를 Release 로 재서 6절 첫 행에</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>지금 값은 Debug 라 절대값으로 못 쓴다</td></tr>
+<tr><td>A3</td><td>개선 순서를 문서 세 곳에서 한 곳(이 표)으로</td>
+    <td><span class="st done">완료</span></td><td><span class="st done">확실</span></td><td>순서가 갈려 있었다</td></tr>
+<tr><td>A4</td><td><b>천장 찾기</b> — 인원을 올려 꺾이는 지점</td>
+    <td><span class="st wait">대기</span></td><td><span class="st none">—</span></td><td>"개선 전"이 있어야 "개선 후"를 말할 수 있다</td></tr>
+<tr><td>A5</td><td>Gateway 통계 타이머 — World·Zone 에는 있는데 Gateway 에만 없다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>점검표 4. 몇 줄</td></tr>
 </table>
-<p class="k">순서는 <b>4 → 6 → 5 → 1 → 2 → 3</b>. 측정 수단과 기준선이 먼저 서 있어야
-개선의 전후 비교가 성립한다.</p>
+</div>
+
+<div class="panel">
+<h3>B. World 중계 — 측정으로 지목된 병목 (점검표 2 · 3)</h3>
+<table>
+<tr><th>#</th><th>할 일</th><th>상태</th><th>확신</th><th>노리는 것</th></tr>
+<tr><td>B1</td><td><b>중계 1단의 주인을 링크 세션 → 사람으로</b></td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>"연결 하나 = 레인 하나"라 8레인 중 1개에 4.4억 건. 양은 그대로, 처리량 폭이 8배</td></tr>
+<tr><td>B2</td><td><b>핫패스 조회를 전체 복사에서 라우팅만으로</b> — 중계 프레임마다 플레이어 캐시(우편·재화 맵)를 통째로 복사한다. 가벼운 조회가 이미 있는데 안 쓴다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>코드 두 줄. B1 <b>다음에 따로</b> 넣어 효과를 가른다</td></tr>
+<tr><td>B3</td><td>프레임당 복사 4회 → 1~2회 — 재푸시 때 본문을 다시 복사한다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st wip">높음</span></td><td>중계 CPU</td></tr>
+<tr><td>B4</td><td>메시지 하나에 힙 할당 2회 → 1회</td>
+    <td><span class="st wait">대기</span></td><td><span class="st wip">높음</span></td><td>전 레인 공통. 초당 수백만 건이면 할당이 곧 비용</td></tr>
+<tr><td>B5</td><td>큐 레인 배치 드레인 — 소비자가 한 건마다 락을 잡는다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st wip">높음</span></td><td>생산자 N개가 한 뮤텍스를 두드리는 자리</td></tr>
+<tr><td>B6</td><td>서버 간 링크 수신 버퍼 4 KB → 64 KB</td>
+    <td><span class="st wait">대기</span></td><td><span class="st wait">중간</span></td><td>read 완료 횟수</td></tr>
+<tr><td>B7</td><td>1단이 매 프레임 하는 주인 조회를 봉투에 실어 없애기 (와이어 변경)</td>
+    <td><span class="st wait">대기</span></td><td><span class="st wait">중간</span></td><td>B1 뒤에 남는 조회</td></tr>
+</table>
+</div>
+
+<div class="panel">
+<h3>C. 존 팬아웃 — 1인당 비용 (점검표 1)</h3>
+<table>
+<tr><th>#</th><th>할 일</th><th>상태</th><th>확신</th><th>노리는 것</th></tr>
+<tr><td>C1</td><td><b>시야(AOI)</b> — 존을 칸으로 나눠 주변에게만 통지</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>팬아웃 1,499 → 수십. <b>1인당 비용을 인원과 무관하게</b>. 가장 크고 가장 오래 걸린다</td></tr>
+<tr><td>C2</td><td>팬아웃 프레임 조립 — 대상마다 할당 3회·복사 3회 → 할당 0·복사 1</td>
+    <td><span class="st wait">대기</span></td><td><span class="st wip">높음</span></td><td>AOI 뒤에도 남는 비용</td></tr>
+<tr><td>C3</td><td>모은 함을 소켓에 넣을 때 한 번 더 복사하는 것 제거</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>1 MB 함마다 1 MB 복사</td></tr>
+<tr><td>C4</td><td>함 메모리 미리 잡기</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>사소</td></tr>
+<tr><td>C5</td><td>이동 통지를 즉시 팬아웃 → 틱마다 "움직인 사람들"을 한 패킷으로 (와이어 변경)</td>
+    <td><span class="st hold">판단 대기</span></td><td><span class="st wait">중간</span></td><td>팬아웃 건수 <code>이동 횟수 × N</code> → <code>틱 수 × N</code>. AOI 와 곱해진다</td></tr>
+</table>
+</div>
+
+<div class="panel">
+<h3>D. 무너지는 방식 (점검표 7)</h3>
+<table>
+<tr><th>#</th><th>할 일</th><th>상태</th><th>확신</th><th>노리는 것</th></tr>
+<tr><td>D1</td><td><b>레인 큐 상한</b> — 넘으면 버리고 센다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>메모리 11 MB → 5,211 MB 를 막는다</td></tr>
+<tr><td>D2</td><td><b>세션 송신 큐 상한</b> — 클라이언트는 끊고, 서버 간은 버린다</td>
+    <td><span class="st wait">대기</span></td><td><span class="st done">확실</span></td><td>송신 적체 472만 프레임</td></tr>
+<tr><td>D3</td><td>부하를 뺀 뒤 메모리가 안 줄었다 — 큐 컨테이너가 capacity 를 놓지 않는 것으로 보인다. D1·D2 가 들어가면 자연히 사라질 가능성</td>
+    <td><span class="st wait">대기</span></td><td><span class="st fail">낮음</span></td><td>부하 종료 후 5,211 MB 그대로</td></tr>
+</table>
+</div>
+
+<div class="panel">
+<h3>E. 설계 판단이 먼저인 것</h3>
+<table>
+<tr><th>#</th><th>무엇</th><th>상태</th><th>왜 판단이 필요한가</th></tr>
+<tr><td>E1</td><td><b>중계 구간 묶음</b> — World 가 봉투를 건건이 다시 씌우지 않고 게이트웨이별로 다시 묶어 보내기</td>
+    <td><span class="st hold">판단 대기</span></td><td>어디서 모으느냐가 곧 주인 문제. 게이트웨이 수에 따라 효과가 다르다</td></tr>
+<tr><td>E2</td><td>상태를 바꾸지 않는 순수 중계는 2단 재푸시를 건너뛸 수 있나</td>
+    <td><span class="st hold">판단 대기</span></td><td>"사람에 묶인 일의 주인은 그 사람" 규칙에 예외를 둘지의 문제</td></tr>
+</table>
+</div>
+
+<p class="k">권하는 순서: <b>A1 A2 → B1 B2 → C2 C3 → B3 B4 B5 → D1 D2 → C1 → E</b>.
+A 없이 개선하면 전후 비교가 성립하지 않고, B1·B2 가 코드 몇 줄에 효과가 가장 크다.</p>
+
+<h2 id="history">6. 개선 이력 — 한 항목에 한 행</h2>
+<p>항목 하나를 넣을 때마다 <b>고정 시나리오 A·B·C 를 전부 다시 돌리고</b> 한 행을 붙인다.
+시나리오 정의는 바꾸지 않는다 — 바꾸면 위 행들과 비교가 깨진다. 바꿔야 하면 열을 새로 만든다.</p>
+
+<div class="panel">
+<pre><code>공통   Release / x64 · 이동 간격 300ms · 회차마다 서버 재기동 + 로그 초기화
+       측정 중 브라우저·영상·빌드 등 무거운 프로그램 없음
+
+A  DB          존 1개   500세션 x 우편 50사이클, 이동 없음      완주까지
+B  브로드캐스트  존 1개   500세션 이동만, 존 안에 가둠            180초
+C  한계        존 1개  1500세션 이동만, 존 안에 가둠            180초</code></pre>
+</div>
+
+<div class="panel">
+<table class="hist">
+<tr><th>회차</th><th>날짜</th><th>빌드</th><th>넣은 것</th>
+    <th class="num">A<br>트랜잭션/초</th><th class="num">B<br>도달률 · 팬아웃/초</th>
+    <th class="num">C<br>도달률 · 중계 적체 · 메모리</th><th>점검표 변화</th><th>커밋</th></tr>
+<tr><td>0</td><td>2026-09-18</td><td>Debug</td>
+    <td>기준선 (다섯 레인 전환 직후)</td>
+    <td class="num">8,672</td>
+    <td class="num">1.0 · 33,638<br><span class="k">※ 100명·10분 — 고정 시나리오 확정 전</span></td>
+    <td class="num">— · 5,511,733 · 5,211 MB<br><span class="k">※ 180초 아님, 종료까지</span></td>
+    <td>1 실패 · 3 통과 · 4 통과 · 6 통과 · 7 실패</td>
+    <td><code>2ca5a7e</code></td></tr>
+<tr><td>1</td><td></td><td>Release</td><td>A2 — Release 기준선 (코드 변경 없음)</td>
+    <td class="num"></td><td class="num"></td><td class="num"></td><td></td><td></td></tr>
+</table>
+<p class="k">0회차의 B·C 는 고정 시나리오를 정하기 전에 잰 값이라 <b>1회차부터가 서로 비교 가능한 행</b>이다.
+0회차는 "무엇이 문제였나"를 남기려고 둔다.</p>
 </div>
 
 <p class="k"><a href="index.html">문서 목록으로</a></p>
