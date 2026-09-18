@@ -339,15 +339,14 @@ void ToolProcessor::HandleCouponChunkPush(const Network::Session::SPtr& toolSess
 
     // 캠페인 코드로 해시해 고정된 DB 레인에 위임한다 -- 같은 캠페인의 청크는 항상 같은
     // 스레드에서 chunkSeq 순서대로 처리되므로 락이 필요 없다(BasicProcessor의
-    // UnitOfWork 태스크가 clientSessionId로 해시하는 것과 같은 owner-hash 원리).
+    // UnitOfWork 태스크가 playerId로 해시하는 것과 같은 owner-hash 원리).
     const auto ownerHash = std::hash<std::string>{}(campaignCode);
     DbProcessor::Post(ownerHash,
         [campaignCode, chunkSeq, couponCodes = std::move(couponCodes)]
         {
-            // TODO: 실제로는 여기서 쿠폰 테이블에 벌크 INSERT를 실행한다(WorldServer의 DB
-            // 연동 자체가 아직 TODO -- Processor/DbProcessor.h 참고). 현재 쿠폰의 권위 저장소는
-            // 운영툴 쪽 MySQL이고, 이 경로는 "게임 서버도 같은 청크를 순서대로 받아 적재할
-            // 수 있다"는 구조만 미리 갖춰둔 것이다.
+            // TODO: 여기서 쿠폰 테이블에 벌크 INSERT 를 실행한다. 쿠폰의 권위 저장소는
+            // 아직 운영툴 쪽 DB 이고, 이 경로는 "게임 서버도 같은 청크를 순서대로 받아
+            // 적재할 수 있다"는 구조만 미리 갖춰둔 것이다.
             LOG.Info(ELogCategory::Tool, "쿠폰 청크 수신 (DB 적재는 TODO)")
                 .KV("CampaignCode", campaignCode).KV("ChunkSeq", chunkSeq)
                 .KV("CouponCount", couponCodes.size())

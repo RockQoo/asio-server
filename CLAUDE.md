@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 테스트 도구 | `Tool/ProtocolClient/Src/main.cpp`(수동 확인용 REPL), `Tool/StressClient/Src/main.cpp`(비동기 부하 테스트, 1만 세션까지 실측), `Client`(C#/MonoGame 시각 클라이언트 — **별도 솔루션**) — 셋 다 자동화 스위트 아님 |
 | 시각 클라이언트 | `Client` — C#/MonoGame, 별도 솔루션(`Client/Client.slnx`). 존 격자/핸드오프·채팅·우편·쿠폰을 한 창에서 눈으로 확인. **서버 C++을 고치지 않는 것이 전제** — 기존 프로토콜과 이미 있는 쿠폰 API만 쓴다. 쿠폰 등록만 소켓이 아니라 GmTool.Web HTTP로 나가고 보상은 우편으로 소켓으로 돌아온다 |
 | 설정 | 스레드 수·포트·주기는 `config/*.cfg`에서 읽고, 로딩은 각 서버의 `Src/App/<서버>Config.{h,cpp}`(`GatewayConfig`/`WorldConfig`/`ZoneConfig`)의 `LoadConfig`가 맡는다(`main`은 호출만). **기본값은 그 `Config` 구조체에만 적고** 읽는 쪽이 그 값을 fallback으로 넘긴다(두 군데 적으면 갈린다). **싱글턴으로 만들지 않는다** -- 근거는 `docs/design/config-file.md`. 담당 존 목록만 실행 인자 |
-| 배경 문서 | `README.md`(개요), `PROGRESS.md`(구현 이력·다음 할 일). 진행 중인 부하 병목 수정 계획과 측정 수치는 `docs/local/`에 있다(gitignore 대상이라 경로를 여기 적지 않는다 — 필수 규칙 참고) |
+| 배경 문서 | `README.md`(개요), `PROGRESS.md`(다음에 할 일과 그 순서). 진행 중인 부하 병목 수정 계획과 측정 수치는 `docs/local/`에 있다(gitignore 대상이라 경로를 여기 적지 않는다 — 필수 규칙 참고) |
 
 ---
 

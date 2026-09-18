@@ -12,7 +12,7 @@ paths:
 언더스코어/camelCase/PascalCase 금지, 확장자는 소문자 `.md`.
 
 **예외(대문자 고정명)**: `CLAUDE.md`(루트, Claude Code 진입점 규약), `README.md`(루트, 관례),
-`PROGRESS.md`(루트, 이 프로젝트의 구현 이력 문서), `SKILL.md`(`.claude/skills/*/`, 스킬
+`PROGRESS.md`(루트, 이 프로젝트의 다음 할 일 문서), `SKILL.md`(`.claude/skills/*/`, 스킬
 진입점 고정 파일명).
 
 ## 권장 구조

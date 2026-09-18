@@ -110,7 +110,7 @@ TICK 의 레인 수가 `존 수 x 2 + 1` 인 것은 **주인 최대값보다 크
 아니라 모델 단위 락(`Thread::Mutexed`)이 필요하다. 어피니티는 "대부분의 경합을 없애는"
 장치이지 "모든 경합을 없애는" 장치가 아니다.
 
-관련: [모델마다 보호가 다른 기준](player-and-models.md) · [락 전략 네 가지](locking-strategy.md)
+관련: [모델마다 보호가 다른 기준](player-and-models.md) · [락 전략](locking-strategy.md)
 
 ### 그리고 — 주인이 하나뿐이면 레인도 하나다
 

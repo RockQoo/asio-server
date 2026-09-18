@@ -30,7 +30,7 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 | 문서 | 대상 |
 |------|------|
 | [message-pipeline.md](message-pipeline.md) | `Server/Core/Src/Pipeline/` |
-| [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Player/Player.h` |
+| [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Unit/Unit.h`, `.../Player/Player.h` |
 | [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `PlayerManager`, `ZoneLinkRegistry` |
 | [unit-of-work.md](unit-of-work.md) | `Server/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |
 | [wire-format.md](wire-format.md) | `Server/Common/Src/Packet/ToolLinkPackets.h`, `.../ZoneLinkPackets.h` |

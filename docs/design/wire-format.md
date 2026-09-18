@@ -11,11 +11,16 @@
 가변 길이(문자열 포함)라 고정 구조체 대신 `BinaryWriter`/`BinaryReader`로 직접 쓰고 읽는다.
 
 ```
-playerId(uint32)
-+ ownerId(uint64, = clientSessionId)
+playerId(int64)
++ requestId(int64)
++ ownerId(uint64, = playerId)
 + taskCount(uint16)
 + taskCount개의 { kind(uint16) + payloadLen(uint32) + payload }
 ```
+
+`playerId`가 맨 앞인 것은 **I/O 스레드가 페이로드 앞의 정수 하나만 훔쳐봐 레인 주인을 뽑기**
+때문이다(`OwnerIdPeek`). 필드를 앞에 끼워 넣으면 주인이 엉뚱한 값이 되고, 그러면 받는 쪽이
+그 사람을 못 찾아 **조용히 버린다**.
 
 **Core는 `kind`/`payload`의 실제 의미를 모른다.** `kind`는 `Server/Common/Src/TaskKind.h`가
 정의하는 "상위 8비트 카테고리 + 하위 8비트 세부 동작"이다.
@@ -23,16 +28,22 @@ playerId(uint32)
 Mail 태스크는 카테고리 Mail + Added/Removed이고 **둘 다 payload 레이아웃이 같다**:
 
 ```
-mailId(uint32) + String(title) + String(body) + sendUt(int64) + endUt(int64)
+mailId(int64) + String(title) + String(body) + sendUt(int64) + endUt(int64)
 ```
 
 삭제 태스크가 지워진 내용을 통째로 싣는 이유는 그게 곧 롤백에 필요한 정보이기 때문이다
 ([UnitOfWork](unit-of-work.md) 참고).
 
+Currency 태스크는 잔액 하나의 이전/이후를 같이 싣는다 — 역연산이 곧 되돌리기다.
+
+```
+type(uint8) + newAmount(int64) + prevAmount(int64)
+```
+
 | 쪽 | 파일 |
 |----|------|
-| 쓰기 | `Server/ZoneServer/Src/Player/MailModel.cpp` (payload) + `Task/ZoneUnitOfWork.cpp` (접두 + 전송) |
-| 읽기 | `Server/WorldServer/Src/Handler/Z2WHandler.cpp` |
+| 쓰기 | `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |
+| 읽기 | `Server/Common/Src/Packet/ZoneLinkPackets.h`(`Z2WUnitOfWorkStream::Parse`) |
 
 ## 운영툴 링크 (T2W / W2T)
 

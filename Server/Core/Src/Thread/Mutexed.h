@@ -106,7 +106,7 @@ namespace Thread
     // (`auto writer = ref.Write();`) -- 조회한 결과로 바로 삭제까지 이어가야 해서 사이에
     // 다른 스레드가 끼어들면 안 되는 시퀀스가 그렇다. Read()도 같은 이유로 쌍을 이룬다.
     //
-    // 설계 근거(네 가지 락 전략 중 어디에 쓰는가): docs/design/locking-strategy.md
+    // 설계 근거(락 전략 중 어디에 쓰는가): docs/design/locking-strategy.md
     template <typename T>
     class Mutexed
     {

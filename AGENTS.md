@@ -12,7 +12,7 @@
 | SQL 네이밍 · SP 작성 | `.claude/rules/sql-patterns.md` |
 | CLI 빌드 절차(MSBuild 경로 탐색, Git Bash 우회) | `.claude/skills/build/SKILL.md` |
 | 서버별 설명 · 시퀀스 다이어그램 · 설계 근거 | `docs/index.html` |
-| 구현 이력과 다음 할 일 | `PROGRESS.md` |
+| 다음에 할 일과 그 순서 | `PROGRESS.md` |
 
 ## 반드시 지킬 것 (여기서만 말하는 것)
 

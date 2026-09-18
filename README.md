@@ -36,7 +36,7 @@ Client ──▶ GatewayServer ──▶ WorldServer ──▶ ZoneServer ──
 | [docs/DB.html](docs/DB.html) | 스키마·SP 골격·트랜잭션 |
 | [docs/sequences/](docs/sequences/index.html) | **패킷 시퀀스 다이어그램** — 대표 기능이 어느 스레드를 거치는지 |
 | [docs/design/](docs/design/README.md) | 소스에서 옮겨온 설계 근거 |
-| [PROGRESS.md](PROGRESS.md) | 구현 이력과 다음 할 일 |
+| [PROGRESS.md](PROGRESS.md) | 다음에 할 일과 그 순서 |
 
 대표 흐름 세 개를 시퀀스 다이어그램으로 그려뒀습니다:
 
@@ -126,7 +126,7 @@ bat\start_gmtool.bat      :: http://127.0.0.1:5080  (초기 계정 admin / 0000)
 | 0~3 | 셋업, echo 서버, 패킷 프레이밍, 존 어피니티 라우팅 | 완료 |
 | 4 | Gateway/World/Zone 분리, 재접속 없는 핸드오프, Mail(Mutexed/UnitOfWork) | 완료 |
 | 4-1 | 재화 + 모델 두 개에 걸친 트랜잭션·역순 롤백, 요청 식별자(`RUID`) | 완료 |
-| 5 | 레인 분리(Player / Zone / Broadcast), 메시지 큐 프로세서 구조 | 완료 |
+| 5 | 메시지 파이프라인(레인) 구조 — 존을 LB/BASIC/TICK/BROADCAST/TIMER 다섯 레인으로 | 완료 |
 | 6 | 부하 도구(StressClient), 지연 백분위 계측 | 완료 |
 | 7 | 부하 병목 수정 후 **재측정** | 진행 중 |
 | 8 | 운영툴(GmTool) — 우편/공지/대량 쿠폰 | 완료 |
