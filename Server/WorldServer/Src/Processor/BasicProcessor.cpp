@@ -402,7 +402,7 @@ void BasicProcessor::HandleZoneTransfer(const Network::Session::SPtr& /*zoneSess
     // 클라이언트도 삭제 통지를 두 번 받는다(RUID의 노드 번호가 서로 다른 두 프로세스를
     // 가리키는 것으로 확인했다). 접속이 끝날 때까지 안 지워지므로 메모리도 샌다.
     //
-    // **같은 프로세스 안의 이동(가로)에는 보내지 않는다.** 그쪽은 PlayerProcessor가
+    // **같은 프로세스 안의 이동(가로)에는 보내지 않는다.** 그쪽은 ZoneProcessor가
     // 살아 있는 Player를 그대로 옮기는데, 여기서 퇴장을 보내면 우편함째 지워버린다.
     // 판정 기준은 zoneId가 아니라 **링크 세션**이다 -- 한 Zone 프로세스가 존 여러 개를
     // 호스팅하므로 존이 다르다고 프로세스가 다른 게 아니다.

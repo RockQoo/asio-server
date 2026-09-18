@@ -26,7 +26,8 @@ namespace Stress
     {
     public:
         Session(const size_t index, asio::io_context& ioContext, std::string host, const uint16_t port,
-                      const uint32_t cyclesTarget, const bool isBroadcaster, Stats& stats,
+                      const uint32_t cyclesTarget, const bool isBroadcaster,
+                      const std::chrono::milliseconds moveInterval, const bool roamWorld, Stats& stats,
                       std::string accountName, std::string password);
 
         void Start();
@@ -69,6 +70,7 @@ namespace Stress
         std::string host_;
         uint16_t port_;
         uint32_t cyclesTarget_;
+        std::chrono::milliseconds moveInterval_;
         bool isBroadcaster_;
         Stats& stats_;
 
@@ -99,6 +101,16 @@ namespace Stress
 
         // 워치독(다른 스레드)이 읽으므로 atomic.
         std::atomic<bool> done_{false};
+
+        // 랜덤 워크의 현재 자리와 난수기. **이 세션의 io 스레드에서만 만진다** --
+        // 세션마다 따로라 공유가 없고, 그래서 난수기에 락이 필요 없다.
+        uint32_t moveCount_{0};
+        float moveX_{0.0f};
+        float moveY_{0.0f};
+        std::mt19937 random_;
+
+        // true 면 월드 전체를 돌아다닌다(존 경계를 넘는다). false 면 자기 존 안에만 있는다.
+        bool roamWorld_{false};
         std::atomic<int64_t> lastProgressAtTicks_{0};
     };
 }

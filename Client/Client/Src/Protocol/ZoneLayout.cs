@@ -24,7 +24,7 @@ namespace Client.Protocol;
 public static class ZoneLayout
 {
     /// <summary>존 하나의 한 변 길이. 서버 <c>kZoneSize</c>와 같아야 한다.</summary>
-    public const float ZoneSize = 10.0f;
+    public const float ZoneSize = 100.0f;
 
     /// <summary>한 행에 놓이는 존 개수. 서버 <c>kZonesPerRow</c>와 같아야 한다.</summary>
     public const int ZonesPerRow = 2;

@@ -50,7 +50,7 @@ move 15 5     -> [recv] Z2CEnterZoneNotify zoneId=1
 
 수신은 별도 스레드에서 블로킹 `read_some`을 돌린다 — stdin 입력을 기다리는 메인 스레드를
 막지 않기 위한 것뿐이고, 서버처럼 `asio::async_read`를 쓸 이유가 없다. 프레이밍만
-`Shared/Core`의 `Packet::Buffer`/`BuildFrame`을 그대로 재사용해서, 서버와 클라이언트가
+`Server/Core`의 `Packet::Buffer`/`BuildFrame`을 그대로 재사용해서, 서버와 클라이언트가
 같은 프레이밍 코드를 공유한다(여기서 어긋나면 프로토콜 검증 자체가 무의미해진다).
 
 패킷 정의는 `Server/ZoneServer/Src/Packet/ZonePackets.h`를 직접 include한다. 도구가 서버

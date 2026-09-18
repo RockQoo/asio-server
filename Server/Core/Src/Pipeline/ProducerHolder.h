@@ -94,6 +94,34 @@ namespace Pipeline
                     }
                 }
 
+                // **배정 분포를 먼저 찍는다.** 밀린 게 없어도 찍는다 -- "노는 레인이 있는가"는
+                // 막히기 전에 봐야 하는 값이고, 막히고 나서 보면 이미 늦다.
+                //
+                // 한 줄에 몰아 적는 이유: 레인이 8개면 줄이 8개가 되고, 프로듀서가 다섯이면
+                // 40줄이 10초마다 쌓인다. 한 줄이면 눈으로 훑어도 치우침이 보인다.
+                uint64_t pushTotal = 0;
+                std::string distribution;
+                for (size_t laneIndex = 0; laneIndex < laneCount; ++laneIndex)
+                {
+                    const auto pushed = producer->PushCount(laneIndex);
+                    pushTotal += pushed;
+
+                    if (!distribution.empty())
+                    {
+                        distribution += ",";
+                    }
+                    distribution += std::to_string(pushed);
+                }
+
+                if (pushTotal > 0)
+                {
+                    LOG.Info(ELogCategory::General, "레인 분포")
+                        .KV("Producer", ToString(producer->GetProducerType()))
+                        .KV("Lanes", laneCount)
+                        .KV("Pushed", pushTotal)
+                        .KV("PerLane", distribution);
+                }
+
                 if (total == 0)
                 {
                     continue;

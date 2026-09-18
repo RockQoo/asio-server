@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>성능 점검표 — asio-server</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    /* 판정 배지 -- 이 문서에서만 쓴다 */
+    .st { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px;
+          font-weight:700; white-space:nowrap; }
+    .pass { background:#1f6f3f; color:#fff; }
+    .fail { background:#8a2f2f; color:#fff; }
+    .none { background:#5a5a5a; color:#fff; }
+    table td:first-child { text-align:center; white-space:nowrap; }
+    .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .legend span { margin-right:14px; }
+    .k { font-size:13px; opacity:.85; }
+    .warn { border-left:4px solid #b8860b; padding-left:14px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>성능 점검표</h1>
+<p class="sub">2026-09-18 측정 · 존을 다섯 레인 구조로 바꾼 직후의 <b>기준선</b>이다.
+개선 전 수치이고, 개선 후 같은 표를 다시 채운다.</p>
+
+<div class="panel warn">
+<p><b>이 숫자를 절대 성능으로 읽지 말 것 — Debug 빌드다.</b></p>
+<p>Release 로 재면 자릿수가 달라진다. 여기 있는 값은 <b>구간끼리 비교</b>하고
+<b>개선 전후를 비교</b>하기 위한 것이다. "초당 몇 건이 나오는 서버인가"에 대한 답이 아니다.</p>
+</div>
+
+<h2>1. 무엇을 보고 판단했나</h2>
+<p>처리량 숫자 하나로는 서버의 좋고 나쁨을 못 가른다. 장비가 바뀌면 그대로 바뀌는 값이기
+때문이다. 그래서 <b>장비가 달라도 성립하는 성질</b>만 골라 점검표로 만들었다.</p>
+
+<div class="panel legend">
+<span><span class="st pass">통과</span></span>
+<span><span class="st fail">실패</span> 결함 확인됨</span>
+<span><span class="st none">미측정</span></span>
+</div>
+
+<div class="panel">
+<table>
+<tr><th>#</th><th>기준</th><th>판정</th><th>근거</th></tr>
+
+<tr>
+<td>1</td>
+<td><b>접속자 1명당 비용이 인원에 따라 늘지 않는가</b><br>
+    <span class="k">가장 결정적인 항목. 여기가 깨지면 장비를 늘려도 못 막는다</span></td>
+<td><span class="st fail">실패</span></td>
+<td>이동 통지가 그 존 전원에게 나간다. 1명당 팬아웃이 100명일 때 99통,
+    1500명일 때 1,499통 — <b>인원 15배에 1인당 비용도 15배</b>라 총량이 225배가 된다</td>
+</tr>
+
+<tr>
+<td>2</td>
+<td>스레드를 늘리면 처리량이 따라 오르는가</td>
+<td><span class="st none">미측정</span></td>
+<td>1번을 고치기 전에는 재도 의미가 없다. 팬아웃이 먼저 막혀서 스레드가 놀지 않는다</td>
+</tr>
+
+<tr>
+<td>3</td>
+<td>포화했을 때 원인을 지목할 수 있는가</td>
+<td><span class="st pass">통과</span></td>
+<td>중계 서버의 레인 적체 5,511,733 건으로 지점이 특정됐고, 원인도 특정됐다(3절)</td>
+</tr>
+
+<tr>
+<td>4</td>
+<td>어디가 밀렸는지 보이는가</td>
+<td><span class="st pass">통과</span></td>
+<td>레인별 적체와 송신 적체가 주기적으로 로그에 남는다. 이게 없었으면 3번을 못 했다</td>
+</tr>
+
+<tr>
+<td>5</td>
+<td>p99 지연이 p50 에 가까운가</td>
+<td><span class="st none">미측정</span></td>
+<td>평균만 재고 있다. "평균 33ms"는 절반이 500ms 여도 나오는 숫자라
+    사실상 품질을 못 보고 있는 상태다</td>
+</tr>
+
+<tr>
+<td>6</td>
+<td>받아들인 요청을 잃지 않는가</td>
+<td><span class="st pass">통과</span></td>
+<td>DB 회차 5만 건 유실 0 · 불일치 0. 100명 이동 회차 10분간 도달률 1.0</td>
+</tr>
+
+<tr>
+<td>7</td>
+<td>무너지는 방식이 얌전한가</td>
+<td><span class="st fail">실패</span></td>
+<td>크래시도 데이터 손상도 없었지만 <b>큐에 상한이 없다</b>.
+    메모리가 11MB → 5,211MB 로 늘었고 부하를 뺀 뒤에도 안 줄었다</td>
+</tr>
+</table>
+</div>
+
+<h2>2. 측정값</h2>
+
+<h3>A. DB 경로 — 500명, 이동 없이 우편만</h3>
+<div class="panel">
+<p class="k">우편 추가/삭제는 각각 UnitOfWork 하나 = 트랜잭션 하나다. 그래서 이 회차가
+곧 DB 쓰기 경로의 처리량이다.</p>
+<table>
+<tr><th>항목</th><th class="num">값</th></tr>
+<tr><td>접속 / 완주</td><td class="num">500 / 500</td></tr>
+<tr><td>우편 추가 보냄 / 응답</td><td class="num">25,000 / 25,000</td></tr>
+<tr><td>우편 삭제 보냄 / 응답</td><td class="num">25,000 / 25,000</td></tr>
+<tr><td>불일치 / 스톨</td><td class="num">0 / 0</td></tr>
+<tr><td>걸린 시간</td><td class="num">5.765 초</td></tr>
+<tr><td><b>DB 트랜잭션/초</b></td><td class="num"><b>8,672</b></td></tr>
+<tr><td>중계 서버 CPU / 메모리</td><td class="num">31초 / 25 MB</td></tr>
+<tr><td>송신 적체</td><td class="num">0</td></tr>
+</table>
+<p class="k">쌓인 곳은 DB 레인뿐이고 그것도 5.7초에 다 빠졌다 — DB 가 받는 속도만큼 밀어
+넣느라 생긴 정상 대기다. <b>DB 경로는 병목이 아니다.</b></p>
+</div>
+
+<h3>B. 브로드캐스트 — 100명, 이동만, 10분</h3>
+<div class="panel">
+<table>
+<tr><th>항목</th><th class="num">값</th></tr>
+<tr><td>이동 보냄 / 팬아웃 받음</td><td class="num">199,941 / 20,182,982</td></tr>
+<tr><td>도달률</td><td class="num">1.0</td></tr>
+<tr><td>스톨</td><td class="num">0</td></tr>
+<tr><td><b>이동 수신/초</b></td><td class="num"><b>333</b></td></tr>
+<tr><td><b>팬아웃 발송/초</b></td><td class="num"><b>33,638</b></td></tr>
+</table>
+<p class="k">10분 내내 유실 0. 다만 이건 <b>한계가 아니라 100명이 요구한 양</b>이다 —
+실제 천장은 아직 재지 않았다.</p>
+</div>
+
+<h3>C. 한계 — 1500명, 이동만</h3>
+<div class="panel">
+<table>
+<tr><th>시각</th><th class="num">중계 서버 메모리</th><th class="num">존 팬아웃 적체</th><th class="num">존 송신 적체</th></tr>
+<tr><td>+45초</td><td class="num">1,467 MB</td><td class="num">24,452</td><td class="num">105 MB</td></tr>
+<tr><td>+105초</td><td class="num">3,963 MB</td><td class="num">70,867</td><td class="num">360 MB</td></tr>
+<tr><td>부하 종료 후</td><td class="num">5,211 MB</td><td>—</td><td>—</td></tr>
+</table>
+<p>중계 서버 레인 적체 <b>5,511,733 건</b> · 송신 적체 <b>4,723,984 프레임</b>.</p>
+<table>
+<tr><th>항목</th><th class="num">통/초</th></tr>
+<tr><td>이동 수신 (들어온 양)</td><td class="num">약 5,000</td></tr>
+<tr><td><b>필요 팬아웃</b></td><td class="num"><b>7,500,000</b></td></tr>
+<tr><td>B 에서 확인된 양 대비</td><td class="num">220 배</td></tr>
+</table>
+<p class="k">크래시는 없었다. 큐가 무한히 쌓이면서 느려졌고, 관찰용으로 붙여 둔 클라이언트가
+멈춘 것도 클라가 느려서가 아니라 <b>통지가 550만 건 뒤에 줄 서 있어서</b>였다.</p>
+</div>
+
+<h2>3. 병목 — 존이 아니라 중계다</h2>
+<div class="panel">
+<p>존 CPU 290초 / 중계 서버 CPU 2,294초로 <b>8배</b> 차이가 났다.</p>
+<pre>
+존     : 팬아웃 수백 통을 한 덩어리로 묶어 한 번에 쓴다
+           |
+중계   : 봉투를 한 통씩 까서 한 통씩 다시 씌운다      &lt;-- 여기서 묶음이 풀린다
+           |
+게이트웨이: 클라이언트로 전달
+</pre>
+<p><b>존에서 묶은 이득이 중계에서 통째로 사라진다.</b> 이건 통지 양을 줄여도 남는 문제다 —
+중계 구간이 여전히 건건이 포장을 다시 하기 때문이다.</p>
+</div>
+
+<h2>4. 목표선</h2>
+<div class="panel">
+<p>존 하나에 <b>1,500명</b>을 목표로 잡았다. 그 인원이 요구하는 양을 역산하면:</p>
+<pre>
+시야 안의 사람에게만 보낼 때   1,500명 x 초당 5회 x 주변 50명 =   375,000 통/초
+존 전원에게 보낼 때(현재)      1,500명 x 초당 5회 x 1,499명    = 11,240,000 통/초
+</pre>
+<p class="k">초당 5회는 가정값이다. 실제 클라이언트 전송 빈도를 정하면 이 표를 다시 계산한다.</p>
+<table>
+<tr><th>구분</th><th class="num">통/초</th><th>상태</th></tr>
+<tr><td>확인됨 (100명 회차)</td><td class="num">33,600</td><td>유실 0</td></tr>
+<tr><td><b>목표 (시야 적용 시)</b></td><td class="num"><b>375,000</b></td><td>11 배 남음</td></tr>
+<tr><td>시야 없이 1,500명</td><td class="num">7,500,000</td><td>무너짐</td></tr>
+</table>
+</div>
+
+<h2>5. 개선 항목</h2>
+<div class="panel">
+<table>
+<tr><th>#</th><th>할 일</th><th>점검표</th><th>노리는 것</th></tr>
+<tr><td>1</td><td><b>시야(AOI)</b> — 존을 칸으로 나눠 주변에게만 통지</td><td>1번</td>
+    <td>팬아웃 1,499 → 수십. <b>1인당 비용을 인원과 무관하게 만든다</b></td></tr>
+<tr><td>2</td><td><b>중계 구간 묶음</b> — 봉투를 건건이 다시 씌우지 않게</td><td>3번</td>
+    <td>중계 서버 CPU. 1번과 독립적으로 남는 문제</td></tr>
+<tr><td>3</td><td><b>큐 상한 / 백프레셔</b> — 못 보내면 쌓지 말고 버리거나 거절</td><td>7번</td>
+    <td>메모리 무한 증가를 막는다</td></tr>
+<tr><td>4</td><td><b>p50/p99 측정</b></td><td>5번</td>
+    <td>1~3 의 효과를 숫자로 보이게 하는 전제</td></tr>
+<tr><td>5</td><td><b>Release 기준선</b></td><td>전부</td>
+    <td>지금 값은 Debug 라 절대값으로 못 쓴다</td></tr>
+<tr><td>6</td><td><b>천장 찾기</b> — 인원을 올려 꺾이는 지점</td><td>2번</td>
+    <td>"개선 전"이 있어야 "개선 후"를 말할 수 있다</td></tr>
+</table>
+<p class="k">순서는 <b>4 → 6 → 5 → 1 → 2 → 3</b>. 측정 수단과 기준선이 먼저 서 있어야
+개선의 전후 비교가 성립한다.</p>
+</div>
+
+<p class="k"><a href="index.html">문서 목록으로</a></p>
+
+</main>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # `StrongId` — id를 자기만의 타입으로 만든다
 
-대상: `Shared/Common/Src/StrongId.h`, `Shared/Common/Src/Ids.h`
+대상: `Server/Common/Src/StrongId.h`, `Server/Common/Src/Ids.h`
 
 ## 왜 만들었나
 
@@ -45,13 +45,13 @@ using MailId = StrongId<struct MailIdTag, int64_t>;
 태그는 **타입을 가르는 역할만** 하고 실체가 필요 없다. 정의하지 않으면 불완전 타입이라
 누가 실수로 인스턴스를 만들 수도 없고, 별도 헤더에 선언을 모을 필요도 없다.
 
-## 왜 `Shared/Core`가 아니라 `Shared/Common`인가
+## 왜 `Server/Core`가 아니라 `Server/Common`인가
 
-이 id들은 **Zone/World/클라이언트가 함께 읽고 쓰는 계약**이다. `Shared/Core`는 게임 콘텐츠를
+이 id들은 **Zone/World/클라이언트가 함께 읽고 쓰는 계약**이다. `Server/Core`는 게임 콘텐츠를
 몰라야 하는 정적 라이브러리라 여기 두면 의존 방향이 뒤집힌다 -- `PacketId`/`TaskKind`를
-`Shared/Common`에 둔 것과 같은 근거다.
+`Server/Common`에 둔 것과 같은 근거다.
 
-부수 효과로 `Core`는 `Shared/Common`을 단 한 줄도 include하지 않는다. 그래서
+부수 효과로 `Core`는 `Server/Common`을 단 한 줄도 include하지 않는다. 그래서
 `Network::SessionId`(연결 축)와 `Common::PlayerId`(계약 축)가 다른 네임스페이스에 있다 --
 우연이 아니라 이 의존 방향의 결과다.
 

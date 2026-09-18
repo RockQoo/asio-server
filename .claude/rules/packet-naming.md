@@ -12,7 +12,7 @@ paths:
 패킷 id는 **`Common::PacketId` 하나**로 관리한다. 링크별/방향별로 enum을 쪼개지 않는다.
 
 ```
-Shared/Common/Src/PacketId.h  ->  namespace Common
+Server/Common/Src/PacketId.h  ->  namespace Common
 ```
 
 예전에는 `Protocol` 이었다. `Common` 을 Core 가 쓰고 있어서 피한 이름인데, Core 쪽을
@@ -180,7 +180,7 @@ struct Z2WUnitOfWorkStream
 `Common::FromBytes(packet, payload)` 가 `Parse()` 유무를 concept 으로 보고 갈라준다.
 **고정 레이아웃 패킷은 아무것도 안 써도 된다** -- 크기 검사 + memcpy 를 `FromBytes` 가 한다.
 `Common::ToBytes` 가 `Serialize()` 유무로 갈라주는 것과 정확히 대칭이고, 둘 다
-`Shared/Common/Src/Packet/Wire.h` 에 있다.
+`Server/Common/Src/Packet/Wire.h` 에 있다.
 
 ## 번호 대역
 
@@ -304,7 +304,7 @@ dispatcher_.Register(this, &ToolProcessor::HandleHello);   // id 는 TPacket::kP
 void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId packetId, ...);
 ```
 
-`ELogCategory`(`Shared/Core/Src/Log/LogCategory.h`)와 같은 방식이다. 다만 `ELogCategory`는
+`ELogCategory`(`Server/Core/Src/Log/LogCategory.h`)와 같은 방식이다. 다만 `ELogCategory`는
 프로젝트마다 자기 것을 같은 이름으로 노출하는 반면 `PacketId`는 저장소 전체에 하나뿐이라
 이름이 겹칠 여지도 없다.
 
@@ -330,7 +330,7 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
 
 **적용 완료.** 링크별 4개 enum(`Zone::PacketId`, `World::GatewayLinkPacketId`,
 `World::ZoneLinkPacketId`, `World::ToolLinkPacketId`)은 삭제됐고 전부 `Common::PacketId`로
-합쳐졌다. `World::EToolResultCode`만 `Shared/Common/Src/Packet/ToolResultCode.h`로
+합쳐졌다. `World::EToolResultCode`만 `Server/Common/Src/Packet/ToolResultCode.h`로
 따로 남았다(패킷 id가 아니라 결과 코드라 대역과 무관).
 
 같이 처리한 것:
@@ -343,4 +343,4 @@ void HandleClientPacket(const Network::SessionId clientSessionId, const PacketId
   `innerPacketId`만 `Z2CEcho`로 바꿔 쓰도록 고쳤다.
 - `Tool/GmTool`의 `ZoneClientPacketId.cs`와 그 값을 고정하던 테스트 3건은 위 가시성 규칙에
   따라 삭제했다(xUnit 80 -> 77개). `ToolLinkPacketId.cs`는 `PacketId.cs`로 바뀌었다.
-- 새 `Shared/Common/` 프로젝트(또는 헤더 전용 폴더)를 6개 vcxproj가 참조하도록 추가한다.
+- 새 `Server/Common/` 프로젝트(또는 헤더 전용 폴더)를 6개 vcxproj가 참조하도록 추가한다.

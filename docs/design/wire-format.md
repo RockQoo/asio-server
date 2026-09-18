@@ -1,7 +1,7 @@
 # 와이어 포맷 — 가변 길이 패킷의 바디 구조
 
-대상 코드: `Shared/Common/Src/Packet/ToolLinkPackets.h`,
-`Shared/Common/Src/Packet/ZoneLinkPackets.h`
+대상 코드: `Server/Common/Src/Packet/ToolLinkPackets.h`,
+`Server/Common/Src/Packet/ZoneLinkPackets.h`
 
 전부 리틀엔디언. 문자열은 `BinaryWriter::WriteString` = **길이(uint16) + UTF-8 바이트**이고,
 아래에서 `String(x)`로 표기한다. 고정 길이 패킷은 `#pragma pack(1)` 구조체를 그대로 보낸다.
@@ -17,7 +17,7 @@ playerId(uint32)
 + taskCount개의 { kind(uint16) + payloadLen(uint32) + payload }
 ```
 
-**Core는 `kind`/`payload`의 실제 의미를 모른다.** `kind`는 `Shared/Common/Src/TaskKind.h`가
+**Core는 `kind`/`payload`의 실제 의미를 모른다.** `kind`는 `Server/Common/Src/TaskKind.h`가
 정의하는 "상위 8비트 카테고리 + 하위 8비트 세부 동작"이다.
 
 Mail 태스크는 카테고리 Mail + Added/Removed이고 **둘 다 payload 레이아웃이 같다**:
@@ -83,6 +83,6 @@ requestId(uint32) + count(uint32) + count개의 W2TClientListEntry
 
 ## 패킷 id 대역
 
-`Shared/Common/Src/PacketId.h` 하나로 통합돼 있고, 이름 앞 3글자가 **발신 → 수신** 방향이다
+`Server/Common/Src/PacketId.h` 하나로 통합돼 있고, 이름 앞 3글자가 **발신 → 수신** 방향이다
 (`C2ZMailAdd` = Client → Zone). 방향마다 1000 단위로 대역을 잘라서 **값 하나만 보면 어느
 소켓의 패킷인지 판정**된다. 규약 원문은 `.claude/rules/packet-naming.md`.

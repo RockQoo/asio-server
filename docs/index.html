@@ -23,7 +23,7 @@
     <tr><th>프로세스</th><th>역할</th><th>스레드</th></tr>
     <tr><td><span class="badge b-gateway">Gateway</span></td><td>클라이언트 accept, 순수 릴레이</td><td>I/O 2</td></tr>
     <tr><td><span class="badge b-world">World</span></td><td>로그인, 라우팅, DB 관문, 공통 콘텐츠</td><td>I/O 2 · Basic 8 · Db 4</td></tr>
-    <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · Player 8 · Zone n · Broadcast 1</td></tr>
+    <tr><td><span class="badge b-player">Zone</span></td><td>존/플레이어 권위 상태</td><td>I/O 2 · LB 2 · BASIC 8 · TICK 2N+1 · BROADCAST 4 · TIMER 1</td></tr>
 </table>
 
 <p style="margin:10px 0 0">스레드 수와 포트는 <code>config/*.cfg</code>에서 읽는다 — 위 값은 기본 설정이다
@@ -51,11 +51,15 @@
     </a>
     <a class="card" href="ZoneServer.html">
         <b>ZoneServer</b>
-        <span>레인 네 개, 주인이 다르면 스레드가 다르다. UnitOfWork와 역순 롤백.</span>
+        <span>레인 다섯, 담당 존마다 처리기 네 벌. 주인이 다르면 스레드가 다르다.</span>
     </a>
     <a class="card" href="DB.html">
         <b>DB 계층</b>
         <span>스키마·SP 골격·트랜잭션. UnitOfWork 하나 = 트랜잭션 하나.</span>
+    </a>
+    <a class="card" href="performance.html">
+        <b>성능 점검표</b>
+        <span>부하를 걸어 어디서 무너지는지 재고, 무엇을 고칠지 정한 기준선.</span>
     </a>
 </div>
 

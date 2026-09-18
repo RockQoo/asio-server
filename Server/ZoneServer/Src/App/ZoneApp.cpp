@@ -92,6 +92,21 @@ void ZoneApp::InitProducers()
         ids.zones[def.zoneId] = target;
         zoneIds.push_back(def.zoneId);
 
+        // **배정이 계산대로 되는지 기동 때 한 번 찍는다.** 레인 수만 로그에 남기면
+        // "3개를 만들었다"까지만 알고 "존마다 다른 레인으로 갔는가"는 모른다 -- TICK 은
+        // 그게 깨지는 순간 두 존의 틱이 한 스레드로 합쳐지는데 증상이 "좀 느리다"뿐이라
+        // 눈으로 못 찾는다.
+        const auto tickLanes = TickLaneCount(zoneCount);
+        LOG.Info(ELogCategory::General, "레인 배정")
+            .KV("Zone", def.zoneId)
+            .KV("TickOwner", target.tickOwner.value)
+            .KV("TickLane", Pipeline::LaneIndexOf(target.tickOwner, tickLanes, false))
+            .KV("OtherOwner", target.otherOwner.value)
+            .KV("OtherLane", Pipeline::LaneIndexOf(target.otherOwner, tickLanes, false))
+            .KV("BroadcastOwner", target.broadcastOwner.value)
+            .KV("BroadcastLane",
+                Pipeline::LaneIndexOf(target.broadcastOwner, config_.broadcastThreadCount, true));
+
         zones_.push_back(std::move(runtime));
     }
 

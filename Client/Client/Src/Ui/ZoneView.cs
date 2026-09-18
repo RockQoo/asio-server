@@ -28,7 +28,7 @@ public sealed class ZoneView
     /// <summary>
     /// 캐릭터 몸통의 월드 크기(unit). 리소스 요청서 §1의 "플레이어 몸통 0.75 × 0.75 unit".
     /// </summary>
-    private const float BodyUnits = 0.75f;
+    private const float BodyUnits = 2.5f;
 
     /// <summary>
     /// 몸통 프레임의 한 변(px). 2배 납품이라 192 이고, 화면 배율은 이 값에서 역산한다.
@@ -49,6 +49,54 @@ public sealed class ZoneView
     private static readonly string[] HeadgearFrames =
         ["armor_helmet", "armor_hat", "armor_helmet_copper", "armor_hat_blue"];
 
+    /// <summary>
+    /// 화면 가로에 담는 월드 폭(unit). **주변 사람이 몇 명이나 보이는지가 이 값으로 정해진다** --
+    /// 좁히면 움직임은 커 보이지만 화면에 사람이 거의 안 남고, 넓히면 반대가 된다.
+    /// 값을 코드에 박지 않고 실행 중에 바꾸는 이유가 그것이다(휠 / +,-).
+    /// </summary>
+    private float viewSpan_ = ZoneLayout.ZoneSize;
+
+    /// <summary>
+    /// 자주 쓰는 시야 몇 가지. 마지막은 월드 전체라, 캐릭터를 따라가면서 존 배치를 같이 볼 때 쓴다.
+    /// </summary>
+    private static readonly float[] ViewSpanPresets =
+    [
+        ZoneLayout.ZoneSize * 0.25f,
+        ZoneLayout.ZoneSize * 0.5f,
+        ZoneLayout.ZoneSize,
+        ZoneLayout.WorldMaxX,
+    ];
+
+    private int presetIndex_ = 2;
+
+    public void CycleViewSpan()
+    {
+        presetIndex_ = (presetIndex_ + 1) % ViewSpanPresets.Length;
+        viewSpan_ = ViewSpanPresets[presetIndex_];
+    }
+
+    /// <summary>월드 전체(존 전부)를 한 화면에 보는 모드. 내 캐릭터를 따라가지 않는다.</summary>
+    /// <remarks>
+    /// 기본값이 켜짐인 이유: 이 클라이언트는 서버를 관찰하는 도구라, 존 배치와 인구가
+    /// 한눈에 보이는 쪽이 기본이어야 한다. 캐릭터 중심은 F3 으로 켠다.
+    /// </remarks>
+    public bool WorldView { get; set; } = true;
+
+    /// <summary>지금 화면 가로에 담기는 월드 폭. HUD 표시에도 쓴다.</summary>
+    public float ViewSpan => WorldView ? ZoneLayout.WorldMaxX : viewSpan_;
+
+    /// <summary>시야를 배율로 조절한다. 한 존의 1/10 ~ 월드 전체 사이로 자른다.</summary>
+    public void ZoomBy(float factor) =>
+        viewSpan_ = Math.Clamp(viewSpan_ * factor, ZoneLayout.ZoneSize * 0.1f, ZoneLayout.WorldMaxX);
+
+    /// <summary>카메라 중심(월드 좌표). 입장 전에는 월드 한가운데를 본다.</summary>
+    private Vector2 camera_ = new(ZoneLayout.WorldMaxX * 0.5f, ZoneLayout.WorldMaxY * 0.5f);
+
+    /// <summary>실제로 보는 중심. 월드 보기에서는 내 위치와 무관하게 월드 한가운데다.</summary>
+    private Vector2 CameraCenter => WorldView
+        ? new Vector2(ZoneLayout.WorldMaxX * 0.5f, ZoneLayout.WorldMaxY * 0.5f)
+        : camera_;
+
     private SpriteAtlas? atlas_;
 
     /// <summary>리소스를 못 읽었으면 null 이 들어오고, 그때는 예전처럼 도형으로 그린다.</summary>
@@ -58,24 +106,41 @@ public sealed class ZoneView
 
     public void Layout(Rectangle bounds) => Bounds = bounds;
 
+    /// <summary>카메라를 여기로 옮긴다. 매 프레임 내 캐릭터 위치로 부른다.</summary>
+    public void SetCamera(float x, float y) => camera_ = new Vector2(x, y);
+
+    /// <summary>월드 1 unit 이 화면 몇 픽셀인가.</summary>
+    private float PixelsPerUnit => Bounds.Width / ViewSpan;
+
+    /// <summary>지금 화면에 들어오는 월드 사각형. **여기 밖은 아예 그리지 않는다** --
+    /// Painter 에 클리핑이 없어서, 밖을 그리면 HUD 위에 덧그려진다.</summary>
+    private (float MinX, float MaxX, float MinY, float MaxY) VisibleWorld()
+    {
+        var halfWidth = ViewSpan * 0.5f;
+        var halfHeight = (Bounds.Height / PixelsPerUnit) * 0.5f;
+        var center = CameraCenter;
+        return (center.X - halfWidth, center.X + halfWidth,
+                center.Y - halfHeight, center.Y + halfHeight);
+    }
+
     /// <summary>월드 좌표를 화면 픽셀로. y는 위아래를 뒤집는다(월드는 위로 증가).</summary>
     public Vector2 WorldToScreen(float x, float y)
     {
-        var normalizedX = x / ZoneLayout.WorldMaxX;
-        var normalizedY = y / ZoneLayout.WorldMaxY;
+        var scale = PixelsPerUnit;
+        var center = CameraCenter;
         return new Vector2(
-            Bounds.X + (normalizedX * Bounds.Width),
-            Bounds.Y + ((1.0f - normalizedY) * Bounds.Height));
+            Bounds.X + (Bounds.Width * 0.5f) + ((x - center.X) * scale),
+            Bounds.Y + (Bounds.Height * 0.5f) - ((y - center.Y) * scale));
     }
 
     /// <summary>화면 픽셀을 월드 좌표로. 존 뷰 클릭으로 이동 목표를 찍는 데 쓴다.</summary>
     public Vector2 ScreenToWorld(Point screen)
     {
-        var normalizedX = (screen.X - Bounds.X) / (float)Bounds.Width;
-        var normalizedY = 1.0f - ((screen.Y - Bounds.Y) / (float)Bounds.Height);
+        var scale = PixelsPerUnit;
+        var center = CameraCenter;
         return new Vector2(
-            normalizedX * ZoneLayout.WorldMaxX,
-            normalizedY * ZoneLayout.WorldMaxY);
+            center.X + ((screen.X - Bounds.X - (Bounds.Width * 0.5f)) / scale),
+            center.Y - ((screen.Y - Bounds.Y - (Bounds.Height * 0.5f)) / scale));
     }
 
     public void Draw(Painter painter, WorldModel world, double nowSeconds)
@@ -110,27 +175,30 @@ public sealed class ZoneView
             // 존 4개 × 4장 = 16 드로우라 더 싸다.
             if (atlas_ is not null && atlas_.TryGetTile((int)zoneId, out var tile))
             {
-                const int TilesPerZone = 2;
-                var cellWidth = rect.Width / (float)TilesPerZone;
-                var cellHeight = rect.Height / (float)TilesPerZone;
+                // 한 장이 덮는 월드 크기를 고정해 둔다 -- 존이 커져도 무늬가 늘어나지 않고,
+                // 칸이 작아져서 화면 밖 칸을 통째로 건너뛰기도 쉬워진다.
+                var tilesPerZone = Math.Max(2, (int)(ZoneLayout.ZoneSize / 10.0f));
+                var cellWidth = rect.Width / (float)tilesPerZone;
+                var cellHeight = rect.Height / (float)tilesPerZone;
                 var tint = isMine ? new Color(190, 235, 210) : new Color(150, 160, 185);
 
-                for (var ty = 0; ty < TilesPerZone; ++ty)
+                for (var ty = 0; ty < tilesPerZone; ++ty)
                 {
-                    for (var tx = 0; tx < TilesPerZone; ++tx)
+                    for (var tx = 0; tx < tilesPerZone; ++tx)
                     {
                         // 마지막 칸은 남는 픽셀까지 덮어 존 경계에 한 줄이 비지 않게 한다.
                         var x = rect.X + (int)(tx * cellWidth);
                         var y = rect.Y + (int)(ty * cellHeight);
-                        var w = (tx == TilesPerZone - 1) ? (rect.Right - x) : (int)MathF.Ceiling(cellWidth);
-                        var h = (ty == TilesPerZone - 1) ? (rect.Bottom - y) : (int)MathF.Ceiling(cellHeight);
-                        painter.SpriteBatch.Draw(tile, new Rectangle(x, y, w, h), tint);
+                        var w = (tx == tilesPerZone - 1) ? (rect.Right - x) : (int)MathF.Ceiling(cellWidth);
+                        var h = (ty == tilesPerZone - 1) ? (rect.Bottom - y) : (int)MathF.Ceiling(cellHeight);
+                        DrawTileClipped(painter, tile, new Rectangle(x, y, w, h), tint);
                     }
                 }
             }
             else
             {
-                painter.FillRect(rect, isMine ? new Color(24, 40, 34) : new Color(20, 24, 34));
+                painter.FillRect(Rectangle.Intersect(rect, Bounds),
+                                 isMine ? new Color(24, 40, 34) : new Color(20, 24, 34));
             }
 
             var label = $"Zone {zoneId}";
@@ -178,46 +246,99 @@ public sealed class ZoneView
         var threadColor = new Color(210, 150, 70);
         var processColor = new Color(120, 180, 235);
 
+        // 그리드와 같은 이유로 보이는 범위만 그린다.
+        var view = VisibleWorld();
+
         for (var column = 1; column < ZoneLayout.ZonesPerRow; ++column)
         {
             var x = column * ZoneLayout.ZoneSize;
-            painter.Line(WorldToScreen(x, ZoneLayout.WorldMaxY), WorldToScreen(x, 0.0f), threadColor, 2.0f);
+            if (x < view.MinX || x > view.MaxX)
+            {
+                continue;
+            }
+
+            var top = MathF.Min(view.MaxY, ZoneLayout.WorldMaxY);
+            var bottom = MathF.Max(view.MinY, 0.0f);
+            painter.Line(WorldToScreen(x, top), WorldToScreen(x, bottom), threadColor, 2.0f);
             painter.SmallText("핸드오프 경계 (같은 프로세스, 스레드만 다름)",
-                              WorldToScreen(x, 0.0f) + new Vector2(6, -18), threadColor);
+                              WorldToScreen(x, bottom) + new Vector2(6, -18), threadColor);
         }
 
         for (var row = 1; row < ZoneLayout.ZoneRows; ++row)
         {
             var y = row * ZoneLayout.ZoneSize;
-            painter.Line(WorldToScreen(0.0f, y), WorldToScreen(ZoneLayout.WorldMaxX, y), processColor, 2.0f);
+            if (y < view.MinY || y > view.MaxY)
+            {
+                continue;
+            }
+
+            var left = MathF.Max(view.MinX, 0.0f);
+            var right = MathF.Min(view.MaxX, ZoneLayout.WorldMaxX);
+            painter.Line(WorldToScreen(left, y), WorldToScreen(right, y), processColor, 2.0f);
             painter.SmallText("핸드오프 경계 (프로세스를 넘는다)",
-                              WorldToScreen(0.0f, y) + new Vector2(6, 4), processColor);
+                              WorldToScreen(left, y) + new Vector2(6, 4), processColor);
         }
+    }
+
+    /// <summary>
+    /// 타일 한 장을 그리되 **화면 밖은 잘라낸다.** Painter 에 클리핑이 없어서 자르지 않으면
+    /// HUD 위에 덧그려지고, 목적지만 자르면 그림이 늘어난다 -- 자른 비율만큼 원본도 자른다.
+    /// </summary>
+    private void DrawTileClipped(Painter painter, Microsoft.Xna.Framework.Graphics.Texture2D tile,
+                                 Rectangle dest, Color tint)
+    {
+        var clipped = Rectangle.Intersect(dest, Bounds);
+        if (clipped.Width <= 0 || clipped.Height <= 0)
+        {
+            return;
+        }
+
+        var source = new Rectangle(
+            (int)((clipped.Left - dest.Left) / (float)dest.Width * tile.Width),
+            (int)((clipped.Top - dest.Top) / (float)dest.Height * tile.Height),
+            (int)(clipped.Width / (float)dest.Width * tile.Width),
+            (int)(clipped.Height / (float)dest.Height * tile.Height));
+
+        if (source.Width <= 0 || source.Height <= 0)
+        {
+            return;
+        }
+
+        painter.SpriteBatch.Draw(tile, clipped, source, tint);
     }
 
     private void DrawGrid(Painter painter)
     {
         var gridColor = new Color(255, 255, 255, 14);
 
+        // **보이는 범위만 그린다.** 카메라가 생기면서 월드 전체를 도는 루프는 대부분이
+        // 화면 밖이 되고, Painter 에 클리핑이 없어서 그 선들이 HUD 위에 덧그려진다.
+        var view = VisibleWorld();
+        const float Step = 10.0f;
+
         // 존 경계는 DrawZoneBoundaries가 굵게 그리므로 여기서는 건너뛴다.
-        for (var x = 1.0f; x < ZoneLayout.WorldMaxX; x += 1.0f)
+        for (var x = MathF.Ceiling(MathF.Max(view.MinX, 0.0f) / Step) * Step;
+             x <= MathF.Min(view.MaxX, ZoneLayout.WorldMaxX); x += Step)
         {
             if (MathF.Abs(x % ZoneLayout.ZoneSize) < 0.001f)
             {
                 continue;
             }
 
-            painter.Line(WorldToScreen(x, 0.0f), WorldToScreen(x, ZoneLayout.WorldMaxY), gridColor);
+            painter.Line(WorldToScreen(x, MathF.Max(view.MinY, 0.0f)),
+                         WorldToScreen(x, MathF.Min(view.MaxY, ZoneLayout.WorldMaxY)), gridColor);
         }
 
-        for (var y = 1.0f; y < ZoneLayout.WorldMaxY; y += 1.0f)
+        for (var y = MathF.Ceiling(MathF.Max(view.MinY, 0.0f) / Step) * Step;
+             y <= MathF.Min(view.MaxY, ZoneLayout.WorldMaxY); y += Step)
         {
             if (MathF.Abs(y % ZoneLayout.ZoneSize) < 0.001f)
             {
                 continue;
             }
 
-            painter.Line(WorldToScreen(0.0f, y), WorldToScreen(ZoneLayout.WorldMaxX, y), gridColor);
+            painter.Line(WorldToScreen(MathF.Max(view.MinX, 0.0f), y),
+                         WorldToScreen(MathF.Min(view.MaxX, ZoneLayout.WorldMaxX), y), gridColor);
         }
     }
 
@@ -307,7 +428,7 @@ public sealed class ZoneView
         //
         // atlas.Scale(2배 납품)은 여기서 따로 나누지 않는다 -- 프레임 크기 192 에 이미 반영돼
         // 있어서 또 나누면 절반이 된다.
-        var pixelsPerUnit = Bounds.Width / ZoneLayout.WorldMaxX;
+        var pixelsPerUnit = PixelsPerUnit;
         var scale = (BodyUnits * pixelsPerUnit) / BodyFramePixels;
 
         // 흐려진 플레이어는 어둡게, 나는 살짝 밝게 -- 도형일 때 색으로 하던 구분을 유지한다.

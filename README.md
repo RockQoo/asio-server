@@ -32,7 +32,7 @@ Client ──▶ GatewayServer ──▶ WorldServer ──▶ ZoneServer ──
 | [docs/Client.html](docs/Client.html) | 시각 클라이언트. 지금 클라이언트가 메워주고 있는 서버의 빈자리 |
 | [docs/GatewayServer.html](docs/GatewayServer.html) | 접속 종단, 게임 로직 0 |
 | [docs/WorldServer.html](docs/WorldServer.html) | 라우팅 두뇌와 DB 관문 |
-| [docs/ZoneServer.html](docs/ZoneServer.html) | 레인 네 개, UnitOfWork와 역순 롤백 |
+| [docs/ZoneServer.html](docs/ZoneServer.html) | 레인 다섯, 담당 존마다 처리기 네 벌. UnitOfWork와 역순 롤백 |
 | [docs/DB.html](docs/DB.html) | 스키마·SP 골격·트랜잭션 |
 | [docs/sequences/](docs/sequences/index.html) | **패킷 시퀀스 다이어그램** — 대표 기능이 어느 스레드를 거치는지 |
 | [docs/design/](docs/design/README.md) | 소스에서 옮겨온 설계 근거 |

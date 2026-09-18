@@ -29,13 +29,13 @@ kebab-case(`.claude/rules/md-patterns.md`). 대상 타입 이름을 그대로 �
 
 | 문서 | 대상 |
 |------|------|
-| [processor-group.md](processor-group.md) | `Shared/Core/Src/Processor/Group.h` |
+| [processor-group.md](processor-group.md) | `Server/Core/Src/Processor/Group.h` |
 | [player-and-models.md](player-and-models.md) | `Server/ZoneServer/Src/Player/Player.h` |
 | [locking-strategy.md](locking-strategy.md) | `Thread/Mutexed.h`, `PlayerManager`, `ZoneLinkRegistry` |
-| [unit-of-work.md](unit-of-work.md) | `Shared/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |
-| [wire-format.md](wire-format.md) | `Shared/Common/Src/Packet/ToolLinkPackets.h`, `.../ZoneLinkPackets.h` |
-| [unique-id.md](unique-id.md) | `Shared/Core/Src/Base/RUID.h` |
-| [config-file.md](config-file.md) | `Shared/Core/Src/Base/ConfigFile.h`, `config/*.cfg` |
-| [parameter-passing.md](parameter-passing.md) | `Shared/Common/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |
-| [strong-id.md](strong-id.md) | `Shared/Common/Src/StrongId.h`, `Ids.h` |
+| [unit-of-work.md](unit-of-work.md) | `Server/Core/Src/Task/UnitOfWork.h`, `Server/ZoneServer/Src/Task/ZoneUnitOfWork.cpp` |
+| [wire-format.md](wire-format.md) | `Server/Common/Src/Packet/ToolLinkPackets.h`, `.../ZoneLinkPackets.h` |
+| [unique-id.md](unique-id.md) | `Server/Core/Src/Base/RUID.h` |
+| [config-file.md](config-file.md) | `Server/Core/Src/Base/ConfigFile.h`, `config/*.cfg` |
+| [parameter-passing.md](parameter-passing.md) | `Server/Common/Src/StrongId.h`, 값/`const&` 매개변수 규칙 |
+| [strong-id.md](strong-id.md) | `Server/Common/Src/StrongId.h`, `Ids.h` |
 | [network-lane.md](network-lane.md) | `Server/Core/Src/Pipeline/Types.h`, `Server/Core/Src/Network/Session.h` |

@@ -51,7 +51,7 @@
 
 <h2>패킷 번호 대역</h2>
 <div class="panel">
-패킷 id는 <code>Shared/Common/Src/PacketId.h</code> 하나로 통합돼 있고, 이름 앞 3글자가
+패킷 id는 <code>Server/Common/Src/PacketId.h</code> 하나로 통합돼 있고, 이름 앞 3글자가
 <b>발신 → 수신</b> 방향이다(<code>C2ZMailAdd</code> = Client → Zone). 방향마다 1000 단위로
 대역을 잘라서, <b>값 하나만 보면 어느 소켓의 패킷인지 판정</b>된다.
 규약 원문은 <code>.claude/rules/packet-naming.md</code>.

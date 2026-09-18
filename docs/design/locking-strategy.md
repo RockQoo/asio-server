@@ -1,7 +1,7 @@
 # 락 전략 — 네 가지를 상황별로 나눠 쓴다
 
-대상 코드: `Shared/Core/Src/Thread/Mutexed.h`, `Server/WorldServer/Src/World/PlayerManager.h`,
-`Server/WorldServer/Src/World/ZoneLinkRegistry.h`, `Server/ZoneServer/Src/Player/PlayerRegistry.h`
+대상 코드: `Server/Core/Src/Thread/Mutexed.h`, `Server/WorldServer/Src/World/PlayerManager.h`,
+`Server/WorldServer/Src/World/ZoneLinkRegistry.h`, `Server/ZoneServer/Src/Unit/UnitContainer.h`
 
 ## 목적은 "락 없음"이 아니다
 
@@ -11,7 +11,7 @@
 | 전략 | 쓰는 자리 | 예 |
 |------|-----------|-----|
 | ① 레인 어피니티 | 주인이 분명한 데이터 | `Player`의 지갑, `Instance`의 로스터 |
-| ② 샤딩 | 주인별로 나뉘지만 컨테이너를 공유해야 하는 것 | `PlayerRegistry`(Zone) |
+| ② 샤딩 | 주인별로 나뉘지만 컨테이너를 공유해야 하는 것 | 없음 -- 존은 `UnitContainer` 의 `shared_mutex` 로 바꿨다(아래) |
 | ③ 스냅샷 전달 | 다른 레인이 읽어야 하는 것 | 브로드캐스트 대상 목록 |
 | ④ 명시적 락(`Mutexed`) | 주인을 가로질러 접근하는 자리 | `PlayerManager`, `ZoneLinkRegistry`, 우편함 |
 

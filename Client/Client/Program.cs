@@ -1,4 +1,13 @@
 using Client;
+using System.Runtime.InteropServices;
+
+// **DPI 인식을 먼저 켠다.** 켜지 않으면 Windows 가 창을 가상화해서, 아래에서 요청한
+// 백버퍼 크기가 실제 픽셀의 절반짜리 창으로 나온다(4K 에 배율 200%면 1800 요청이 906 이 된다).
+// GraphicsDeviceManager 를 만들기 전에 불러야 효과가 있다.
+if (OperatingSystem.IsWindows())
+{
+    _ = DpiSupport.SetProcessDpiAwarenessContext(DpiSupport.DpiAwarenessContextPerMonitorAwareV2);
+}
 
 // 실행 인자: [GatewayHost] [GatewayPort] [GmToolBaseUrl]
 //            (+ 어디든 --auto / --auto-rev / --id=<아이디> / --pw=<비밀번호>)
@@ -57,3 +66,17 @@ if (positional.Length > 2)
 
 using var game = new ClientGame(options);
 game.Run();
+
+// DPI 인식을 켜는 Win32 진입점. .NET 에 이걸 켜는 표준 API 가 없어서 직접 부른다.
+static class DpiSupport
+{
+    // PerMonitorAwareV2 의 상수값. 모니터마다 배율이 다른 환경에서도 창을 옮길 때 다시 맞춘다.
+    internal static readonly nint DpiAwarenessContextPerMonitorAwareV2 = -4;
+
+    // LibraryImport 가 아니라 DllImport 인 이유: LibraryImport 는 생성 코드가 unsafe 라
+    // 프로젝트에 AllowUnsafeBlocks 를 켜야 한다. 기동에 한 번 부르는 함수 하나 때문에
+    // 프로젝트 전체의 unsafe 를 켜지 않는다.
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetProcessDpiAwarenessContext(nint value);
+}

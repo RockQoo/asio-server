@@ -32,8 +32,9 @@ namespace Stress
             auto accountName = std::format("{}{:05}", config_.accountPrefix, i);
 
             sessions_.push_back(std::make_unique<Session>(
-                i, ioPool_.Next(), config_.host, config_.port, config_.cyclesPerSession, isBroadcaster, stats_,
-                std::move(accountName), config_.accountPassword));
+                i, ioPool_.Next(), config_.host, config_.port, config_.cyclesPerSession, isBroadcaster,
+                config_.moveInterval, config_.roamWorld, stats_, std::move(accountName),
+                config_.accountPassword));
         }
     }
 

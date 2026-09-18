@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a C++23, x64-only Visual Studio solution. `Shared/Core/Src/` contains reusable networking, packet, threading, timer, logging, and task infrastructure and builds as a static library. `Server/GatewayServer/`, `Server/WorldServer/`, and `Server/ZoneServer/` contain the distributed server processes; keep game-state logic in the owning server rather than `Core`. `Tool/ProtocolClient/` is the interactive protocol client, while `Tool/StressClient/` drives concurrent-session tests. `Client/` is reserved for a future game client and is empty for now. Documentation lives in `docs/`, launch scripts in `bat/`, and vendored standalone Asio in `3rd/asio/`. Build outputs under `bin/`, `obj/`, and logs are generated and must not be committed.
+This is a C++23, x64-only Visual Studio solution. `Server/Core/Src/` contains reusable networking, packet, threading, timer, logging, and task infrastructure and builds as a static library. `Server/GatewayServer/`, `Server/WorldServer/`, and `Server/ZoneServer/` contain the distributed server processes; keep game-state logic in the owning server rather than `Core`. `Tool/ProtocolClient/` is the interactive protocol client, while `Tool/StressClient/` drives concurrent-session tests. `Client/` is reserved for a future game client and is empty for now. Documentation lives in `docs/`, launch scripts in `bat/`, and vendored standalone Asio in `3rd/asio/`. Build outputs under `bin/`, `obj/`, and logs are generated and must not be committed.
 
 ## Build, Test, and Development Commands
 

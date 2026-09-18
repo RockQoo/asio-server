@@ -14,7 +14,15 @@ namespace Stress
         size_t sessionCount{1000};
         uint32_t cyclesPerSession{200};
         size_t rampUpPerSecond{500};
+        // 이동을 보내는 세션 수. 이동 부하를 재려면 sessionCount 와 같게 준다.
         size_t broadcasterCount{50};
+
+        // 이동 하나를 보내는 간격. 실제 클라이언트는 초당 여러 번 보내므로, 이동을 재는
+        // 회차에서는 이 값을 짧게 준다.
+        std::chrono::milliseconds moveInterval{2500};
+
+        // 봇이 존 경계를 넘어 월드 전체를 돌아다니는가. 핸드오프까지 같이 재는 회차에서 켠다.
+        bool roamWorld{false};
         std::chrono::seconds stallThreshold{15};
         std::chrono::seconds maxDuration{300};
         size_t ioThreadCount{0};  // 0 -> std::thread::hardware_concurrency()

@@ -1,6 +1,6 @@
 # Group — 메시지 큐 + 레인 어피니티
 
-대상 코드: `Shared/Core/Src/Processor/Group.h`
+대상 코드: `Server/Core/Src/Processor/Group.h`
 
 ## 한 줄 요약
 

@@ -1,6 +1,6 @@
 # 설정 파일 — 왜 파서를 직접 만들었나
 
-대상 코드: `Shared/Core/Src/Base/ConfigFile.h`, `config/*.cfg`
+대상 코드: `Server/Core/Src/Base/ConfigFile.h`, `config/*.cfg`
 
 ## 형식
 

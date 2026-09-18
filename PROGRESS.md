@@ -155,12 +155,12 @@
     `Z2CTaskResult`)를 실제로 수신하는 것까지 확인했다. 툴 자체는 xUnit 77개.
 - **패킷 id 통합/네이밍**(2026-09-07): 링크별로 흩어져 있던 4개 enum(`Zone::PacketId`,
   `GatewayLinkPacketId`, `ZoneLinkPacketId`, `ToolLinkPacketId`)이 전부 1번부터 값을 쓰고
-  있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Shared/Common/Src/PacketId.h`의
+  있어서, 같은 숫자가 링크마다 다른 뜻이었다. `Server/Common/Src/PacketId.h`의
   **`Common::PacketId` 하나**로 합치고 이름 앞 3글자를 발신→수신 방향으로 고정했다
   (`C2ZMove`, `W2TCommandResult`). 방향마다 1000 단위로 대역을 잘라 **값 하나로 어느
   소켓의 패킷인지 판정**된다 — 규약 원문은 `.claude/rules/packet-naming.md`.
   - 부수로 갈라진 것: 요청과 응답이 id를 공유하던 `C2ZEcho`/`C2ZMove`/`C2ZChat`이 분리됐고
-    (`C2ZEcho`/`Z2CEchoAck` 등), `Z2CMoveNotify` 본문 앞에 `sessionId(uint32)`가 붙었다
+    (`C2ZEcho`/`Z2CEcho` 등), `Z2CMoveNotify` 본문 앞에 `sessionId(uint32)`가 붙었다
     (그전에는 브로드캐스트에 누가 움직였는지가 없었다 — **와이어 포맷 변경**).
   - `Session::SendPacket`/`Packet::BuildFrame`에 `std::is_enum_v` 제약의 enum 오버로드를
     얹어 호출부 `static_cast` 38곳을 없앴다(Core는 여전히 콘텐츠를 모른다).
@@ -395,10 +395,10 @@
    C++ 을 원본으로 두고 C# 만 생성하면 언어 하나가 특별해지고 파서가 헤더 문법에 얽매인다.
 
    ```
-   Shared/Common/Def/*.yml   (packet_id / error_code / task_kind / currency_type / zone_layout)
+   Server/Common/Def/*.yml   (packet_id / error_code / task_kind / currency_type / zone_layout)
              |
              v   bat\gen_protocol.bat
-   Shared/Common/Src/*.g.h  +  Client/Src/Protocol/*.g.cs  +  GmTool.Core/Protocol/*.g.cs
+   Server/Common/Src/*.g.h  +  Client/Src/Protocol/*.g.cs  +  GmTool.Core/Protocol/*.g.cs
    ```
 
    - **범위는 enum·상수까지**다. 패킷 **본문**(필드 레이아웃과 Read/Write)은 계속 손으로 쓴다 --

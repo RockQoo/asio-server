@@ -24,7 +24,8 @@ public sealed class Hud
     /// </param>
     /// <param name="autoTourReverse">자동 순회가 반대 방향인가. 창 여러 개를 구분하는 데 쓴다.</param>
     public void DrawStatusBar(Painter painter, GameLink link, WorldModel world, Rectangle bounds,
-                              int? autoTour = null, bool autoTourReverse = false)
+                              int? autoTour = null, bool autoTourReverse = false,
+                              ZoneView? zoneView = null, int visiblePlayers = 0)
     {
         painter.FillRect(bounds, new Color(16, 20, 30, 245));
         painter.FillRect(new Rectangle(bounds.X, bounds.Bottom - 1, bounds.Width, 1), new Color(60, 76, 100));
@@ -64,6 +65,18 @@ public sealed class Hud
 
         var rttText = world.RttMs is { } rtt ? $"{rtt:0.0} ms" : "측정 중";
         x = DrawField(painter, "Ping RTT", rttText, new Color(180, 200, 235), x, y);
+
+        // **조작이 있으면 화면에도 적어둔다.** 키만 만들어 두면 있는 줄 모르고, 지금 시야가
+        // 얼마인지도 알 수 없다.
+        if (zoneView is not null)
+        {
+            x = DrawField(painter, "보기(F3)", zoneView.WorldView ? "월드 전체" : "캐릭터 중심",
+                          new Color(150, 200, 235), x, y);
+            x = DrawField(painter, "시야(F4/휠)", $"{zoneView.ViewSpan:0} units",
+                          new Color(150, 200, 235), x, y);
+        }
+
+        x = DrawField(painter, "보이는 사람", visiblePlayers.ToString(), new Color(205, 218, 238), x, y);
 
         // 자동 순회는 켜져 있을 때만 자리를 쓴다 -- 평소엔 상태줄을 좁히지 않는다.
         if (autoTour is { } tour)
@@ -134,7 +147,7 @@ public sealed class Hud
         painter.FillRect(new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), new Color(50, 62, 84));
 
         const string Help =
-            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 핑  ·  F2 자동 순회  ·  Esc 입력/패널 닫기";
+            "WASD/방향키 이동  ·  존 뷰 클릭으로 순간 이동  ·  Enter 채팅 입력  ·  F1 핑  ·  F2 자동 순회  ·  F3 전체보기  ·  F4 시야  ·  휠 확대축소  ·  Esc 닫기";
         painter.SmallText(Help, new Vector2(bounds.X + 12, bounds.Y + 5), new Color(130, 144, 168));
 
         var fontText = $"글꼴: {fontName}";

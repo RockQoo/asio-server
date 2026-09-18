@@ -63,17 +63,22 @@ namespace Stress
     }
 
     Session::Session(const size_t index, asio::io_context& ioContext, std::string host, const uint16_t port,
-                                  const uint32_t cyclesTarget, const bool isBroadcaster, Stats& stats,
+                                  const uint32_t cyclesTarget, const bool isBroadcaster,
+                                  const std::chrono::milliseconds moveInterval, const bool roamWorld, Stats& stats,
                                   std::string accountName, std::string password)
         : index_(index)
         , ioContext_(ioContext)
         , host_(std::move(host))
         , port_(port)
         , cyclesTarget_(cyclesTarget)
+        , moveInterval_(moveInterval)
+        , roamWorld_(roamWorld)
         , isBroadcaster_(isBroadcaster)
         , stats_(stats)
         , accountName_(std::move(accountName))
         , password_(std::move(password))
+        // 세션마다 다른 씨앗이라 전원이 같은 경로로 몰려다니지 않는다.
+        , random_(static_cast<std::mt19937::result_type>(index + 1))
     {
         // 접속 전부터 "진행이 없었다"고 취급되지 않도록(워치독이 now()-lastProgressAt으로
         // 정체를 판단하므로) 생성 시점을 기준선으로 잡아둔다.
@@ -196,7 +201,13 @@ namespace Stress
         {
             StartBroadcastTimer();
         }
-        SendMailAdd();
+
+        // **사이클이 0 이면 이동만 재는 회차다.** 우편을 안 보내므로 이 세션은 스스로
+        // 끝나지 않고, maxDuration 이 끝을 정한다.
+        if (cyclesTarget_ > 0)
+        {
+            SendMailAdd();
+        }
     }
 
     void Session::HandleTaskResult(const std::span<const byte> payload)
@@ -354,7 +365,7 @@ namespace Stress
     void Session::StartBroadcastTimer()
     {
         broadcastTimer_ = std::make_unique<Timer::RepeatingTimer>(ioContext_);
-        broadcastTimer_->Start(std::chrono::milliseconds(2500), [this]
+        broadcastTimer_->Start(moveInterval_, [this]
         {
             if (!session_)
             {
@@ -369,7 +380,10 @@ namespace Stress
             // **y가 뒤집혀 있다는 점에 주의**: 격자는 `1 2` / `3 4`인데 1행이 위쪽이라
             // yMax = (kZoneRows - row) * kZoneSize다. 여기를 row * kZoneSize로 잘못 쓰면
             // 1번 존 사람이 3번 존 좌표로 움직여 곧바로 핸드오프된다(실제로 그랬다).
-            constexpr float kZoneSize = 10.0f;
+            constexpr float kZoneSize = 100.0f;
+
+            // 한 번에 옮기는 최대 거리. 존이 10 칸이라 이 값이면 몇 초에 존을 가로지른다.
+            constexpr float kMoveStep = 3.5f;
             constexpr uint32_t kZonesPerRow = 2;
             constexpr uint32_t kZoneRows = 2;
             const auto zoneIndex = zoneId_ > 0 ? zoneId_ - 1 : 0;
@@ -380,8 +394,37 @@ namespace Stress
 
             // 경계에 붙지 않도록 1~9 사이에서만 흔든다(xMax/yMax는 배타적 경계다).
             Common::Position move{};
-            move.x = xMin + 1.0f + static_cast<float>(index_ % 8);
-            move.y = yMin + 1.0f + static_cast<float>((index_ / 8) % 8);
+            // **존 안을 랜덤 워크로 돌아다닌다.** 격자 위 몇 칸을 반복하면 눈으로 볼 때
+            // 움직임이 아니라 깜빡임으로 보이고, 좌표가 몇 종류뿐이라 이동 부하도
+            // 과소평가된다.
+            //
+            // 경계에 0.5 여유를 두고 자른다 -- xMax/yMax 는 배타적 경계라 딱 붙으면
+            // 부동소수 반올림 한 번에 존을 넘어가 핸드오프가 걸린다.
+            // 첫 이동 때 존 한가운데에서 시작한다 -- 0 에서 시작하면 전원이 한쪽 구석에
+            // 몰린 채로 출발한다.
+            if (moveCount_ == 0)
+            {
+                std::uniform_real_distribution<float> spawn(1.0f, kZoneSize - 1.0f);
+                moveX_ = xMin + spawn(random_);
+                moveY_ = yMin + spawn(random_);
+            }
+            ++moveCount_;
+
+            // **가두느냐 풀어놓느냐로 재는 것이 달라진다.**
+            //   가둠   브로드캐스트만 -- 존 경계를 안 넘으므로 핸드오프가 0 이다
+            //   풀어놓음 브로드캐스트 + 핸드오프 -- 랜덤 워크가 알아서 존 4 개에 퍼진다
+            // 둘을 한 회차에 섞으면 어느 쪽 때문에 느린지 갈라낼 수 없어서 옵션으로 둔다.
+            const auto minX = roamWorld_ ? 0.5f : xMin + 0.5f;
+            const auto maxX = roamWorld_ ? (kZoneSize * kZonesPerRow) - 0.5f : xMin + kZoneSize - 0.5f;
+            const auto minY = roamWorld_ ? 0.5f : yMin + 0.5f;
+            const auto maxY = roamWorld_ ? (kZoneSize * kZoneRows) - 0.5f : yMin + kZoneSize - 0.5f;
+
+            std::uniform_real_distribution<float> step(-kMoveStep, kMoveStep);
+            moveX_ = std::clamp(moveX_ + step(random_), minX, maxX);
+            moveY_ = std::clamp(moveY_ + step(random_), minY, maxY);
+
+            move.x = moveX_;
+            move.y = moveY_;
             session_->SendPacket(PacketId::C2ZMove, std::as_bytes(std::span(&move, 1)));
 
             stats_.RecordBroadcastSent(stats_.ActiveSessionCount());

@@ -8,7 +8,7 @@
 namespace
 {
     // 존 하나의 크기(월드 단위). 가로세로 같은 정사각형이라 격자가 눈으로 바로 읽힌다.
-    constexpr float kZoneSize = 10.0f;
+    constexpr float kZoneSize = 100.0f;
 
     // 한 행에 놓는 존 개수. 2면 존 4개가 2x2 격자가 된다:
     //

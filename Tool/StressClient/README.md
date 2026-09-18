@@ -88,7 +88,7 @@ Mail Del 송신/Ack: ...
 | `Src/Stats/Stats.{h,cpp}` | 집계 지점. 카운터를 `std::atomic`으로 둬서 모든 세션이 락 없이 올린다 |
 | `Src/Stats/LatencyHistogram.{h,cpp}` | 지연 히스토그램(백분위 계산용) |
 
-세션마다 스레드를 만들지 않는다. `Shared/Core`의 `IoContextPool`로 I/O 스레드를 코어 수만큼만
+세션마다 스레드를 만들지 않는다. `Server/Core`의 `IoContextPool`로 I/O 스레드를 코어 수만큼만
 두고 그 위에 세션 수천 개를 비동기로 다중화한다 — 1만 세션에 1만 스레드를 띄우면 컨텍스트
 스위치 비용이 측정 대상을 압도해서, 클라이언트가 병목이 되어버린다.
 

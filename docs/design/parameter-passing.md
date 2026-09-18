@@ -1,6 +1,6 @@
 # 매개변수 전달 — 언제 값이고 언제 `const&`인가
 
-대상: `Shared/Common/Src/StrongId.h`,
+대상: `Server/Common/Src/StrongId.h`,
 `.claude/rules/cpp-patterns.md`의 "값 매개변수에 `const` 붙이기".
 
 ## 왜 이 문서가 있나

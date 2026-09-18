@@ -50,7 +50,7 @@ public sealed record ClientOptions(
 public sealed class ClientGame : Game
 {
     /// <summary>이동 속도(월드 단위/초). 존 폭이 10이라 이 속도면 경계까지 3초쯤 걸린다.</summary>
-    private const float MoveSpeed = 3.0f;
+    private const float MoveSpeed = 30.0f;
 
     /// <summary>이동 패킷 전송 주기(초). 프레임마다 보내면 서버 쪽 브로드캐스트가 과해진다.</summary>
     private const double MoveSendInterval = 0.05;
@@ -120,6 +120,17 @@ public sealed class ClientGame : Game
     private readonly ClientOptions options_;
     private readonly InputState input_ = new();
     private readonly WorldModel world_ = new();
+    /// <summary>
+    /// 이 모니터에 맞는 창 크기. 화면의 85%를 쓰되 너무 작아지지 않게 하한을 둔다.
+    /// **DPI 인식을 켠 뒤라야 이 값이 진짜 픽셀이다**(Program.cs 참고).
+    /// </summary>
+    private static (int Width, int Height) PreferredWindowSize()
+    {
+        var display = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+        return (Math.Max(1280, (int)(display.Width * 0.85f)),
+                Math.Max(800, (int)(display.Height * 0.85f)));
+    }
+
     private readonly ZoneView zoneView_ = new();
 
     /// <summary>캐릭터·장비 스프라이트. 리소스가 없으면 null 이고 ZoneView 가 도형으로 그린다.</summary>
@@ -199,8 +210,8 @@ public sealed class ClientGame : Game
 
         graphics_ = new GraphicsDeviceManager(this)
         {
-            PreferredBackBufferWidth = 1360,
-            PreferredBackBufferHeight = 860,
+            PreferredBackBufferWidth = PreferredWindowSize().Width,
+            PreferredBackBufferHeight = PreferredWindowSize().Height,
         };
 
         Content.RootDirectory = "Content";
@@ -526,10 +537,23 @@ public sealed class ClientGame : Game
 
         spriteBatch.Begin();
 
+        // **카메라를 내 캐릭터에 붙인다.** 서버가 확정해 준 위치가 있으면 그걸 쓰고,
+        // 아직 입장 전이면 내가 보낸 목표 위치로 따라간다(둘 다 없으면 월드 한가운데).
+        var me = world_.Me;
+        if (me is not null)
+        {
+            zoneView_.SetCamera(me.X, me.Y);
+        }
+        else if (world_.HasEnteredZone)
+        {
+            zoneView_.SetCamera(world_.RequestedX, world_.RequestedY);
+        }
+
         zoneView_.Draw(painter, world_, totalSeconds);
         hud_.DrawStatusBar(painter, link_, world_, new Rectangle(0, 0, screen.Width, 38),
                            autoTour_ ? autoTourZoneChanges_ : null,
-                           options_.AutoTourReverse);
+                           options_.AutoTourReverse,
+                           zoneView_, world_.Players.Count);
         hud_.DrawNoticeToast(painter, world_, screen, totalSeconds);
         hud_.DrawHelpBar(painter,
                          new Rectangle(0, screen.Height - 24, screen.Width, 24),
@@ -709,7 +733,7 @@ public sealed class ClientGame : Game
 
     private void SendPing()
     {
-        // Z2CEchoAck는 본문을 그대로 되돌려주므로, 보낼 때 전송 시각을 심어두면 서버가 왕복
+        // Z2CEcho는 본문을 그대로 되돌려주므로, 보낼 때 전송 시각을 심어두면 서버가 왕복
         // 시간을 알려주는 셈이 된다 — 클라이언트가 "몇 번째 핑을 언제 보냈는지"를 따로
         // 기억할 필요가 없다(응답이 순서대로 오지 않아도 상관없다).
         var writer = new BinaryPacketWriter(sizeof(long));

@@ -27,7 +27,7 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 #include "pch.h"                                 // 프로젝트마다 자기 것이 있다
 #include "App/App.h"                             // 같은 프로젝트
 #include "Cli/DbCheck.h"
-#include "Shared/Core/Src/Base/RUID.h"         // 다른 프로젝트
+#include "Server/Core/Src/Base/RUID.h"         // 다른 프로젝트
 ```
 
 접두사가 있으면 남의 것, 없으면 내 것 -- **줄만 보고 갈린다.** 전부 전체 경로였을 때는
@@ -35,17 +35,17 @@ BOM**으로 저장한다 — BOM 없이 이 플래그가 빠지면 MSVC가 CP949
 
 ### 예외 -- 다른 프로젝트가 가져다 쓰는 헤더는 전체 경로
 
-`Shared/Core`는 라이브러리라 **그 헤더가 남의 프로젝트 안에서 컴파일된다.** 짧은 경로는
+`Server/Core`는 라이브러리라 **그 헤더가 남의 프로젝트 안에서 컴파일된다.** 짧은 경로는
 그쪽 include 경로로 풀리지 않으므로(`Log/Entry.h` not found), **Core 안에서는 자기 헤더도
 전체 경로로 쓴다**(`pch.h`만 예외 -- `/Yu`가 이름으로 매칭하고 프로젝트마다 자기 것이 있다).
 
-같은 이유로 `Shared/Common` 의 헤더도 자기끼리 전체 경로를 쓴다. 어기면 빌드가 `C1083`으로
+같은 이유로 `Server/Common` 의 헤더도 자기끼리 전체 경로를 쓴다. 어기면 빌드가 `C1083`으로
 즉시 깨지므로 조용히 넘어가지는 않는다.
 
 **서버 프로젝트의 헤더는 애초에 공개되지 않는다.** 예전에는 `WorldServer/Src/Packet/*.h` 가
 Gateway·Zone 에 공개돼 있었는데, 그건 와이어 계약이 한 서버 프로젝트 안에 있었기 때문이고
-지금은 `Shared/Common/Src/Packet/` 으로 올라갔다. 둘 이상의 서버가 알아야 하는 것이 생기면
-남의 서버를 include 하지 말고 `Shared/Common` 으로 올린다.
+지금은 `Server/Common/Src/Packet/` 으로 올라갔다. 둘 이상의 서버가 알아야 하는 것이 생기면
+남의 서버를 include 하지 말고 `Server/Common` 으로 올린다.
 
 ## 헤더 Include 순서
 
@@ -68,7 +68,7 @@ include 하지 않고 자기 프로젝트 pch 만 include 한다(새 `.cpp` 첫 
 
 ### 지켜야 할 것 셋
 
-**① 6개 프로젝트의 pch 는 표준 헤더 목록이 같다.** `Shared/Core` 의 공개 헤더가 남의 프로젝트
+**① 6개 프로젝트의 pch 는 표준 헤더 목록이 같다.** `Server/Core` 의 공개 헤더가 남의 프로젝트
 안에서 컴파일되므로, 소비자 pch 에 그 헤더가 없으면 **거기서** 깨진다. 새 표준 헤더가 필요하면
 **6개 전부에 추가한다**(`ProtocolClient` 포함 — `.cpp` 하나뿐이지만 같은 이유로 pch 를 둔다).
 
@@ -80,7 +80,7 @@ include 하지 않고 자기 프로젝트 pch 만 include 한다(새 `.cpp` 첫 
 같은 문제다. **`<windows.h>` 는 반대로 pch 에 있다**: `asio.hpp` 가 이미 전 TU 에 끌고 오므로
 넣어도 달라지는 것이 없고, 넣어야 그걸 쓰는 파일이 줄을 지울 수 있다.
 
-**④ `Shared/Common` 은 예외다.** StaticLibrary 이지만 내용이 거의 헤더뿐이라 자기 pch 를
+**④ `Server/Common` 은 예외다.** StaticLibrary 이지만 내용이 거의 헤더뿐이라 자기 pch 를
 두지 않고, 6개 프로젝트 전부가 가져다 쓴다. 그래서 이 폴더의 헤더는 `<cstdint>` 같은 것을
 직접 include 해 **자기 완결적으로** 유지한다. `<asio.hpp>` 도 같은 이유로 그걸 쓰는 헤더에
 남겨둔다(표준 헤더가 아니라 서드파티라, 무엇이 asio 에 묶여 있는지 보이는 편이 낫다).
@@ -102,7 +102,7 @@ include 하지 않고 자기 프로젝트 pch 만 include 한다(새 `.cpp` 첫 
 
 **by-value 매개변수는, 본문에서 다시 `std::move()`해서 멤버/컨테이너로 넘기는 sink가 아니라면
 `const`를 붙인다.** Sink 패턴(`App(Config config)`,
-`Log::Logger(std::string path)`, `Processor::Group(std::string name, ...)`처럼 값으로 받아 본문에서 멤버로
+`Log::Logger(std::string path)` 처럼 값으로 받아 본문에서 멤버로
 move)엔 **`const`를 붙이면 안 된다** — 붙이면 `std::move(param)`이 `const T&&`가 되어 이동이
 복사로 조용히 강등된다. 이런 sink는 별도 `T&&` 오버로드도 필요 없다(값 매개변수 자체가 양쪽
 호출을 다 커버). **판단 기준**: 본문에서 다시 move하면 sink(const 금지), 읽기만 하면(호출자가
@@ -120,7 +120,7 @@ move로 넘겼어도) const 가능.
 ## Get 계열은 `const` 필수 (가변 참조 반환 접근자는 예외)
 
 읽기 전용 getter(`GetXxx`/`IsXxx`/`Xxx()`)는 예외 없이 `const`. **예외**: 호출자가 내부 상태를
-의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`WorkerManager::GetZoneInstance()`,
+의도적으로 바꾸도록 가변 참조/포인터를 반환하는 접근자(`Zone::Units()`,
 `IoContextPool::Next()`/`At()`, `Session::Socket()`)는
 `const`로 선언할 수 없다(컴파일 에러). 새 getter는 "호출자가 반환값으로 상태를 바꿔야
 하는가?"로 판단.
@@ -185,8 +185,8 @@ Base::RUID ruid{};        // X
 ```
 
 **그 자리는 이제 `requestId` 하나뿐이다.** 나머지는 `Common::StrongId<Tag, TValue, kInvalid>`
-(`Shared/Common/Src/StrongId.h`)로 **자기만의 타입**이 됐고, 별칭은
-`Shared/Common/Src/Ids.h`에 있다. 그 종류들은 `MailId mailId;`처럼 일반 규칙으로 돌아온다.
+(`Server/Common/Src/StrongId.h`)로 **자기만의 타입**이 됐고, 별칭은
+`Server/Common/Src/Ids.h`에 있다. 그 종류들은 `MailId mailId;`처럼 일반 규칙으로 돌아온다.
 
 | 종류 | 밑바탕 | 상태 |
 |---|---|---|
@@ -249,7 +249,7 @@ template <typename E> requires std::is_enum_v<E>
 
 ## `byte`/`size_t`/고정폭 정수는 `std::` 생략
 
-`Shared/Core/Src/Base/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
+`Server/Core/Src/Base/BasicTypes.h`가 `byte`/`size_t`/`int8_t`~`int64_t`/`uint8_t`~`uint64_t`를
 전역으로 `using` 해놨고 양쪽 `pch.h`가 include한다(PCH 없는 `ProtocolClient`는 직접 include).
 **이 10개 타입 한정** — `std::string`/`std::vector` 등 다른 표준 타입은 그대로 `std::`를 붙인다.
 
@@ -340,7 +340,7 @@ return "Unknown";
 밀리초 안을 가른다. 그리고 시각이 상위 비트라 **id가 시간순으로 커져서** 클러스터드 인덱스에
 append-only로 쌓인다.
 
-노드 번호는 대역이 정해져 있다(`Shared/Core/Src/Base/RUID.h`) — 0은 예약,
+노드 번호는 대역이 정해져 있다(`Server/Core/Src/Base/RUID.h`) — 0은 예약,
 1\~99가 World, 100\~199가 Zone, 255가 운영툴. **겹치면 서로 같은 id를 발급하므로 새 프로세스
 종류가 생기면 대역을 먼저 정하고 상수로 추가한다.**
 
@@ -353,8 +353,8 @@ append-only로 쌓인다.
 
 | enum | 위치 | 무엇 | 누가 보나 |
 |------|------|------|-----------|
-| `Base::ECoreErrorCode` | `Shared/Core/Src/Base/CoreErrorCode.h` | 프레이밍/인자 검증 실패(`PacketTooLarge`, `InvalidArgument`) | Core 내부. 밖으로 안 나감 |
-| `Common::EErrorCode` | `Shared/Common/Src/ErrorCode.h` | 콘텐츠 처리 실패(`MailNotFound` 등) | Zone이 판정, 클라이언트가 표시 |
+| `Base::ECoreErrorCode` | `Server/Core/Src/Base/CoreErrorCode.h` | 프레이밍/인자 검증 실패(`PacketTooLarge`, `InvalidArgument`) | Core 내부. 밖으로 안 나감 |
+| `Common::EErrorCode` | `Server/Common/Src/ErrorCode.h` | 콘텐츠 처리 실패(`MailNotFound` 등) | Zone이 판정, 클라이언트가 표시 |
 
 **콘텐츠 에러를 Core에 추가하지 않는다** — Core는 콘텐츠를 모르는 정적 라이브러리라,
 에러가 하나 늘 때마다 `Core.lib`과 그걸 참조하는 실행 파일 전부가 다시 빌드된다
@@ -436,7 +436,7 @@ if (const auto errorCode = player.Mail().Write()->AddMail(info, unitOfWork);
 
 ## 존 콘텐츠는 큰 분류마다 파일 하나 (`PlayerMail`)
 
-존 서버의 클라이언트 요청 처리는 **콘텐츠 큰 분류 = 파일 한 쌍**이다. `PlayerProcessor`는
+존 서버의 클라이언트 요청 처리는 **콘텐츠 큰 분류 = 파일 한 쌍**이다. `ZoneProcessor`는
 입장/퇴장과 라우팅만 맡고, 우편이면 `Processor/PlayerMail.{h,cpp}`, 인벤토리면
 `Handler/PlayerInventory.{h,cpp}`가 자기 패킷 등록과 핸들러를 전부 들고 있다.
 
@@ -454,7 +454,7 @@ private:
 지켜야 할 것:
 
 - **등록은 콘텐츠가 스스로 한다**(`PlayerMail::Register`). 우편 패킷을 하나 늘릴 때
-  `PlayerProcessor`를 고쳐야 한다면 파일을 나눈 의미가 없다.
+  `PlayerStreamHandler`를 고쳐야 한다면 파일을 나눈 의미가 없다.
 - **핸들러는 전부 `static`**이다. 필요한 것은 전부 `PlayerContext`(플레이어, zoneId,
   WorldLink)로 들어온다. 멤버를 두면 플레이어 레인의 여러 스레드가 공유하는 변수가 된다.
 - **모델은 나누지 않는다.** `Mail::Model`/`Currency::Model`은 그대로고, 나뉘는 것은 요청
@@ -465,12 +465,12 @@ private:
   역순으로 훑으며 각 태스크의 역연산을 부른다 -- 콘텐츠마다 "무엇을 되돌리나"를 다시 적으면
   추가한 곳과 되돌리는 곳이 갈린다.
 - **모델 변경도 DB 저장도 없는 것은 옮기지 않는다.** Move/Chat은 브로드캐스트가 전부라
-  UoW를 열지 않고, 그래서 `PlayerProcessor`에 남는다.
+  UoW를 열지 않고, 그래서 `PlayerStreamHandler`에 남는다.
 
 ## 가변 길이 본문에는 반드시 상한이 있어야 한다
 
 **문자열이나 목록을 이어 붙여 패킷 본문을 만드는 코드에는 예외 없이 상한을 둔다.**
-상한값은 `Shared/Common/Src/ContentLimit.h`에 모아둔다 -- Zone/World/클라이언트가 함께
+상한값은 `Server/Common/Src/ContentLimit.h`에 모아둔다 -- Zone/World/클라이언트가 함께
 지켜야 하는 계약이기 때문이다.
 
 **왜 이게 치명적인가**: 프레임 헤더의 `bodySize`가 `uint16`이고, 받는 쪽 `Packet::Buffer`는
@@ -544,7 +544,7 @@ LOG.Info(ELogCategory::Zone, "플레이어 입장").KV("Zone", zoneId_).KV("Sess
 
 **`ELogCategory`는 프로젝트마다 따로 있다** — `Log::Entry<TCategory>`는 카테고리 값을
 직접 갖지 않고 템플릿으로 받는다(scoped enum + 같은 네임스페이스의 ADL `ToString()`만 있으면
-됨 = `LogCategoryType` concept). Core가 게임 콘텐츠를 몰라야 하므로: `Shared/Core/Src/Log/
+됨 = `LogCategoryType` concept). Core가 게임 콘텐츠를 몰라야 하므로: `Server/Core/Src/Log/
 LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용, 콘텐츠 없음)와
 `ZoneServer`/`WorldServer`/`GatewayServer`/`StressClient`가 각자 자기 폴더에 갖는
 `Zone`/`World`/`Gateway`/`Load` 네임스페이스의 `ELogCategory`(콘텐츠) — 이렇게 프로젝트 수만큼
@@ -555,8 +555,8 @@ LogCategory.h`의 `Log::ELogCategory{General,Network,Packet,Thread}`(Core 전용
 **왜 `Core::` 접두사가 없는가** — `Core` 아래 네임스페이스(`Network`/`Packet`/`Thread`/
 `Timer`/`Common`/`Log`)는 전부 `Core::`를 안 붙인다(`namespace Core {...}`로 감싼 코드 없음).
 계속 감싸면 거의 모든 시그니처가 `Core::`로 시작해 잡음이 컸다 — `Core`는 폴더/프로젝트
-이름으로만 남고, 폴더-네임스페이스 대응 원칙(`Shared/Core/Src/Network/` ↔ `namespace Network`)은
-그대로 유지하되 `Shared/Core/`라는 상위 폴더 두 겹만 생략한다. `ZoneServer`/`WorldServer`/
+이름으로만 남고, 폴더-네임스페이스 대응 원칙(`Server/Core/Src/Network/` ↔ `namespace Network`)은
+그대로 유지하되 `Server/Core/`라는 상위 폴더 두 겹만 생략한다. `ZoneServer`/`WorldServer`/
 `GatewayServer`/`StressClient`는 각자 원래 네임스페이스(`Zone`/`World`/`Gateway`/`Load`)
 하나뿐이라 이 얘기 자체가 해당 없음(폴더 한 겹 생략할 상위 폴더가 없음).
 
@@ -642,7 +642,7 @@ Network::Session::SPtr            b;        // C2027
 
 ## 네임스페이스가 이미 말해주는 접두사는 타입 이름에서 뗀다
 
-**이 규칙은 네임스페이스가 있는 `Shared/Core`·`Shared/Common` 에만 적용된다.** 실행 파일
+**이 규칙은 네임스페이스가 있는 `Server/Core`·`Server/Common` 에만 적용된다.** 실행 파일
 프로젝트(Gateway/World/Zone)는 네임스페이스를 두지 않으므로 반대로 **서버 이름을 접두사로
 붙인다**(`ZoneConfig`/`ZoneUnitOfWork`/`EZoneProcessorId`) — `CLAUDE.md` 필수 규칙 참고.
 
